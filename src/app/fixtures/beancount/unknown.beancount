@@ -1,0 +1,2 @@
+; An unknown dated directive must not be silently treated as a transaction.
+2026-01-01 quantum "unknown-future-syntax"

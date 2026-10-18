@@ -1,0 +1,71 @@
+; Opening amounts are explicit; no balancing inference is needed here.
+2026-01-01 * "Opening balances" #opening
+  id: "opening-001"
+  Assets:Bank       10000.00 UAH
+  Assets:USD         100.00 USD
+  Assets:EUR          50.00 EUR
+  Equity:Opening  -10000.00 UAH
+  Equity:Opening    -100.00 USD
+  Equity:Opening     -50.00 EUR
+
+2026-01-05 * "Employer" "Synthetic salary" #income
+  id: "salary-001"
+  Assets:Bank     30000.00 UAH
+  Income:Salary  -30000.00 UAH
+
+; This comment, indentation and all metadata must survive a narration edit.
+2026-01-06 * "Shop" "Split expense" #food #shared ^receipt-001 ; keep header comment
+  id: "split-001"
+  timestamp: "2026-01-06T12:34:56+02:00"
+  custom-field: "untouched"
+  verified: TRUE
+  settled: 2026-01-06
+  rate: 1.25
+  related: Assets:Bank
+  ; keep metadata comment
+  Expenses:Food    600.00 UAH ; keep posting comment
+    receipt: "synthetic-receipt"
+  Expenses:Travel  200.00 UAH
+  Assets:Bank     -800.00 UAH
+
+2026-01-07 * "Cash transfer"
+  id: "transfer-001"
+  Assets:Bank  -2000.00 UAH
+  Assets:Cash   2000.00 UAH
+
+2026-01-08 * "Buy USD with fee"
+  id: "fx-001"
+  Assets:Bank    -4100.00 UAH
+  Assets:USD       100.00 USD @ 40.00 UAH
+  Expenses:Fees    100.00 UAH
+
+2026-01-09 * "Convert USD to EUR"
+  id: "fx-002"
+  Assets:USD  -50.00 USD @ 0.90 EUR
+  Assets:EUR   45.00 EUR
+
+2026-01-10 * "Synthetic loan received"
+  id: "loan-001"
+  Assets:Bank       5000.00 UAH
+  Liabilities:Loan -5000.00 UAH
+
+2026-01-11 * "Loan payment and interest"
+  id: "loan-002"
+  Assets:Bank      -1100.00 UAH
+  Liabilities:Loan  1000.00 UAH
+  Expenses:Interest 100.00 UAH
+
+2026-01-12 * "Partial refund"
+  id: "refund-001"
+  Assets:Bank     150.00 UAH
+  Expenses:Food  -150.00 UAH
+
+2026-01-13 * "Cash expense"
+  id: "cash-001"
+  Expenses:Food  250.00 UAH
+  Assets:Cash   -250.00 UAH
+
+2026-01-14 * "Service fee"
+  id: "fee-001"
+  Expenses:Fees   20.00 UAH
+  Assets:Bank    -20.00 UAH

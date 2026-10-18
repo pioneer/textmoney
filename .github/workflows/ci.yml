@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.13"]
+        include:
+          - os: ubuntu-latest
+            python: "3.14"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.12.10"
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run inv format-check
+      - run: uv run inv lint
+      - run: uv run inv typecheck
+      - run: uv run inv test
+
+  build:
+    if: github.event_name == 'workflow_dispatch'
+    needs: check
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: web
+            os: ubuntu-latest
+            task: build-web
+          - target: apk
+            os: ubuntu-latest
+            task: build-android
+          - target: aab
+            os: ubuntu-latest
+            task: build-android-aab
+          - target: linux
+            os: ubuntu-latest
+            task: build-linux
+          - target: windows
+            os: windows-latest
+            task: build-windows
+          - target: macos
+            os: macos-latest
+            task: build-macos
+          - target: ios-simulator
+            os: macos-latest
+            task: build-ios-simulator
+    runs-on: ${{ matrix.os }}
+    env:
+      FLET_CLI_NO_RICH_OUTPUT: "1"
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.12.10"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Linux build prerequisites
+        if: matrix.target == 'linux'
+        run: |
+          mapfile -t packages < <(uv run flet --version --json | jq -r '.linux_dependencies[]')
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "${packages[@]}"
+      - name: Build
+        run: uv run inv ${{ matrix.task }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.target }}
+          path: build/${{ matrix.target }}/
+          if-no-files-found: error

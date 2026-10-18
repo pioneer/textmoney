@@ -1,0 +1,17 @@
+{
+  "servers": {
+    "flet": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "flet", "mcp"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "FLET_MCP_ENABLE_API": "1",
+        "FLET_MCP_ENABLE_ICONS": "1",
+        "FLET_MCP_ENABLE_CLI": "1",
+        "FLET_MCP_ENABLE_EXAMPLES": "1",
+        "FLET_MCP_ENABLE_DOCS": "1"
+      }
+    }
+  }
+}

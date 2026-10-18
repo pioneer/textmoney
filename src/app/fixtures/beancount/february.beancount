@@ -1,0 +1,15 @@
+; Separate month for half-open date-range totals.
+2026-02-01 * "February income"
+  id: "salary-002"
+  Assets:Bank     10000.00 UAH
+  Income:Salary  -10000.00 UAH
+
+2026-02-02 * "February expense"
+  id: "food-002"
+  Expenses:Food  400.00 UAH
+  Assets:Bank   -400.00 UAH
+
+2026-02-03 * "Sell EUR at total price"
+  id: "fx-003"
+  Assets:EUR  -10.00 EUR @@ 450.00 UAH
+  Assets:Bank 450.00 UAH

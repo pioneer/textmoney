@@ -1,0 +1,21 @@
+; Valid engine features intentionally outside the small aggregation subset.
+include "accounts.beancount"
+plugin "beancount.plugins.auto_accounts"
+2026-01-01 commodity SHRS
+2026-01-01 open Assets:Broker SHRS
+
+pushtag #inherited
+pushmeta source: "synthetic-import"
+2026-01-02 * "Inferred balancing amount"
+  id: "inferred-001"
+  Assets:USD  100 USD
+  Equity:Opening
+popmeta source:
+poptag #inherited
+
+2026-01-03 * "Cost lot"
+  Assets:Broker  2 SHRS {10 USD, 2026-01-03, "lot-001"}
+  Assets:USD  -20 USD
+
+2026-01-04 pad Assets:Cash Equity:Opening
+2026-01-05 balance Assets:Cash 5 UAH

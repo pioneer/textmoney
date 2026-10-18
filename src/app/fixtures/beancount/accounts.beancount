@@ -1,0 +1,12 @@
+; Account declarations are separate to exercise relative includes.
+2026-01-01 open Assets:Bank UAH
+2026-01-01 open Assets:Cash UAH
+2026-01-01 open Assets:USD USD
+2026-01-01 open Assets:EUR EUR
+2026-01-01 open Liabilities:Loan UAH
+2026-01-01 open Equity:Opening UAH, USD, EUR
+2026-01-01 open Income:Salary UAH
+2026-01-01 open Expenses:Food UAH
+2026-01-01 open Expenses:Travel UAH
+2026-01-01 open Expenses:Fees UAH
+2026-01-01 open Expenses:Interest UAH

@@ -1,0 +1,85 @@
+[project]
+name = "txncount"
+version = "0.1.0"
+description = "TxnCount: offline-first personal expense tracking"
+requires-python = ">=3.13"
+dependencies = [
+    "flet==1.0.1",
+    "finance-saf==0.1.0",
+    "beancount-parser==1.2.3",
+    "autobean-refactor==0.3.1",
+    "lark==1.3.1",
+    "tzdata>=2026.2,<2027",
+]
+
+[tool.uv.sources]
+finance-saf = { path = "extensions/finance-saf" }
+
+[dependency-groups]
+dev = [
+    "flet[all]==1.0.1",
+    "flet-mcp==1.0.1",
+    "invoke>=2.2,<3",
+    "pytest>=8,<10",
+    "ruff>=0.13,<1",
+    "pyright>=1.1.400,<2",
+    "pillow>=11,<13",
+    "beancount==3.2.3",
+    "pip>=25,<27",
+    "fava>=1.30,<2",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["build", "dist", "src/assets", "src/.flet"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["src", "tests", "tasks.py", "tools", "extensions/finance-saf/src/finance_saf"]
+exclude = ["src/assets", "src/.flet", "**/__pycache__"]
+extraPaths = ["src", "."]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-ra --strict-markers"
+
+[tool.flet]
+product = "TxnCount"
+org = "com.pioneer"
+bundle_id = "com.pioneer.financepoc"
+company = "Pioneer"
+build_number = 8
+icon_background = "#ffffff"
+
+[tool.flet.dev_packages]
+finance-saf = "extensions/finance-saf"
+
+[tool.flet.android]
+# Both parsers open .lark grammar files using real __file__-relative paths.
+extract_packages = ["autobean_refactor", "beancount_parser", "lark"]
+
+[tool.flet.flutter.pubspec.dependency_overrides]
+# Flet's shell pins 1.0.0, but current shared_preferences bindings require 1.1.
+jni = "1.1.0"
+
+[tool.flet.app]
+path = "src"
+module = "main"
+exclude = ["__pycache__", ".flet"]
+
+[tool.flet.web]
+route_url_strategy = "hash"
+
+[tool.flet.compile]
+app = true
+
+[tool.flet.cleanup]
+app = false

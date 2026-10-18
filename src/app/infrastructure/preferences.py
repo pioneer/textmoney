@@ -1,0 +1,62 @@
+import asyncio
+import json
+import os
+import sys
+from pathlib import Path
+
+
+class PreferencesError(RuntimeError):
+    pass
+
+
+def desktop_preferences_path() -> Path:
+    if sys.platform == "win32":
+        root = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+    elif sys.platform == "darwin":
+        root = Path(
+            os.environ.get("XDG_CONFIG_HOME", Path.home() / "Library" / "Application Support")
+        )
+    else:
+        root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return root / "txncount" / "preferences.json"
+
+
+class DesktopPreferences:
+    def __init__(self, path: Path | None = None) -> None:
+        self.path = path or desktop_preferences_path()
+        self.lock = asyncio.Lock()
+
+    def _read(self) -> dict[str, str]:
+        try:
+            values = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+        except (OSError, json.JSONDecodeError) as exc:
+            raise PreferencesError(
+                "Could not read TxnCount settings. Check the settings file and permissions."
+            ) from exc
+        if not isinstance(values, dict) or any(
+            not isinstance(key, str) or not isinstance(value, str) for key, value in values.items()
+        ):
+            raise PreferencesError("The TxnCount settings file has an invalid format.")
+        return values
+
+    async def get(self, key: str) -> str | None:
+        async with self.lock:
+            return (await asyncio.to_thread(self._read)).get(key)
+
+    async def set(self, key: str, value: str) -> bool:
+        async with self.lock:
+            values = await asyncio.to_thread(self._read)
+            values[key] = value
+            serialized = json.dumps(values, ensure_ascii=False, indent=2) + "\n"
+            temporary = self.path.with_suffix(".tmp")
+            try:
+                await asyncio.to_thread(self.path.parent.mkdir, parents=True, exist_ok=True)
+                await asyncio.to_thread(temporary.write_text, serialized, encoding="utf-8")
+                await asyncio.to_thread(temporary.replace, self.path)
+            except OSError as exc:
+                raise PreferencesError(
+                    "Could not save TxnCount settings. Check disk space and permissions."
+                ) from exc
+            return True

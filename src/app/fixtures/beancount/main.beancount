@@ -1,0 +1,15 @@
+; Synthetic compatibility fixture. Never real financial data.
+option "title" "txncount Beancount 3 PoC"
+option "operating_currency" "UAH"
+option "operating_currency" "USD"
+option "operating_currency" "EUR"
+include "accounts.beancount"
+include "january.beancount"
+include "february.beancount"
+
+2026-01-01 custom "poc-settings" "synthetic" TRUE 3
+  owner: "test-only"
+2026-01-01 event "poc" "bundled fixtures"
+2026-01-02 note Assets:Bank "Comments and metadata must survive editing."
+2026-01-08 price USD 40 UAH
+2026-01-09 price USD 0.9 EUR

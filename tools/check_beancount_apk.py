@@ -1,0 +1,141 @@
+"""Inspect and optionally execute the exact APK parser payload on host CPython."""
+
+import io
+import os
+import subprocess
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from zipfile import ZipFile
+
+ROOT = Path(__file__).resolve().parents[1]
+PACKAGES = {"autobean_refactor", "beancount_parser", "lark"}
+MVP_SMOKE = """
+import asyncio
+from datetime import date
+from decimal import Decimal
+from pathlib import Path
+from zoneinfo import reset_tzpath
+from app.infrastructure.desktop_storage import DesktopFolder
+from app.journal import FILENAME, Journal
+from app.timekeeping import wall_timestamp
+
+reset_tzpath(())  # Force the bundled tzdata fallback, not the host's timezone database.
+assert wall_timestamp(date(2026, 1, 15), "12:00", "Europe/Kyiv").endswith("+02:00")
+assert wall_timestamp(date(2026, 7, 15), "12:00", "Europe/Kyiv").endswith("+03:00")
+print("Timezone APK Python payload: named zones and DST PASS")
+
+async def smoke():
+    directory = Path("mvp-smoke")
+    directory.mkdir()
+    journal = Journal(DesktopFolder(str(directory.resolve()), FILENAME))
+    await journal.load()
+    await journal.create_account("Cash", "Synthetic", "UAH", "100")
+    await journal.create_category("Food:Groceries", "Synthetic groceries")
+    backup = await journal.add_expense(
+        "Assets:Cash", "Expenses:Food:Groceries", "12.34", "Synthetic", date.today().isoformat()
+    )
+    assert backup and (directory / backup).is_file()
+    await journal.load()
+    assert journal.ledger.balances()["Assets:Cash"] == Decimal("87.66")
+    print("MVP APK Python payload: account/category/expense/backup/reload PASS")
+    expense = next(t for t in journal.ledger.transactions if t.kind == "expense")
+    opening_id = next(t.id for t in journal.ledger.transactions if t.kind == "opening")
+    await journal.edit_expense(
+        expense.id, "Assets:Cash", "Expenses:Food:Groceries", "7", "Edited",
+        date.today().isoformat(), expense.timestamp, "Synthetic description", journal.source,
+    )
+    assert any(t.id == expense.id and t.narration == "Synthetic description"
+               for t in journal.ledger.transactions)
+    await journal.edit_account("Assets:Cash", "Renamed", "120", False, journal.source)
+    await journal.edit_category("Expenses:Food:Groceries", "Renamed", False, journal.source)
+    await journal.set_operating_currencies("UAH USD EUR", journal.source)
+    await journal.delete_expense(expense.id, journal.source)
+    await journal.create_account("Unused", "Unused", "USD")
+    await journal.delete_account("Assets:Unused", journal.source)
+    await journal.create_category("Unused", "Unused")
+    await journal.delete_category("Expenses:Unused", journal.source)
+    await journal.load()
+    assert journal.ledger.balances()["Assets:Cash"] == Decimal("120")
+    assert journal.ledger.transactions[0].id == opening_id
+    assert journal.ledger.operating_currencies == ("UAH", "USD", "EUR")
+    print("CRUD APK Python payload: edits/deletion/lifecycle/operating currencies PASS")
+
+asyncio.run(smoke())
+"""
+
+
+def main() -> None:
+    with ZipFile(ROOT / "build/apk/txncount.apk") as apk:
+        app_bytes = apk.read("assets/app.zip")
+        site_bytes = apk.read("assets/sitepackages.zip")
+        extract_bytes = apk.read("assets/extract.zip")
+    with (
+        ZipFile(io.BytesIO(app_bytes)) as app,
+        ZipFile(io.BytesIO(site_bytes)) as site,
+        ZipFile(io.BytesIO(extract_bytes)) as extracted,
+    ):
+        assert len([n for n in app.namelist() if n.endswith(".beancount")]) == 6
+        assert "app/beancount_poc.pyc" in app.namelist()
+        for module in (
+            "domain/ledger",
+            "infrastructure/beancount_journal",
+            "infrastructure/preferences",
+            "journal",
+            "ui/finance",
+            "ui/datetime_fields",
+            "timekeeping",
+        ):
+            assert f"app/{module}.pyc" in app.namelist()
+        assert "autobean_refactor/beancount.lark" in extracted.namelist()
+        assert "beancount_parser/grammar/beancount.lark" in extracted.namelist()
+        for package in PACKAGES:
+            assert any(n.startswith(f"{package}/") for n in extracted.namelist())
+            assert not any(n.startswith(f"{package}/") for n in site.namelist())
+        assert not any(n.startswith("beancount/") for n in site.namelist())
+        assert not any(n.startswith("fava/") for n in site.namelist())
+        assert "tzdata/zoneinfo/Europe/Kyiv" in site.namelist()
+        print(
+            "APK: 6 fixtures; parser bytecode; extracted grammar packages; "
+            "no official native engine."
+        )
+
+        # Flet already provides host CPython to compile the Android payload.
+        python = (
+            ROOT
+            / "build/flutter/build/build_python_3.14.7/python/bin"
+            / ("python.exe" if os.name == "nt" else "python3")
+        )
+        if not python.is_file():
+            raise FileNotFoundError(
+                "Flet host CPython 3.14.7 not found; payload execution unverified."
+            )
+        with TemporaryDirectory(prefix="txncount-beancount-apk-") as temporary:
+            directory = Path(temporary)
+            (directory / "app.zip").write_bytes(app_bytes)
+            (directory / "sitepackages.zip").write_bytes(site_bytes)
+            # Only this project's own generated parser package files are extracted.
+            for name in extracted.namelist():
+                if name.split("/", 1)[0] in PACKAGES and not name.endswith("/"):
+                    target = directory / "extracted" / name
+                    if not target.resolve().is_relative_to(directory.resolve()):
+                        raise ValueError("Unsafe APK archive path.")
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(extracted.read(name))
+            paths = [directory / "extracted", directory / "app.zip", directory / "sitepackages.zip"]
+            subprocess.run(
+                [str(python), "-s", "-m", "app.beancount_poc"],
+                env=os.environ | {"PYTHONPATH": os.pathsep.join(map(str, paths))},
+                cwd=temporary,
+                check=True,
+            )
+            subprocess.run(
+                [str(python), "-s", "-c", MVP_SMOKE],
+                env=os.environ | {"PYTHONPATH": os.pathsep.join(map(str, paths))},
+                cwd=temporary,
+                check=True,
+            )
+        print("Host CPython payload smoke test passed. This is NOT an Android runtime test.")
+
+
+if __name__ == "__main__":
+    main()

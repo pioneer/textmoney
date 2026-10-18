@@ -1,0 +1,478 @@
+"""Single-file journal operations through the tested backup/conflict policy."""
+
+import asyncio
+from collections.abc import Callable
+from dataclasses import replace
+from datetime import date, datetime
+from decimal import Decimal
+from uuid import uuid4
+
+from autobean_refactor import models
+
+from app.domain.ledger import (
+    EPOCH,
+    EQUITY,
+    ZERO,
+    Account,
+    Category,
+    Ledger,
+    LedgerError,
+    Posting,
+    Transaction,
+    account_path,
+    currency_code,
+    display_name,
+    money,
+)
+from app.domain.storage import ConflictError
+from app.infrastructure.beancount_journal import (
+    JournalCodec,
+    append,
+    equity_declaration,
+    open_account,
+    open_category,
+    render,
+    replace_directive,
+    transaction_text,
+)
+from app.storage import Folder, StorageError, StorageSession
+
+FILENAME = "txncount.beancount"
+
+
+class Journal:
+    def __init__(self, folder: Folder, *, today: Callable[[], date] = date.today) -> None:
+        self.storage = StorageSession(folder, missing_text="")
+        self.ledger = Ledger()
+        self.source = ""
+        self.ready = False
+        self.existed = False
+        self.codec: JournalCodec | None = None
+        self.today = today
+
+    def _parse(self, source: str) -> Ledger:
+        if self.codec is None:
+            self.codec = JournalCodec(today=self.today)
+        return self.codec.parse(source)
+
+    async def load(self) -> None:
+        self.ready = False
+        exists = await self.storage.read()
+        if self.existed and not exists:
+            self.storage.loaded = False
+            raise StorageError(
+                "The journal disappeared. Restore it before reloading; forms retained."
+            )
+        try:
+            ledger = await asyncio.to_thread(self._parse, self.storage.draft)
+        except LedgerError:
+            self.storage.loaded = False
+            raise
+        self.source = self.storage.draft
+        self.ledger = ledger
+        self.existed = exists
+        self.ready = True
+
+    async def poll(self) -> bool:
+        if not self.storage.loaded:
+            return False
+        if await self.storage.poll():
+            await self.load()
+            return True
+        return False
+
+    def _require_ready(self) -> None:
+        if not self.ready or not self.storage.loaded:
+            raise LedgerError("Reload a valid journal first. Unsaved form input is retained.")
+
+    async def _save(self, addition: str) -> str | None:
+        self._require_ready()
+        candidate = append(self.source, addition)
+        return await self._commit(candidate)
+
+    async def _commit(self, candidate: str) -> str | None:
+        self._require_ready()
+        ledger = await asyncio.to_thread(self._parse, candidate)
+        self.storage.draft = candidate
+        try:
+            backup = await self.storage.write()
+        except (StorageError, ConflictError, TimeoutError):
+            self.ready = False
+            self.storage.loaded = False
+            raise
+        self.source = candidate
+        self.ledger = ledger
+        self.existed = True
+        return backup
+
+    async def _change(
+        self, operation: Callable[[models.File], str], expected_source: str
+    ) -> str | None:
+        self._require_ready()
+        if expected_source != self.source:
+            raise ConflictError("crud_stale")
+
+        def prepare() -> str:
+            if self.codec is None:
+                self.codec = JournalCodec(today=self.today)
+            return operation(self.codec.document(self.source))
+
+        return await self._commit(await asyncio.to_thread(prepare))
+
+    @staticmethod
+    def _transaction(document: models.File, identifier: str) -> models.Transaction:
+        matches = [
+            entry
+            for entry in document.raw_directives
+            if isinstance(entry, models.Transaction) and entry.meta.get("id") == identifier
+        ]
+        if len(matches) != 1:
+            raise LedgerError("crud_transaction_readonly")
+        return matches[0]
+
+    @staticmethod
+    def _declaration(document: models.File, identifier: str) -> models.Open:
+        matches = [
+            entry
+            for entry in document.raw_directives
+            if isinstance(entry, models.Open) and entry.account == identifier
+        ]
+        if len(matches) != 1:
+            raise LedgerError("crud_missing")
+        return matches[0]
+
+    def expense_for_edit(self, identifier: str) -> Transaction:
+        self._require_ready()
+        transaction = next((t for t in self.ledger.transactions if t.id == identifier), None)
+        accounts = {a.id for a in self.ledger.accounts}
+        categories = {c.id for c in self.ledger.categories}
+        if (
+            transaction is None
+            or not transaction.persistent_id
+            or transaction.kind != "expense"
+            or len(transaction.postings) != 2
+        ):
+            raise LedgerError("crud_transaction_readonly")
+        asset = [p for p in transaction.postings if p.account in accounts and p.amount < ZERO]
+        expense = [p for p in transaction.postings if p.account in categories and p.amount > ZERO]
+        if len(asset) != 1 or len(expense) != 1:
+            raise LedgerError("crud_transaction_readonly")
+        return transaction
+
+    async def edit_expense(
+        self,
+        identifier: str,
+        account: str,
+        category: str,
+        amount: str,
+        payee: str,
+        occurred: str,
+        timestamp: str,
+        description: str,
+        expected_source: str,
+    ) -> str | None:
+        original = self.expense_for_edit(identifier)
+        try:
+            day = date.fromisoformat(occurred)
+            stamp = datetime.fromisoformat(timestamp)
+        except ValueError as exc:
+            raise LedgerError("crud_datetime") from exc
+        if stamp.utcoffset() is None:
+            raise LedgerError("crud_datetime")
+        if len(description) > 500 or any(ord(char) < 32 for char in description):
+            raise LedgerError("crud_description")
+        ledger = replace(
+            self.ledger,
+            transactions=tuple(t for t in self.ledger.transactions if t.id != identifier),
+        )
+        updated = ledger.expense(
+            account, category, money(amount), payee, day, stamp, identifier, today=self.today()
+        )
+
+        def edit(document: models.File) -> str:
+            entry = self._transaction(document, original.id)
+            original_asset = next(p.account for p in original.postings if p.amount < ZERO)
+
+            def update() -> None:
+                entry.date = updated.date
+                entry.payee = updated.payee
+                entry.narration = description
+                entry.meta["timestamp"] = updated.timestamp
+                for posting in entry.postings:
+                    if not isinstance(posting, models.Posting):
+                        continue
+                    asset = posting.account == original_asset
+                    posting.account = account if asset else category
+                    posting.number = -money(amount) if asset else money(amount)
+                    posting.currency = updated.postings[0].currency
+
+            return replace_directive(self.source, entry, update)
+
+        return await self._change(edit, expected_source)
+
+    async def delete_expense(self, identifier: str, expected_source: str) -> str | None:
+        self.expense_for_edit(identifier)
+        return await self._change(
+            lambda document: replace_directive(
+                self.source, self._transaction(document, identifier), None
+            ),
+            expected_source,
+        )
+
+    async def set_operating_currencies(self, currencies: str, expected_source: str) -> str | None:
+        values = tuple(dict.fromkeys(currency_code(c) for c in currencies.split()))
+        if not values:
+            raise LedgerError("crud_currencies")
+
+        def edit(document: models.File) -> str:
+            entries = [
+                entry
+                for entry in document.raw_directives
+                if isinstance(entry, models.Option) and entry.key == "operating_currency"
+            ]
+            source = self.source
+            # Work backwards so original token positions remain valid.
+            for index in range(len(entries) - 1, -1, -1):
+                entry = entries[index]
+                if index < len(values):
+
+                    def update(entry=entry, value=values[index]) -> None:
+                        entry.value = value
+
+                    source = replace_directive(source, entry, update)
+                else:
+                    source = replace_directive(source, entry, None)
+            for value in values[len(entries) :]:
+                source = append(
+                    source, render(models.Option.from_value("operating_currency", value))
+                )
+            return source
+
+        return await self._change(edit, expected_source)
+
+    def opening_balance(self, identifier: str) -> Decimal:
+        openings = [
+            t
+            for t in self.ledger.transactions
+            if t.kind == "opening" and any(p.account == identifier for p in t.postings)
+        ]
+        if len(openings) > 1:
+            raise LedgerError("crud_opening_complex")
+        if not openings:
+            return ZERO
+        transaction = openings[0]
+        if (
+            not transaction.persistent_id
+            or len(transaction.postings) != 2
+            or {p.account for p in transaction.postings}
+            != {
+                identifier,
+                EQUITY,
+            }
+        ):
+            raise LedgerError("crud_opening_complex")
+        return next(p.amount for p in transaction.postings if p.account == identifier)
+
+    async def edit_account(
+        self, identifier: str, name: str, opening: str | None, active: bool, expected_source: str
+    ) -> str | None:
+        account = next((a for a in self.ledger.accounts if a.id == identifier), None)
+        if account is None:
+            raise LedgerError("crud_missing")
+        label = display_name(name)
+        balance = None if opening is None else money(opening)
+        old_balance = None if opening is None else self.opening_balance(identifier)
+
+        def edit(document: models.File) -> str:
+            entry = self._declaration(document, identifier)
+
+            def update() -> None:
+                entry.meta["display-name"] = label
+                entry.meta["txncount-active"] = active
+
+            source = replace_directive(self.source, entry, update)
+            if balance is None or balance == old_balance:
+                return source
+            # Reparse after the first splice; token positions may have changed.
+            assert self.codec is not None
+            document = self.codec.document(source)
+            opening_transaction = next(
+                (
+                    t
+                    for t in self.ledger.transactions
+                    if t.kind == "opening" and any(p.account == identifier for p in t.postings)
+                ),
+                None,
+            )
+            if opening_transaction is not None:
+                transaction = self._transaction(document, opening_transaction.id)
+                opening_amount = balance
+
+                def update_opening() -> None:
+                    for posting in transaction.postings:
+                        if not isinstance(posting, models.Posting):
+                            continue
+                        posting.number = (
+                            opening_amount if posting.account == identifier else -opening_amount
+                        )
+
+                return replace_directive(source, transaction, update_opening)
+            if self.ledger.equity_opened is None:
+                source = append(source, equity_declaration(account.opened))
+            return append(
+                source,
+                transaction_text(
+                    Transaction(
+                        str(uuid4()),
+                        account.opened,
+                        datetime.now().astimezone().isoformat(),
+                        "",
+                        "Opening balance",
+                        (
+                            Posting(identifier, balance, account.currency),
+                            Posting(EQUITY, -balance, account.currency),
+                        ),
+                        "opening",
+                    )
+                ),
+            )
+
+        return await self._change(edit, expected_source)
+
+    async def edit_category(
+        self, identifier: str, name: str, active: bool, expected_source: str
+    ) -> str | None:
+        label = display_name(name)
+
+        def edit(document: models.File) -> str:
+            entry = self._declaration(document, identifier)
+            if not identifier.startswith("Expenses:"):
+                raise LedgerError("crud_missing")
+
+            def update() -> None:
+                entry.meta["display-name"] = label
+                entry.meta["txncount-active"] = active
+
+            return replace_directive(self.source, entry, update)
+
+        return await self._change(edit, expected_source)
+
+    async def delete_account(self, identifier: str, expected_source: str) -> str | None:
+        return await self._delete_declaration(identifier, expected_source, category=False)
+
+    async def delete_category(self, identifier: str, expected_source: str) -> str | None:
+        return await self._delete_declaration(identifier, expected_source, category=True)
+
+    async def _delete_declaration(
+        self, identifier: str, expected_source: str, *, category: bool
+    ) -> str | None:
+        allowed = self.ledger.categories if category else self.ledger.accounts
+        if identifier not in {item.id for item in allowed}:
+            raise LedgerError("crud_missing")
+        if category and any(c.id.startswith(identifier + ":") for c in self.ledger.categories):
+            raise LedgerError("crud_children")
+        # Even an opening entry is history: use deactivation rather than discarding it.
+        if any(p.account == identifier for t in self.ledger.transactions for p in t.postings):
+            raise LedgerError("crud_has_history")
+
+        def edit(document: models.File) -> str:
+            entry = self._declaration(document, identifier)
+            for other in document.raw_directives:
+                if other is not entry and any(
+                    isinstance(token, (models.Account, models.EscapedString))
+                    and token.value == identifier
+                    for token in other.tokens
+                ):
+                    raise LedgerError("crud_referenced")
+            return replace_directive(self.source, entry, None)
+
+        return await self._change(edit, expected_source)
+
+    async def create_account(
+        self, identifier: str, name: str, currency: str, opening: str = ""
+    ) -> str | None:
+        self._require_ready()
+        account = Account(
+            account_path(identifier, "Assets"), display_name(name), currency_code(currency)
+        )
+        if account.id in {a.id for a in self.ledger.accounts}:
+            raise LedgerError("That technical account ID already exists.")
+        balance = money(opening.strip() or "0")
+        text = open_account(account)
+        if not self.ledger.operating_currencies:
+            text = (
+                render(models.Option.from_value("operating_currency", account.currency))
+                + "\n\n"
+                + text
+            )
+        if balance > ZERO:
+            if self.ledger.equity_opened is None:
+                text += "\n" + equity_declaration(EPOCH)
+            text += "\n" + transaction_text(
+                Transaction(
+                    str(uuid4()),
+                    EPOCH,
+                    datetime.now().astimezone().isoformat(),
+                    "",
+                    "Opening balance",
+                    (
+                        Posting(account.id, balance, account.currency),
+                        Posting(EQUITY, -balance, account.currency),
+                    ),
+                    "opening",
+                )
+            )
+        return await self._save(text)
+
+    async def create_category(self, identifier: str, name: str) -> str | None:
+        self._require_ready()
+        path = account_path(identifier, "Expenses")
+        existing = {c.id for c in self.ledger.categories}
+        if path in existing:
+            raise LedgerError("That category already exists.")
+        label = display_name(name)
+        parts = path.split(":")
+        additions = []
+        for length in range(2, len(parts) + 1):
+            current = ":".join(parts[:length])
+            if current not in existing:
+                additions.append(
+                    open_category(
+                        Category(current, label if current == path else parts[length - 1])
+                    )
+                )
+        return await self._save("\n".join(additions))
+
+    async def add_expense(
+        self,
+        account: str,
+        category: str,
+        amount: str,
+        payee: str,
+        occurred: str,
+        description: str = "Expense",
+        timestamp: str | None = None,
+    ) -> str | None:
+        self._require_ready()
+        try:
+            day = date.fromisoformat(occurred)
+            stamp = (
+                datetime.now().astimezone()
+                if timestamp is None
+                else datetime.fromisoformat(timestamp)
+            )
+        except ValueError as exc:
+            raise LedgerError("Date must be YYYY-MM-DD.") from exc
+        transaction = self.ledger.expense(
+            account,
+            category,
+            money(amount),
+            payee,
+            day,
+            stamp,
+            str(uuid4()),
+            today=self.today(),
+        )
+        if len(description) > 500 or any(ord(char) < 32 for char in description):
+            raise LedgerError("crud_description")
+        return await self._save(transaction_text(replace(transaction, narration=description)))

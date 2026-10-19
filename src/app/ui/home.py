@@ -5,7 +5,6 @@ from concurrent.futures import Future
 import flet as ft
 from finance_saf import FinanceSaf
 
-from app.config import APP_NAME
 from app.domain.storage import ConflictError
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -13,7 +12,7 @@ from app.infrastructure.preferences import DesktopPreferences
 from app.storage import SAMPLE, StorageError, StorageSession
 
 logger = logging.getLogger(__name__)
-FOLDER_KEY = "financepoc.folder.v1"
+FOLDER_KEY = "txncount.diagnostics.folder.v1"
 
 
 class StorageView(ft.Column):
@@ -47,8 +46,8 @@ class StorageView(ft.Column):
         ]
         self.controls.extend(
             [
-                ft.Text(APP_NAME, size=24),
-                ft.Text("Only poc-test.beancount and unique backups/ files are written."),
+                ft.Text("Storage diagnostics", size=24),
+                ft.Text("Only storage-test.beancount and unique backups/ files are written."),
                 ft.Row([*self.buttons], wrap=True),
                 self.result,
                 self.location,

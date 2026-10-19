@@ -1,8 +1,10 @@
 """Inspect and optionally execute the exact APK parser payload on host CPython."""
 
 import io
+import json
 import os
 import subprocess
+import tomllib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
@@ -69,7 +71,10 @@ asyncio.run(smoke())
 
 
 def main() -> None:
-    with ZipFile(ROOT / "build/apk/txncount.apk") as apk:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    version = project["project"]["version"]
+    build = project["tool"]["flet"]["build_number"]
+    with ZipFile(ROOT / f"build/apk/txncount-{version}.apk") as apk:
         app_bytes = apk.read("assets/app.zip")
         site_bytes = apk.read("assets/sitepackages.zip")
         extract_bytes = apk.read("assets/extract.zip")
@@ -79,7 +84,12 @@ def main() -> None:
         ZipFile(io.BytesIO(extract_bytes)) as extracted,
     ):
         assert len([n for n in app.namelist() if n.endswith(".beancount")]) == 6
-        assert "app/beancount_poc.pyc" in app.namelist()
+        assert "app/beancount_diagnostics.pyc" in app.namelist()
+        assert not any("beancount_poc" in name for name in app.namelist())
+        assert json.loads(app.read("app/.release.json")) == {
+            "version": version,
+            "build_number": build,
+        }
         for module in (
             "domain/ledger",
             "infrastructure/beancount_journal",
@@ -127,13 +137,19 @@ def main() -> None:
                     target.write_bytes(extracted.read(name))
             paths = [directory / "extracted", directory / "app.zip", directory / "sitepackages.zip"]
             subprocess.run(
-                [str(python), "-s", "-m", "app.beancount_poc"],
+                [str(python), "-s", "-m", "app.beancount_diagnostics"],
                 env=os.environ | {"PYTHONPATH": os.pathsep.join(map(str, paths))},
                 cwd=temporary,
                 check=True,
             )
             subprocess.run(
-                [str(python), "-s", "-c", MVP_SMOKE],
+                [
+                    str(python),
+                    "-s",
+                    "-c",
+                    "from app.version import release_identity\n"
+                    f"assert release_identity() == {(version, build)!r}\n" + MVP_SMOKE,
+                ],
                 env=os.environ | {"PYTHONPATH": os.pathsep.join(map(str, paths))},
                 cwd=temporary,
                 check=True,

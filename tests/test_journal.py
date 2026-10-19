@@ -67,7 +67,7 @@ def test_end_to_end_accounts_categories_expense_reload_and_official_engine(tmp_p
             isinstance(e, data.Transaction) and e.meta.get("txncount-kind") == "expense"
             for e in entries
         )
-        assert not (tmp_path / "poc-test.beancount").exists()
+        assert not (tmp_path / "storage-test.beancount").exists()
 
     asyncio.run(scenario())
 

@@ -39,7 +39,7 @@ Sources: [Flet documentation](https://flet.dev/docs/),
 [publishing](https://flet.dev/docs/publish/),
 [MCP cookbook](https://flet.dev/docs/cookbook/flet-mcp).
 
-## Storage PoC verification
+## storage diagnostics verification
 
 `uv run inv verify-flet` opens a real MCP stdio session and queries FilePicker
 `get_directory_path`, Service, Page `run_task`/`on_disconnect`,
@@ -54,7 +54,7 @@ pattern; its compatibility must be rechecked on Flet upgrades.
 The standard picker returns a path-like string but supplies no directory document
 operations or persisted-grant inspection API. Android therefore uses the local
 extension instead, with provider operations delegated to existing Flutter SAF
-libraries. See [the storage report](poc-android-storage.md).
+libraries. See [the storage report](android-storage-validation.md).
 
 ## Beancount action
 

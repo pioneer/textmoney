@@ -19,7 +19,7 @@ fixtures and official Beancount 3 desktop comparisons: parsing, typed metadata,
 includes, balances/period totals, lossless edits and temporary-file append,
 unsupported/unknown syntax, and Android extraction configuration. All accounting
 numbers use Decimal; unit summation is deliberately not a full validator/engine.
-`uv run inv beancount-poc` runs the same bounded check as the phone action.
+`uv run inv beancount-diagnostics` runs the same bounded check as the phone action.
 `uv run inv probe-beancount` prints the library capability matrix;
 `uv run inv check-beancount-apk` verifies grammar extraction and smoke-tests the
 actual APK payload on host CPython. Neither replaces Android device execution.

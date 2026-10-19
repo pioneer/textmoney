@@ -1,7 +1,7 @@
 [project]
 name = "finance-saf"
 version = "0.1.0"
-description = "Minimal Flet bridge to Android SAF for Finance PoC"
+description = "Minimal Flet bridge to Android SAF for TxnCount"
 requires-python = ">=3.13"
 dependencies = ["flet==1.0.1"]
 

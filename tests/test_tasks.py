@@ -1,3 +1,4 @@
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -7,6 +8,50 @@ from invoke.context import Context
 from invoke.exceptions import Exit
 
 import tasks
+
+
+def test_release_staging_and_versioned_apk_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.1.1"\n[tool.flet]\nbuild_number = 13\n'
+    )
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    tasks.stage_release()
+    assert json.loads((tmp_path / "src/app/.release.json").read_text()) == {
+        "version": "0.1.1",
+        "build_number": 13,
+    }
+    monkeypatch.setattr(tasks, "stage_assets", lambda: None)
+
+    def build(*args: str, **kwargs: object) -> None:
+        assert args == ("flet", "build", "apk", "--yes")
+        directory = tmp_path / "build/apk"
+        directory.mkdir(parents=True)
+        (directory / "txncount.apk").write_bytes(b"synthetic APK")
+
+    monkeypatch.setattr(tasks, "execute", build)
+    tasks.build_target("apk")
+    assert (tmp_path / "build/apk/txncount-0.1.1.apk").read_bytes() == b"synthetic APK"
+    assert not (tmp_path / "build/apk/txncount.apk").exists()
+
+
+def test_failed_build_does_not_rename_or_replace_apks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "build/apk"
+    output.mkdir(parents=True)
+    (output / "txncount.apk").write_bytes(b"old unversioned APK")
+    (output / "txncount-0.1.1.apk").write_bytes(b"old versioned APK")
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "stage_assets", lambda: None)
+    monkeypatch.setattr(tasks, "execute", MagicMock(side_effect=Exit("build failed", code=1)))
+    with pytest.raises(Exit, match="build failed"):
+        tasks.build_target("apk")
+    assert (output / "txncount.apk").read_bytes() == b"old unversioned APK"
+    assert (output / "txncount-0.1.1.apk").read_bytes() == b"old versioned APK"
 
 
 @pytest.mark.parametrize(
@@ -226,12 +271,23 @@ def test_asset_staging_and_clean_preserve_sources(
     environment.mkdir()
     (environment / "keep").touch()
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.1.1"\n[tool.flet]\nbuild_number = 13\n'
+    )
+    cache = tmp_path / "src/app/__pycache__"
+    cache.mkdir(parents=True)
+    (cache / "removed_module.cpython-313.pyc").write_bytes(b"obsolete development bytecode")
+    source = tmp_path / "src/app/keep.py"
+    source.write_text("VALUE = 1\n")
     tasks.stage_assets()
     assert (tmp_path / "src/assets/icon.png").read_bytes() == original
+    assert not cache.exists()
+    assert source.read_text() == "VALUE = 1\n"
     tasks.clean(Context())
     assert not (tmp_path / "src/assets").exists()
     assert icon.read_bytes() == original
     assert (environment / "keep").is_file()
+    assert not (tmp_path / "src/app/.release.json").exists()
 
 
 def test_invalid_icon_stops_staging(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

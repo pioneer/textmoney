@@ -15,19 +15,19 @@ from beancount.ops import summarize
 from beancount_parser.parser import make_parser
 from lark.exceptions import UnexpectedInput
 
-from app.beancount_poc import (
+from app.beancount_diagnostics import (
     EXPECTED_BALANCES,
-    PocError,
+    DiagnosticsError,
     Totals,
     append_transaction,
     bundled_sources,
     edit_narration,
     parse_book,
     render,
-    run_poc,
+    run_diagnostics,
     unit_totals,
 )
-from app.ui.beancount import BeancountPocView
+from app.ui.beancount import BeancountDiagnosticsView
 from app.ui.home import StorageView, home_view
 
 
@@ -58,7 +58,7 @@ def official_totals(
 
 
 def test_complete_bundled_experiment_passes_on_desktop() -> None:
-    result = run_poc()
+    result = run_diagnostics()
     assert result.passed, result.display()
     assert "Not a full engine" in result.display()
     assert "quantity" not in result.display() or "refused" in result.display()
@@ -164,9 +164,9 @@ def test_safe_edit_and_append_written_to_synthetic_files_match_official(tmp_path
     appended = next(
         e
         for e in official
-        if isinstance(e, data.Transaction) and e.meta.get("id") == "poc-appended-001"
+        if isinstance(e, data.Transaction) and e.meta.get("id") == "diagnostics-appended-001"
     )
-    assert appended.tags == {"poc"}
+    assert appended.tags == {"diagnostics"}
 
 
 def test_advanced_engine_semantics_are_valid_but_not_silently_calculated(tmp_path: Path) -> None:
@@ -178,7 +178,7 @@ def test_advanced_engine_semantics_are_valid_but_not_silently_calculated(tmp_pat
     assert totals[("Assets:Cash", "UAH")] == Decimal("5")
     book = parse_book(sources, "advanced.beancount")
     assert render(book["advanced.beancount"]) == sources["advanced.beancount"]
-    with pytest.raises(PocError, match="official engine"):
+    with pytest.raises(DiagnosticsError, match="official engine"):
         unit_totals(book)
     original = sources["advanced.beancount"]
     edited = edit_narration(original, "inferred-001", "Edited inferred transaction")
@@ -202,7 +202,7 @@ def test_advanced_engine_semantics_are_valid_but_not_silently_calculated(tmp_pat
 )
 def test_each_unsupported_accounting_feature_refuses_totals(text: str) -> None:
     book = parse_book({"main.beancount": text})
-    with pytest.raises(PocError, match="official engine"):
+    with pytest.raises(DiagnosticsError, match="official engine"):
         unit_totals(book)
 
 
@@ -219,11 +219,11 @@ def test_unknown_syntax_rejected_by_both_candidates_and_official() -> None:
     text = bundled_sources()["unknown.beancount"]
     with pytest.raises(UnexpectedInput):
         make_parser().parse(text)
-    with pytest.raises(PocError, match="Unsupported syntax"):
+    with pytest.raises(DiagnosticsError, match="Unsupported syntax"):
         parse_book({"main.beancount": text})
     _, errors, _ = loader.load_string(text)
     assert errors
-    with pytest.raises(PocError, match="no text rewritten"):
+    with pytest.raises(DiagnosticsError, match="no text rewritten"):
         edit_narration(text, "unknown", "Do not write")
     assert text == bundled_sources()["unknown.beancount"]
     # Append preserves even unknown bytes, but does NOT make invalid syntax valid.
@@ -234,12 +234,12 @@ def test_unknown_syntax_rejected_by_both_candidates_and_official() -> None:
     "include", ['"missing.beancount"', '"../outside"', '"/absolute"', '"*.bean"']
 )
 def test_include_errors_are_explicit(include: str) -> None:
-    with pytest.raises(PocError):
+    with pytest.raises(DiagnosticsError):
         parse_book({"main.beancount": f"include {include}\n"})
 
 
 def test_include_cycle_and_relative_nested_include() -> None:
-    with pytest.raises(PocError, match="cycle"):
+    with pytest.raises(DiagnosticsError, match="cycle"):
         parse_book({"main.beancount": 'include "main.beancount"\n'})
     sources = {
         "main.beancount": 'include "sub/one.beancount"\n',
@@ -251,9 +251,9 @@ def test_include_cycle_and_relative_nested_include() -> None:
 
 def test_ambiguous_id_refuses_edit_and_crlf_roundtrip_is_exact() -> None:
     source = bundled_sources()["january.beancount"]
-    with pytest.raises(PocError, match="exactly one"):
+    with pytest.raises(DiagnosticsError, match="exactly one"):
         edit_narration(source, "not-present", "No change")
-    with pytest.raises(PocError, match="exactly one"):
+    with pytest.raises(DiagnosticsError, match="exactly one"):
         edit_narration(source + source, "split-001", "No change")
     crlf = source.replace("\n", "\r\n")
     assert render(Parser().parse(crlf, models.File)) == crlf
@@ -276,7 +276,7 @@ def test_parser_acceptance_does_not_imply_accounting_validation() -> None:
 
 def test_empty_invalid_period_and_exact_decimal_arithmetic() -> None:
     assert unit_totals(parse_book({"main.beancount": "; empty\n"})) == {}
-    with pytest.raises(PocError, match="start < end"):
+    with pytest.raises(DiagnosticsError, match="start < end"):
         unit_totals({}, date(2026, 1, 1), date(2026, 1, 1))
     text = '2026-01-01 * "Decimal"\n  Expenses:Food (0.1 + 0.2) UAH\n  Assets:Bank -0.3 UAH\n'
     assert unit_totals(parse_book({"main.beancount": text}))[("Expenses:Food", "UAH")] == Decimal(
@@ -285,8 +285,8 @@ def test_empty_invalid_period_and_exact_decimal_arithmetic() -> None:
 
 
 def test_bundled_check_reports_failure_not_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.beancount_poc.bundled_sources", lambda: {})
-    result = run_poc()
+    monkeypatch.setattr("app.beancount_diagnostics.bundled_sources", lambda: {})
+    result = run_diagnostics()
     assert not result.passed
     assert "FAIL" in result.display()
     assert "Missing included fixture" in result.display()
@@ -296,7 +296,7 @@ def test_android_action_uses_only_bundled_experiment_and_reports_exceptions(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     async def scenario() -> None:
-        view = BeancountPocView()
+        view = BeancountDiagnosticsView()
         view.update = MagicMock()
         monkeypatch.setattr("app.ui.beancount._run_bundled_experiment", lambda: "PASS: synthetic")
         await view._run(MagicMock())
@@ -326,7 +326,7 @@ def test_storage_view_is_preserved_next_to_separate_parser_action(
     page = MagicMock(spec=ft.Page)
     monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
     root.content._diagnostics(MagicMock())
-    assert isinstance(root.content.diagnostics.controls[0], BeancountPocView)
+    assert isinstance(root.content.diagnostics.controls[0], BeancountDiagnosticsView)
     assert isinstance(root.content.diagnostics.controls[1], StorageView)
 
 

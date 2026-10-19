@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from app.storage import StorageError
 
-TARGET = "poc-test.beancount"
+TARGET = "storage-test.beancount"
 
 
 class DesktopFolder:
@@ -16,7 +16,7 @@ class DesktopFolder:
         if filename not in {TARGET, "txncount.beancount"}:
             raise StorageError("Unsupported journal filename.")
         self.filename = filename
-        self.backup_prefix = "poc-test" if filename == TARGET else "txncount"
+        self.backup_prefix = "storage-test" if filename == TARGET else "txncount"
 
     def _target(self) -> Path:
         if not self.root.is_dir():

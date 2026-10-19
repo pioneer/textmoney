@@ -43,7 +43,7 @@ confirmation of build 6 is pending.
   system/light/dark themes are available. Language and theme choices persist;
   desktop settings use the platform user configuration directory while Android
   continues to use Flet SharedPreferences.
-- Original storage/parser screens remain under **PoC diagnostics**. Their
+- Original storage/parser screens remain under **Technical diagnostics**. Their
   `poc-test.beancount` remains separate from the application journal.
 
 Business models/calculations are Flet-free in [ledger](../src/app/domain/ledger.py).
@@ -212,7 +212,7 @@ Host adb, if not on PATH: `/home/pioneer/Android/sdk/platform-tools/adb`.
    after polling it is revalidated against the newly loaded balance.
 8. Externally introduce an invalid/unsupported entry: expect saves blocked and
    original bytes untouched. Restore a valid file and Reload; forms remain.
-   Optionally verify both original PoCs under **PoC diagnostics** still work.
+   Optionally verify both original PoCs under **Technical diagnostics** still work.
 9. Confirm compact phone and medium tablet navigation, then resize/rotate and
    confirm the selected screen remains active.
 10. Select English, Ukrainian and Russian and restart after each; verify labels

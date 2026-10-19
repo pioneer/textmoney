@@ -220,6 +220,48 @@ def test_language_mode_restores_on_startup(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize(
+    "existing_new_key,save_fails", [(False, False), (True, False), (False, True)]
+)
+def test_legacy_folder_preference_is_migrated_without_overriding_current_choice(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    existing_new_key: bool,
+    save_fails: bool,
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        preferences = DesktopPreferences()
+        await preferences.set("financepoc.folder.v1", "/synthetic/legacy")
+        if existing_new_key:
+            await preferences.set("txncount.folder.v1", "/synthetic/current")
+        if save_fails:
+            monkeypatch.setattr(DesktopPreferences, "set", AsyncMock(return_value=False))
+        page = MagicMock(spec=ft.Page)
+        page.platform = ft.PagePlatform.LINUX
+        page.locale_configuration = ft.LocaleConfiguration()
+        page.get_device_info = AsyncMock(
+            return_value=DeviceInfo(locales=[ft.Locale(language_code="uk")])
+        )
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
+        view = FinanceView()
+        view._attach = AsyncMock()
+        with pytest.raises(asyncio.CancelledError):
+            await view._lifecycle()
+        if save_fails:
+            view._attach.assert_not_awaited()
+            assert view.error_message == "The selected folder could not be saved. Select it again."
+            assert await preferences.get("txncount.folder.v1") is None
+            return
+        selected = "/synthetic/current" if existing_new_key else "/synthetic/legacy"
+        view._attach.assert_awaited_once_with(selected)
+        assert await preferences.get("txncount.folder.v1") == selected
+        assert await preferences.get("financepoc.folder.v1") == "/synthetic/legacy"
+
+    asyncio.run(scenario())
+
+
 def test_missing_device_language_info_is_reported_explicitly(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

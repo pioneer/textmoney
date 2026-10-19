@@ -36,7 +36,7 @@ EXPECTED_BALANCES: Totals = {
 }
 
 
-class PocError(Exception):
+class DiagnosticsError(Exception):
     """Explicit experiment failure or deliberately unsupported accounting feature."""
 
 
@@ -62,17 +62,17 @@ def parse_book(sources: Mapping[str, str], entry: str = "main.beancount") -> dic
     def visit(name: str) -> None:
         path = PurePosixPath(name)
         if path.is_absolute() or ".." in path.parts or any(c in name for c in "*?[]\\"):
-            raise PocError("Only literal, relative bundle includes are supported.")
+            raise DiagnosticsError("Only literal, relative bundle includes are supported.")
         if name in active:
-            raise PocError(f"Include cycle in synthetic bundle: {name}.")
+            raise DiagnosticsError(f"Include cycle in synthetic bundle: {name}.")
         if name in parsed:
             return
         if name not in sources:
-            raise PocError(f"Missing included fixture: {name}.")
+            raise DiagnosticsError(f"Missing included fixture: {name}.")
         try:
             model = parser.parse(sources[name], models.File)
         except UnexpectedInput as exc:
-            raise PocError(
+            raise DiagnosticsError(
                 f"Unsupported syntax in {name}, line {exc.line}; no text rewritten."
             ) from exc
         parsed[name] = model
@@ -91,7 +91,7 @@ def unit_totals(
 ) -> Totals:
     """Sum explicit units per account/currency over [start, end); no booking or valuation."""
     if start >= end:
-        raise PocError("Period must have start < end.")
+        raise DiagnosticsError("Period must have start < end.")
     descriptive = (
         models.Option,
         models.Include,
@@ -110,7 +110,7 @@ def unit_totals(
                 if isinstance(directive, descriptive):
                     continue
                 if not isinstance(directive, models.Transaction):
-                    raise PocError(
+                    raise DiagnosticsError(
                         f"{type(directive).__name__} needs official engine semantics; "
                         "quantity totals refused."
                     )
@@ -123,7 +123,7 @@ def unit_totals(
                         or posting.currency is None
                         or posting.cost is not None
                     ):
-                        raise PocError(
+                        raise DiagnosticsError(
                             "Cost lots or inferred/partial amounts require the official engine; "
                             "quantity totals refused."
                         )
@@ -138,14 +138,18 @@ def edit_narration(text: str, transaction_id: str, narration: str) -> str:
     try:
         model = Parser().parse(text, models.File)
     except UnexpectedInput as exc:
-        raise PocError(f"Unsupported syntax at line {exc.line}; no text rewritten.") from exc
+        raise DiagnosticsError(
+            f"Unsupported syntax at line {exc.line}; no text rewritten."
+        ) from exc
     matches = [
         directive
         for directive in model.raw_directives
         if isinstance(directive, models.Transaction) and directive.meta.get("id") == transaction_id
     ]
     if len(matches) != 1:
-        raise PocError("Editing requires exactly one matching transaction ID; no text rewritten.")
+        raise DiagnosticsError(
+            "Editing requires exactly one matching transaction ID; no text rewritten."
+        )
     matches[0].narration = narration
     return render(model)
 
@@ -155,19 +159,19 @@ def append_transaction(text: str) -> str:
     transaction = models.Transaction.from_value(
         date(2026, 2, 4),
         "Synthetic",
-        "Appended by parser PoC",
+        "Appended by parser diagnostics",
         [
             models.Posting.from_value("Expenses:Food", Decimal("12.34"), "UAH"),
             models.Posting.from_value("Assets:Bank", Decimal("-12.34"), "UAH"),
         ],
-        meta={"id": "poc-appended-001"},
-        tags=["poc"],
+        meta={"id": "diagnostics-appended-001"},
+        tags=["diagnostics"],
     )
     return text + ("\n" if text.endswith("\n") else "\n\n") + render(transaction) + "\n"
 
 
 @dataclass(frozen=True)
-class PocResult:
+class DiagnosticsResult:
     passed: bool
     diagnostics: tuple[str, ...]
 
@@ -176,7 +180,7 @@ class PocResult:
             [
                 "PASS: bounded Beancount fixture experiment"
                 if self.passed
-                else "FAIL: Beancount PoC",
+                else "FAIL: Beancount diagnostics",
                 *self.diagnostics,
             ]
         )
@@ -184,10 +188,10 @@ class PocResult:
 
 def _require(condition: bool, message: str) -> None:
     if not condition:
-        raise PocError(message)
+        raise DiagnosticsError(message)
 
 
-def run_poc() -> PocResult:
+def run_diagnostics() -> DiagnosticsResult:
     """The same repeatable check runs on desktop and from the Android button."""
     diagnostics: list[str] = []
     try:
@@ -248,7 +252,9 @@ def run_poc() -> PocResult:
                 "LaunchPlatform basic syntax OK; advanced syntax rejected as expected."
             )
         else:
-            raise PocError("LaunchPlatform advanced-syntax behavior changed; review compatibility.")
+            raise DiagnosticsError(
+                "LaunchPlatform advanced-syntax behavior changed; review compatibility."
+            )
 
         _require(unit_totals(book) == EXPECTED_BALANCES, "Golden unit-balance mismatch.")
         january = unit_totals(book, date(2026, 1, 1), date(2026, 2, 1))
@@ -308,30 +314,30 @@ def run_poc() -> PocResult:
         )
         try:
             unit_totals(advanced)
-        except PocError:
+        except DiagnosticsError:
             diagnostics.append(
                 "Advanced directives preserved; unsupported accounting explicitly refused."
             )
         else:
-            raise PocError("Unsupported accounting was not refused.")
+            raise DiagnosticsError("Unsupported accounting was not refused.")
         try:
             parse_book(sources, "unknown.beancount")
-        except PocError:
+        except DiagnosticsError:
             diagnostics.append("Unknown dated syntax rejected; no source rewritten.")
         else:
-            raise PocError("Unknown syntax was silently accepted.")
+            raise DiagnosticsError("Unknown syntax was silently accepted.")
         diagnostics.append(
             "Not a full engine: no inference, booking, validation, valuation or plugins."
         )
-    except (PocError, UnexpectedInput) as exc:
+    except (DiagnosticsError, UnexpectedInput) as exc:
         logger.warning("Bundled Beancount experiment failed: %s", type(exc).__name__)
         diagnostics.append(str(exc))
-        return PocResult(False, tuple(diagnostics))
+        return DiagnosticsResult(False, tuple(diagnostics))
     logger.info("Bundled Beancount experiment completed")
-    return PocResult(True, tuple(diagnostics))
+    return DiagnosticsResult(True, tuple(diagnostics))
 
 
 if __name__ == "__main__":
-    result = run_poc()
+    result = run_diagnostics()
     print(result.display())
     raise SystemExit(0 if result.passed else 1)

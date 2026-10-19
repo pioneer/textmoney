@@ -3,6 +3,7 @@ build/
 dist/
 src/assets/
 src/app/.debug-mode
+src/app/.release.json
 src/.flet/
 .flet/
 *.p8

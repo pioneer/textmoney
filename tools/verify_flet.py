@@ -1,4 +1,4 @@
-"""Query the configured stdio Flet MCP for APIs used by the PoC."""
+"""Query the configured stdio Flet MCP for APIs used by storage diagnostics."""
 
 import asyncio
 import os

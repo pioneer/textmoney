@@ -7,15 +7,16 @@ imperative Flet application. No declarative component framework.
 ```text
 src/main.py                 composition / startup
 src/app/config.py          validated environment configuration
+src/app/version.py         source/packaged version from project configuration
 src/app/logging_config.py  logging policy and exception reporting
 src/app/application.py     page lifecycle and event boundary
 src/app/ui/finance.py      MVP screens, forms, polling and lifecycle
-src/app/ui/home.py         home composition and preserved storage PoC
+src/app/ui/home.py         home composition and preserved storage diagnostics
 src/app/localization.py    English/Ukrainian/Russian catalog and locale formatting
 src/app/timekeeping.py     named/system timezone conversion and DST validation
 src/app/ui/datetime_fields.py shared manual/date-picker/time-picker controls
 src/app/ui/beancount.py    separate bundled-fixture action; lazy parser import
-src/app/beancount_poc.py   pure-Python syntax/editing/quantity experiment, not a full engine
+src/app/beancount_diagnostics.py   pure-Python syntax/editing/quantity experiment, not a full engine
 src/app/fixtures/beancount/ synthetic bundled books, never user storage
 src/app/domain/storage.py  SHA-256 and conflict error, no Flet imports
 src/app/domain/ledger.py   explicit accounts, Decimal postings and running-balance checks
@@ -64,9 +65,13 @@ at the boundary and preserve the failure rather than silently returning success.
 so Invoke copies it to ignored `src/assets/` before build/mobile debug. Never edit
 the staged copy. Generated Flutter files and native icons live under `build/`.
 Run one build/mobile-debug task at a time in a checkout because they share staging.
+`pyproject.toml` owns the app version and build number. Invoke generates ignored
+`src/app/.release.json` for packaged About/version access and renames Android
+output to `txncount-<version>.apk`. Source runs read the project configuration;
+no second maintained version constant is needed.
 
 Stage 2's retained fixture parser action runs off the UI loop, imports its
-dependencies lazily so failures do not prevent Storage PoC startup, and returns
+dependencies lazily so failures do not prevent storage diagnostics startup, and returns
 explicit PASS/FAIL diagnostics. The official Beancount engine is development-only:
 tests compare shared explicit-unit totals and lossless edits against its loader
 and inventory calculations. Stage 3 reuses that parser for a deliberately bounded
@@ -76,17 +81,21 @@ transactions are appended; CRUD uses the parser's token positions to splice only
 selected directives, preserving other bytes. Original parser round-trips must be
 exact before an edit is allowed. Unsupported engine semantics block saving. There is no full booking
 engine, include resolver or generic persistence framework. See the
-[Beancount report](poc-beancount.md) and [MVP format](mvp-0.1.md).
+[Beancount report](beancount-compatibility.md) and [MVP format](mvp-0.1.md).
 
 Folder/language/theme/timezone preferences use Flet SharedPreferences on Android and a
 local configuration file on desktop; Android's grant is separately retained by
-SAF. Operating currencies and active-state metadata are synchronized in the
+SAF. Main and diagnostic folder choices use independent preference keys.
+The legacy main-folder key is read only when migrating an existing desktop
+configuration with no current key. Android identity changes cannot migrate
+app-private preferences or grants across installations.
+Operating currencies and active-state metadata are synchronized in the
 Beancount journal. Edit dialogs capture the journal instance and source baseline:
 poll/reload/folder changes cannot silently rebase an old draft. File contents are accessed directly through
 the chosen adapter, never mirrored into app-private storage. Unsaved drafts and
-hash baselines are in memory only. See the [report](poc-android-storage.md) for
+hash baselines are in memory only. See the [report](android-storage-validation.md) for
 backup safety, provider limitations, and device verification status. The same
-adapters allow only `poc-test.beancount` and `txncount.beancount`, with separate
+adapters allow only `storage-test.beancount` and `txncount.beancount`, with separate
 backup namespaces. No synchronization implementation, analytics or authentication
 is included; synchronization belongs to the user's external folder tool.
 

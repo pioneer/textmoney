@@ -1,6 +1,6 @@
 [project]
 name = "txncount"
-version = "0.1.0"
+version = "0.1.1"
 description = "TxnCount: offline-first personal expense tracking"
 requires-python = ">=3.13"
 dependencies = [
@@ -54,9 +54,9 @@ addopts = "-ra --strict-markers"
 [tool.flet]
 product = "TxnCount"
 org = "com.pioneer"
-bundle_id = "com.pioneer.financepoc"
+bundle_id = "com.pioneer.txncount"
 company = "Pioneer"
-build_number = 12
+build_number = 13
 icon_background = "#ffffff"
 
 [tool.flet.dev_packages]

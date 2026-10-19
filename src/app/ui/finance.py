@@ -29,9 +29,11 @@ from app.localization import (
 from app.storage import StorageError
 from app.timekeeping import local_datetime, named_zone
 from app.ui.datetime_fields import DateTimeFields
+from app.version import release_identity
 
 logger = logging.getLogger(__name__)
-FOLDER_KEY = "financepoc.folder.v1"
+FOLDER_KEY = "txncount.folder.v1"
+LEGACY_FOLDER_KEY = "financepoc.folder.v1"
 LANGUAGE_KEY = "txncount.language.v1"
 THEME_KEY = "txncount.theme.v1"
 TIMEZONE_KEY = "txncount.timezone.v1"
@@ -370,6 +372,7 @@ class FinanceView(ft.Row):
         self.nav_rail.selected_index = self._selected_index()
 
     def _build_screens(self) -> None:
+        version, build = release_identity()
         self.welcome_content.controls = [
             ft.Text(self.tr("welcome_title"), size=22, weight=ft.FontWeight.W_600),
             ft.Text(self.tr("welcome_body"), selectable=True),
@@ -506,7 +509,7 @@ class FinanceView(ft.Row):
                     [
                         ft.Text(self.tr("about"), size=18),
                         ft.Text(self.tr("about_body")),
-                        ft.Text(f"{self.tr('app_version')}: 0.1.0"),
+                        ft.Text(f"{self.tr('app_version')}: {version} ({build})"),
                     ],
                     spacing=12,
                 ),
@@ -887,6 +890,12 @@ class FinanceView(ft.Row):
             else:
                 self.expense_when.set_zone(self._effective_zone())
             saved_folder = await self.preferences.get(FOLDER_KEY)
+            if saved_folder is None:
+                saved_folder = await self.preferences.get(LEGACY_FOLDER_KEY)
+                if isinstance(saved_folder, str) and not await self.preferences.set(
+                    FOLDER_KEY, saved_folder
+                ):
+                    raise LedgerError("The selected folder could not be saved. Select it again.")
             if isinstance(saved_folder, str):
                 async with self.lock:
                     await self._attach(saved_folder)
@@ -1605,10 +1614,10 @@ class FinanceView(ft.Row):
 
     def _diagnostics(self, event: ft.Event[ft.TextButton]) -> None:
         if not self.diagnostics.controls:
-            from app.ui.beancount import BeancountPocView
+            from app.ui.beancount import BeancountDiagnosticsView
             from app.ui.home import StorageView
 
-            self.diagnostics.controls.extend([BeancountPocView(), StorageView()])
+            self.diagnostics.controls.extend([BeancountDiagnosticsView(), StorageView()])
         self.diagnostics_visible = not self.diagnostics_visible
         self.diagnostics.visible = self.diagnostics_visible
         self._refresh_labels()

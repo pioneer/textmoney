@@ -222,6 +222,40 @@ testing. SAF storage behavior is unchanged.
 
 ## APK
 
+### Release identity cleanup: 0.1.1 (13)
+
+- Application ID is now `com.pioneer.txncount`, label `TxnCount`, version
+  0.1.1, Android version code 13. This is a **separate Android installation**,
+  not an upgrade of `com.pioneer.financepoc`; follow the
+  [migration checklist](../README.md#one-time-migration-from-the-original-android-app).
+- Project version/build in `pyproject.toml` now drives the About display,
+  generated packaged metadata and versioned APK filename.
+- Active parser module/action/task names now use `beancount_diagnostics` /
+  `beancount-diagnostics`. Historical reports were renamed to
+  [Android storage validation](android-storage-validation.md) and
+  [Beancount compatibility](beancount-compatibility.md), retaining their findings.
+- Storage diagnostics uses `storage-test.beancount`, separate folder preferences
+  and a separate backup namespace. Legacy synthetic files, real journals and
+  existing backups are not migrated or rewritten. Desktop's legacy main-folder
+  preference is copied only when the new preference is absent.
+- `uv sync`: succeeded. `uv run inv format check build-android`: **265 tests
+  passed**, Ruff/Pyright clean, APK built successfully.
+- The first payload check caught stale renamed-module development bytecode in
+  the archive. Build staging now removes source-tree bytecode caches before
+  packaging; a regression verifies source files survive. The APK was rebuilt.
+- Final `uv run inv check-beancount-apk check`: packaged release identity,
+  absence of the old module, parser/CRUD/timezone payload checks passed on host
+  CPython; **265 tests passed**, Ruff/Pyright clean.
+- SDK `aapt dump badging` and `apksigner verify --print-certs` verified the new
+  package, version and unchanged debug signing certificate. `adb devices`
+  listed no devices; this build has not been run on Android or Windows.
+- APK: [txncount-0.1.1.apk](../build/apk/txncount-0.1.1.apk),
+  **141,273,366 bytes**. SHA-256:
+  `10d3b93bfa6335fca1371ff49febb559b1b3e23c4ddedab9a15278c89c68e5dc`.
+- Nothing was committed, pushed or published. The existing GitHub v0.1.0
+  release remains unchanged. Debug signing is still experimental, not a
+  production signing/recovery policy.
+
 ### System-language startup fix (build 12)
 
 The user reported that System incorrectly selected English on Ukrainian desktop
@@ -303,6 +337,8 @@ to/from an explicit app language on Android.
 - SDK `aapt`/`apksigner`: version code 10 and unchanged signing certificate
   verified. This is not physical Android or Windows runtime verification.
 
+### Historical build 12
+
 [build/apk/txncount.apk](../build/apk/txncount.apk), **build 12**, 141,395,218
 bytes (about 135 MiB). Package remains `com.pioneer.financepoc`, label
 `TxnCount`, version 0.1.0; Android 7.0+ (target API 36). Packaged ABIs:
@@ -325,8 +361,10 @@ The signing certificate matches previous builds:
 
 Use a separate synthetic folder or a copy, not the only copy of your real data.
 
-1. Update with `adb install -r build/apk/txncount.apk`; do not uninstall and lose
-   the existing SAF grant. Verify existing accounts/history still load.
+1. For 0.1.1 and later, follow the
+   [new Android identity migration](../README.md#one-time-migration-from-the-original-android-app).
+   Install `build/apk/txncount-0.1.1.apk`, grant folder access again and verify
+   existing accounts/history. This is separate from the old build 12 installation.
 2. Set `UAH USD EUR` in Settings; restart and confirm persistence. Open the same
    file in desktop Fava: the missing-operating-currency warning must be absent.
    Find the field under **Advanced → Journal display currencies**. Create an

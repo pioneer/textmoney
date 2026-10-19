@@ -58,11 +58,11 @@ class FinanceSafService extends FletService {
     if (!permitted) {
       throw StateError('Persistent read/write grant missing. Select Folder again.');
     }
-    final target = (args['filename'] as String?) ?? 'poc-test.beancount';
-    if (target != 'poc-test.beancount' && target != 'txncount.beancount') {
+    final target = (args['filename'] as String?) ?? 'storage-test.beancount';
+    if (target != 'storage-test.beancount' && target != 'txncount.beancount') {
       throw StateError('Unsupported journal filename.');
     }
-    final prefix = target == 'poc-test.beancount' ? 'poc-test' : 'txncount';
+    final prefix = target == 'storage-test.beancount' ? 'storage-test' : 'txncount';
     if (method == 'read') {
       final file = await _util.child(uri, [target]);
       if (file == null) return null;

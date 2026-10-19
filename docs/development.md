@@ -23,6 +23,13 @@ All builds go through Invoke so asset staging, icon validation, host checks, and
 release debug-marker removal happen consistently. `build-local` maps Linux to
 Linux, Windows to Windows, and Darwin to macOS; it does not emulate another OS.
 Platform-specific tasks reject incompatible hosts before starting a build.
+The [release/version policy](../README.md#versions-and-android-identity) describes
+the authoritative version/build fields and one-time Android identity migration.
+APK builds produce `build/apk/txncount-<project.version>.apk`; generated packaged
+version metadata is staged alongside assets and removed by `clean`.
+Build staging also clears source-tree `__pycache__` directories: Flet's relative
+path exclusions do not recursively match nested caches, which could otherwise
+ship obsolete renamed-module bytecode. Source files are preserved.
 
 | Tasks | Host / tools | Output |
 | --- | --- | --- |
@@ -58,7 +65,7 @@ Runtime Flet is pinned, but transitive target dependencies may still change.
 Retain build logs/artifacts and test packaged outputs before releases. Do not
 describe builds as bit-for-bit reproducible based on uv.lock alone.
 
-The PoC adds `finance-saf` as a local uv path dependency. Flet's
+The app uses `finance-saf` as a local uv path dependency. Flet's
 `tool.flet.dev_packages` maps it to `extensions/finance-saf`, relative to the
 project root (not `tool.flet.app.path`). Flet packages its Python module and
 `flutter/finance_saf` package into native builds. Changing the Dart bridge
@@ -80,7 +87,7 @@ paths. Do not remove this setting just because APK compilation succeeds.
 `uv run inv check-beancount-apk` checks the actual archive layout and executes
 the payload on Flet's downloaded host CPython 3.14.7; a different Flet/Python
 release may require updating that probe's host executable path. A host payload
-test is not phone testing. See [the Beancount report](poc-beancount.md).
+test is not phone testing. See [the Beancount report](beancount-compatibility.md).
 
 Release app sources are precompiled (`compile.app=true`). Flet's packager removes
 original `.py` files during compilation even when `cleanup.app=false`; traceback

@@ -1,4 +1,9 @@
-# Stage 2 - Beancount 3 compatibility PoC
+# Beancount 3 compatibility - Stage 2 history
+
+This report preserves the original experiment and its device-test findings.
+Old package IDs, synthetic filenames, build numbers and checksums below describe
+those historical builds, not the current release. Module/task references and
+links use current diagnostic names. See [current migration/version guidance](../README.md#versions-and-android-identity).
 
 **Verdict: PASS for the bounded fixture profile (user-confirmed Android phone
 test, 2026-10-18).** At the start of Stage 3 the user confirmed both PoCs passed.
@@ -8,8 +13,8 @@ a complete Beancount engine: the scope and unsupported accounting below remain.
 
 Stage 1 storage is **PASS, user-confirmed on a physical phone on 2026-10-18**.
 Its implementation, package ID, preference key and native SAF bridge are
-preserved. In Stage 3 both original screens remain under **PoC diagnostics**.
-The **Run Beancount PoC** button accesses only bundled synthetic fixtures, never the
+preserved. In Stage 3 both original screens remain under **Technical diagnostics**.
+The **Run Beancount diagnostics** button accesses only bundled synthetic fixtures, never the
 selected folder or real financial files.
 
 ## Libraries evaluated
@@ -59,7 +64,7 @@ Six small [synthetic files](../src/app/fixtures/beancount) are bundled:
 - `unknown`: unknown dated `quantum` directive, rejected by both candidates and
   official Beancount. Rejection produces no rewritten output.
 
-The [shared experiment](../src/app/beancount_poc.py) does only syntax, editing and
+The [shared experiment](../src/app/beancount_diagnostics.py) does only syntax, editing and
 explicit posting-quantity aggregation using `Decimal` (local precision 50).
 It sums units by **account and currency**, with half-open date ranges
 `[start, end)`. Price annotations are preserved, **not used for valuation**.
@@ -121,7 +126,7 @@ All project commands ran through uv/Invoke; package additions used `uv add`.
 | `uv run inv probe-beancount-android` | Initially missing pip; after `uv add --dev 'pip>=25,<27'`, expected no Android binary distribution |
 | `uv sync` | Successful; lock retained |
 | `uv run inv probe-beancount` | Basic/advanced/unknown capability matrix; official main: 30 entries, 0 errors; advanced: 18 entries, 0 errors; unknown: 1 lexer error |
-| `uv run inv beancount-poc` | Bounded experiment PASS on Linux CPython 3.13.15 |
+| `uv run inv beancount-diagnostics` | Bounded experiment PASS on Linux CPython 3.13.15 |
 | `uv run inv format check` / `uv run inv check` | Final format/lint/Pyright pass; **94 tests passed**, including 28 new parser/packaging tests and existing storage regressions |
 | `uv run inv build-android` | Build 3 succeeded; then rebuilt with grammar-resource extraction (below) |
 | `uv run inv check-beancount-apk` | Initial APK failed grammar-extraction check; final APK passed and its exact Python payload executed successfully on host CPython 3.14.7 |
@@ -190,7 +195,7 @@ adb install -r /home/pioneer/workspace/txncount/build/apk/txncount.apk
 
 On this host adb is `/home/pioneer/Android/sdk/platform-tools/adb` if not on PATH.
 
-1. Open txncount and tap **Run Beancount PoC** (under **PoC diagnostics** in MVP).
+1. Open txncount and tap **Run Beancount diagnostics** (under **Technical diagnostics** in MVP).
    No folder selection
    or real files are needed. Allow several seconds for parser construction.
 2. Expect **PASS: bounded Beancount fixture experiment**, versions, 4 files /

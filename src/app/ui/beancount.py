@@ -8,18 +8,18 @@ logger = logging.getLogger(__name__)
 
 def _run_bundled_experiment() -> str:
     # Keep parser imports/failures isolated from the already tested storage screen.
-    from app.beancount_poc import run_poc
+    from app.beancount_diagnostics import run_diagnostics
 
-    return run_poc().display()
+    return run_diagnostics().display()
 
 
-class BeancountPocView(ft.Column):
+class BeancountDiagnosticsView(ft.Column):
     def __init__(self) -> None:
         super().__init__(spacing=8)
         self.result = ft.Text(
             "Parser experiment not run. Bundled synthetic files only.", selectable=True
         )
-        self.button = ft.Button("Run Beancount PoC", on_click=self._run)
+        self.button = ft.Button("Run Beancount diagnostics", on_click=self._run)
         self.controls.extend([self.button, self.result])
 
     async def _run(self, event: ft.Event[ft.Button]) -> None:

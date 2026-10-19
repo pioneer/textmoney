@@ -1,4 +1,9 @@
-# Android storage PoC - Stage 1
+# Android storage validation - Stage 1 history
+
+This report preserves the original experiment and its device-test findings.
+Old package IDs, synthetic filenames, build numbers and checksums below describe
+those historical builds, not the current release. Module/task references and
+links use current diagnostic names. See [current migration/version guidance](../README.md#versions-and-android-identity).
 
 **Verdict: PASS (user-confirmed physical-device testing, 2026-10-18).**
 At the start of Stage 2 the user confirmed that the Android Storage PoC
@@ -109,7 +114,7 @@ packager selected CPython 3.14.7 and Flutter 3.44.8.
 | `uv sync` | Successful, including local `finance-saf`; retained `uv.lock` |
 | `uv run inv --help build-android` | Task exists, no task options |
 | `uv run inv verify-flet` | MCP API and build-CLI queries succeeded |
-| `uv run inv poc-icon format check` | Generated icon; initial lint findings corrected |
+| `uv run inv app-icon format check` | Generated icon; initial lint findings corrected |
 | `uv run inv check` / `uv run inv format check` | Iterated through type/test fixes; final checks pass |
 | `uv run inv icon-check check` | Icon valid; Ruff format/lint, Pyright, **65 tests passed**, including 19 storage tests |
 | `uv run inv build-android` (attempt 1) | Failed: local dev-package path was relative to the wrong root; corrected |
@@ -129,7 +134,7 @@ installed, no financial files were accessed, and nothing was committed/pushed.
 
 This section records the APK used for the successful Storage PoC phone test.
 Later stages replace the APK at the same path; use the current
-[Stage 2 report](poc-beancount.md) for the latest build/checksum and installation.
+[Stage 2 report](beancount-compatibility.md) for the latest build/checksum and installation.
 
 - Output: [build/apk/txncount.apk](../build/apk/txncount.apk), approximately
   134 MiB, debug-key signed, version 0.1.0 / build 2. This replaces the build 1

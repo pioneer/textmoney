@@ -1,5 +1,5 @@
 name: finance_saf
-description: Minimal Android SAF service bridge for Finance PoC.
+description: Minimal Android SAF service bridge for TxnCount.
 version: 0.1.0
 publish_to: none
 environment:

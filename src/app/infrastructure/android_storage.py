@@ -7,15 +7,17 @@ from app.storage import StorageError
 
 
 class AndroidFolder:
-    def __init__(self, bridge: FinanceSaf, uri: str, filename: str = "poc-test.beancount") -> None:
+    def __init__(
+        self, bridge: FinanceSaf, uri: str, filename: str = "storage-test.beancount"
+    ) -> None:
         if not uri.startswith("content://"):
             raise StorageError("Android requires a content URI returned by the SAF picker.")
         self.bridge = bridge
         self.uri = uri
-        if filename not in {"poc-test.beancount", "txncount.beancount"}:
+        if filename not in {"storage-test.beancount", "txncount.beancount"}:
             raise StorageError("Unsupported journal filename.")
         self.filename = filename
-        self.backup_prefix = "poc-test" if filename == "poc-test.beancount" else "txncount"
+        self.backup_prefix = "storage-test" if filename == "storage-test.beancount" else "txncount"
 
     async def _call(self, method: str, **arguments: object) -> object:
         result = await self.bridge.call(method, uri=self.uri, filename=self.filename, **arguments)

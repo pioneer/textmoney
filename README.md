@@ -76,7 +76,7 @@ books.
 On Android, install the APK built for the current version:
 
 ```sh
-adb install -r build/apk/txncount.apk
+adb install -r build/apk/txncount-0.1.1.apk
 ```
 
 Open TxnCount, choose a dedicated data folder, and create an account. Add at
@@ -152,18 +152,57 @@ uv run inv build-android
 ```
 
 `uv run inv --list` shows available tasks. The generated APK is
-`build/apk/txncount.apk`. Do not uninstall the existing Android app when
-updating if you need to retain its SAF folder permission.
+`build/apk/txncount-0.1.1.apk`. Future updates of the same app ID retain settings
+and SAF permissions; see the one-time identity migration below.
+
+## Versions and Android identity
+
+The single maintained version is `[project].version` in `pyproject.toml`;
+`[tool.flet].build_number` is the independently increasing Android version code.
+Current version: **0.1.1 (13)**. Invoke stages generated release metadata for the
+packaged About display and names the APK `txncount-<version>.apk`. Source runs
+read the same project configuration. Do not edit generated metadata.
+
+Publish small updates as `0.1.2`, `0.1.3`, etc.; use `0.2.0` for a milestone and
+reserve `1.0.0` for a stable release. Every published update needs a new matching
+Git tag (`v0.1.1`), app version, and greater build number. Never replace an old
+release's APK with different code. Obtainium can track the repository and match
+`^txncount-.*\.apk$`. Building does not publish, commit or push automatically.
+
+### One-time migration from the original Android app
+
+Version 0.1.1 uses **`com.pioneer.txncount`**, replacing the historical
+`com.pioneer.financepoc`. Android treats these as **separate apps**, even with
+the same signing certificate. This is not an in-place upgrade:
+
+1. Back up your shared data folder independently and let synchronization finish.
+2. Install the new APK; keep the old app until the new one is verified.
+3. In the new app, choose the **same existing data folder**. Do not create or
+   overwrite a replacement journal. Check accounts, history and balances.
+4. Reapply local language/theme/timezone settings and select the folder to grant
+   access. Old app-private settings and SAF permissions cannot transfer.
+5. Do not edit the same journal concurrently from both apps. After verification,
+   you can remove the old installation; retain the shared folder/backups.
+6. In Obtainium, remove the old tracked app entry (do not uninstall until step 5),
+   then add this repository again after the new-ID release is published. Confirm
+   it tracks `com.pioneer.txncount`, not the old package.
+
+Desktop retains the same configuration directory; the old folder preference is
+read only for migration to `txncount.folder.v1`. Journals, IDs and existing
+backup files are not renamed or rewritten by this identity change.
+Storage diagnostics now uses `storage-test.beancount` and its own folder choice;
+old synthetic test files are left untouched. The existing debug signing key is
+still used; this work does not establish secure production signing.
 
 ## Project notes
 
 - [Architecture and dependency boundaries](docs/architecture.md)
 - [MVP 0.1 journal format, limitations, and device checklist](docs/mvp-0.1.md)
 - [CRUD and Fava compatibility, data safety, and test checklist](docs/crud-fava.md)
-- [Android Storage Access Framework PoC](docs/poc-android-storage.md)
-- [Beancount parser compatibility PoC](docs/poc-beancount.md)
+- [Android storage validation history](docs/android-storage-validation.md)
+- [Beancount compatibility findings](docs/beancount-compatibility.md)
 - [Flet 1.x conventions](docs/flet.md)
 
-The PoC reports record earlier technical investigations; they are historical
+The validation reports record earlier technical investigations; they are historical
 references, not claims that the restricted MVP supports the full Beancount
 language or accounting engine.

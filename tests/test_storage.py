@@ -19,6 +19,22 @@ def test_sha256_and_missing_baseline() -> None:
     assert digest(b"") != digest(None)
 
 
+def test_storage_diagnostics_never_touch_legacy_test_or_journal(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        legacy = tmp_path / "poc-test.beancount"
+        journal = tmp_path / "txncount.beancount"
+        legacy.write_bytes(b"legacy synthetic file")
+        journal.write_bytes(b"synthetic journal sentinel")
+        session = StorageSession(DesktopFolder(str(tmp_path)))
+        await session.read()
+        await session.write()
+        assert (tmp_path / "storage-test.beancount").read_text() == SAMPLE
+        assert legacy.read_bytes() == b"legacy synthetic file"
+        assert journal.read_bytes() == b"synthetic journal sentinel"
+
+    asyncio.run(scenario())
+
+
 def test_create_modify_and_verified_unique_backups(tmp_path: Path) -> None:
     async def scenario() -> None:
         session = StorageSession(DesktopFolder(str(tmp_path)))

@@ -14,6 +14,13 @@ and MCP are pinned together to stable 1.0.1 in this template.
 Use `uv run inv run` for desktop or `uv run inv run-web` for browser development.
 Both hot-reload the source tree. Stop with Ctrl+C. Web binds to localhost, not the
 LAN. Debug variants and log locations are documented in [debugging](debugging.md).
+On Linux, `run` and `debug` prepare a branded client under
+`build/linux-dev-client` and register a hidden desktop entry under
+`$XDG_DATA_HOME/applications` (default `~/.local/share/applications`).
+Its GTK identity is `io.txncount.local`, separate from the packaged app and other
+Flet apps. This gives the development window the canonical app icon without
+modifying Flet's shared client. The adapter checks the pinned client's binary
+identity before patching the local copy and fails explicitly if it changes.
 `.env.example` is documentation, not automatically loaded configuration. Set
 variables in your shell/IDE; keep local `.env` files out of version control.
 
@@ -23,8 +30,9 @@ All builds go through Invoke so asset staging, icon validation, host checks, and
 release debug-marker removal happen consistently. `build-local` maps Linux to
 Linux, Windows to Windows, and Darwin to macOS; it does not emulate another OS.
 Platform-specific tasks reject incompatible hosts before starting a build.
-The [release/version policy](../README.md#versions-and-android-identity) describes
-the authoritative version/build fields and one-time Android identity migration.
+The [version metadata](#version-metadata) below describes the authoritative
+version/build fields. Historical Android migration details are in
+[branding](branding.md#historical-android-identity-migration).
 APK builds produce `build/apk/txncount-<project.version>.apk`; generated packaged
 version metadata is staged alongside assets and removed by `clean`.
 Build staging also clears source-tree `__pycache__` directories: Flet's relative
@@ -96,6 +104,13 @@ Mobile debug disables app compilation for source-rich diagnostics. Local Flet
 storage is excluded from packaging and hot reload. Generated output is ignored.
 `uv run inv clean` removes builds and staging/caches, not the canonical icon,
 virtual environment, or local Flet user data.
+
+## Version metadata
+
+`[project].version` in `pyproject.toml` is the maintained app version;
+`[tool.flet].build_number` is the independent Android version code.
+Invoke stages these values for the packaged About display and names APKs
+`txncount-<version>.apk`. The Android app ID is `com.pioneer.txncount`.
 
 ## Signing and CI
 

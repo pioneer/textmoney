@@ -108,20 +108,3 @@ uv run inv --list         # All available tasks
 The APK is written to `build/apk/txncount-<version>.apk`. Native builds require
 platform toolchains; see [development and packaging](docs/development.md).
 See also [architecture](docs/architecture.md) and [testing](docs/testing.md).
-
-## Versions and Android identity
-
-The app ID is `com.pioneer.txncount`. The maintained version is
-`[project].version` in `pyproject.toml`; `[tool.flet].build_number` is the
-independently increasing Android version code. These values drive the packaged
-version display and APK filename.
-
-Use patch releases for small changes and minor releases for milestones during
-alpha. Every published update gets a matching Git tag, a new app version and a
-greater Android build number. Never replace an existing release APK with
-different code.
-
-For each release, add a short entry to **Version history** above and a short,
-user-facing **What's new** summary to the GitHub release description. Keep
-installation requirements, important warnings and known limitations brief and
-relevant; detailed implementation and verification records belong in the docs.

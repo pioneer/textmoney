@@ -3,11 +3,76 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import flet_desktop
 import pytest
 from invoke.context import Context
 from invoke.exceptions import Exit
 
 import tasks
+
+
+def test_linux_development_icon_does_not_modify_shared_client(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "project"
+    (root / "assets").mkdir(parents=True)
+    tasks.Image.new("RGB", (1024, 1024), "green").save(root / "assets/icon.png")
+    stock = tmp_path / "cache/flet"
+    (stock / "data").mkdir(parents=True)
+    (stock / "lib").mkdir()
+    (stock / "data/flutter_assets").mkdir()
+    (stock / "data/app_icon.png").write_bytes(b"generic icon")
+    binary = b"prefix" + tasks.STOCK_CLIENT_APP_ID + b"\0suffix"
+    (stock / "flet").write_bytes(binary)
+    monkeypatch.setattr(tasks, "ROOT", root)
+    monkeypatch.setattr(flet_desktop, "ensure_client_cached", lambda: stock.parent)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "user-data"))
+
+    client = tasks.prepare_linux_dev_client()
+    assert (client / "flet").read_bytes() == (
+        b"prefix" + tasks.LINUX_DEV_APP_ID.encode() + b"\0suffix"
+    )
+    assert (client / "flet").stat().st_mode & 0o111
+    assert (client / "data/app_icon.png").read_bytes() == (root / "assets/icon.png").read_bytes()
+    assert (client / "lib").resolve() == stock / "lib"
+    assert (client / "data/flutter_assets").resolve() == stock / "data/flutter_assets"
+    assert (stock / "flet").read_bytes() == binary
+    assert (stock / "data/app_icon.png").read_bytes() == b"generic icon"
+    entry = tmp_path / "user-data/applications" / f"{tasks.LINUX_DEV_APP_ID}.desktop"
+    assert f"Icon={root / 'assets/icon.png'}" in entry.read_text()
+    assert f"StartupWMClass={tasks.LINUX_DEV_APP_ID}" in entry.read_text()
+
+    tasks.Image.new("RGB", (1024, 1024), "blue").save(root / "assets/icon.png")
+    tasks.prepare_linux_dev_client()
+    assert (client / "data/app_icon.png").read_bytes() == (root / "assets/icon.png").read_bytes()
+    (stock / "flet").write_bytes(b"changed upstream binary")
+    with pytest.raises(Exit, match="identity changed"):
+        tasks.prepare_linux_dev_client()
+
+
+@pytest.mark.parametrize(
+    "host,web,branded", [("Linux", False, True), ("Linux", True, False), ("Windows", False, False)]
+)
+def test_only_linux_native_run_uses_branded_client(
+    monkeypatch: pytest.MonkeyPatch,
+    host: str,
+    web: bool,
+    branded: bool,
+) -> None:
+    prepare = MagicMock(return_value=Path("/synthetic/client"))
+    execute = MagicMock()
+    monkeypatch.setattr(tasks, "stage_release", lambda: None)
+    monkeypatch.setattr(tasks.platform, "system", lambda: host)
+    monkeypatch.setattr(tasks, "prepare_linux_dev_client", prepare)
+    monkeypatch.setattr(tasks, "execute", execute)
+    tasks.run_app(web=web, debug=True)
+    if branded:
+        prepare.assert_called_once()
+        assert execute.call_args.kwargs["env"]["FLET_VIEW_PATH"] == "/synthetic/client"
+    else:
+        prepare.assert_not_called()
+        assert "FLET_VIEW_PATH" not in execute.call_args.kwargs["env"]
 
 
 def test_release_staging_and_versioned_apk_output(

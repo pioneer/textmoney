@@ -7,6 +7,11 @@ Regenerate it with `uv run inv app-icon`; validate with `uv run inv icon-check`.
 There are no maintained duplicate platform icons. Invoke stages the root assets
 for Flet, which generates launcher/window icons and splash screens.
 
+Linux source runs use a generated branded Flet client and hidden desktop entry;
+see [development](development.md). Native X11 smoke testing verified the TxnCount
+window title, development WM_CLASS and app icon pixels. Desktop-shell grouping
+and Wayland presentation still need confirmation in the user's session.
+
 Product name: **TxnCount**. Package/bundle: `com.pioneer.txncount`, starting with
 0.1.1 (13). This intentionally differs from the original experimental Android
 identity; see the historical migration notes below.

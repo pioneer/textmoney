@@ -3,7 +3,8 @@
 This report preserves the original experiment and its device-test findings.
 Old package IDs, synthetic filenames, build numbers and checksums below describe
 those historical builds, not the current release. Module/task references and
-links use current diagnostic names. See [current migration/version guidance](../README.md#versions-and-android-identity).
+links use current diagnostic names. See [current version metadata](development.md#version-metadata)
+and [historical migration notes](branding.md#historical-android-identity-migration).
 
 **Verdict: PASS (user-confirmed physical-device testing, 2026-10-18).**
 At the start of Stage 2 the user confirmed that the Android Storage PoC

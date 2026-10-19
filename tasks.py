@@ -20,6 +20,8 @@ ROOT = Path(__file__).resolve().parent
 HOSTS = {"linux": "Linux", "windows": "Windows", "macos": "Darwin"}
 # Flet otherwise prompts before installing Flutter/Android SDKs, which fails without a TTY.
 UNATTENDED = "--yes"
+LINUX_DEV_APP_ID = "io.txncount.local"
+STOCK_CLIENT_APP_ID = b"com.appveyor.flet"
 
 
 def execute(*args: str, env: dict[str, str] | None = None) -> None:
@@ -108,6 +110,49 @@ def build_target(target: str, *extra: str) -> None:
         (ROOT / "build/apk/txncount.apk").replace(ROOT / f"build/apk/txncount-{version}.apk")
 
 
+def prepare_linux_dev_client() -> Path:
+    """Brand an isolated stock client without changing Flet's shared cache."""
+    import flet_desktop
+
+    validate_icon()
+    stock = flet_desktop.ensure_client_cached() / "flet"
+    original = STOCK_CLIENT_APP_ID + b"\0"
+    replacement = LINUX_DEV_APP_ID.encode("ascii") + b"\0"
+    binary = (stock / "flet").read_bytes()
+    if len(original) != len(replacement) or binary.count(original) != 1:
+        raise Exit(
+            "Flet Linux client identity changed; update the development icon adapter.", code=1
+        )
+
+    destination = ROOT / "build/linux-dev-client"
+    if destination.is_symlink():
+        raise Exit("build/linux-dev-client must not be a symlink.", code=1)
+    if destination.exists():
+        shutil.rmtree(destination)
+    (destination / "data").mkdir(parents=True)
+    (destination / "lib").symlink_to(stock / "lib", target_is_directory=True)
+    for item in (stock / "data").iterdir():
+        if item.name != "app_icon.png":
+            (destination / "data" / item.name).symlink_to(item, target_is_directory=item.is_dir())
+    shutil.copyfile(ROOT / "assets/icon.png", destination / "data/app_icon.png")
+    executable = destination / "flet"
+    executable.write_bytes(binary.replace(original, replacement))
+    executable.chmod(0o755)
+
+    data_home = Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share")))
+    entry = data_home / "applications" / f"{LINUX_DEV_APP_ID}.desktop"
+    entry.parent.mkdir(parents=True, exist_ok=True)
+    root = str(ROOT).replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%")
+    entry.write_text(
+        "[Desktop Entry]\nType=Application\nName=TxnCount (development)\n"
+        f'Exec=uv --directory "{root}" run inv run\n'
+        f"Icon={ROOT / 'assets/icon.png'}\nTerminal=false\nNoDisplay=true\n"
+        f"StartupWMClass={LINUX_DEV_APP_ID}\n",
+        encoding="utf-8",
+    )
+    return destination
+
+
 def run_app(*, web: bool = False, debug: bool = False, port: int = 8550) -> None:
     stage_release()
     args = [
@@ -124,7 +169,10 @@ def run_app(*, web: bool = False, debug: bool = False, port: int = 8550) -> None
         args += ["--web", "--host", "127.0.0.1", "--port", str(port)]
     if debug:
         args += ["-v"]
-    execute(*args, env=debug_env(debug))
+    env = debug_env(debug)
+    if not web and platform.system() == "Linux":
+        env["FLET_VIEW_PATH"] = str(prepare_linux_dev_client())
+    execute(*args, env=env)
 
 
 @task

@@ -11,11 +11,12 @@ import pytest
 
 from app.domain.ledger import Account, LedgerError, Posting, Transaction
 from app.infrastructure.desktop_storage import DesktopFolder
+from app.infrastructure.preferences import DesktopPreferences
 from app.journal import FILENAME, Journal
 from app.localization import date_input, format_timestamp, parse_date_input, translate
 from app.timekeeping import local_datetime, named_zone, wall_timestamp
 from app.ui.datetime_fields import DateTimeFields
-from app.ui.finance import DEFAULT_PAYEE_KEY, TIMEZONE_KEY, FinanceView
+from app.ui.finance import TIMEZONE_KEY, FinanceView
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
@@ -63,20 +64,19 @@ def test_unchanged_edit_retains_exact_timestamp_offset_precision_and_dst_fold() 
     editor = DateTimeFields("uk", "Europe/Kyiv", date(2026, 10, 24), stamp)
     assert editor.values() == ("2026-10-24", stamp)
     editor.set_language("en")
-    assert editor.occurred.value == "10/24/2026"
+    assert editor.occurred.value == "10/25/2026"
     assert editor.values()[1] == stamp
-    editor.occurred.value = "10/23/2026"
-    assert editor.values() == ("2026-10-23", stamp)
     editor.clock.value = "03:31"
     with pytest.raises(LedgerError, match="crud_time_ambiguous"):
         editor.values()
+    editor.occurred.value = "10/23/2026"
+    assert editor.values() == ("2026-10-23", "2026-10-23T03:31:00+03:00")
 
 
 def test_explicit_zone_change_preserves_draft_instant_and_accounting_date() -> None:
     editor = DateTimeFields("en", "UTC", date(2026, 1, 1), "2026-01-02T23:30:00+00:00")
     editor.set_zone("Europe/Kyiv")
-    assert editor.occurred.value == "01/01/2026"
-    assert editor.stamp_date.value == "01/03/2026"
+    assert editor.occurred.value == "01/03/2026"
     assert editor.clock.value == "01:30:00"
     assert editor.values() == ("2026-01-01", "2026-01-02T23:30:00+00:00")
 
@@ -145,7 +145,7 @@ def expense() -> Transaction:
 def test_compact_transaction_has_one_amount_movement_and_icon_actions() -> None:
     view = FinanceView()
     row = view._transaction_card(expense(), {"Assets:Cash": "Wallet", "Expenses:Food": "Food"})
-    assert texts(row) == ["Wallet → Food", "10.00 UAH", "Oct 18, 2026 · Synthetic shop"]
+    assert texts(row) == ["Wallet → Food", "10.00 UAH", "Oct 18, 2026"]
     assert isinstance(row, ft.Container)
     assert isinstance(row.content, ft.Row)
     actions = row.content.controls[1:]
@@ -275,13 +275,12 @@ def test_manual_edit_saves_localized_date_and_named_zone_time_with_stable_id(
         dialog = page.show_dialog.call_args.args[0]
         editor = next(c for c in dialog.content.controls if isinstance(c, DateTimeFields))
         editor.occurred.value = "17.10.2026"
-        editor.stamp_date.value = "16.10.2026"
         editor.clock.value = "14:15"
         await dialog.actions[-1].on_click(MagicMock())
         edited = view.journal.ledger.transactions[-1]
         assert edited.id == transaction.id
         assert edited.date == date(2026, 10, 17)
-        assert edited.timestamp == "2026-10-16T14:15:00+03:00"
+        assert edited.timestamp == "2026-10-17T14:15:00+03:00"
         assert list((tmp_path / "backups").iterdir())
         assert view.journal.ledger.balances()["Assets:Cash"] == Decimal("90")
 
@@ -313,40 +312,7 @@ def test_readonly_transaction_opens_details_instead_of_hiding_its_postings(
     asyncio.run(scenario())
 
 
-def test_default_payee_prefills_new_expenses_but_never_overwrites_a_draft(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def scenario() -> None:
-        page = MagicMock(spec=ft.Page)
-        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
-        view = FinanceView()
-        view.preferences = MagicMock()
-        view.preferences.set = AsyncMock(return_value=True)
-        view.default_payee_field.value = "  Default shop  "
-        await view._save_default_payee(MagicMock())
-        assert view.default_payee == view.payee.value == "Default shop"
-        view.preferences.set.assert_awaited_once_with(DEFAULT_PAYEE_KEY, "Default shop")
-        view.payee.value = "Unsaved custom payee"
-        view.amount.value = "12.34"
-        view.default_payee_field.value = "Other shop"
-        await view._save_default_payee(MagicMock())
-        assert view.payee.value == "Unsaved custom payee"
-        assert view.amount.value == "12.34"
-        view.preferences.set.return_value = False
-        view.default_payee_field.value = "Failure"
-        await view._save_default_payee(MagicMock())
-        assert view.default_payee == "Other shop"
-        assert view.payee.value == "Unsaved custom payee"
-        view.preferences.set.return_value = True
-        view.default_payee_field.value = ""
-        await view._save_default_payee(MagicMock())
-        assert view.default_payee == ""
-        assert view.payee.value == "Unsaved custom payee"
-
-    asyncio.run(scenario())
-
-
-def test_default_payee_resets_after_success_not_after_validation_failure(
+def test_optional_payee_is_blank_and_collapsed_after_success_not_after_validation_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -354,7 +320,8 @@ def test_default_payee_resets_after_success_not_after_validation_failure(
         page = MagicMock(spec=ft.Page)
         monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
         view = FinanceView()
-        view.default_payee = "Default shop"
+        assert not view.payee.value
+        assert not view.payee_details.expanded
         view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await view.journal.load()
         await view.journal.create_account("Cash", "Wallet", "UAH", "100")
@@ -363,14 +330,18 @@ def test_default_payee_resets_after_success_not_after_validation_failure(
         view.category_choice.value = "Expenses:Food"
         view.amount.value = "10"
         view.payee.value = "One-off shop"
+        view.payee_details.expanded = True
         await view._add_expense(MagicMock())
         assert view.journal.ledger.transactions[-1].payee == "One-off shop"
-        assert view.payee.value == "Default shop"
+        assert view.payee.value == ""
+        assert not view.payee_details.expanded
         view.amount.value = "1000"
         view.payee.value = "Unsaved shop"
+        view.payee_details.expanded = True
         await view._add_expense(MagicMock())
         assert view.payee.value == "Unsaved shop"
         assert view.amount.value == "1000"
+        assert view.payee_details.expanded
 
     asyncio.run(scenario())
 
@@ -398,5 +369,129 @@ def test_accounting_today_can_come_from_device_zone_instead_of_python_host(tmp_p
                 "Synthetic",
                 "2100-01-02",
             )
+
+    asyncio.run(scenario())
+
+
+def test_new_datetime_group_has_one_date_and_both_stored_dates_follow_manual_changes() -> None:
+    editor = DateTimeFields("uk", "Europe/Kyiv", timestamp="2026-10-18T12:34:56+03:00")
+    assert len(editor.controls) == 3
+    assert editor.values() == ("2026-10-18", "2026-10-18T12:34:56+03:00")
+    editor.occurred.value = "17.10.2026"
+    editor.clock.value = "14:15"
+    assert editor.values() == ("2026-10-17", "2026-10-17T14:15:00+03:00")
+
+
+def test_new_expense_starts_empty_even_with_a_legacy_default_payee_preference(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        await DesktopPreferences().set("txncount.default-payee.v1", "Legacy shop")
+        page = MagicMock(spec=ft.Page)
+        page.platform = ft.PagePlatform.LINUX
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
+        view = FinanceView()
+        with pytest.raises(asyncio.CancelledError):
+            await view._lifecycle()
+        assert not view.payee.value
+        assert not view.payee_details.expanded
+        assert view.payee_details.maintain_state
+        assert not hasattr(view, "default_payee_field")
+
+    asyncio.run(scenario())
+
+
+def test_description_is_prominent_and_currency_settings_are_advanced_in_all_languages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+    view = FinanceView()
+    for language in ("en", "uk", "ru"):
+        view.language = language
+        view._refresh_labels()
+        assert view.description.multiline and view.description.min_lines == 2
+        assert view.description.text_size == 17
+        assert view.description.width is None
+        assert view.description in view.expense_screen.controls
+        assert view.payee not in view.expense_screen.controls
+        assert view.payee in (view.payee_details.controls or [])
+        assert not view.payee_details.expanded
+        assert view.advanced_settings in view.settings_screen.controls
+        assert not view.advanced_settings.expanded
+        assert view.operating_currencies in (view.advanced_settings.controls or [])
+        assert view.operating_currencies.label == translate(language, "crud_operating")
+        assert isinstance(view.operating_currencies.label, str)
+        assert "Fava" not in view.operating_currencies.label
+        assert translate(language, "crud_operating_help") in texts(
+            ft.Column(view.advanced_settings.controls or [])
+        )
+    view._apply_layout(390)
+    assert view.description.width == 342
+    view._apply_layout(1366)
+    assert view.description.width == 1082
+    view._apply_layout(2000)
+    assert view.description.width == 1132
+
+
+def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draft_is_kept(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        view = FinanceView()
+        view.timezone_name = "Europe/Kyiv"
+        journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_account("Cash", "Wallet", "UAH", "100")
+        await journal.create_category("Food", "Food")
+        await journal.add_expense("Assets:Cash", "Expenses:Food", "10", "Saved shop", "2026-01-01")
+        original = journal.ledger.transactions[-1]
+        stamp = "2026-01-02T00:30:00.123456Z"
+        source = journal.source.replace(original.timestamp, stamp)
+        (tmp_path / FILENAME).write_text(source)
+        await journal.load()
+        event = MagicMock()
+        event.control.data = original.id
+        view._edit_transaction(event)
+        dialog = page.show_dialog.call_args.args[0]
+        tile = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
+        assert not tile.expanded
+        assert tile.controls
+        payee = next(c for c in tile.controls if isinstance(c, ft.TextField))
+        assert payee.value == "Saved shop"
+        when = next(c for c in dialog.content.controls if isinstance(c, DateTimeFields))
+        assert when.occurred.value == "01/02/2026"
+        dialog.content.controls[3].value = "12"
+        await dialog.actions[-1].on_click(MagicMock())
+        saved = next(t for t in journal.ledger.transactions if t.id == original.id)
+        assert saved.payee == "Saved shop"
+        assert saved.date == date(2026, 1, 1)
+        assert saved.timestamp == stamp
+
+        view._edit_transaction(event)
+        dialog = page.show_dialog.call_args.args[0]
+        tile = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
+        assert tile.controls
+        payee = next(c for c in tile.controls if isinstance(c, ft.TextField))
+        payee.value = "Draft shop"
+        tile.expanded = True
+        description = next(
+            c for c in dialog.content.controls if isinstance(c, ft.TextField) and c.multiline
+        )
+        description.value = "Unsaved\nsecond line"
+        external = journal.source + "\n; external change\n"
+        (tmp_path / FILENAME).write_text(external)
+        await dialog.actions[-1].on_click(MagicMock())
+        assert view.error_message
+        assert payee.value == "Draft shop"
+        assert description.value == "Unsaved\nsecond line"
+        assert tile.expanded
+        assert (tmp_path / FILENAME).read_text() == external
 
     asyncio.run(scenario())

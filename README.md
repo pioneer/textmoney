@@ -14,14 +14,17 @@ database, or backend service.
 - Record expenses; edit their date/time, amount, account, category, payee and
   description. Permanently delete ordinary expenses after confirmation.
 - Delete unused accounts/categories; keep those with history via deactivation.
-- Configure one or more Beancount operating currencies in Settings for Fava.
+- Configure journal display currencies under Advanced settings; new account
+  currencies are added automatically without replacing existing choices.
 - Review account balances, recent activity, and transaction history.
 - Browse the same features in adaptive phone, tablet, and desktop layouts.
-- Use English, Ukrainian, or Russian; follow system light/dark appearance or
+- Follow the device language with explicit **System** selection, or choose
+  English, Ukrainian, or Russian; follow system light/dark appearance or
   choose a theme explicitly.
 - Follow the device timezone or select an IANA timezone such as `Europe/Kyiv`.
   Read dates in the app language; enter dates/times manually or through pickers.
-- Set a device-local default payee for new expenses, overridable per expense.
+- Enter a prominent multiline description and one date/time group. An optional
+  shop/recipient starts blank and stays hidden until expanded.
 - Browse compact lists: expenses show account → category and one amount;
   edit/delete use icons with translated tooltips. Details stay in the editor.
 - Make verified backups and detect external edits before saving.
@@ -87,11 +90,13 @@ Accounts and categories with history offer an Active checkbox instead of
 deletion; inactive items stay in history/balances but cannot be used for new
 expenses. Deactivating a parent category also hides its descendants from choices.
 
-For an existing journal, open **Settings → Operating currencies (Fava)**,
+For an existing journal, open **Settings → Advanced → Journal display currencies**,
 enter e.g. `UAH USD EUR`, and save. Existing currencies are displayed without
-modifying the file on load. A new account initializes the first operating
-currency when none is configured. These options configure display only;
-TxnCount never converts or aggregates balances across currencies.
+modifying the file on load. Creating an account adds its currency if missing,
+retaining existing configuration. These standard Beancount `operating_currency`
+options organize amounts when viewing the journal in compatible applications;
+accounts keep their own currencies. TxnCount never converts money or aggregates
+balances across currencies.
 
 On a desktop with Fava installed, open the same root file:
 
@@ -105,17 +110,27 @@ request**: changing an expense's year changes its date in the same file; yearly
 files and migration are deferred.
 
 In **Settings**, keep **Timezone → System** to follow this device, or select a
-named timezone and save. Timezone/default-payee preferences are local, not
+named timezone and save. Timezone preferences are local, not
 synchronized journal configuration. Existing timestamps are displayed in the
-selected zone without rewriting them. The accounting date remains separate from
-the timestamp date; both dates and the time have manual fields and picker
-buttons. English manual dates use `MM/DD/YYYY`; Ukrainian/Russian use
+selected zone without rewriting them. Forms show one date and time with manual
+fields and picker buttons. Unchanged values retain the original accounting date
+and exact timestamp, even if legacy entries have differing dates. Editing the
+date or time sets both from the visible date/time. English manual dates use
+`MM/DD/YYYY`; Ukrainian/Russian use
 `DD.MM.YYYY`, with 24-hour times. Display dates use localized month names.
 Ambiguous/nonexistent daylight-saving times are rejected rather than guessed;
 an unchanged existing timestamp remains intact.
 
-Set **Default payee** to prefill each new expense. Leave it blank for no default.
-Changing it does not overwrite a draft or update any existing transaction.
+**Language → System** follows the device's language preferences, falling back
+to English for unsupported languages. Explicit English/Ukrainian/Russian
+choices remain fixed until you choose System again. This choice persists locally.
+
+The optional **Shop / recipient** means who receives the money, not who pays or
+the expense category. Expand it only when needed; new expenses always start
+blank. Existing saved recipients remain intact when editing other fields.
+Earlier default-payee preferences are ignored, not applied to new transactions.
+Descriptions accept line breaks inside quoted journal strings; embedded quotes
+and backslashes are escaped rather than inserting new directives.
 
 For the latest APK, recovery behavior and Android device checklist, read the
 [CRUD/Fava guide](docs/crud-fava.md). The underlying restricted file profile is

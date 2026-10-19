@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import pytest
 from beancount import loader
+from beancount.core.data import Transaction as OfficialTransaction
 from fava.core import FavaLedger
 
 from app.domain.ledger import LedgerError
@@ -34,6 +35,149 @@ def assert_official(source: str, currencies: tuple[str, ...] = ("UAH",)) -> None
     _, errors, options = loader.load_string(source)
     assert not errors
     assert tuple(options["operating_currency"]) == currencies
+
+
+def test_empty_payee_and_multiline_description_roundtrip_without_directive_injection(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        description = 'First "line" \\ receipt\r\n2026-01-01 open Assets:Injected UAH'
+        await journal.add_expense(
+            "Assets:Cash",
+            "Expenses:Food:Groceries",
+            "1",
+            " \t ",
+            "2026-01-01",
+            description=description,
+        )
+        transaction = next(
+            t for t in journal.ledger.transactions if t.narration.startswith("First")
+        )
+        identifier = transaction.id
+        assert transaction.payee == ""
+        assert transaction.narration == description.replace("\r\n", "\n")
+        assert "Assets:Injected" not in {a.id for a in journal.ledger.accounts}
+        assert_official(journal.source)
+        entries, _, _ = loader.load_string(journal.source)
+        official = next(e for e in entries if e.meta.get("id") == identifier)
+        assert isinstance(official, OfficialTransaction)
+        assert official.narration == transaction.narration
+        assert not official.payee
+        await journal.edit_expense(
+            identifier,
+            "Assets:Cash",
+            "Expenses:Food:Groceries",
+            "2",
+            "Shop",
+            "2026-01-01",
+            transaction.timestamp,
+            "Edited\nsecond line",
+            journal.source,
+        )
+        await journal.edit_expense(
+            identifier,
+            "Assets:Cash",
+            "Expenses:Food:Groceries",
+            "2",
+            "",
+            "2026-01-01",
+            transaction.timestamp,
+            "Edited\nsecond line",
+            journal.source,
+        )
+        await journal.load()
+        saved = next(t for t in journal.ledger.transactions if t.id == identifier)
+        assert saved.payee == ""
+        assert saved.narration == "Edited\nsecond line"
+        assert_official(journal.source)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "description", ["x" * 501, "not\tallowed", "not\rallowed", "not\x00allowed"]
+)
+def test_invalid_description_leaves_source_and_backups_unchanged(
+    tmp_path: Path,
+    description: str,
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        before = journal.source
+        backups = list((tmp_path / "backups").iterdir())
+        transaction = journal.ledger.transactions[-1]
+        with pytest.raises(LedgerError, match="crud_description"):
+            await journal.add_expense(
+                "Assets:Cash",
+                "Expenses:Food:Groceries",
+                "1",
+                "",
+                "2026-01-01",
+                description=description,
+            )
+        with pytest.raises(LedgerError, match="crud_description"):
+            await journal.edit_expense(
+                transaction.id,
+                "Assets:Cash",
+                "Expenses:Food:Groceries",
+                "1",
+                "",
+                "2026-01-01",
+                transaction.timestamp,
+                description,
+                before,
+            )
+        assert journal.source == (tmp_path / FILENAME).read_text() == before
+        assert list((tmp_path / "backups").iterdir()) == backups
+
+    asyncio.run(scenario())
+
+
+def test_new_account_appends_missing_display_currency_preserving_existing_configuration(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        await journal.set_operating_currencies("UAH EUR", journal.source)
+        original = journal.source + '\n; keep this configuration\noption "title" "Synthetic"\n'
+        (tmp_path / FILENAME).write_text(original)
+        await journal.load()
+        assert journal.source == original
+        await journal.create_account("Usd", "Dollar wallet", "USD")
+        assert journal.source.startswith(original)
+        assert_official(journal.source, ("UAH", "EUR", "USD"))
+        await journal.create_account("OtherUsd", "Other dollar wallet", "USD")
+        assert journal.source.count('option "operating_currency" "USD"') == 1
+        assert journal.source.startswith(original)
+        assert any(p.read_text() == original for p in (tmp_path / "backups").iterdir())
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failure", ["backup", "conflict", "validation"])
+def test_failed_new_account_never_saves_currency_separately(tmp_path: Path, failure: str) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        original = journal.source
+        expected = original
+        error: type[Exception] = LedgerError
+        if failure == "backup":
+            journal.storage.folder.backup = AsyncMock(side_effect=StorageError("Synthetic"))
+            error = StorageError
+        elif failure == "conflict":
+            expected += "\n; external change\n"
+            (tmp_path / FILENAME).write_text(expected)
+            error = ConflictError
+        with pytest.raises(error):
+            await journal.create_account(
+                "Usd", "Dollar wallet", "USD", "-1" if failure == "validation" else ""
+            )
+        assert (tmp_path / FILENAME).read_text() == expected
+        assert journal.source == original
+        assert "USD" not in journal.ledger.operating_currencies
+
+    asyncio.run(scenario())
 
 
 def test_expense_edit_preserves_id_metadata_tags_comments_and_unrelated_bytes(
@@ -183,7 +327,7 @@ def test_category_hierarchy_lifecycle_and_unused_deletion(tmp_path: Path) -> Non
         await journal.delete_category("Expenses:Unused", journal.source)
         assert "Assets:Unused" not in journal.source
         assert "Expenses:Unused" not in journal.source
-        assert_official(journal.source)
+        assert_official(journal.source, ("UAH", "USD"))
 
     asyncio.run(scenario())
 
@@ -332,7 +476,7 @@ def test_expense_can_change_account_currency_category_and_year_without_conversio
         changed = next(t for t in journal.ledger.transactions if t.id == original.id)
         assert changed.date == date(2025, 12, 31)
         assert {p.currency for p in changed.postings} == {"USD"}
-        assert_official(journal.source)
+        assert_official(journal.source, ("UAH", "USD"))
 
     asyncio.run(scenario())
 

@@ -41,11 +41,15 @@ async def smoke():
     expense = next(t for t in journal.ledger.transactions if t.kind == "expense")
     opening_id = next(t.id for t in journal.ledger.transactions if t.kind == "opening")
     await journal.edit_expense(
-        expense.id, "Assets:Cash", "Expenses:Food:Groceries", "7", "Edited",
-        date.today().isoformat(), expense.timestamp, "Synthetic description", journal.source,
+        expense.id, "Assets:Cash", "Expenses:Food:Groceries", "7", "",
+        date.today().isoformat(), expense.timestamp, "Synthetic\\nsecond line", journal.source,
     )
-    assert any(t.id == expense.id and t.narration == "Synthetic description"
+    await journal.load()
+    assert any(t.id == expense.id and not t.payee and t.narration == "Synthetic\\nsecond line"
                for t in journal.ledger.transactions)
+    await journal.create_account("Eur", "Euro wallet", "EUR")
+    assert journal.ledger.operating_currencies == ("UAH", "EUR")
+    print("Simplified expense APK payload: blank payee/multiline/display currency auto-add PASS")
     await journal.edit_account("Assets:Cash", "Renamed", "120", False, journal.source)
     await journal.edit_category("Expenses:Food:Groceries", "Renamed", False, journal.source)
     await journal.set_operating_currencies("UAH USD EUR", journal.source)

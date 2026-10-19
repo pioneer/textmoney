@@ -21,6 +21,7 @@ from app.domain.ledger import (
     Transaction,
     account_path,
     currency_code,
+    description_text,
     display_name,
     money,
 )
@@ -179,8 +180,7 @@ class Journal:
             raise LedgerError("crud_datetime") from exc
         if stamp.utcoffset() is None:
             raise LedgerError("crud_datetime")
-        if len(description) > 500 or any(ord(char) < 32 for char in description):
-            raise LedgerError("crud_description")
+        description = description_text(description)
         ledger = replace(
             self.ledger,
             transactions=tuple(t for t in self.ledger.transactions if t.id != identifier),
@@ -195,9 +195,10 @@ class Journal:
 
             def update() -> None:
                 entry.date = updated.date
-                entry.payee = updated.payee
+                entry.payee = updated.payee or None
                 entry.narration = description
-                entry.meta["timestamp"] = updated.timestamp
+                if timestamp != original.timestamp:
+                    entry.meta["timestamp"] = updated.timestamp
                 for posting in entry.postings:
                     if not isinstance(posting, models.Posting):
                         continue
@@ -399,7 +400,7 @@ class Journal:
             raise LedgerError("That technical account ID already exists.")
         balance = money(opening.strip() or "0")
         text = open_account(account)
-        if not self.ledger.operating_currencies:
+        if account.currency not in self.ledger.operating_currencies:
             text = (
                 render(models.Option.from_value("operating_currency", account.currency))
                 + "\n\n"
@@ -473,6 +474,5 @@ class Journal:
             str(uuid4()),
             today=self.today(),
         )
-        if len(description) > 500 or any(ord(char) < 32 for char in description):
-            raise LedgerError("crud_description")
+        description = description_text(description)
         return await self._save(transaction_text(replace(transaction, narration=description)))

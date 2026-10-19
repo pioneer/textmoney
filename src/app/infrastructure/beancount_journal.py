@@ -169,7 +169,7 @@ class JournalCodec:
                     Transaction(
                         identifier,
                         entry.date,
-                        parsed.isoformat(),
+                        stamp,
                         entry.payee or "",
                         entry.narration or "",
                         tuple(postings),

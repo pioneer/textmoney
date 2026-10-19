@@ -23,19 +23,19 @@ class DateTimeFields(ft.Column):
         self.language = language
         self.zone = zone
         self.device_zone = device_zone
-        self.original_timestamp = timestamp
         stamp = local_datetime(
             datetime.fromisoformat(timestamp) if timestamp else datetime.now().astimezone(), zone
         )
-        self.occurred = ft.TextField(value=date_input(occurred or stamp.date(), language))
-        self.stamp_date = ft.TextField(value=date_input(stamp.date(), language))
+        self.original_occurred = occurred or stamp.date()
+        self.original_timestamp = timestamp or stamp.isoformat()
+        self.occurred = ft.TextField(value=date_input(stamp.date(), language))
         self.clock = ft.TextField(value=stamp.strftime("%H:%M:%S"))
-        self.original_fields = (self.stamp_date.value, self.clock.value)
+        self.original_fields = self._field_values()
         self.initial_values = self._field_values()
         self._labels()
 
-    def _field_values(self) -> tuple[str | None, str | None, str | None]:
-        return self.occurred.value, self.stamp_date.value, self.clock.value
+    def _field_values(self) -> tuple[str | None, str | None]:
+        return self.occurred.value, self.clock.value
 
     @property
     def pristine(self) -> bool:
@@ -49,16 +49,13 @@ class DateTimeFields(ft.Column):
         if zone == self.zone:
             return
         pristine = self.pristine
-        _, timestamp = self.values()
+        occurred, timestamp = self.values()
         stamp = local_datetime(datetime.fromisoformat(timestamp), zone)
-        self.stamp_date.value = date_input(stamp.date(), self.language)
+        self.occurred.value = date_input(stamp.date(), self.language)
         self.clock.value = stamp.strftime("%H:%M:%S")
-        if self.original_timestamp is not None:
-            original = local_datetime(datetime.fromisoformat(self.original_timestamp), zone)
-            self.original_fields = (
-                date_input(original.date(), self.language),
-                original.strftime("%H:%M:%S"),
-            )
+        self.original_occurred = date.fromisoformat(occurred)
+        self.original_timestamp = timestamp
+        self.original_fields = self._field_values()
         self.zone = zone
         if pristine:
             self.initial_values = self._field_values()
@@ -69,15 +66,12 @@ class DateTimeFields(ft.Column):
 
     def _labels(self) -> None:
         self.occurred.label = self.tr("date")
-        self.stamp_date.label = self.tr("recorded_date")
-        for field in (self.occurred, self.stamp_date):
-            field.hint_text = self.tr("date_hint")
-            field.helper = self.tr("date_hint")
+        self.occurred.hint_text = self.tr("date_hint")
+        self.occurred.helper = self.tr("date_hint")
         self.clock.label = self.tr("time")
         self.clock.hint_text = self.tr("time_hint")
         self.controls = [
             self._date_row(self.occurred),
-            self._date_row(self.stamp_date),
             ft.Row(
                 [
                     self.clock,
@@ -98,7 +92,6 @@ class DateTimeFields(ft.Column):
                 ),
                 size=12,
             ),
-            ft.Text(self.tr("timestamp_help"), size=12),
         ]
         self.clock.expand = True
 
@@ -107,31 +100,23 @@ class DateTimeFields(ft.Column):
             return
         pristine = self.pristine
         try:
-            dates = [
-                parse_date_input(field.value or "", self.language)
-                for field in (self.occurred, self.stamp_date)
-            ]
+            value = parse_date_input(self.occurred.value or "", self.language)
         except LedgerError:
             # A partially typed date retains its original format and hint.
             return
-        original_stamp_date = parse_date_input(self.original_fields[0] or "", self.language)
-        for field, value in zip((self.occurred, self.stamp_date), dates, strict=True):
-            field.value = date_input(value, language)
-        self.original_fields = (date_input(original_stamp_date, language), self.original_fields[1])
+        original_date = parse_date_input(self.original_fields[0] or "", self.language)
+        self.occurred.value = date_input(value, language)
+        self.original_fields = (date_input(original_date, language), self.original_fields[1])
         self.language = language
         if pristine:
             self.initial_values = self._field_values()
         self._labels()
 
     def values(self) -> tuple[str, str]:
+        if self._field_values() == self.original_fields:
+            return self.original_occurred.isoformat(), self.original_timestamp
         occurred = parse_date_input(self.occurred.value or "", self.language)
-        if (
-            self.original_timestamp is not None
-            and (self.stamp_date.value, self.clock.value) == self.original_fields
-        ):
-            return occurred.isoformat(), self.original_timestamp
-        stamp_day = parse_date_input(self.stamp_date.value or "", self.language)
-        return occurred.isoformat(), wall_timestamp(stamp_day, self.clock.value or "", self.zone)
+        return occurred.isoformat(), wall_timestamp(occurred, self.clock.value or "", self.zone)
 
     def _date_row(self, field: ft.TextField) -> ft.Row:
         field.expand = True

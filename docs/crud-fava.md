@@ -45,7 +45,14 @@ balance may require an external editor; the app refuses unsafe changes.
 
 ## Fava and operating currencies
 
-Settings accepts one or more space-separated currency codes, e.g. `UAH USD EUR`.
+**Settings → Advanced → Journal display currencies** accepts one or more
+space-separated currency codes, e.g. `UAH USD EUR`. The UI explains their purpose
+without requiring knowledge of Fava:
+
+> Currencies used to organize amounts when viewing this journal in compatible
+> applications. Accounts keep their own currencies; this setting does not
+> convert money or combine balances.
+
 The root file contains separate standard Beancount options:
 
 ```beancount
@@ -56,9 +63,11 @@ option "operating_currency" "EUR"
 
 Loading an existing file does not modify its configuration. Saving settings
 updates only operating-currency directives and retains titles, comments and all
-other source. Blank/invalid lists are rejected. New account creation initializes
-an operating currency from the account currency only when none is configured;
-it does not replace an existing list. Use Settings to extend that list.
+other source. Blank/invalid lists are rejected. New account creation appends
+its currency if missing, retaining existing choices and their order. The option
+and account declaration use one validated, backed-up save, never separate writes.
+Loading older journals alone never adds options. Existing options are not
+removed when an unused account is deleted.
 These options do not convert or combine currencies.
 
 Fava **1.30.16** was added as a desktop development-only test oracle alongside
@@ -92,10 +101,10 @@ the final check/write window remains possible. A partial/uncertain write blocks
 further saves; inspect the verified backup and restore externally if necessary.
 Take an independent backup before upgrading a real-data installation.
 
-## Compact lists, local dates and defaults (build 8)
+## Compact lists and simpler expense entry (build 9)
 
 Ordinary expenses show `account → category`, one unsigned movement amount and a
-small accounting-date/payee subtitle. Opening entries show a localized opening
+small localized accounting-date subtitle, without payee. Opening entries show a localized opening
 label and one amount. Split/multi-currency entries show a multiple-postings label
 instead of inventing a combined amount; their complete postings remain visible
 in read-only details. Account rows retain name/balance and inactive state;
@@ -103,18 +112,24 @@ category rows retain names/hierarchy. Technical IDs, descriptions and timestamps
 are kept out of lists. Edit/delete are icons with translated tooltips;
 confirmation and historical-deletion safeguards are unchanged.
 
-Settings adds device-local **Timezone** (System by default, or a named IANA zone)
-and **Default payee** (blank by default). A default prefills new expenses but
-remains editable; a changed setting never replaces an existing draft or modifies
-old transactions. Successful saves reset the next payee to the default; failed
-saves retain the draft.
+Settings has a device-local **Timezone** (System by default, or a named IANA zone).
+Expense forms have a prominent full-width multiline description and a collapsed
+optional **Shop / recipient** section. This is the recipient, not the payer or
+category. New payees start blank; the earlier default-payee setting is removed
+and its stored preference is ignored. Saved payees survive unrelated edits even
+while hidden. Successful new saves clear/collapse this section; failures retain
+the draft and its expansion state. Descriptions permit line breaks (500-character
+limit); disallowed control characters are rejected. Line breaks stay within
+quoted journal strings; embedded quotes and backslashes are escaped.
 
 Display dates follow the selected app language, e.g. `Oct 18, 2026`,
 `18 жовт. 2026`, `18 окт. 2026`. Manual date fields use `MM/DD/YYYY` for English
 and `DD.MM.YYYY` for Ukrainian/Russian, with visible format hints. All three
-locales use explicit 24-hour times. Accounting date, timestamp date and time have
-manual fields and calendar/clock pickers; the separate dates make existing
-entries with different accounting/recording dates editable without data loss.
+locales use explicit 24-hour times. Forms show just one date and time, both
+manually editable with calendar/clock pickers. They initially show the timestamp
+in the selected timezone. If untouched, the exact original timestamp and
+accounting date remain intact, including existing differences. Editing either
+date or time sets both the accounting date and timestamp from the visible group.
 Invalid partially typed dates retain their original format/hint across a
 language change. Date pickers cover 1970–2100; manual fields retain validation.
 
@@ -177,15 +192,63 @@ emulator is attached. Windows and this milestone's Android UI are untested.
 - An initial build attempt was stopped before completion to include a
   browser-discovered editable-dropdown fix; the final build is listed below.
 
+### Build 9 simpler-form verification
+
+- `uv run inv format lint typecheck`: Ruff/Pyright clean.
+- Focused `PYTEST_ADDOPTS='-q tests/test_crud.py tests/test_time_ui.py' uv run inv test`:
+  blank payee, multiline narration, and currency auto-add safety passed.
+- `uv run inv check`: **226 tests passed**, including official Beancount/Fava
+  checks, hidden-payee preservation, explicit payee clearing, newline/quote/
+  backslash round-trips, invalid descriptions, unchanged differing dates and
+  exact `Z`/subsecond timestamp preservation, and failed account creation never
+  saving currency options separately.
+- Live isolated synthetic-data web smoke at 390 x 844 and 1366 x 900:
+  one date plus time, a larger full-width description, blank hidden payee and
+  successful blank-payee save, multiline source read-back, an amount edit with
+  saved hidden payee/date/ID/receipt metadata preserved, compact payee-free rows,
+  Ukrainian calendar selection without a day shift, and Advanced currencies
+  retaining expansion through language change. No real financial data used.
+- `uv run inv format check build-android`: **226 tests passed**, APK build
+  succeeded with version code **9**.
+- `uv run inv check-beancount-apk check`: exact APK Python payload passed
+  blank-payee, multiline-description, currency-auto-add, parser/CRUD and bundled
+  timezone smoke checks on host CPython 3.14.7; final **226 tests passed**.
+- SDK `aapt dump badging` and `apksigner verify --print-certs`: build identity
+  and unchanged debug certificate verified. `adb devices`: no device attached.
+
+Android/Windows runtime behavior for this follow-up still requires device
+testing. SAF storage behavior is unchanged.
+
 ## APK
 
-[build/apk/txncount.apk](../build/apk/txncount.apk), **build 8**, 141,392,626
+### Build 10 Settings follow-up
+
+The user accepted the simplified iteration. Settings now explicitly describes
+the journal as Beancount format in all three languages. Language choices are
+System, English, Ukrainian and Russian. System follows host locale changes
+(English fallback); explicit choices remain fixed. Both modes persist across
+restarts, and switching back to System uses the latest reported device language.
+Verify selecting System, restarting, changing the device language and switching
+to/from an explicit app language on Android.
+
+- `uv run inv format lint typecheck`: clean.
+- `PYTEST_ADDOPTS='-q tests/test_localization.py' uv run inv test`: 25 passed.
+- Live isolated compact browser check: Beancount wording, all four language
+  choices, Ukrainian selection and switching back to System; the stored
+  preference was `system`. No financial files were accessed.
+- `uv run inv check build-android`: **235 tests passed**, build **10** succeeded.
+- `uv run inv check-beancount-apk check`: exact APK payload smoke passed on
+  host CPython; final **235 tests passed**, Ruff/Pyright clean.
+- SDK `aapt`/`apksigner`: version code 10 and unchanged signing certificate
+  verified. This is not physical Android or Windows runtime verification.
+
+[build/apk/txncount.apk](../build/apk/txncount.apk), **build 10**, 141,391,482
 bytes (about 135 MiB). Package remains `com.pioneer.financepoc`, label
 `TxnCount`, version 0.1.0; Android 7.0+ (target API 36). Packaged ABIs:
 `arm64-v8a`, `armeabi-v7a`, `x86_64`.
 
 APK SHA-256:
-`3103fb3b4c929fdc4a0e72b74e78fb8861b073ecbc37efc2467b0f4175aeaa8c`.
+`6460e828d6918b46f340e9b9291bb510b92ffdd606d78cf1b36abb66f00bb66c`.
 
 Update without uninstalling:
 
@@ -205,6 +268,8 @@ Use a separate synthetic folder or a copy, not the only copy of your real data.
    the existing SAF grant. Verify existing accounts/history still load.
 2. Set `UAH USD EUR` in Settings; restart and confirm persistence. Open the same
    file in desktop Fava: the missing-operating-currency warning must be absent.
+   Find the field under **Advanced → Journal display currencies**. Create an
+   account with a missing currency: it must be appended without losing choices.
 3. Edit an expense's fields, including date/time and year. Check the same ID,
    metadata/comments, recalculated balances and verified backup.
    Check both manual fields and calendar/clock pickers, especially near midnight.
@@ -227,6 +292,12 @@ Use a separate synthetic folder or a copy, not the only copy of your real data.
 10. Check localized month names in history and numeric format hints in forms.
     Exercise date/time manual entry and pickers in every app language. Try DST
     gaps/overlaps: new ambiguous/nonexistent times must be refused explicitly.
-11. Save a default payee, restart, add an expense and override it once. The next
-    new expense should use the default again. A failed save must keep the
-    one-off payee and other draft values; clearing the setting disables it.
+11. Add an expense without opening Shop / recipient; it should save blank.
+    Expand the section and set a recipient on another expense. Edit its amount
+    while the recipient stays collapsed: the saved recipient must remain.
+    A failed/conflicting save keeps all draft text. Confirm no payee in lists
+    or default-payee setting; new expenses start blank after restart.
+12. Confirm only one visible date and time; try manual input and both pickers.
+    Save a description with multiple lines, quotes and backslashes; reopen it
+    and check the text, ID, metadata, backup and balance. Editing a legacy
+    entry without touching its date/time must retain both stored dates exactly.

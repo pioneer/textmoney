@@ -11,7 +11,7 @@ from zoneinfo import available_timezones
 import flet as ft
 from finance_saf import FinanceSaf
 
-from app.domain.ledger import Account, Category, LedgerError, Transaction, display_name
+from app.domain.ledger import Account, Category, LedgerError, Transaction
 from app.domain.storage import ConflictError
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -35,7 +35,6 @@ FOLDER_KEY = "financepoc.folder.v1"
 LANGUAGE_KEY = "txncount.language.v1"
 THEME_KEY = "txncount.theme.v1"
 TIMEZONE_KEY = "txncount.timezone.v1"
-DEFAULT_PAYEE_KEY = "txncount.default-payee.v1"
 COMPACT_MAX_WIDTH = 599
 MEDIUM_MAX_WIDTH = 1023
 MAX_CONTENT_WIDTH = 1180
@@ -65,10 +64,10 @@ class FinanceView(ft.Row):
         self.lock = asyncio.Lock()
         self.language = "en"
         self.manual_language = False
+        self.system_language_name = "en"
         self.theme_name = "system"
         self.timezone_name = "system"
         self.system_zone = "system"
-        self.default_payee = ""
         self.screen_class = ScreenClass.COMPACT
         self.current_screen = "home"
         self.message_key = "no_folder"
@@ -88,12 +87,30 @@ class FinanceView(ft.Row):
         self.category_choice = ft.Dropdown(width=320, options=[])
         self.amount = ft.TextField(width=320)
         self.payee = ft.TextField(width=320, keyboard_type=ft.KeyboardType.NAME)
+        self.payee_details = ft.ExpansionTile(
+            title=self.tr("payee"),
+            controls=[self.payee, ft.Text(self.tr("payee_help"), size=12)],
+            maintain_state=True,
+            expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
+        )
         self.expense_when = DateTimeFields(self.language, "system")
         self.expense_date = self.expense_when.occurred
-        self.description = ft.TextField(width=320)
+        self.description = ft.TextField(multiline=True, min_lines=2, max_lines=5, text_size=17)
         self.operating_currencies = ft.TextField(width=320)
         self.operating_save = ft.Button(on_click=self._save_operating_currencies)
         self.operating_cancel = ft.TextButton(on_click=self._reset_operating_currencies)
+        self.advanced_settings = ft.ExpansionTile(
+            title=self.tr("advanced"),
+            controls=[
+                ft.Text(self.tr("crud_operating_help")),
+                self.operating_currencies,
+                ft.Text(self.tr("display_currency_codes"), size=12),
+                ft.Row([self.operating_save, self.operating_cancel], wrap=True),
+            ],
+            maintain_state=True,
+            controls_padding=16,
+            expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
+        )
         self.operating_source = ""
         self.operating_original = ""
         self.operating_journal: Journal | None = None
@@ -120,8 +137,8 @@ class FinanceView(ft.Row):
         self.diagnostics_toggle = ft.TextButton(on_click=self._diagnostics)
         self.diagnostics = ft.Column(visible=False, spacing=12)
         self.language_choice = ft.Dropdown(
-            options=[ft.DropdownOption(key=code, text=code) for code in LANGUAGES],
-            value=self.language,
+            options=[],
+            value="system",
             on_select=self._language_changed,
         )
         self.theme_choice = ft.Dropdown(
@@ -140,8 +157,6 @@ class FinanceView(ft.Row):
             ],
         )
         self.timezone_save = ft.Button(on_click=self._save_timezone)
-        self.default_payee_field = ft.TextField(width=320, max_length=120)
-        self.default_payee_save = ft.Button(on_click=self._save_default_payee)
 
         self.welcome_content = ft.Column(spacing=12)
         self.welcome = ft.Container(
@@ -212,7 +227,7 @@ class FinanceView(ft.Row):
             self.account_choice,
             self.category_choice,
             self.amount,
-            self.payee,
+            self.payee_details,
             self.expense_when,
             self.description,
             self.operating_currencies,
@@ -292,9 +307,18 @@ class FinanceView(ft.Row):
         self.category_choice.label = self.tr("expense_category")
         self.amount.label = self.tr("amount")
         self.payee.label = self.tr("payee")
+        self.payee_details.title = self.tr("payee")
+        self.payee_details.controls = [self.payee, ft.Text(self.tr("payee_help"), size=12)]
         self.expense_when.set_language(self.language)
         self.description.label = self.tr("crud_description_label")
         self.operating_currencies.label = self.tr("crud_operating")
+        self.advanced_settings.title = self.tr("advanced")
+        self.advanced_settings.controls = [
+            ft.Text(self.tr("crud_operating_help")),
+            self.operating_currencies,
+            ft.Text(self.tr("display_currency_codes"), size=12),
+            ft.Row([self.operating_save, self.operating_cancel], wrap=True),
+        ]
         self.operating_save.content = self.tr("crud_save")
         self.operating_save.disabled = not (self.journal and self.journal.ready)
         self.operating_cancel.content = self.tr("crud_cancel")
@@ -309,9 +333,10 @@ class FinanceView(ft.Row):
         self.reload_button.content = self.tr("reload")
         self.language_choice.label = self.tr("language")
         self.language_choice.options = [
-            ft.DropdownOption(key=code, text=self.tr(f"language_{code}")) for code in LANGUAGES
+            ft.DropdownOption(key="system", text=self.tr("language_system")),
+            *[ft.DropdownOption(key=code, text=self.tr(f"language_{code}")) for code in LANGUAGES],
         ]
-        self.language_choice.value = self.language
+        self.language_choice.value = self.language if self.manual_language else "system"
         self.theme_choice.label = self.tr("appearance")
         self.theme_choice.options = [
             ft.DropdownOption(key="system", text=self.tr("theme_system")),
@@ -322,8 +347,6 @@ class FinanceView(ft.Row):
         self.timezone_choice.label = self.tr("timezone")
         self.timezone_choice.options[0].text = self.tr("timezone_system")
         self.timezone_save.content = self.tr("crud_save")
-        self.default_payee_field.label = self.tr("default_payee")
-        self.default_payee_save.content = self.tr("crud_save")
         self.diagnostics_toggle.content = self.tr(
             "diagnostics_hide" if self.diagnostics_visible else "diagnostics_show"
         )
@@ -424,14 +447,14 @@ class FinanceView(ft.Row):
                     self.account_choice,
                     self.category_choice,
                     self.amount,
-                    self.payee,
-                    self.expense_when,
-                    self.description,
                 ],
                 wrap=True,
                 spacing=12,
                 run_spacing=8,
             ),
+            self.description,
+            self.expense_when,
+            self.payee_details,
             ft.Row(
                 controls=[
                     self.expense_save,
@@ -464,10 +487,6 @@ class FinanceView(ft.Row):
                         self.access,
                         ft.Row([self.select_button, self.reload_button], wrap=True),
                         ft.Text(self.tr("sync_status")),
-                        ft.Divider(),
-                        ft.Text(self.tr("crud_operating_help")),
-                        self.operating_currencies,
-                        ft.Row([self.operating_save, self.operating_cancel], wrap=True),
                     ],
                     spacing=12,
                 ),
@@ -486,10 +505,6 @@ class FinanceView(ft.Row):
                         ft.Text(self.tr("timezone_help")),
                         self.timezone_choice,
                         self.timezone_save,
-                        ft.Text(self.tr("default_payee"), size=18),
-                        ft.Text(self.tr("default_payee_help")),
-                        self.default_payee_field,
-                        self.default_payee_save,
                     ],
                     spacing=12,
                 ),
@@ -507,6 +522,7 @@ class FinanceView(ft.Row):
                     spacing=12,
                 ),
             ),
+            self.advanced_settings,
             self.diagnostics_toggle,
             self.diagnostics,
         ]
@@ -552,6 +568,7 @@ class FinanceView(ft.Row):
             if self.page:
                 self.page.navigation_bar = None
         available = max(320, (width or 390) - rail_width - 48)
+        self.description.width = min(MAX_CONTENT_WIDTH - 48, available)
         self.accounts_panel.width = (
             520 if self.screen_class == ScreenClass.EXPANDED else min(320, available)
         )
@@ -774,7 +791,7 @@ class FinanceView(ft.Row):
         display = (
             self.tr(kind_key)
             if transaction.kind == "opening"
-            else transaction.payee or transaction.narration or self.tr(kind_key)
+            else transaction.narration or self.tr(kind_key)
         )
         outgoing = [p for p in transaction.postings if p.amount < 0]
         incoming = [p for p in transaction.postings if p.amount > 0]
@@ -811,8 +828,6 @@ class FinanceView(ft.Row):
         else:
             heading.append(ft.Text(self.tr("multiple_postings"), size=12))
         subtitle = format_date(transaction.date, self.language)
-        if transaction.payee:
-            subtitle += f" · {transaction.payee}"
         lines: list[ft.Control] = [
             ft.Row(heading, spacing=8),
             ft.Text(subtitle, size=12),
@@ -854,6 +869,10 @@ class FinanceView(ft.Row):
         if self.page.platform == ft.PagePlatform.ANDROID:
             self.bridge = FinanceSaf()
         try:
+            configuration = self.page.locale_configuration
+            locale = configuration.current_locale if configuration is not None else None
+            if locale is not None:
+                self.system_language_name = system_language([locale.language_tag])
             saved_language = await self.preferences.get(LANGUAGE_KEY)
             if isinstance(saved_language, str) and saved_language in LANGUAGES:
                 self.manual_language = True
@@ -863,10 +882,7 @@ class FinanceView(ft.Row):
                     configuration.current_locale = ft.Locale(language_code=saved_language)
             else:
                 self.manual_language = False
-                configuration = self.page.locale_configuration
-                locale = configuration.current_locale if configuration is not None else None
-                if locale is not None:
-                    self.language = system_language([locale.language_tag])
+                self.language = self.system_language_name
             saved_theme = await self.preferences.get(THEME_KEY)
             if isinstance(saved_theme, str) and saved_theme in {"system", "light", "dark"}:
                 self.theme_name = saved_theme
@@ -876,12 +892,6 @@ class FinanceView(ft.Row):
                 named_zone(saved_timezone)
                 self.timezone_name = saved_timezone
             self.timezone_choice.value = self.timezone_name
-            saved_payee = await self.preferences.get(DEFAULT_PAYEE_KEY)
-            if isinstance(saved_payee, str):
-                self.default_payee = display_name(saved_payee) if saved_payee else ""
-                self.default_payee_field.value = self.default_payee
-                if not self.payee.value:
-                    self.payee.value = self.default_payee
             await self._sync_system_zone()
             if self.expense_when.pristine:
                 self._reset_expense_clock()
@@ -982,23 +992,6 @@ class FinanceView(ft.Row):
             self._error(exc, notify=True)
         self.page.update()
 
-    async def _save_default_payee(self, event: ft.Event[ft.Button]) -> None:
-        try:
-            raw = (self.default_payee_field.value or "").strip()
-            value = display_name(raw) if raw else ""
-            if self.preferences is None or not await self.preferences.set(DEFAULT_PAYEE_KEY, value):
-                raise LedgerError("crud_payee_save")
-            if self.payee.value in {"", self.default_payee} and not (
-                self.amount.value or self.description.value
-            ):
-                self.payee.value = value
-            self.default_payee = value
-            self.default_payee_field.value = value
-            self._set_message("default_payee_saved")
-        except Exception as exc:
-            self._error(exc, notify=True)
-        self.page.update()
-
     def _apply_theme(self, value: str) -> None:
         self.theme_name = value
         if self.page is not None:
@@ -1010,13 +1003,13 @@ class FinanceView(ft.Row):
 
     async def _language_changed(self, event: ft.Event[ft.Dropdown]) -> None:
         language = event.control.value
-        if language not in LANGUAGES:
+        if language not in ("system", *LANGUAGES):
             return
-        self.language = language
-        self.manual_language = True
+        self.manual_language = language != "system"
+        self.language = language if self.manual_language else self.system_language_name
         configuration = self.page.locale_configuration
         if configuration is not None:
-            configuration.current_locale = ft.Locale(language_code=language)
+            configuration.current_locale = ft.Locale(language_code=self.language)
         self._refresh()
         self.page.update()
         if self.preferences is None:
@@ -1038,9 +1031,15 @@ class FinanceView(ft.Row):
             self.page.update()
 
     def _host_locale_changed(self, event: ft.LocaleChangeEvent) -> None:
-        if self.manual_language or not event.locales:
+        self.system_language_name = system_language(
+            [locale.language_tag for locale in event.locales]
+        )
+        if self.manual_language:
             return
-        self.language = system_language([locale.language_tag for locale in event.locales])
+        self.language = self.system_language_name
+        configuration = self.page.locale_configuration
+        if configuration is not None:
+            configuration.current_locale = ft.Locale(language_code=self.language)
         self._refresh()
         self.page.update()
 
@@ -1241,17 +1240,21 @@ class FinanceView(ft.Row):
                             [
                                 ft.Text(self.tr("crud_transaction_readonly")),
                                 ft.Text(transaction.id, selectable=True),
-                                ft.Text(format_date(transaction.date, self.language)),
                                 ft.Text(
                                     format_timestamp(
                                         transaction.timestamp, self.language, self._effective_zone()
                                     )
                                 ),
-                                ft.Text(transaction.payee),
                                 ft.Text(
                                     self.tr("kind_opening")
                                     if transaction.kind == "opening"
-                                    else transaction.narration
+                                    else transaction.narration,
+                                    size=17,
+                                ),
+                                ft.ExpansionTile(
+                                    title=self.tr("payee"),
+                                    controls=[ft.Text(transaction.payee, selectable=True)],
+                                    maintain_state=True,
                                 ),
                                 *[
                                     ft.Text(
@@ -1298,7 +1301,12 @@ class FinanceView(ft.Row):
                 device_zone=self._picker_zone(),
             )
             description = ft.TextField(
-                label=self.tr("crud_description_label"), value=transaction.narration
+                label=self.tr("crud_description_label"),
+                value=transaction.narration,
+                multiline=True,
+                min_lines=2,
+                max_lines=5,
+                text_size=17,
             )
 
             async def save() -> str | None:
@@ -1322,9 +1330,14 @@ class FinanceView(ft.Row):
                     account,
                     category,
                     amount,
-                    payee,
-                    when,
                     description,
+                    when,
+                    ft.ExpansionTile(
+                        title=self.tr("payee"),
+                        controls=[payee, ft.Text(self.tr("payee_help"), size=12)],
+                        maintain_state=True,
+                        expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
+                    ),
                 ],
                 journal,
                 save,
@@ -1474,7 +1487,8 @@ class FinanceView(ft.Row):
                 timestamp,
             )
             self.amount.value = ""
-            self.payee.value = self.default_payee
+            self.payee.value = ""
+            self.payee_details.expanded = False
             self.description.value = ""
             self._reset_expense_clock()
             self._set_message("expense_saved")
@@ -1507,7 +1521,7 @@ class FinanceView(ft.Row):
         try:
             if (
                 not (self.amount.value or self.description.value)
-                and self.payee.value in {"", self.default_payee}
+                and not self.payee.value
                 and self.expense_when.pristine
             ):
                 self._reset_expense_clock()

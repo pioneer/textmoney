@@ -51,6 +51,13 @@ def display_name(value: str) -> str:
     return value
 
 
+def description_text(value: str) -> str:
+    value = value.replace("\r\n", "\n")
+    if len(value) > 500 or any(ord(char) < 32 and char != "\n" for char in value):
+        raise LedgerError("crud_description")
+    return value
+
+
 def currency_code(value: str) -> str:
     value = value.strip().upper()
     if not re.fullmatch("[A-Z]{3}", value):
@@ -192,7 +199,7 @@ class Ledger:
             transaction_id,
             occurred,
             timestamp.isoformat(),
-            display_name(payee),
+            display_name(payee) if payee.strip() else "",
             "Expense",
             (
                 Posting(category_id, amount, accounts[account_id].currency),

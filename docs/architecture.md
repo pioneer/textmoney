@@ -73,7 +73,7 @@ exact before an edit is allowed. Unsupported engine semantics block saving. Ther
 engine, include resolver or generic persistence framework. See the
 [Beancount report](poc-beancount.md) and [MVP format](mvp-0.1.md).
 
-Folder/language/theme/timezone/default-payee preferences use Flet SharedPreferences on Android and a
+Folder/language/theme/timezone preferences use Flet SharedPreferences on Android and a
 local configuration file on desktop; Android's grant is separately retained by
 SAF. Operating currencies and active-state metadata are synchronized in the
 Beancount journal. Edit dialogs capture the journal instance and source baseline:
@@ -92,10 +92,17 @@ Fava and the official engine serve only as desktop test oracles. See the
 
 The compact UI keeps one movement amount in ordinary transaction rows and
 opens details/editors through icon actions. The shared date/time control
-separates accounting date from timestamp date/time. Display dates use explicit
+shows one date/time group. It retains the original accounting date and exact
+timestamp until the date or time is edited; an edit synchronizes both from the
+visible date/time. Display dates use explicit
 English/Ukrainian/Russian month names, never the Python host's process locale.
 Manual formats and picker locales follow app language. Unchanged timestamps
 retain their original offset and subsecond precision.
+Optional payee fields are collapsed and blank for new expenses; saved payees
+survive unrelated edits. Description validation allows line breaks within
+parser-generated quoted journal strings.
+Journal display currencies live under Advanced settings and account creation
+appends a missing currency in the same validated, backed-up save as its declaration.
 
 `timekeeping` uses standard-library `zoneinfo` plus bundled pure-Python `tzdata`
 for Android/Windows. The existing bridge exposes one independent `timezone`

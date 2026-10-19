@@ -1,12 +1,14 @@
 import asyncio
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
 
 from app.domain.ledger import Transaction
+from app.infrastructure.preferences import DesktopPreferences
 from app.localization import (
     LANGUAGES,
     catalog_keys,
@@ -133,6 +135,86 @@ def test_manual_language_switch_is_immediate_and_persisted(
     import asyncio
 
     asyncio.run(scenario())
+
+
+def test_system_language_option_tracks_device_even_after_manual_selection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        page.locale_configuration = ft.LocaleConfiguration()
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        view = FinanceView()
+        view.preferences = MagicMock()
+        view.preferences.set = AsyncMock(return_value=True)
+        assert view.language_choice.value == "system"
+        assert [option.key for option in view.language_choice.options] == [
+            "system",
+            "en",
+            "uk",
+            "ru",
+        ]
+        locale_event = MagicMock()
+        locale_event.locales = [ft.Locale(language_code="uk", country_code="UA")]
+        view._host_locale_changed(locale_event)
+        assert view.language == "uk"
+        assert view.language_choice.value == "system"
+        assert view.language_choice.options[0].text == "Системна"
+        event = MagicMock()
+        event.control.value = "en"
+        await view._language_changed(event)
+        locale_event.locales = [ft.Locale(language_code="ru")]
+        view._host_locale_changed(locale_event)
+        assert view.language == "en"
+        assert view.language_choice.value == "en"
+        event.control.value = "system"
+        await view._language_changed(event)
+        assert view.language == "ru"
+        assert not view.manual_language
+        assert view.language_choice.value == "system"
+        assert page.locale_configuration.current_locale == ft.Locale(language_code="ru")
+        view.preferences.set.assert_awaited_with("txncount.language.v1", "system")
+        locale_event.locales = [ft.Locale(language_code="de")]
+        view._host_locale_changed(locale_event)
+        assert view.language == "en"
+        assert view.language_choice.value == "system"
+        assert view.language_choice.options[0].text == "System"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("saved", [None, "system", "en", "uk", "ru"])
+def test_language_mode_restores_on_startup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    saved: str | None,
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        if saved is not None:
+            await DesktopPreferences().set("txncount.language.v1", saved)
+        page = MagicMock(spec=ft.Page)
+        page.platform = ft.PagePlatform.LINUX
+        page.locale_configuration = ft.LocaleConfiguration(
+            current_locale=ft.Locale(language_code="uk"),
+        )
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
+        view = FinanceView()
+        with pytest.raises(asyncio.CancelledError):
+            await view._lifecycle()
+        manual = saved in LANGUAGES
+        assert view.manual_language == manual
+        assert view.language == (saved if manual else "uk")
+        assert view.language_choice.value == (saved if manual else "system")
+        assert view.system_language_name == "uk"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_storage_explanation_names_beancount_format(language: str) -> None:
+    assert "Beancount" in translate(language, "storage_explanation")
 
 
 def test_page_owned_controls_receive_language_theme_and_expense_updates(

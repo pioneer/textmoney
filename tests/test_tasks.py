@@ -1,4 +1,5 @@
 import json
+import math
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -21,12 +22,27 @@ def test_app_icon_generates_canonical_currency_artwork(
     tasks.validate_icon()
     with tasks.Image.open(tmp_path / "assets/icon.png") as image:
         assert image.getpixel((0, 0)) == (23, 50, 77)
-        assert image.getpixel((640, 240)) == (105, 185, 167)
-        assert image.getpixel((260, 300)) == (255, 255, 255)
-        assert image.getpixel((340, 340)) == (23, 50, 77)
-        assert image.getpixel((450, 440)) == (23, 50, 77)
-        assert image.getpixel((780, 500)) == (244, 207, 118)
-        assert image.getpixel((196, 164)) == (23, 50, 77)
+        for x, y, color in (
+            (640, 240, (105, 185, 167)),
+            (260, 300, (255, 255, 255)),
+            (340, 340, (23, 50, 77)),
+            (450, 440, (23, 50, 77)),
+            (780, 500, (244, 207, 118)),
+        ):
+            assert (
+                image.getpixel((180 + round(x * 664 / 1024), 180 + round(y * 664 / 1024))) == color
+            )
+        # Android guarantees a central 66-dp circle within its 108-dp adaptive layer.
+        safe_radius = 1024 * 33 / 108
+        for y in range(1024):
+            for x in range(1024):
+                pixel = image.getpixel((x, y))
+                assert isinstance(pixel, tuple)
+                if (
+                    max(abs(value - base) for value, base in zip(pixel, (23, 50, 77), strict=True))
+                    > 8
+                ):
+                    assert math.hypot(x - 512, y - 512) <= safe_radius
 
 
 def test_linux_development_icon_does_not_modify_shared_client(
@@ -58,12 +74,21 @@ def test_linux_development_icon_does_not_modify_shared_client(
     assert (stock / "flet").read_bytes() == binary
     assert (stock / "data/app_icon.png").read_bytes() == b"generic icon"
     entry = tmp_path / "user-data/applications" / f"{tasks.LINUX_DEV_APP_ID}.desktop"
-    assert f"Icon={root / 'assets/icon.png'}" in entry.read_text()
+    icon_line = next(line for line in entry.read_text().splitlines() if line.startswith("Icon="))
+    registered_icon = Path(icon_line.removeprefix("Icon="))
+    assert registered_icon.parent == client / "data"
+    assert registered_icon.read_bytes() == (root / "assets/icon.png").read_bytes()
     assert f"StartupWMClass={tasks.LINUX_DEV_APP_ID}" in entry.read_text()
 
     tasks.Image.new("RGB", (1024, 1024), "blue").save(root / "assets/icon.png")
     tasks.prepare_linux_dev_client()
     assert (client / "data/app_icon.png").read_bytes() == (root / "assets/icon.png").read_bytes()
+    updated_line = next(line for line in entry.read_text().splitlines() if line.startswith("Icon="))
+    assert updated_line != icon_line
+    updated_icon = Path(updated_line.removeprefix("Icon="))
+    assert updated_icon.read_bytes() == (root / "assets/icon.png").read_bytes()
+    tasks.prepare_linux_dev_client()
+    assert updated_line in entry.read_text().splitlines()
     (stock / "flet").write_bytes(b"changed upstream binary")
     with pytest.raises(Exit, match="identity changed"):
         tasks.prepare_linux_dev_client()

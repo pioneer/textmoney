@@ -13,6 +13,9 @@ TxnCount is being developed with substantial AI assistance.
 
 - Record and edit expenses with an account, category, amount, date/time and
   description. Add an optional shop/recipient when needed.
+- Record income, expense reimbursements and balance-only adjustments. Partial
+  reimbursements can go to a different account; linking the original expense
+  is optional. Reimbursements reduce net expenses rather than count as income.
 - Manage single-currency accounts and opening balances.
 - Organize expenses with hierarchical categories.
 - Review balances and transaction history in compact phone and desktop layouts.
@@ -26,7 +29,7 @@ TxnCount is being developed with substantial AI assistance.
 
 ## Future plans
 
-Planned areas include income, transfers between accounts, currency exchange,
+Planned areas include transfers between accounts, currency exchange,
 budgets, reports and split-expense editing. These features are **not implemented
 yet**; priorities and scope may change during alpha, with no release dates promised.
 
@@ -46,9 +49,20 @@ established.
 1. Open TxnCount and choose a dedicated local data folder.
 2. Create an account with its currency and, optionally, an opening balance.
 3. Add expense categories under **Accounts**.
-4. Use **Add expense** to record your spending.
+4. Use **Add transaction** (**Додати операцію**) and choose **Expense** to record
+   your spending.
 
-Use the pencil and trash icons to edit or delete expenses. Opening balances can
+The same form handles money received. Choose
+**Income** for earnings or gifts, **Expense reimbursement** to reduce an expense
+category, or **Balance adjustment** for receipts that should affect neither
+income nor current expenses (for example, recovery of a pre-tracking purchase).
+Create income categories under Accounts by selecting the Income category type.
+Reimbursements reduce expenses on the date received, which can produce negative
+net expenses in that period. A linked expense is a reference, not a tracked debt.
+
+Use the pencil and trash icons to edit or delete transactions. The same form
+opens for editing, with the operation type fixed to preserve its accounting
+treatment. Opening balances can
 be edited from either the account or its opening transaction. Accounts and
 categories with history can be deactivated and reactivated; their records remain.
 
@@ -80,6 +94,7 @@ and [editing and data-safety guide](docs/crud-fava.md) for details.
 
 | Version | Highlights |
 | --- | --- |
+| [0.1.3](https://github.com/pioneer/txncount/releases/tag/v0.1.3) | Income, reimbursements and balance adjustments; unified transaction form, description previews and improved Android/Linux icons. |
 | [0.1.2](https://github.com/pioneer/txncount/releases/tag/v0.1.2) | Refreshed money-and-text icon, correct icon for Linux source runs and clearer alpha documentation. |
 | [0.1.1](https://github.com/pioneer/txncount/releases/tag/v0.1.1) | TxnCount Android app identity, versioned APK downloads and consistent in-app version display. |
 | 0.1.0 | Initial alpha: accounts, categories, expense editing/deletion, backups, translations and adaptive layouts. |

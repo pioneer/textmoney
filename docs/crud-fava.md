@@ -2,6 +2,90 @@
 
 ## Scope and format
 
+Transaction lists and recent activity show a one-line description preview below
+the movement, truncated with an ellipsis when necessary. Multiline descriptions
+are flattened for the preview only; the editor retains the full original text.
+Complex entries show the description in their heading without duplicating it.
+Opening entries keep their localized opening-balance label.
+
+### Incoming money
+
+The primary **Add transaction** (**Додати операцію**) action opens one scrollable
+creation form. It starts in **Expense** mode; choose **Income**,
+**Expense reimbursement** or **Balance adjustment** for money received.
+The same form edits ordinary expenses and receipts, keeping their accounting
+type fixed. Mode-specific labels, help and category choices hide unnecessary
+fields. Amount, description, counterparty, date/time and receiving/paying account
+are shared; category choices are remembered separately when switching modes.
+Validation and conflict failures keep the draft open. Cancel closes without
+saving; a new form starts blank with the current date/time and timezone.
+
+The three receipt choices share the existing two-posting machinery,
+verified backups and conflict policy:
+
+| Choice | Debit | Credit | Income/expense effect |
+| --- | --- | --- | --- |
+| Income | Receiving `Assets:` account | User-selected `Income:` category | Income increases |
+| Expense reimbursement | Receiving `Assets:` account | User-selected `Expenses:` category | Net expenses decrease |
+| Balance adjustment | Receiving `Assets:` account | `Equity:Balance-Adjustments` | Neither income nor expenses changes |
+
+The adjustment equity declaration is added only when first needed, in the same
+validated save as the receipt. Opening-balance transactions and amounts are
+not changed. The choice is explicit, never inferred from text or dates.
+There is no receivable, debt tracking, automatic matching or currency conversion.
+
+Income categories use the same hierarchy, names, active state and protected
+deletion as expense categories; choose the category type when creating them.
+Expense selectors exclude income categories. Receipts can be edited and deleted
+through the existing icons. Their accounting type stays fixed during editing;
+account, category, amount, description, sender and date/time remain editable.
+Stable IDs, timestamps left untouched by the user and unrelated metadata/comments
+are preserved. Reducing/deleting money already spent is rejected if it would
+create a negative historical balance.
+
+An optional original-expense selection fills category and full original amount;
+change the amount for partial reimbursements and choose any same-currency
+receiving account. Linked creation checks category/currency and that the receipt
+does not predate the selected expense. Links are stored in standard string
+metadata `txncount-expense-id`. Only ordinary app-editable expenses appear in
+the chooser; unlinked receipts remain supported. There is no remaining-amount
+limit or enforced allocation. Links survive later edits/deletion of the original
+and do not change accounting or cascade deletions; they may refer to old records.
+
+Reimbursements reduce net expenses on the **receipt accounting date**, not
+retroactively on the purchase date. A period's net expenses can be negative.
+`Ledger.period_totals(start, end)` uses inclusive dates and returns separate
+`income` and `expenses` maps keyed by currency. It excludes equity adjustments
+and opening balances. The app still has no dedicated reporting screen.
+
+Focused synthetic tests cover receipts, partial/unlinked/different-account
+reimbursements, pre-tracking adjustments, period boundaries, distinct currencies,
+edit/delete safety, metadata preservation, conflicts and storage failures.
+Compatibility is checked with official Beancount and Fava; these checks are not
+Android device validation.
+
+An isolated browser smoke with synthetic data at 390×844 verified selecting an
+original expense, receiving a partial reimbursement into a different account,
+and updating the balance immediately. Editing 5 → 7 and confirmed physical
+deletion worked; the reference and original purchase were preserved. At 1366×900
+the incoming action remained available in the expanded layout. The unified
+transaction action now replaces the separate incoming action and expense screen;
+regressions cover all four creation/edit/delete modes and translations, draft
+retention and the action across all three adaptive layouts. No real data was used.
+The unified form was also smoke-tested in the browser at 390×844 and 1366×900:
+mode switching retained draft fields and category selection; income creation,
+expense creation/editing and a linked partial reimbursement updated the visible
+balance correctly. The form stayed scrollable with Save/Cancel accessible.
+The APK smoke script also covers income, reimbursement, equity adjustment,
+per-currency totals and incoming edit/delete. Release 0.1.3 (Android build 15)
+passed `uv run inv check` (321 tests, Ruff and Pyright), `uv run inv build-android`
+and `uv run inv check-beancount-apk`. The output is
+`build/apk/txncount-0.1.3.apk`, with SHA-256
+`d4f93e9e4a64c17ef84f8650bbe8821e8da91348f36d0b1d80b58ec40f094c2d`.
+Its application ID and signing certificate match the preceding TxnCount releases.
+The packaged smoke executes on host CPython, not Android; no native
+Android/Windows run is claimed for this release.
+
 This milestone extends the existing app, parser, desktop/SAF adapters and
 backup/conflict policy. No real financial files were used during development.
 **At the user's explicit choice, journals remain single-file.** Yearly files,

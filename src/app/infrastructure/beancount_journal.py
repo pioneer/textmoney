@@ -9,6 +9,7 @@ from autobean_refactor.parser import Parser
 from lark.exceptions import UnexpectedInput
 
 from app.domain.ledger import (
+    ADJUSTMENTS,
     EQUITY,
     Account,
     Category,
@@ -61,6 +62,7 @@ class JournalCodec:
         categories: list[Category] = []
         transactions: list[Transaction] = []
         equity_opened = None
+        adjustments_opened = None
         operating_currencies: list[str] = []
         names: set[str] = set()
         safe = (
@@ -107,19 +109,22 @@ class JournalCodec:
                             entry.account, name, currency_code(currencies[0]), entry.date, active
                         )
                     )
-                elif entry.account.startswith("Expenses:"):
-                    account_path(entry.account, "Expenses")
+                elif entry.account.startswith(("Expenses:", "Income:")):
+                    account_path(entry.account, entry.account.split(":")[0])
                     if currencies:
                         raise LedgerError(
                             "MVP expense category declarations must not restrict currencies."
                         )
                     categories.append(Category(entry.account, name, entry.date, active))
-                elif entry.account == EQUITY:
+                elif entry.account in {EQUITY, ADJUSTMENTS}:
                     if currencies:
                         raise LedgerError(
                             "Opening-balance equity must not restrict currencies in MVP 0.1."
                         )
-                    equity_opened = entry.date
+                    if entry.account == EQUITY:
+                        equity_opened = entry.date
+                    else:
+                        adjustments_opened = entry.date
                 else:
                     raise LedgerError(
                         "This journal contains account types outside MVP 0.1. Saving blocked."
@@ -165,6 +170,9 @@ class JournalCodec:
                 kind = entry.meta.get("txncount-kind", "external")
                 if not isinstance(kind, str):
                     raise LedgerError("Transaction txncount-kind metadata must be a string.")
+                related = entry.meta.get("txncount-expense-id")
+                if related is not None and (not isinstance(related, str) or not related):
+                    raise LedgerError("incoming_reference")
                 transactions.append(
                     Transaction(
                         identifier,
@@ -175,6 +183,7 @@ class JournalCodec:
                         tuple(postings),
                         kind,
                         persistent_id,
+                        related,
                     )
                 )
             else:
@@ -188,6 +197,7 @@ class JournalCodec:
             tuple(transactions),
             equity_opened,
             tuple(dict.fromkeys(operating_currencies)),
+            adjustments_opened,
         )
         ledger.balances(today=self.today())
         return ledger
@@ -261,6 +271,11 @@ def transaction_text(transaction: Transaction) -> str:
                 "id": transaction.id,
                 "timestamp": transaction.timestamp,
                 "txncount-kind": transaction.kind,
+                **(
+                    {"txncount-expense-id": transaction.related_expense}
+                    if transaction.related_expense
+                    else {}
+                ),
             },
         )
     )

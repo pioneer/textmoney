@@ -21,6 +21,10 @@ Its GTK identity is `io.txncount.local`, separate from the packaged app and othe
 Flet apps. This gives the development window the canonical app icon without
 modifying Flet's shared client. The adapter checks the pinned client's binary
 identity before patching the local copy and fails explicitly if it changes.
+The desktop entry references a generated icon filename containing its content
+hash, so GNOME/Wayland switchers do not reuse the previous artwork's cached
+filename. Each launch refreshes this generated copy from the canonical asset.
+Restart an already-running development window after changing the artwork.
 `.env.example` is documentation, not automatically loaded configuration. Set
 variables in your shell/IDE; keep local `.env` files out of version control.
 

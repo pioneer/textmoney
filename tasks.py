@@ -1,5 +1,6 @@
 """The sole task interface: uv run inv --list."""
 
+import hashlib
 import json
 import math
 import os
@@ -135,7 +136,10 @@ def prepare_linux_dev_client() -> Path:
     for item in (stock / "data").iterdir():
         if item.name != "app_icon.png":
             (destination / "data" / item.name).symlink_to(item, target_is_directory=item.is_dir())
-    shutil.copyfile(ROOT / "assets/icon.png", destination / "data/app_icon.png")
+    icon_bytes = (ROOT / "assets/icon.png").read_bytes()
+    icon = destination / "data" / f"app_icon-{hashlib.sha256(icon_bytes).hexdigest()}.png"
+    icon.write_bytes(icon_bytes)
+    (destination / "data/app_icon.png").symlink_to(icon.name)
     executable = destination / "flet"
     executable.write_bytes(binary.replace(original, replacement))
     executable.chmod(0o755)
@@ -147,7 +151,7 @@ def prepare_linux_dev_client() -> Path:
     entry.write_text(
         "[Desktop Entry]\nType=Application\nName=TxnCount (development)\n"
         f'Exec=uv --directory "{root}" run inv run\n'
-        f"Icon={ROOT / 'assets/icon.png'}\nTerminal=false\nNoDisplay=true\n"
+        f"Icon={icon}\nTerminal=false\nNoDisplay=true\n"
         f"StartupWMClass={LINUX_DEV_APP_ID}\n",
         encoding="utf-8",
     )
@@ -322,7 +326,9 @@ def app_icon(context: Context) -> None:
     polygon(((850, 408), (868, 420), (680, 720), (662, 708)), "#d89c3d")
     polygon(((622, 678), (688, 720), (592, 790)), "#edc7a2")
     polygon(((600, 756), (624, 772), (592, 790)), "#17324d")
-    image = image.resize((1024, 1024), Image.Resampling.LANCZOS)
+    artwork = image.resize((664, 664), Image.Resampling.LANCZOS)
+    image = Image.new("RGB", (1024, 1024), "#17324d")
+    image.paste(artwork, (180, 180))
     image.save(ROOT / "assets/icon.png")
 
 

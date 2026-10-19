@@ -10,6 +10,7 @@ from uuid import uuid4
 from autobean_refactor import models
 
 from app.domain.ledger import (
+    ADJUSTMENTS,
     EPOCH,
     EQUITY,
     ZERO,
@@ -143,6 +144,12 @@ class Journal:
         return matches[0]
 
     def expense_for_edit(self, identifier: str) -> Transaction:
+        transaction = self.transaction_for_edit(identifier)
+        if transaction.kind != "expense":
+            raise LedgerError("crud_transaction_readonly")
+        return transaction
+
+    def transaction_for_edit(self, identifier: str) -> Transaction:
         self._require_ready()
         transaction = next((t for t in self.ledger.transactions if t.id == identifier), None)
         accounts = {a.id for a in self.ledger.accounts}
@@ -150,12 +157,25 @@ class Journal:
         if (
             transaction is None
             or not transaction.persistent_id
-            or transaction.kind != "expense"
+            or transaction.kind not in {"expense", "income", "reimbursement", "adjustment"}
             or len(transaction.postings) != 2
         ):
             raise LedgerError("crud_transaction_readonly")
-        asset = [p for p in transaction.postings if p.account in accounts and p.amount < ZERO]
-        expense = [p for p in transaction.postings if p.account in categories and p.amount > ZERO]
+        direction = -1 if transaction.kind == "expense" else 1
+        asset = [
+            p for p in transaction.postings if p.account in accounts and p.amount * direction > ZERO
+        ]
+        root = "Income:" if transaction.kind == "income" else "Expenses:"
+        expense = [
+            p
+            for p in transaction.postings
+            if (
+                p.account == ADJUSTMENTS
+                if transaction.kind == "adjustment"
+                else p.account in categories and p.account.startswith(root)
+            )
+            and p.amount * direction < ZERO
+        ]
         if len(asset) != 1 or len(expense) != 1:
             raise LedgerError("crud_transaction_readonly")
         return transaction
@@ -172,7 +192,32 @@ class Journal:
         description: str,
         expected_source: str,
     ) -> str | None:
-        original = self.expense_for_edit(identifier)
+        self.expense_for_edit(identifier)
+        return await self.edit_transaction(
+            identifier,
+            account,
+            category,
+            amount,
+            payee,
+            occurred,
+            timestamp,
+            description,
+            expected_source,
+        )
+
+    async def edit_transaction(
+        self,
+        identifier: str,
+        account: str,
+        category: str,
+        amount: str,
+        payee: str,
+        occurred: str,
+        timestamp: str,
+        description: str,
+        expected_source: str,
+    ) -> str | None:
+        original = self.transaction_for_edit(identifier)
         try:
             day = date.fromisoformat(occurred)
             stamp = datetime.fromisoformat(timestamp)
@@ -185,13 +230,29 @@ class Journal:
             self.ledger,
             transactions=tuple(t for t in self.ledger.transactions if t.id != identifier),
         )
-        updated = ledger.expense(
-            account, category, money(amount), payee, day, stamp, identifier, today=self.today()
+        updated = (
+            ledger.expense(
+                account, category, money(amount), payee, day, stamp, identifier, today=self.today()
+            )
+            if original.kind == "expense"
+            else ledger.incoming(
+                account,
+                category,
+                money(amount),
+                payee,
+                day,
+                stamp,
+                identifier,
+                original.kind,
+                today=self.today(),
+            )
         )
 
         def edit(document: models.File) -> str:
             entry = self._transaction(document, original.id)
-            original_asset = next(p.account for p in original.postings if p.amount < ZERO)
+            original_asset = next(
+                p.account for p in original.postings if p.account.startswith("Assets:")
+            )
 
             def update() -> None:
                 entry.date = updated.date
@@ -204,7 +265,8 @@ class Journal:
                         continue
                     asset = posting.account == original_asset
                     posting.account = account if asset else category
-                    posting.number = -money(amount) if asset else money(amount)
+                    direction = -1 if original.kind == "expense" else 1
+                    posting.number = money(amount) * (direction if asset else -direction)
                     posting.currency = updated.postings[0].currency
 
             return replace_directive(self.source, entry, update)
@@ -213,6 +275,10 @@ class Journal:
 
     async def delete_expense(self, identifier: str, expected_source: str) -> str | None:
         self.expense_for_edit(identifier)
+        return await self.delete_transaction(identifier, expected_source)
+
+    async def delete_transaction(self, identifier: str, expected_source: str) -> str | None:
+        self.transaction_for_edit(identifier)
         return await self._change(
             lambda document: replace_directive(
                 self.source, self._transaction(document, identifier), None
@@ -347,7 +413,7 @@ class Journal:
 
         def edit(document: models.File) -> str:
             entry = self._declaration(document, identifier)
-            if not identifier.startswith("Expenses:"):
+            if not identifier.startswith(("Expenses:", "Income:")):
                 raise LedgerError("crud_missing")
 
             def update() -> None:
@@ -425,9 +491,13 @@ class Journal:
             )
         return await self._save(text)
 
-    async def create_category(self, identifier: str, name: str) -> str | None:
+    async def create_category(
+        self, identifier: str, name: str, *, root: str = "Expenses"
+    ) -> str | None:
         self._require_ready()
-        path = account_path(identifier, "Expenses")
+        if root not in {"Expenses", "Income"}:
+            raise LedgerError("incoming_category")
+        path = account_path(identifier, root)
         existing = {c.id for c in self.ledger.categories}
         if path in existing:
             raise LedgerError("That category already exists.")
@@ -443,6 +513,67 @@ class Journal:
                     )
                 )
         return await self._save("\n".join(additions))
+
+    async def add_incoming(
+        self,
+        account: str,
+        category: str,
+        amount: str,
+        payee: str,
+        occurred: str,
+        kind: str,
+        description: str = "",
+        timestamp: str | None = None,
+        related_expense: str | None = None,
+        expected_source: str | None = None,
+    ) -> str | None:
+        self._require_ready()
+        if expected_source is not None and expected_source != self.source:
+            raise ConflictError("crud_stale")
+        try:
+            day = date.fromisoformat(occurred)
+            stamp = (
+                datetime.now().astimezone()
+                if timestamp is None
+                else datetime.fromisoformat(timestamp)
+            )
+        except ValueError as exc:
+            raise LedgerError("crud_datetime") from exc
+        if related_expense is not None:
+            if kind != "reimbursement":
+                raise LedgerError("incoming_reference")
+            original = self.expense_for_edit(related_expense)
+            original_category = next(
+                p for p in original.postings if p.account.startswith("Expenses:")
+            )
+            receiving = next((a for a in self.ledger.accounts if a.id == account), None)
+            if (
+                original_category.account != category
+                or receiving is None
+                or original_category.currency != receiving.currency
+                or day < original.date
+            ):
+                raise LedgerError("incoming_reference")
+        ledger = self.ledger
+        addition = ""
+        if kind == "adjustment" and ledger.adjustments_opened is None:
+            ledger = replace(ledger, adjustments_opened=EPOCH)
+            addition = render(models.Open.from_value(EPOCH, ADJUSTMENTS, [])) + "\n"
+        transaction = ledger.incoming(
+            account,
+            category,
+            money(amount),
+            payee,
+            day,
+            stamp,
+            str(uuid4()),
+            kind,
+            today=self.today(),
+        )
+        transaction = replace(
+            transaction, narration=description_text(description), related_expense=related_expense
+        )
+        return await self._save(addition + transaction_text(transaction))
 
     async def add_expense(
         self,

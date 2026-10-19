@@ -104,6 +104,28 @@ no native SAF changes, migration, or multi-file transactions were introduced.
 Fava and the official engine serve only as desktop test oracles. See the
 [CRUD guide](crud-fava.md) for guarded expense editing and deletion rules.
 
+Incoming transactions use the same explicit two-posting model and guarded
+transaction edit/delete pipeline. Income credits user-managed `Income:`
+categories; reimbursements credit `Expenses:` categories; balance-only receipts
+credit `Equity:Balance-Adjustments`, separate from opening balances. No receivable
+or automatic reimbursement allocation is maintained. Optional
+`txncount-expense-id` metadata is an informational reference, not a foreign-key
+constraint: editing/deleting the original never cascades into a receipt.
+`Ledger.period_totals` uses inclusive accounting dates and separate per-currency
+income/net-expense sums; reimbursements affect their receipt period and equity
+does not enter these totals. There is still no reporting screen.
+
+One **Add transaction** action opens the same scrollable form used for editing
+ordinary expenses and receipts. Creation modes adapt the account/category labels,
+help and optional reimbursement reference without changing the posting services.
+Common draft fields and per-mode category selections survive mode switches;
+failed saves retain the form. Each dialog captures its journal and source
+baseline, including new expenses. Editing keeps the accounting type fixed.
+Opening balances still use their guarded account-opening editor. Split and
+externally authored entries retain full read-only posting details; no new
+two-posting restriction is imposed on loading. Transfers, loans and currency
+conversion have no creation/editing service and are not added by this UI work.
+
 The compact UI keeps one movement amount in ordinary transaction rows and
 opens details/editors through icon actions. The shared date/time control
 shows one date/time group. It retains the original accounting date and exact

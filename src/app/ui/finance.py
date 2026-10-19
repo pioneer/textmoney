@@ -11,7 +11,7 @@ from zoneinfo import available_timezones
 import flet as ft
 from finance_saf import FinanceSaf
 
-from app.domain.ledger import Account, Category, LedgerError, Transaction
+from app.domain.ledger import ADJUSTMENTS, Account, Category, LedgerError, Transaction
 from app.domain.storage import ConflictError
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -85,19 +85,7 @@ class FinanceView(ft.Row):
         self.opening = ft.TextField(width=320)
         self.category_id = ft.TextField(width=320)
         self.category_name = ft.TextField(width=320)
-        self.account_choice = ft.Dropdown(width=320, options=[])
-        self.category_choice = ft.Dropdown(width=320, options=[])
-        self.amount = ft.TextField(width=320)
-        self.payee = ft.TextField(width=320, keyboard_type=ft.KeyboardType.NAME)
-        self.payee_details = ft.ExpansionTile(
-            title=self.tr("payee"),
-            controls=[self.payee, ft.Text(self.tr("payee_help"), size=12)],
-            maintain_state=True,
-            expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
-        )
-        self.expense_when = DateTimeFields(self.language, "system")
-        self.expense_date = self.expense_when.occurred
-        self.description = ft.TextField(multiline=True, min_lines=2, max_lines=5, text_size=17)
+        self.category_root = ft.Dropdown(value="Expenses", width=320)
         self.operating_currencies = ft.TextField(width=320)
         self.operating_save = ft.Button(on_click=self._save_operating_currencies)
         self.operating_cancel = ft.TextButton(on_click=self._reset_operating_currencies)
@@ -127,10 +115,9 @@ class FinanceView(ft.Row):
         self.categories_panel = ft.Container(padding=16, content=self.categories_panel_content)
         self.account_save = ft.Button(on_click=self._create_account)
         self.category_save = ft.Button(on_click=self._create_category)
-        self.expense_save = ft.Button(on_click=self._add_expense)
         self.fab = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
-            on_click=self._expense,
+            on_click=self._new_transaction,
             disabled=True,
         )
         self.select_button = ft.Button(on_click=self._select)
@@ -170,7 +157,6 @@ class FinanceView(ft.Row):
         self.home_screen = ft.Column(spacing=20)
         self.transactions_screen = ft.Column(spacing=12)
         self.accounts_screen = ft.Column(spacing=16)
-        self.expense_screen = ft.Column(spacing=16)
         self.settings_screen = ft.Column(spacing=16)
         self.screen_host = ft.Container(expand=True, content=self.home_screen)
 
@@ -216,12 +202,6 @@ class FinanceView(ft.Row):
             self.opening,
             self.category_id,
             self.category_name,
-            self.account_choice,
-            self.category_choice,
-            self.amount,
-            self.payee_details,
-            self.expense_when,
-            self.description,
             self.operating_currencies,
         ]
         self._refresh_labels()
@@ -279,7 +259,6 @@ class FinanceView(ft.Row):
                 "transactions": "nav_transactions",
                 "accounts": "nav_accounts",
                 "settings": "nav_settings",
-                "expense": "expense_title",
             }[self.current_screen]
         )
         self.message.value = (
@@ -295,14 +274,6 @@ class FinanceView(ft.Row):
         self.category_id.label = self.tr("category_path")
         self.category_id.hint_text = self.tr("category_path_hint")
         self.category_name.label = self.tr("category_name")
-        self.account_choice.label = self.tr("pay_from")
-        self.category_choice.label = self.tr("expense_category")
-        self.amount.label = self.tr("amount")
-        self.payee.label = self.tr("payee")
-        self.payee_details.title = self.tr("payee")
-        self.payee_details.controls = [self.payee, ft.Text(self.tr("payee_help"), size=12)]
-        self.expense_when.set_language(self.language)
-        self.description.label = self.tr("crud_description_label")
         self.operating_currencies.label = self.tr("crud_operating")
         self.advanced_settings.title = self.tr("advanced")
         self.advanced_settings.controls = [
@@ -317,7 +288,6 @@ class FinanceView(ft.Row):
         self.operating_cancel.disabled = self.operating_save.disabled
         self.account_save.content = self.tr("create_account")
         self.category_save.content = self.tr("create_category")
-        self.expense_save.content = self.tr("save_expense")
         self.select_button.content = self.tr(
             "change_folder" if self.journal is not None else "select_folder"
         )
@@ -394,7 +364,7 @@ class FinanceView(ft.Row):
             ft.Text(self.tr("home_recent"), size=21, weight=ft.FontWeight.W_600),
             self.home_activity,
         ]
-        self.fab.content = self.tr("add_expense")
+        self.fab.content = self.tr("add_transaction")
         self.fab.disabled = not ready
         self.transactions_screen.controls = [
             ft.Text(self.tr("transactions_title"), size=21, weight=ft.FontWeight.W_600),
@@ -417,6 +387,7 @@ class FinanceView(ft.Row):
             self.category_list,
             ft.Divider(),
             ft.Text(self.tr("category_form_title"), size=18, weight=ft.FontWeight.W_600),
+            self.category_root,
             self.category_id,
             self.category_name,
             self.category_save,
@@ -432,29 +403,10 @@ class FinanceView(ft.Row):
             ),
         ]
         self.accounts_screen.controls = account_panels
-        self.expense_screen.controls = [
-            ft.Text(self.tr("expense_title"), size=21, weight=ft.FontWeight.W_600),
-            ft.Text(self.tr("expense_help")),
-            ft.Row(
-                [
-                    self.account_choice,
-                    self.category_choice,
-                    self.amount,
-                ],
-                wrap=True,
-                spacing=12,
-                run_spacing=8,
-            ),
-            self.description,
-            self.expense_when,
-            self.payee_details,
-            ft.Row(
-                controls=[
-                    self.expense_save,
-                    ft.TextButton(self.tr("nav_home"), icon=ft.Icons.CLOSE, on_click=self._go_home),
-                ],
-                wrap=True,
-            ),
+        self.category_root.label = self.tr("incoming_type")
+        self.category_root.options = [
+            ft.DropdownOption(key="Expenses", text=self.tr("kind_expense")),
+            ft.DropdownOption(key="Income", text=self.tr("kind_income")),
         ]
         folder_ready = self.journal is not None and self.journal.ready
         self.access.value = self.tr("access_ok") if folder_ready else self.tr("access_unchecked")
@@ -523,7 +475,6 @@ class FinanceView(ft.Row):
             "transactions": self.transactions_screen,
             "accounts": self.accounts_screen,
             "settings": self.settings_screen,
-            "expense": self.expense_screen,
         }
         self.screen_host.content = screens[self.current_screen]
 
@@ -533,7 +484,6 @@ class FinanceView(ft.Row):
             "transactions": 1,
             "accounts": 2,
             "settings": 3,
-            "expense": 0,
         }[self.current_screen]
 
     def _apply_layout(self, width: float | None) -> None:
@@ -560,7 +510,6 @@ class FinanceView(ft.Row):
             if self.page:
                 self.page.navigation_bar = None
         available = max(320, (width or 390) - rail_width - 48)
-        self.description.width = min(MAX_CONTENT_WIDTH - 48, available)
         self.accounts_panel.width = (
             520 if self.screen_class == ScreenClass.EXPANDED else min(320, available)
         )
@@ -570,7 +519,7 @@ class FinanceView(ft.Row):
         self._build_navigation()
         self._build_home_layout()
         if self.page:
-            self.fab.content = self.tr("add_expense")
+            self.fab.content = self.tr("add_transaction")
             self.fab.disabled = not (self.journal and self.journal.ready)
             if self.page:
                 self.page.floating_action_button = self.fab
@@ -625,7 +574,7 @@ class FinanceView(ft.Row):
 
     def _refresh(self) -> None:
         ready = self.journal is not None and self.journal.ready
-        for control in (self.account_save, self.category_save, self.expense_save):
+        for control in (self.account_save, self.category_save):
             control.disabled = not ready
         self.reload_button.disabled = self.journal is None
         self.operating_currencies.disabled = not ready
@@ -700,43 +649,13 @@ class FinanceView(ft.Row):
         self.category_list.controls = [
             self._entity_card(item) for item in sorted(ledger.categories, key=lambda item: item.id)
         ] or [ft.Text(self.tr("categories_empty"))]
-        self.account_choice.options = [
-            ft.DropdownOption(key=item.id, text=f"{item.name} ({item.currency})")
-            for item in ledger.accounts
-            if item.active
-        ]
-        self.category_choice.options = [
-            ft.DropdownOption(
-                key=item.id,
-                text=self._category_label(item.id, item.name),
-            )
-            for item in sorted(ledger.categories, key=lambda item: item.id)
-            if ledger.category_active(item.id)
-        ]
-        if self.account_choice.value and self.account_choice.value not in {
-            item.id for item in ledger.accounts if item.active
-        }:
-            self.account_choice.options.append(
-                ft.DropdownOption(
-                    key=self.account_choice.value,
-                    text=self.tr("choose_account"),
-                )
-            )
-        if self.category_choice.value and self.category_choice.value not in {
-            category.id for category in ledger.categories if ledger.category_active(category.id)
-        }:
-            self.category_choice.options.append(
-                ft.DropdownOption(
-                    key=self.category_choice.value,
-                    text=self.tr("choose_category"),
-                )
-            )
         self._refresh_labels()
         self._build_home_layout()
 
     def _category_label(self, identifier: str, name: str) -> str:
         depth = identifier.count(":") - 1
-        return f"{'  ' * depth}{name}"
+        label = f"{'  ' * depth}{name}"
+        return f"{self.tr('kind_income')} · {label}" if identifier.startswith("Income:") else label
 
     def _entity_card(self, item: Account | Category, balance: Decimal | None = None) -> ft.Control:
         category = isinstance(item, Category)
@@ -779,6 +698,9 @@ class FinanceView(ft.Row):
         kind_key = {
             "opening": "kind_opening",
             "expense": "kind_expense",
+            "income": "kind_income",
+            "reimbursement": "kind_reimbursement",
+            "adjustment": "kind_adjustment",
         }.get(transaction.kind, "kind_external")
         display = (
             self.tr(kind_key)
@@ -802,14 +724,19 @@ class FinanceView(ft.Row):
         )
         title = display
         if simple:
-            source = names.get(outgoing[0].account, self.tr("kind_opening"))
+            source = names.get(
+                outgoing[0].account,
+                self.tr("kind_adjustment" if transaction.kind == "adjustment" else "kind_opening"),
+            )
             target = names.get(incoming[0].account, self.tr("kind_external"))
             title = (
                 f"{self.tr('kind_opening')} → {target}"
                 if transaction.kind == "opening"
                 else f"{source} → {target}"
             )
-        heading: list[ft.Control] = [ft.Text(title, size=14, expand=True)]
+        heading: list[ft.Control] = [
+            ft.Text(title, size=14, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
+        ]
         if simple:
             heading.append(
                 ft.Text(
@@ -820,6 +747,15 @@ class FinanceView(ft.Row):
         else:
             heading.append(ft.Text(self.tr("multiple_postings"), size=12))
         lines: list[ft.Control] = [ft.Row(heading, spacing=8)]
+        if simple and transaction.kind != "opening" and transaction.narration.strip():
+            lines.append(
+                ft.Text(
+                    " ".join(transaction.narration.split()),
+                    size=14,
+                    max_lines=1,
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                )
+            )
         if transaction.kind != "opening":
             lines.append(ft.Text(format_date(transaction.date, self.language), size=12))
         actions: list[ft.Control] = [
@@ -885,10 +821,6 @@ class FinanceView(ft.Row):
                 self.timezone_name = saved_timezone
             self.timezone_choice.value = self.timezone_name
             await self._sync_system_zone()
-            if self.expense_when.pristine:
-                self._reset_expense_clock()
-            else:
-                self.expense_when.set_zone(self._effective_zone())
             saved_folder = await self.preferences.get(FOLDER_KEY)
             if saved_folder is None:
                 saved_folder = await self.preferences.get(LEGACY_FOLDER_KEY)
@@ -944,15 +876,9 @@ class FinanceView(ft.Row):
             named_zone(name)
         except (StorageError, LedgerError, TimeoutError) as exc:
             self.system_zone = "system"
-            self.expense_when.set_device_zone(None)
             raise LedgerError("crud_timezone_unavailable") from exc
         if name != self.system_zone:
             self.system_zone = name
-            if self.timezone_name == "system" and self.expense_when.pristine:
-                self._reset_expense_clock()
-            elif self.timezone_name == "system":
-                self.expense_when.set_zone(name)
-            self.expense_when.set_device_zone(name)
             self._refresh()
             self.page.update()
 
@@ -969,19 +895,14 @@ class FinanceView(ft.Row):
                 named_zone(name)
             if self.preferences is None:
                 raise LedgerError("crud_timezone_save")
-            # Validate the draft before changing either the preference or its interpretation.
-            self.expense_when.values()
             if name == "system" and self.bridge is not None:
                 result = unwrap(await self.bridge.call("timezone"))
                 if not isinstance(result, str):
                     raise LedgerError("crud_timezone_unavailable")
                 named_zone(result)
                 self.system_zone = result
-                self.expense_when.set_device_zone(result)
-            zone = self.system_zone if name == "system" else name
             if not await self.preferences.set(TIMEZONE_KEY, name):
                 raise LedgerError("crud_timezone_save")
-            self.expense_when.set_zone(zone)
             self.timezone_name = name
             self.timezone_choice.value = name
             self._set_message("timezone_saved")
@@ -1095,7 +1016,6 @@ class FinanceView(ft.Row):
                 self.reload_button,
                 self.account_save,
                 self.category_save,
-                self.expense_save,
             ]:
                 control.disabled = True
             self.page.update()
@@ -1264,7 +1184,7 @@ class FinanceView(ft.Row):
             journal = self._require_journal()
             identifier = str(event.control.data)
             try:
-                transaction = journal.expense_for_edit(identifier)
+                transaction = journal.transaction_for_edit(identifier)
             except LedgerError as exc:
                 if str(exc) != "crud_transaction_readonly":
                     raise
@@ -1335,89 +1255,18 @@ class FinanceView(ft.Row):
                     )
                 )
                 return
-            source = journal.source
-            asset = next(p for p in transaction.postings if p.amount < 0)
-            expense = next(p for p in transaction.postings if p.amount > 0)
-            account = ft.Dropdown(
-                label=self.tr("pay_from"),
-                value=asset.account,
-                options=[
-                    ft.DropdownOption(key=a.id, text=f"{a.name} ({a.currency})")
-                    for a in journal.ledger.accounts
-                    if a.active or a.id == asset.account
-                ],
-            )
-            category = ft.Dropdown(
-                label=self.tr("expense_category"),
-                value=expense.account,
-                options=[
-                    ft.DropdownOption(key=c.id, text=self._category_label(c.id, c.name))
-                    for c in journal.ledger.categories
-                    if journal.ledger.category_active(c.id) or c.id == expense.account
-                ],
-            )
-            amount = ft.TextField(label=self.tr("amount"), value=str(expense.amount))
-            payee = ft.TextField(label=self.tr("payee"), value=transaction.payee)
-            when = DateTimeFields(
-                self.language,
-                self._effective_zone(),
-                transaction.date,
-                transaction.timestamp,
-                device_zone=self._picker_zone(),
-            )
-            description = ft.TextField(
-                label=self.tr("crud_description_label"),
-                value=transaction.narration,
-                multiline=True,
-                min_lines=2,
-                max_lines=5,
-                text_size=17,
-            )
-
-            async def save() -> str | None:
-                occurred, timestamp = when.values()
-                return await journal.edit_expense(
-                    transaction.id,
-                    account.value or "",
-                    category.value or "",
-                    amount.value or "",
-                    payee.value or "",
-                    occurred,
-                    timestamp,
-                    description.value or "",
-                    source,
-                )
-
-            self._edit_dialog(
-                self.tr("crud_edit"),
-                [
-                    ft.Text(transaction.id, selectable=True),
-                    account,
-                    category,
-                    amount,
-                    description,
-                    when,
-                    ft.ExpansionTile(
-                        title=self.tr("payee"),
-                        controls=[payee, ft.Text(self.tr("payee_help"), size=12)],
-                        maintain_state=True,
-                        expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
-                    ),
-                ],
-                journal,
-                save,
-            )
+            self._transaction_dialog(journal, transaction)
         except Exception as exc:
             self._error(exc, notify=True)
 
     def _delete_transaction(self, event: ft.Event[ft.IconButton]) -> None:
         try:
             journal = self._require_journal()
-            transaction = journal.expense_for_edit(str(event.control.data))
+            transaction = journal.transaction_for_edit(str(event.control.data))
             source = journal.source
 
             async def remove() -> str | None:
-                return await journal.delete_expense(transaction.id, source)
+                return await journal.delete_transaction(transaction.id, source)
 
             self._edit_dialog(
                 self.tr("crud_confirm"),
@@ -1428,6 +1277,219 @@ class FinanceView(ft.Row):
             )
         except Exception as exc:
             self._error(exc, notify=True)
+
+    def _new_transaction(self, event: ft.Event[ft.FloatingActionButton]) -> None:
+        try:
+            self._transaction_dialog(self._require_journal())
+        except Exception as exc:
+            self._error(exc, notify=True)
+
+    def _transaction_dialog(self, journal: Journal, transaction: Transaction | None = None) -> None:
+        source = journal.source
+        original_asset = (
+            next(p for p in transaction.postings if p.account.startswith("Assets:"))
+            if transaction
+            else None
+        )
+        original_category = (
+            next(p.account for p in transaction.postings if not p.account.startswith("Assets:"))
+            if transaction
+            else None
+        )
+        kind = ft.Dropdown(
+            label=self.tr("incoming_type"),
+            value=transaction.kind if transaction else "expense",
+            options=[
+                ft.DropdownOption(key=k, text=self.tr(f"kind_{k}"))
+                for k in ("expense", "income", "reimbursement", "adjustment")
+            ],
+        )
+        account = ft.Dropdown(
+            value=original_asset.account if original_asset else None,
+            options=[
+                ft.DropdownOption(key=a.id, text=f"{a.name} ({a.currency})")
+                for a in journal.ledger.accounts
+                if a.active or (original_asset and original_asset.account == a.id)
+            ],
+        )
+        category = ft.Dropdown(label=self.tr("expense_category"), value=original_category)
+        amount = ft.TextField(
+            label=self.tr("amount"), value=str(abs(original_asset.amount)) if original_asset else ""
+        )
+        description = ft.TextField(
+            label=self.tr("crud_description_label"),
+            value=transaction.narration if transaction else "",
+            multiline=True,
+            min_lines=2,
+            max_lines=5,
+            text_size=17,
+        )
+        payee = ft.TextField(
+            value=transaction.payee if transaction else "",
+            keyboard_type=ft.KeyboardType.NAME,
+        )
+        when = DateTimeFields(
+            self.language,
+            self._effective_zone(),
+            transaction.date if transaction else None,
+            transaction.timestamp if transaction else None,
+            device_zone=self._picker_zone(),
+        )
+        reference = ft.Dropdown(
+            label=self.tr("incoming_reference_label"),
+            value="",
+            options=[ft.DropdownOption(key="", text=self.tr("incoming_no_reference"))],
+        )
+        for item in sorted(journal.ledger.transactions, key=lambda t: (t.date, t.id), reverse=True):
+            try:
+                journal.expense_for_edit(item.id)
+            except LedgerError as exc:
+                if str(exc) != "crud_transaction_readonly":
+                    raise
+                continue
+            posting = next(p for p in item.postings if p.account.startswith("Expenses:"))
+            reference.options.append(
+                ft.DropdownOption(
+                    key=item.id,
+                    text=f"{format_date(item.date, self.language)} · "
+                    f"{item.narration or self.tr('kind_expense')} · "
+                    f"{format_amount(posting.amount, self.language, posting.currency)}",
+                )
+            )
+        reference.visible = False
+        reference.disabled = transaction is not None
+        help_text = ft.Text(size=12)
+        payee_details = ft.ExpansionTile(
+            title=self.tr("payee"),
+            controls=[payee],
+            maintain_state=True,
+            expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
+        )
+        category_values: dict[str, str | None] = {}
+        previous_kind = kind.value
+
+        def configure(event: ft.Event[ft.Dropdown] | None = None) -> None:
+            nonlocal previous_kind
+            if event is not None and previous_kind:
+                category_values[previous_kind] = category.value
+                category.value = category_values.get(kind.value or "")
+            previous_kind = kind.value
+            root = "Income:" if kind.value == "income" else "Expenses:"
+            account.label = self.tr("pay_from" if kind.value == "expense" else "incoming_account")
+            category.label = self.tr(
+                "income_category" if kind.value == "income" else "expense_category"
+            )
+            payee.label = self.tr("payee" if kind.value == "expense" else "incoming_sender")
+            payee_details.title = payee.label
+            payee_details.controls = [
+                payee,
+                *([ft.Text(self.tr("payee_help"), size=12)] if kind.value == "expense" else []),
+            ]
+            help_text.value = self.tr(f"transaction_help_{kind.value}")
+            category.options = [
+                ft.DropdownOption(key=c.id, text=self._category_label(c.id, c.name))
+                for c in journal.ledger.categories
+                if c.id.startswith(root)
+                and (journal.ledger.category_active(c.id) or c.id == original_category)
+            ]
+            category.visible = kind.value != "adjustment"
+            if kind.value == "adjustment":
+                category.value = ADJUSTMENTS
+            elif category.value not in {o.key for o in category.options}:
+                category.value = None
+            reference.visible = kind.value == "reimbursement" and transaction is None
+            if event is not None:
+                reference.value = ""
+                self.page.update()
+
+        def fill_reference(event: ft.Event[ft.Dropdown]) -> None:
+            try:
+                if self.journal is not journal or journal.source != source:
+                    raise ConflictError("crud_stale")
+                if reference.value:
+                    original = journal.expense_for_edit(reference.value)
+                    posting = next(
+                        p for p in original.postings if p.account.startswith("Expenses:")
+                    )
+                    category.value = posting.account
+                    amount.value = str(posting.amount)
+                self.page.update()
+            except Exception as exc:
+                self._error(exc, notify=True)
+
+        kind.on_select = configure
+        reference.on_select = fill_reference
+        configure()
+
+        async def save() -> str | None:
+            self._effective_zone()
+            occurred, timestamp = when.values()
+            if transaction:
+                return await journal.edit_transaction(
+                    transaction.id,
+                    account.value or "",
+                    category.value or "",
+                    amount.value or "",
+                    payee.value or "",
+                    occurred,
+                    timestamp,
+                    description.value or "",
+                    source,
+                )
+            if journal.source != source:
+                raise ConflictError("crud_stale")
+            if kind.value == "expense":
+                return await journal.add_expense(
+                    account.value or "",
+                    category.value or "",
+                    amount.value or "",
+                    payee.value or "",
+                    occurred,
+                    description.value or "",
+                    timestamp,
+                )
+            return await journal.add_incoming(
+                account.value or "",
+                category.value or "",
+                amount.value or "",
+                payee.value or "",
+                occurred,
+                kind.value or "",
+                description.value or "",
+                timestamp,
+                related_expense=reference.value
+                if kind.value == "reimbursement" and reference.value
+                else None,
+                expected_source=source,
+            )
+
+        self._edit_dialog(
+            self.tr("crud_edit" if transaction else "add_transaction"),
+            [
+                ft.Text(self.tr(f"kind_{transaction.kind}")) if transaction else kind,
+                help_text,
+                account,
+                reference,
+                category,
+                amount,
+                description,
+                when,
+                payee_details,
+                *([ft.Text(transaction.id, selectable=True)] if transaction else []),
+                *(
+                    [
+                        ft.Text(
+                            self.tr("incoming_linked", identifier=transaction.related_expense),
+                            selectable=True,
+                        )
+                    ]
+                    if transaction and transaction.related_expense
+                    else []
+                ),
+            ],
+            journal,
+            save,
+        )
 
     def _edit_entity(self, event: ft.Event[ft.IconButton]) -> None:
         try:
@@ -1532,31 +1594,10 @@ class FinanceView(ft.Row):
             await self._require_journal().create_category(
                 self.category_id.value or "",
                 self.category_name.value or "",
+                root=self.category_root.value or "Expenses",
             )
             self.category_id.value = self.category_name.value = ""
             self._set_message("category_created")
-
-        await self._action(save)
-
-    async def _add_expense(self, event: ft.Event[ft.Button]) -> None:
-        async def save() -> None:
-            self._effective_zone()
-            occurred, timestamp = self.expense_when.values()
-            await self._require_journal().add_expense(
-                self.account_choice.value or "",
-                self.category_choice.value or "",
-                self.amount.value or "",
-                self.payee.value or "",
-                occurred,
-                self.description.value or "",
-                timestamp,
-            )
-            self.amount.value = ""
-            self.payee.value = ""
-            self.payee_details.expanded = False
-            self.description.value = ""
-            self._reset_expense_clock()
-            self._set_message("expense_saved")
 
         await self._action(save)
 
@@ -1576,33 +1617,8 @@ class FinanceView(ft.Row):
             screens = ("home", "transactions", "accounts", "settings")
             self._navigate(screens[event.control.selected_index])
 
-    def _go_home(self, event: ft.Event[ft.TextButton]) -> None:
-        self._navigate("home")
-
     def _go_accounts(self, event: ft.Event[ft.TextButton]) -> None:
         self._navigate("accounts")
-
-    def _expense(self, event: ft.Event[ft.FloatingActionButton]) -> None:
-        try:
-            if (
-                not (self.amount.value or self.description.value)
-                and not self.payee.value
-                and self.expense_when.pristine
-            ):
-                self._reset_expense_clock()
-            self._navigate("expense")
-        except Exception as exc:
-            self._error(exc, notify=True)
-
-    def _reset_expense_clock(self) -> None:
-        old = self.expense_when
-        self.expense_when = DateTimeFields(
-            self.language,
-            self._effective_zone(),
-            device_zone=self._picker_zone(),
-        )
-        self.expense_date = self.expense_when.occurred
-        self.forms[self.forms.index(old)] = self.expense_when
 
     def _picker_zone(self) -> str | None:
         if self.bridge is not None and self.system_zone == "system":

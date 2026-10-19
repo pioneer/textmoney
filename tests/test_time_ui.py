@@ -148,13 +148,40 @@ def expense() -> Transaction:
 def test_compact_transaction_has_one_amount_movement_and_icon_actions() -> None:
     view = FinanceView()
     row = view._transaction_card(expense(), {"Assets:Cash": "Wallet", "Expenses:Food": "Food"})
-    assert texts(row) == ["Wallet → Food", "10.00 UAH", "Oct 18, 2026"]
+    assert texts(row) == ["Wallet → Food", "10.00 UAH", "Private long description", "Oct 18, 2026"]
     assert isinstance(row, ft.Container)
     assert isinstance(row.content, ft.Row)
     actions = row.content.controls[1:]
     assert all(isinstance(action, ft.IconButton) for action in actions)
     assert [action.tooltip for action in actions] == ["Edit", "Delete"]
     assert all(action.data == "stable-id" for action in actions)
+
+
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("kind", ["expense", "income", "reimbursement", "adjustment", "external"])
+def test_transaction_description_preview_is_bounded_without_changing_saved_text(
+    compact: bool, kind: str
+) -> None:
+    narration = "Synthetic purchase\nwith details " + "and more details " * 40
+    transaction = replace(expense(), kind=kind, narration=narration)
+    row = FinanceView()._transaction_card(transaction, {}, compact)
+    assert isinstance(row, ft.Container) and isinstance(row.content, ft.Row)
+    column = row.content.controls[0]
+    assert isinstance(column, ft.Column)
+    preview = column.controls[1]
+    assert isinstance(preview, ft.Text)
+    assert preview.value == " ".join(narration.split())
+    assert preview.max_lines == 1 and preview.overflow == ft.TextOverflow.ELLIPSIS
+    assert transaction.narration == narration
+
+
+@pytest.mark.parametrize("narration", ["", " \n "])
+def test_blank_transaction_description_does_not_add_an_empty_preview(narration: str) -> None:
+    row = FinanceView()._transaction_card(replace(expense(), narration=narration), {})
+    assert isinstance(row, ft.Container) and isinstance(row.content, ft.Row)
+    column = row.content.controls[0]
+    assert isinstance(column, ft.Column)
+    assert len(column.controls) == 2
 
 
 def test_multicurrency_or_split_rows_do_not_invent_a_combined_amount() -> None:
@@ -168,6 +195,7 @@ def test_multicurrency_or_split_rows_do_not_invent_a_combined_amount() -> None:
     )
     content = texts(FinanceView()._transaction_card(transaction, {}))
     assert "Multiple postings" in content
+    assert content.count(transaction.narration) == 1
     assert not any("USD" in text or "EUR" in text for text in content)
 
 
@@ -191,19 +219,22 @@ def test_timezone_preference_persists_without_rewriting_journal_and_failure_reta
         await view.journal.load()
         await view.journal.create_account("Cash", "Wallet", "UAH", "100")
         original = view.journal.source
-        view.amount.value = "12.34"
+        view._transaction_dialog(view.journal)
+        dialog = page.show_dialog.call_args.args[0]
+        amount = dialog.content.controls[5]
+        amount.value = "12.34"
         view.timezone_choice.text = "Europe/Kyiv"
         await view._save_timezone(MagicMock())
         assert view.timezone_name == "Europe/Kyiv"
         view.preferences.set.assert_awaited_once_with(TIMEZONE_KEY, "Europe/Kyiv")
         assert view.journal.source == original
-        assert view.amount.value == "12.34"
+        assert amount.value == "12.34"
         view.preferences.set.reset_mock()
         view.timezone_choice.text = "invalid-zone"
         await view._save_timezone(MagicMock())
         assert view.timezone_name == "Europe/Kyiv"
         view.preferences.set.assert_not_called()
-        assert view.amount.value == "12.34"
+        assert amount.value == "12.34"
         view.timezone_choice.text = "UTC"
         view.preferences.set.return_value = False
         await view._save_timezone(MagicMock())
@@ -224,7 +255,6 @@ def test_android_system_zone_comes_from_client_and_missing_zone_blocks_edits(
         view.bridge.call = AsyncMock(return_value={"ok": True, "value": "Europe/Kyiv"})
         await view._sync_system_zone()
         assert view._effective_zone() == "Europe/Kyiv"
-        assert view.expense_when.zone == "Europe/Kyiv"
         view.bridge.call.assert_awaited_once_with("timezone")
         view.bridge.call.return_value = {"ok": True, "value": None}
         with pytest.raises(LedgerError, match="crud_timezone_unavailable"):
@@ -327,28 +357,38 @@ def test_optional_payee_is_blank_and_collapsed_after_success_not_after_validatio
         page = MagicMock(spec=ft.Page)
         monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
         view = FinanceView()
-        assert not view.payee.value
-        assert not view.payee_details.expanded
         view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await view.journal.load()
         await view.journal.create_account("Cash", "Wallet", "UAH", "100")
         await view.journal.create_category("Food", "Food")
-        view.account_choice.value = "Assets:Cash"
-        view.category_choice.value = "Expenses:Food"
-        view.amount.value = "10"
-        view.payee.value = "One-off shop"
-        view.payee_details.expanded = True
-        await view._add_expense(MagicMock())
+        view._transaction_dialog(view.journal)
+        dialog = page.show_dialog.call_args.args[0]
+        _, _, account, _, category, amount, _, _, tile = dialog.content.controls[:9]
+        payee = tile.controls[0]
+        assert not payee.value and not tile.expanded
+        account.value = "Assets:Cash"
+        category.value = "Expenses:Food"
+        amount.value = "10"
+        payee.value = "One-off shop"
+        tile.expanded = True
+        await dialog.actions[-1].on_click(MagicMock())
         assert view.journal.ledger.transactions[-1].payee == "One-off shop"
-        assert view.payee.value == ""
-        assert not view.payee_details.expanded
-        view.amount.value = "1000"
-        view.payee.value = "Unsaved shop"
-        view.payee_details.expanded = True
-        await view._add_expense(MagicMock())
-        assert view.payee.value == "Unsaved shop"
-        assert view.amount.value == "1000"
-        assert view.payee_details.expanded
+        page.pop_dialog.assert_called_once()
+        view._transaction_dialog(view.journal)
+        dialog = page.show_dialog.call_args.args[0]
+        _, _, account, _, category, amount, _, _, tile = dialog.content.controls[:9]
+        payee = tile.controls[0]
+        assert not payee.value and not tile.expanded
+        account.value = "Assets:Cash"
+        category.value = "Expenses:Food"
+        amount.value = "1000"
+        payee.value = "Unsaved shop"
+        tile.expanded = True
+        await dialog.actions[-1].on_click(MagicMock())
+        assert payee.value == "Unsaved shop"
+        assert amount.value == "1000"
+        assert tile.expanded
+        assert page.pop_dialog.call_count == 1
 
     asyncio.run(scenario())
 
@@ -406,9 +446,17 @@ def test_new_expense_starts_empty_even_with_a_legacy_default_payee_preference(
         view = FinanceView()
         with pytest.raises(asyncio.CancelledError):
             await view._lifecycle()
-        assert not view.payee.value
-        assert not view.payee_details.expanded
-        assert view.payee_details.maintain_state
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        view._transaction_dialog(journal)
+        dialog = page.show_dialog.call_args.args[0]
+        tile = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
+        assert tile.controls
+        payee = tile.controls[0]
+        assert isinstance(payee, ft.TextField)
+        assert not payee.value
+        assert not tile.expanded
+        assert tile.maintain_state
         assert not hasattr(view, "default_payee_field")
 
     asyncio.run(scenario())
@@ -420,16 +468,19 @@ def test_description_is_prominent_and_currency_settings_are_advanced_in_all_lang
     page = MagicMock(spec=ft.Page)
     monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
     view = FinanceView()
+    journal = MagicMock()
+    journal.source = ""
     for language in ("en", "uk", "ru"):
         view.language = language
         view._refresh_labels()
-        assert view.description.multiline and view.description.min_lines == 2
-        assert view.description.text_size == 17
-        assert view.description.width is None
-        assert view.description in view.expense_screen.controls
-        assert view.payee not in view.expense_screen.controls
-        assert view.payee in (view.payee_details.controls or [])
-        assert not view.payee_details.expanded
+        view._transaction_dialog(journal)
+        dialog = page.show_dialog.call_args.args[0]
+        description = dialog.content.controls[6]
+        tile = dialog.content.controls[8]
+        assert description.multiline and description.min_lines == 2
+        assert description.text_size == 17
+        assert tile.controls[0] not in dialog.content.controls
+        assert not tile.expanded
         assert view.advanced_settings in view.settings_screen.controls
         assert not view.advanced_settings.expanded
         assert view.operating_currencies in (view.advanced_settings.controls or [])
@@ -440,11 +491,9 @@ def test_description_is_prominent_and_currency_settings_are_advanced_in_all_lang
             ft.Column(view.advanced_settings.controls or [])
         )
     view._apply_layout(390)
-    assert view.description.width == 342
+    assert page.floating_action_button is view.fab
     view._apply_layout(1366)
-    assert view.description.width == 1082
     view._apply_layout(2000)
-    assert view.description.width == 1132
 
 
 def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draft_is_kept(
@@ -477,7 +526,7 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         assert payee.value == "Saved shop"
         when = next(c for c in dialog.content.controls if isinstance(c, DateTimeFields))
         assert when.occurred.value == "01/02/2026"
-        dialog.content.controls[3].value = "12"
+        dialog.content.controls[5].value = "12"
         await dialog.actions[-1].on_click(MagicMock())
         saved = next(t for t in journal.ledger.transactions if t.id == original.id)
         assert saved.payee == "Saved shop"
@@ -530,7 +579,7 @@ def test_opening_rows_hide_dates_and_page_headings_are_not_repeated(language: st
     header = view.body.controls[0]
     assert isinstance(header, ft.Container)
     assert header.content is view.page_title
-    for screen in ("home", "transactions", "accounts", "expense", "settings"):
+    for screen in ("home", "transactions", "accounts", "settings"):
         view.current_screen = screen
         view._refresh_labels()
         assert texts(header) == [str(view.page_title.value)]

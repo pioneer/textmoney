@@ -34,7 +34,9 @@ def test_all_locales_have_a_nonempty_translation_for_each_ui_key() -> None:
     assert len({keys[language] for language in LANGUAGES}) == 1
     for language in LANGUAGES:
         for key in keys[language]:
-            assert translate(language, key, currency="UAH", zone="Europe/Kyiv").strip()
+            assert translate(
+                language, key, currency="UAH", zone="Europe/Kyiv", identifier="synthetic-id"
+            ).strip()
 
 
 @pytest.mark.parametrize(
@@ -324,7 +326,7 @@ def test_storage_explanation_names_beancount_format(language: str) -> None:
     assert "Beancount" in translate(language, "storage_explanation")
 
 
-def test_page_owned_controls_receive_language_theme_and_expense_updates(
+def test_page_owned_controls_receive_language_theme_and_transaction_updates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def scenario() -> None:
@@ -342,7 +344,7 @@ def test_page_owned_controls_receive_language_theme_and_expense_updates(
         event.control.value = "uk"
         await view._language_changed(event)
         assert page.navigation_bar.destinations[0].label == "Головна"
-        assert page.floating_action_button.content == translate("uk", "add_expense")
+        assert page.floating_action_button.content == "Додати операцію"
         page.update.assert_called()
 
         page.update.reset_mock()
@@ -359,9 +361,9 @@ def test_page_owned_controls_receive_language_theme_and_expense_updates(
         view._navigate("accounts")
         assert not view.fab.disabled
         page.update.assert_called()
-        view._expense(MagicMock())
-        assert view.current_screen == "expense"
-        assert view.screen_host.content is view.expense_screen
+        view._new_transaction(MagicMock())
+        assert view.current_screen == "accounts"
+        assert page.show_dialog.call_args.args[0].title == "Додати операцію"
 
     asyncio.run(scenario())
 

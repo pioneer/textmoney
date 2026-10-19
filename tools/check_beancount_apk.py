@@ -65,6 +65,28 @@ async def smoke():
     assert journal.ledger.transactions[0].id == opening_id
     assert journal.ledger.operating_currencies == ("UAH", "USD", "EUR")
     print("CRUD APK Python payload: edits/deletion/lifecycle/operating currencies PASS")
+    await journal.edit_account("Assets:Cash", "Renamed", "120", True, journal.source)
+    await journal.edit_category("Expenses:Food:Groceries", "Renamed", True, journal.source)
+    await journal.create_category("Salary", "Salary", root="Income")
+    for kind, category, amount in (
+        ("income", "Income:Salary", "10"),
+        ("reimbursement", "Expenses:Food:Groceries", "2"),
+        ("adjustment", "Equity:Balance-Adjustments", "3"),
+    ):
+        await journal.add_incoming(
+            "Assets:Cash", category, amount, "", date.today().isoformat(), kind
+        )
+    assert journal.ledger.balances()["Assets:Cash"] == Decimal("135")
+    totals = journal.ledger.period_totals(date(1970, 1, 1), date.today())
+    assert totals == {"income": {"UAH": Decimal("10")}, "expenses": {"UAH": Decimal("-2")}}
+    receipt = journal.ledger.transactions[-1]
+    await journal.edit_transaction(
+        receipt.id, "Assets:Cash", "Equity:Balance-Adjustments", "4", "",
+        receipt.date.isoformat(), receipt.timestamp, "Adjusted", journal.source
+    )
+    await journal.delete_transaction(receipt.id, journal.source)
+    assert journal.ledger.balances()["Assets:Cash"] == Decimal("132")
+    print("Incoming APK Python payload: income/reimbursement/equity/totals/edit/delete PASS")
 
 asyncio.run(smoke())
 """

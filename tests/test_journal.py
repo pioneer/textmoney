@@ -237,28 +237,50 @@ def test_ui_success_conflict_reload_and_validation_retain_form_inputs(
         monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
         view.journal = await seeded(tmp_path)
         view._refresh()
-        view.account_choice.value = "Assets:Cash"
-        view.category_choice.value = "Expenses:Food"
-        view.amount.value = "1"
-        view.payee.value = "Draft payee"
-        view.expense_date.value = "10/01/2026"
+        view._new_transaction(MagicMock())
+        dialog = page.show_dialog.call_args.args[0]
+        _, _, account, _, category, amount, _, when, tile = dialog.content.controls[:9]
+        payee = tile.controls[0]
+        account.value = "Assets:Cash"
+        category.value = "Expenses:Food"
+        amount.value = "1"
+        payee.value = "Draft payee"
+        when.occurred.value = "10/01/2026"
         external = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await external.load()
         await external.add_expense("Assets:Cash", "Expenses:Food", "90", "External", "2026-10-01")
-        await view._add_expense(MagicMock())
+        await dialog.actions[-1].on_click(MagicMock())
         assert "outside TxnCount" in (view.message.value or "")
-        assert view.amount.value == "1" and view.payee.value == "Draft payee"
-        page.show_dialog.assert_called_once()
-        assert view.expense_save.disabled
+        assert amount.value == "1" and payee.value == "Draft payee"
+        assert page.show_dialog.call_count == 2
+        assert view.fab.disabled
         await view._reload(MagicMock())
-        assert view.amount.value == "1" and view.payee.value == "Draft payee"
-        await view._add_expense(MagicMock())
-        assert view.amount.value == "" and view.payee.value == ""
+        assert amount.value == "1" and payee.value == "Draft payee"
+        # A reloaded journal must not silently rebase the old dialog.
+        await dialog.actions[-1].on_click(MagicMock())
+        assert view.error_message == "crud_stale"
+        view._transaction_dialog(view.journal)
+        dialog = page.show_dialog.call_args.args[0]
+        _, _, account, _, category, amount, _, when, tile = dialog.content.controls[:9]
+        payee = tile.controls[0]
+        account.value = "Assets:Cash"
+        category.value = "Expenses:Food"
+        amount.value = "1"
+        payee.value = "Draft payee"
+        when.occurred.value = "10/01/2026"
+        await dialog.actions[-1].on_click(MagicMock())
+        page.pop_dialog.assert_called_once()
         assert view.journal.ledger.balances()["Assets:Cash"] == Decimal("9")
-        view.amount.value = "10"
-        view.payee.value = "Still here"
-        await view._add_expense(MagicMock())
-        assert view.amount.value == "10" and view.payee.value == "Still here"
+        view._transaction_dialog(view.journal)
+        dialog = page.show_dialog.call_args.args[0]
+        _, _, account, _, category, amount, _, _, tile = dialog.content.controls[:9]
+        payee = tile.controls[0]
+        account.value = "Assets:Cash"
+        category.value = "Expenses:Food"
+        amount.value = "10"
+        payee.value = "Still here"
+        await dialog.actions[-1].on_click(MagicMock())
+        assert amount.value == "10" and payee.value == "Still here"
         assert "not enough money" in (view.message.value or "")
         view._navigate("transactions")
         assert view.screen_host.content is view.transactions_screen

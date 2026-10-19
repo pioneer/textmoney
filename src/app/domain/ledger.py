@@ -1,12 +1,13 @@
-"""Bounded single-currency expenses, not a general Beancount booking engine."""
+"""Explicit single-currency movements, not a general Beancount booking engine."""
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, localcontext
 
 EPOCH = date(1970, 1, 1)
 EQUITY = "Equity:Opening-Balances"
+ADJUSTMENTS = "Equity:Balance-Adjustments"
 ZERO = Decimal("0")
 MAX_AMOUNT = Decimal("999999999999.99")
 
@@ -99,6 +100,7 @@ class Transaction:
     postings: tuple[Posting, ...]
     kind: str
     persistent_id: bool = True
+    related_expense: str | None = None
 
 
 @dataclass(frozen=True)
@@ -108,6 +110,30 @@ class Ledger:
     transactions: tuple[Transaction, ...] = ()
     equity_opened: date | None = None
     operating_currencies: tuple[str, ...] = ()
+    adjustments_opened: date | None = None
+
+    def period_totals(self, start: date, end: date) -> dict[str, dict[str, Decimal]]:
+        """Inclusive accounting-date totals; income positive, reimbursements net expenses."""
+        if end < start:
+            raise LedgerError("incoming_period")
+        result: dict[str, dict[str, Decimal]] = {"income": {}, "expenses": {}}
+        with localcontext() as context:
+            context.prec = 50
+            for transaction in self.transactions:
+                if start <= transaction.date <= end:
+                    for posting in transaction.postings:
+                        group = (
+                            "income"
+                            if posting.account.startswith("Income:")
+                            else "expenses"
+                            if posting.account.startswith("Expenses:")
+                            else None
+                        )
+                        if group:
+                            values = result[group]
+                            value = -posting.amount if group == "income" else posting.amount
+                            values[posting.currency] = values.get(posting.currency, ZERO) + value
+        return result
 
     def category_active(self, identifier: str) -> bool:
         return any(c.id == identifier for c in self.categories) and all(
@@ -123,6 +149,8 @@ class Ledger:
         declared = set(accounts) | set(categories)
         if self.equity_opened is not None:
             declared.add(EQUITY)
+        if self.adjustments_opened is not None:
+            declared.add(ADJUSTMENTS)
         ids: set[str] = set()
         with localcontext() as context:
             context.prec = 50
@@ -152,6 +180,8 @@ class Ledger:
                         if posting.account in accounts
                         else categories[posting.account].opened
                         if posting.account in categories
+                        else self.adjustments_opened
+                        if posting.account == ADJUSTMENTS
                         else self.equity_opened
                     )
                     if opened is None or transaction.date < opened:
@@ -184,7 +214,9 @@ class Ledger:
         today: date | None = None,
     ) -> Transaction:
         accounts = {account.id: account for account in self.accounts}
-        if account_id not in accounts or category_id not in {c.id for c in self.categories}:
+        if account_id not in accounts or category_id not in {
+            c.id for c in self.categories if c.id.startswith("Expenses:")
+        }:
             raise LedgerError("Choose an explicitly created account and category.")
         if not accounts[account_id].active or not self.category_active(category_id):
             raise LedgerError("crud_inactive")
@@ -207,7 +239,55 @@ class Ledger:
             ),
             "expense",
         )
-        Ledger(
-            self.accounts, self.categories, (*self.transactions, transaction), self.equity_opened
-        ).balances(today=today)
+        replace(self, transactions=(*self.transactions, transaction)).balances(today=today)
+        return transaction
+
+    def incoming(
+        self,
+        account_id: str,
+        category_id: str,
+        amount: Decimal,
+        payee: str,
+        occurred: date,
+        timestamp: datetime,
+        transaction_id: str,
+        kind: str,
+        *,
+        today: date | None = None,
+    ) -> Transaction:
+        account = next((a for a in self.accounts if a.id == account_id), None)
+        if account is None:
+            raise LedgerError("incoming_choose_account")
+        if not account.active:
+            raise LedgerError("crud_inactive")
+        root = {"income": "Income:", "reimbursement": "Expenses:", "adjustment": "Equity:"}.get(
+            kind
+        )
+        if root is None or not category_id.startswith(root):
+            raise LedgerError("incoming_category")
+        if kind == "adjustment":
+            if category_id != ADJUSTMENTS or self.adjustments_opened is None:
+                raise LedgerError("incoming_category")
+        elif not self.category_active(category_id):
+            raise LedgerError("incoming_category")
+        checked_amount(amount)
+        if amount <= ZERO:
+            raise LedgerError("incoming_amount")
+        if not EPOCH <= occurred <= (today or date.today()):
+            raise LedgerError("incoming_date")
+        if timestamp.utcoffset() is None:
+            raise LedgerError("crud_datetime")
+        transaction = Transaction(
+            transaction_id,
+            occurred,
+            timestamp.isoformat(),
+            display_name(payee) if payee.strip() else "",
+            "",
+            (
+                Posting(account_id, amount, account.currency),
+                Posting(category_id, -amount, account.currency),
+            ),
+            kind,
+        )
+        replace(self, transactions=(*self.transactions, transaction)).balances(today=today)
         return transaction

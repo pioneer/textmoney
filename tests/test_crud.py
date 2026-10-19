@@ -530,7 +530,11 @@ def test_ui_edit_dialog_preserves_input_after_poll_conflict_and_cancel_does_not_
         submit_handler = dialog.actions[-1].on_click
         assert isinstance(dialog, ft.AlertDialog)
         assert isinstance(dialog.content, ft.Column)
-        amount = dialog.content.controls[3]
+        amount = next(
+            c
+            for c in dialog.content.controls
+            if isinstance(c, ft.TextField) and c.label == view.tr("amount")
+        )
         assert isinstance(amount, ft.TextField)
         amount.value = "13.50"
         source = view.journal.source + "\n; external edit while dialog open\n"
@@ -684,7 +688,14 @@ def test_delete_with_history_offers_deactivation_instead_of_destroying_records(
         assert view.journal.ledger.balances()["Assets:Cash"] == 90
         assert any(p.read_text() == source for p in (tmp_path / "backups").iterdir())
         view._refresh()
-        assert not any(option.key == "Assets:Cash" for option in view.account_choice.options)
+        view._transaction_dialog(view.journal)
+        dialog = page.show_dialog.call_args.args[0]
+        account = next(
+            c
+            for c in dialog.content.controls
+            if isinstance(c, ft.Dropdown) and c.label == view.tr("pay_from")
+        )
+        assert not any(option.key == "Assets:Cash" for option in account.options)
 
     asyncio.run(scenario())
 

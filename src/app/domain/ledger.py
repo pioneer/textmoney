@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation, localcontext
 EPOCH = date(1970, 1, 1)
 EQUITY = "Equity:Opening-Balances"
 ADJUSTMENTS = "Equity:Balance-Adjustments"
+BANK_FEES = "Expenses:Bank-Fees"
 ZERO = Decimal("0")
 MAX_AMOUNT = Decimal("999999999999.99")
 
@@ -74,6 +75,10 @@ class Account:
     opened: date = EPOCH
     active: bool = True
 
+    @property
+    def liability(self) -> bool:
+        return self.id.startswith("Liabilities:")
+
 
 @dataclass(frozen=True)
 class Category:
@@ -101,6 +106,7 @@ class Transaction:
     kind: str
     persistent_id: bool = True
     related_expense: str | None = None
+    fee_mode: str = "added"
 
 
 @dataclass(frozen=True)
@@ -111,6 +117,7 @@ class Ledger:
     equity_opened: date | None = None
     operating_currencies: tuple[str, ...] = ()
     adjustments_opened: date | None = None
+    default_fee_category: str = BANK_FEES
 
     def period_totals(self, start: date, end: date) -> dict[str, dict[str, Decimal]]:
         """Inclusive accounting-date totals; income positive, reimbursements net expenses."""
@@ -142,7 +149,9 @@ class Ledger:
             if identifier == c.id or identifier.startswith(c.id + ":")
         )
 
-    def balances(self, *, today: date | None = None) -> dict[str, Decimal]:
+    def balances(
+        self, *, today: date | None = None, negative_assets: set[str] | None = None
+    ) -> dict[str, Decimal]:
         balances = {account.id: ZERO for account in self.accounts}
         accounts = {account.id: account for account in self.accounts}
         categories = {category.id: category for category in self.categories}
@@ -195,11 +204,74 @@ class Ledger:
                     raise LedgerError(
                         "Unbalanced or multi-currency transaction. No journal changes allowed."
                     )
-                if any(balance < ZERO for balance in balances.values()):
-                    raise LedgerError(
-                        "Insufficient funds: an ordinary account would become negative."
+                if negative_assets is not None:
+                    negative_assets.update(
+                        identifier
+                        for identifier, balance in balances.items()
+                        if balance < ZERO and not accounts[identifier].liability
                     )
         return balances
+
+    def balance_warnings(self, *, today: date | None = None) -> set[str]:
+        negative: set[str] = set()
+        self.balances(today=today, negative_assets=negative)
+        return negative
+
+    def transfer(
+        self,
+        source: str,
+        destination: str,
+        amount: Decimal,
+        fee: Decimal,
+        fee_category: str,
+        fee_mode: str,
+        occurred: date,
+        timestamp: datetime,
+        transaction_id: str,
+        *,
+        today: date | None = None,
+    ) -> Transaction:
+        accounts = {a.id: a for a in self.accounts}
+        if source == destination or source not in accounts or destination not in accounts:
+            raise LedgerError("transfer_accounts")
+        if not accounts[source].active or not accounts[destination].active:
+            raise LedgerError("crud_inactive")
+        if accounts[source].currency != accounts[destination].currency:
+            raise LedgerError("transfer_currency")
+        checked_amount(amount)
+        checked_amount(fee)
+        if amount <= ZERO or fee < ZERO or fee_mode not in {"added", "deducted"}:
+            raise LedgerError("transfer_amount")
+        if fee_mode == "deducted" and fee >= amount:
+            raise LedgerError("transfer_amount")
+        if fee and (
+            not fee_category.startswith("Expenses:") or not self.category_active(fee_category)
+        ):
+            raise LedgerError("incoming_category")
+        if not EPOCH <= occurred <= (today or date.today()):
+            raise LedgerError("incoming_date")
+        if timestamp.utcoffset() is None:
+            raise LedgerError("crud_datetime")
+        currency = accounts[source].currency
+        debit = amount + fee if fee_mode == "added" else amount
+        credit = amount - fee if fee_mode == "deducted" else amount
+        postings = (
+            Posting(source, -checked_amount(debit), currency),
+            Posting(destination, checked_amount(credit), currency),
+            *((Posting(fee_category, fee, currency),) if fee else ()),
+        )
+        transaction = Transaction(
+            transaction_id,
+            occurred,
+            timestamp.isoformat(),
+            "",
+            "",
+            postings,
+            "transfer",
+            fee_mode=fee_mode,
+        )
+        replace(self, transactions=(*self.transactions, transaction)).balances(today=today)
+        return transaction
 
     def expense(
         self,

@@ -77,7 +77,7 @@ def test_invalid_expense_and_duplicates_do_not_write(tmp_path: Path) -> None:
         journal = await seeded(tmp_path)
         original = (tmp_path / FILENAME).read_bytes()
         backups = set((tmp_path / "backups").iterdir())
-        for amount in ("100.01", "-1", "NaN", "0", "1.001"):
+        for amount in ("-1", "NaN", "0", "1.001"):
             with pytest.raises(LedgerError):
                 await journal.add_expense(
                     "Assets:Cash", "Expenses:Food", amount, "Shop", "2026-10-01"
@@ -161,8 +161,8 @@ def test_conflict_blocks_save_then_reload_updates_balances_and_retains_external_
         assert (tmp_path / FILENAME).read_bytes() == original
         await journal.load()
         assert journal.ledger.balances()["Assets:Cash"] == Decimal("10")
-        with pytest.raises(LedgerError, match="Insufficient"):
-            await journal.add_expense("Assets:Cash", "Expenses:Food", "20", "Draft", "2026-10-01")
+        await journal.add_expense("Assets:Cash", "Expenses:Food", "20", "Draft", "2026-10-01")
+        assert journal.ledger.balance_warnings() == {"Assets:Cash"}
 
     asyncio.run(scenario())
 
@@ -281,10 +281,11 @@ def test_ui_success_conflict_reload_and_validation_retain_form_inputs(
         payee.value = "Still here"
         await dialog.actions[-1].on_click(MagicMock())
         assert amount.value == "10" and payee.value == "Still here"
-        assert "not enough money" in (view.message.value or "")
+        assert view.balance_warning.visible
+        assert view.journal.ledger.balances()["Assets:Cash"] == -1
         view._navigate("transactions")
         assert view.screen_host.content is view.transactions_screen
-        assert len(view.history.controls) == 3
+        assert len(view.history.controls) == 4
 
     asyncio.run(scenario())
 

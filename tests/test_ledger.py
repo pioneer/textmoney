@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -64,7 +65,7 @@ def funded_ledger() -> Ledger:
     )
 
 
-def test_expense_balances_and_zero_allowed_but_not_negative() -> None:
+def test_expense_balances_and_negative_balance_warning() -> None:
     ledger = funded_ledger()
     expense = ledger.expense(
         "Assets:Cash",
@@ -77,16 +78,18 @@ def test_expense_balances_and_zero_allowed_but_not_negative() -> None:
     )
     updated = Ledger(ledger.accounts, ledger.categories, (*ledger.transactions, expense), EPOCH)
     assert updated.balances() == {"Assets:Cash": Decimal("0")}
-    with pytest.raises(LedgerError, match="Insufficient"):
-        updated.expense(
-            "Assets:Cash",
-            "Expenses:Food",
-            Decimal(".01"),
-            "Shop",
-            date.today(),
-            datetime.now(UTC),
-            "another",
-        )
+    overdraft = updated.expense(
+        "Assets:Cash",
+        "Expenses:Food",
+        Decimal(".01"),
+        "Shop",
+        date.today(),
+        datetime.now(UTC),
+        "another",
+    )
+    assert replace(updated, transactions=(*updated.transactions, overdraft)).balance_warnings() == {
+        "Assets:Cash"
+    }
     with pytest.raises(LedgerError, match="explicitly"):
         ledger.expense(
             "Assets:Unknown",
@@ -114,16 +117,18 @@ def test_backdated_expense_checks_full_chronological_balance() -> None:
         "expense",
     )
     ledger = Ledger(ledger.accounts, ledger.categories, (*ledger.transactions, later), EPOCH)
-    with pytest.raises(LedgerError, match="Insufficient"):
-        ledger.expense(
-            "Assets:Cash",
-            "Expenses:Food",
-            Decimal("3"),
-            "Shop",
-            date(2026, 1, 2),
-            datetime.now(UTC),
-            "backdated",
-        )
+    backdated = ledger.expense(
+        "Assets:Cash",
+        "Expenses:Food",
+        Decimal("3"),
+        "Shop",
+        date(2026, 1, 2),
+        datetime.now(UTC),
+        "backdated",
+    )
+    assert replace(ledger, transactions=(*ledger.transactions, backdated)).balance_warnings() == {
+        "Assets:Cash"
+    }
 
 
 @pytest.mark.parametrize("amount", ["0", "-1", "NaN", "Infinity", "0.001"])

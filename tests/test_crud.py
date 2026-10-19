@@ -278,17 +278,16 @@ def test_operating_currencies_new_existing_configuration_and_comments(tmp_path: 
     asyncio.run(scenario())
 
 
-def test_account_opening_changes_preserve_id_and_reject_negative_running_balances(
+def test_account_opening_changes_preserve_id_and_warn_for_negative_running_balances(
     tmp_path: Path,
 ) -> None:
     async def scenario() -> None:
         journal = await seeded(tmp_path)
         opening_id = journal.ledger.transactions[0].id
         source = journal.source
-        with pytest.raises(LedgerError, match="Insufficient"):
-            await journal.edit_account("Assets:Cash", "Wallet", "5", True, source)
-        assert (tmp_path / FILENAME).read_text() == source
-        await journal.edit_account("Assets:Cash", "Renamed", "120", False, source)
+        await journal.edit_account("Assets:Cash", "Wallet", "5", True, source)
+        assert journal.ledger.balance_warnings() == {"Assets:Cash"}
+        await journal.edit_account("Assets:Cash", "Renamed", "120", False, journal.source)
         assert journal.ledger.transactions[0].id == opening_id
         assert journal.ledger.accounts[0].name == "Renamed"
         assert not journal.ledger.accounts[0].active

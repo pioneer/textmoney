@@ -11,7 +11,7 @@ from zoneinfo import available_timezones
 import flet as ft
 from finance_saf import FinanceSaf
 
-from app.domain.ledger import ADJUSTMENTS, Account, Category, LedgerError, Transaction
+from app.domain.ledger import ADJUSTMENTS, BANK_FEES, Account, Category, LedgerError, Transaction
 from app.domain.storage import ConflictError
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -79,6 +79,13 @@ class FinanceView(ft.Row):
         self.message = ft.Text("", selectable=True)
         self.folder_label = ft.Text("", selectable=True)
         self.access = ft.Text("")
+        self.balance_warning = ft.Text("", color=ft.Colors.ERROR, visible=False)
+        self.account_root = ft.Dropdown(value="Assets", on_select=self._account_type_changed)
+        self.default_fee = ft.Dropdown()
+        self.default_fee_save = ft.Button(on_click=self._save_default_fee)
+        self.default_fee_source = ""
+        self.default_fee_original: str | None = None
+        self.default_fee_journal: Journal | None = None
         self.account_id = ft.TextField(width=320)
         self.account_name = ft.TextField(width=320, keyboard_type=ft.KeyboardType.NAME)
         self.currency = ft.TextField(width=320, value="UAH")
@@ -188,6 +195,9 @@ class FinanceView(ft.Row):
                     content=self.message,
                 ),
                 ft.Container(
+                    padding=ft.Padding.symmetric(horizontal=20), content=self.balance_warning
+                ),
+                ft.Container(
                     expand=True,
                     padding=ft.Padding.symmetric(horizontal=20, vertical=12),
                     content=self.screen_host,
@@ -197,12 +207,14 @@ class FinanceView(ft.Row):
         self.controls.append(self.body)
         self.forms = [
             self.account_id,
+            self.account_root,
             self.account_name,
             self.currency,
             self.opening,
             self.category_id,
             self.category_name,
             self.operating_currencies,
+            self.default_fee,
         ]
         self._refresh_labels()
         self._refresh()
@@ -253,6 +265,13 @@ class FinanceView(ft.Row):
         )
 
     def _refresh_labels(self) -> None:
+        self.account_root.label = self.tr("transfer_account_type")
+        self.account_root.options = [
+            ft.DropdownOption(key="Assets", text=self.tr("transfer_asset")),
+            ft.DropdownOption(key="Liabilities", text=self.tr("transfer_liability")),
+        ]
+        self.default_fee.label = self.tr("transfer_default_fee")
+        self.default_fee_save.content = self.tr("crud_save")
         self.page_title.value = self.tr(
             {
                 "home": "nav_home",
@@ -270,7 +289,9 @@ class FinanceView(ft.Row):
         self.account_id.hint_text = self.tr("account_code_hint")
         self.account_name.label = self.tr("account_name")
         self.currency.label = self.tr("currency")
-        self.opening.label = self.tr("opening_balance")
+        self.opening.label = self.tr(
+            "transfer_owed" if self.account_root.value == "Liabilities" else "opening_balance"
+        )
         self.category_id.label = self.tr("category_path")
         self.category_id.hint_text = self.tr("category_path_hint")
         self.category_name.label = self.tr("category_name")
@@ -376,6 +397,7 @@ class FinanceView(ft.Row):
             ft.Divider(),
             ft.Text(self.tr("account_form_title"), size=18, weight=ft.FontWeight.W_600),
             ft.Text(self.tr("account_code"), size=13),
+            self.account_root,
             self.account_id,
             self.account_name,
             self.currency,
@@ -449,6 +471,8 @@ class FinanceView(ft.Row):
                         ft.Text(self.tr("timezone_help")),
                         self.timezone_choice,
                         self.timezone_save,
+                        self.default_fee,
+                        self.default_fee_save,
                     ],
                     spacing=12,
                 ),
@@ -578,6 +602,8 @@ class FinanceView(ft.Row):
             control.disabled = not ready
         self.reload_button.disabled = self.journal is None
         self.operating_currencies.disabled = not ready
+        self.default_fee.disabled = self.default_fee_save.disabled = not ready
+        self.balance_warning.visible = False
         if not ready or self.journal is None:
             self.account_list.controls = [ft.Text(self.tr("accounts_empty"))]
             self.category_list.controls = [ft.Text(self.tr("categories_empty"))]
@@ -588,6 +614,30 @@ class FinanceView(ft.Row):
             return
 
         ledger = self.journal.ledger
+        warnings = ledger.balance_warnings(today=self.journal.today())
+        self.balance_warning.visible = bool(warnings)
+        self.balance_warning.value = (
+            self.tr("transfer_negative")
+            + " "
+            + ", ".join(a.name for a in ledger.accounts if a.id in warnings)
+        )
+        self.default_fee.options = [
+            ft.DropdownOption(key=c.id, text=c.name)
+            for c in ledger.categories
+            if c.id.startswith("Expenses:") and ledger.category_active(c.id)
+        ]
+        if BANK_FEES not in {c.id for c in ledger.categories}:
+            self.default_fee.options.append(
+                ft.DropdownOption(key=BANK_FEES, text=self.tr("transfer_bank_fees"))
+            )
+        if (
+            self.default_fee_journal is not self.journal
+            or self.default_fee.value == self.default_fee_original
+        ):
+            self.default_fee.value = ledger.default_fee_category
+            self.default_fee_original = ledger.default_fee_category
+            self.default_fee_journal = self.journal
+            self.default_fee_source = self.journal.source
         if (
             self.operating_journal is not self.journal
             or self.operating_currencies.value == self.operating_original
@@ -715,13 +765,25 @@ class FinanceView(ft.Row):
             and all(p.amount == 0 for p in transaction.postings)
         ):
             outgoing = [p for p in transaction.postings if p.account.startswith("Equity:")]
-            incoming = [p for p in transaction.postings if p.account.startswith("Assets:")]
+            incoming = [
+                p for p in transaction.postings if p.account.startswith(("Assets:", "Liabilities:"))
+            ]
         simple = (
             len(transaction.postings) == 2
             and len(outgoing) == len(incoming) == 1
             and outgoing[0].currency == incoming[0].currency
             and -outgoing[0].amount == incoming[0].amount
         )
+        transfer = None
+        if transaction.kind == "transfer" and self.journal is not None:
+            try:
+                transfer = self.journal.transfer_details(transaction)
+            except LedgerError as exc:
+                if str(exc) != "crud_transaction_readonly":
+                    raise
+            if transfer:
+                outgoing, incoming = [transfer[0]], [transfer[1]]
+                simple = True
         title = display
         if simple:
             source = names.get(
@@ -729,6 +791,13 @@ class FinanceView(ft.Row):
                 self.tr("kind_adjustment" if transaction.kind == "adjustment" else "kind_opening"),
             )
             target = names.get(incoming[0].account, self.tr("kind_external"))
+            if transaction.kind == "opening":
+                opened_account = next(
+                    p.account
+                    for p in transaction.postings
+                    if p.account.startswith(("Assets:", "Liabilities:"))
+                )
+                target = names.get(opened_account, self.tr("kind_external"))
             title = (
                 f"{self.tr('kind_opening')} → {target}"
                 if transaction.kind == "opening"
@@ -747,6 +816,14 @@ class FinanceView(ft.Row):
         else:
             heading.append(ft.Text(self.tr("multiple_postings"), size=12))
         lines: list[ft.Control] = [ft.Row(heading, spacing=8)]
+        if transfer and transfer[2]:
+            lines.append(
+                ft.Text(
+                    f"{self.tr('transfer_fee')}: "
+                    f"{format_amount(transfer[2], self.language, transfer[0].currency)}",
+                    size=12,
+                )
+            )
         if simple and transaction.kind != "opening" and transaction.narration.strip():
             lines.append(
                 ft.Text(
@@ -1158,7 +1235,8 @@ class FinanceView(ft.Row):
             raise LedgerError("crud_opening_complex")
         account = accounts[0]
         amount = ft.TextField(
-            label=self.tr("amount"), value=str(journal.opening_balance(account.id))
+            label=self.tr("transfer_owed" if account.liability else "amount"),
+            value=str(journal.opening_balance(account.id)),
         )
         source = journal.source
 
@@ -1286,14 +1364,22 @@ class FinanceView(ft.Row):
 
     def _transaction_dialog(self, journal: Journal, transaction: Transaction | None = None) -> None:
         source = journal.source
+        transfer = (
+            journal.transfer_details(transaction)
+            if transaction and transaction.kind == "transfer"
+            else None
+        )
+        account_ids = {a.id for a in journal.ledger.accounts}
         original_asset = (
-            next(p for p in transaction.postings if p.account.startswith("Assets:"))
+            transfer[0]
+            if transfer
+            else next(p for p in transaction.postings if p.account in account_ids)
             if transaction
             else None
         )
         original_category = (
-            next(p.account for p in transaction.postings if not p.account.startswith("Assets:"))
-            if transaction
+            next(p.account for p in transaction.postings if p.account not in account_ids)
+            if transaction and not transfer
             else None
         )
         kind = ft.Dropdown(
@@ -1301,7 +1387,7 @@ class FinanceView(ft.Row):
             value=transaction.kind if transaction else "expense",
             options=[
                 ft.DropdownOption(key=k, text=self.tr(f"kind_{k}"))
-                for k in ("expense", "income", "reimbursement", "adjustment")
+                for k in ("expense", "income", "reimbursement", "adjustment", "transfer")
             ],
         )
         account = ft.Dropdown(
@@ -1316,6 +1402,48 @@ class FinanceView(ft.Row):
         amount = ft.TextField(
             label=self.tr("amount"), value=str(abs(original_asset.amount)) if original_asset else ""
         )
+        destination = ft.Dropdown(
+            label=self.tr("transfer_destination"),
+            value=transfer[1].account if transfer else None,
+            options=[
+                ft.DropdownOption(key=a.id, text=f"{a.name} ({a.currency})")
+                for a in journal.ledger.accounts
+                if a.active or (transfer and transfer[1].account == a.id)
+            ],
+        )
+        fee_enabled = ft.Checkbox(
+            label=self.tr("transfer_fee_enabled"), value=bool(transfer and transfer[2])
+        )
+        fee = ft.TextField(
+            label=self.tr("transfer_fee"), value=str(transfer[2]) if transfer else "0"
+        )
+        fee_mode = ft.Dropdown(
+            label=self.tr("transfer_mode"),
+            value=transfer[4] if transfer else "added",
+            options=[
+                ft.DropdownOption(key=k, text=self.tr(f"transfer_{k}"))
+                for k in ("added", "deducted")
+            ],
+        )
+        fee_category = ft.Dropdown(
+            label=self.tr("transfer_fee_category"),
+            value=transfer[3] if transfer else journal.ledger.default_fee_category,
+            options=[
+                ft.DropdownOption(key=c.id, text=c.name)
+                for c in journal.ledger.categories
+                if c.id.startswith("Expenses:")
+                and (journal.ledger.category_active(c.id) or (transfer and transfer[3] == c.id))
+            ],
+        )
+        if BANK_FEES not in {c.id for c in journal.ledger.categories}:
+            fee_category.options.append(
+                ft.DropdownOption(key=BANK_FEES, text=self.tr("transfer_bank_fees"))
+            )
+        if transfer:
+            amount.value = str(
+                -transfer[0].amount if transfer[4] == "deducted" else transfer[1].amount
+            )
+        transfer_fields = ft.Column([destination, fee_enabled, fee, fee_mode, fee_category])
         description = ft.TextField(
             label=self.tr("crud_description_label"),
             value=transaction.narration if transaction else "",
@@ -1370,16 +1498,25 @@ class FinanceView(ft.Row):
 
         def configure(event: ft.Event[ft.Dropdown] | None = None) -> None:
             nonlocal previous_kind
-            if event is not None and previous_kind:
+            changed = previous_kind != kind.value
+            if event is not None and previous_kind and changed:
                 category_values[previous_kind] = category.value
                 category.value = category_values.get(kind.value or "")
             previous_kind = kind.value
             root = "Income:" if kind.value == "income" else "Expenses:"
-            account.label = self.tr("pay_from" if kind.value == "expense" else "incoming_account")
+            account.label = self.tr(
+                "pay_from" if kind.value in {"expense", "transfer"} else "incoming_account"
+            )
             category.label = self.tr(
                 "income_category" if kind.value == "income" else "expense_category"
             )
-            payee.label = self.tr("payee" if kind.value == "expense" else "incoming_sender")
+            payee.label = self.tr(
+                "transfer_counterparty"
+                if kind.value == "transfer"
+                else "payee"
+                if kind.value == "expense"
+                else "incoming_sender"
+            )
             payee_details.title = payee.label
             payee_details.controls = [
                 payee,
@@ -1392,14 +1529,19 @@ class FinanceView(ft.Row):
                 if c.id.startswith(root)
                 and (journal.ledger.category_active(c.id) or c.id == original_category)
             ]
-            category.visible = kind.value != "adjustment"
+            category.visible = kind.value not in {"adjustment", "transfer"}
+            transfer_fields.visible = kind.value == "transfer"
+            fee.visible = fee_mode.visible = fee_category.visible = bool(fee_enabled.value)
             if kind.value == "adjustment":
                 category.value = ADJUSTMENTS
             elif category.value not in {o.key for o in category.options}:
                 category.value = None
             reference.visible = kind.value == "reimbursement" and transaction is None
-            if event is not None:
+            controls.remove(transfer_fields)
+            controls.insert(6 if kind.value == "transfer" else 9, transfer_fields)
+            if changed:
                 reference.value = ""
+            if event is not None:
                 self.page.update()
 
         def fill_reference(event: ft.Event[ft.Dropdown]) -> None:
@@ -1418,12 +1560,28 @@ class FinanceView(ft.Row):
                 self._error(exc, notify=True)
 
         kind.on_select = configure
+        fee_enabled.on_change = configure
         reference.on_select = fill_reference
-        configure()
 
         async def save() -> str | None:
             self._effective_zone()
             occurred, timestamp = when.values()
+            if kind.value == "transfer":
+                return await journal.save_transfer(
+                    account.value or "",
+                    destination.value or "",
+                    amount.value or "",
+                    (fee.value or "0") if fee_enabled.value else "0",
+                    fee_category.value or "",
+                    fee_mode.value or "",
+                    occurred,
+                    timestamp,
+                    description.value or "",
+                    payee.value or "",
+                    source,
+                    identifier=transaction.id if transaction else None,
+                    default_fee_name=self.tr("transfer_bank_fees"),
+                )
             if transaction:
                 return await journal.edit_transaction(
                     transaction.id,
@@ -1463,30 +1621,33 @@ class FinanceView(ft.Row):
                 expected_source=source,
             )
 
+        controls: list[ft.Control] = [
+            ft.Text(self.tr(f"kind_{transaction.kind}")) if transaction else kind,
+            help_text,
+            account,
+            reference,
+            category,
+            amount,
+            description,
+            when,
+            payee_details,
+            transfer_fields,
+            *([ft.Text(transaction.id, selectable=True)] if transaction else []),
+            *(
+                [
+                    ft.Text(
+                        self.tr("incoming_linked", identifier=transaction.related_expense),
+                        selectable=True,
+                    )
+                ]
+                if transaction and transaction.related_expense
+                else []
+            ),
+        ]
+        configure()
         self._edit_dialog(
             self.tr("crud_edit" if transaction else "add_transaction"),
-            [
-                ft.Text(self.tr(f"kind_{transaction.kind}")) if transaction else kind,
-                help_text,
-                account,
-                reference,
-                category,
-                amount,
-                description,
-                when,
-                payee_details,
-                *([ft.Text(transaction.id, selectable=True)] if transaction else []),
-                *(
-                    [
-                        ft.Text(
-                            self.tr("incoming_linked", identifier=transaction.related_expense),
-                            selectable=True,
-                        )
-                    ]
-                    if transaction and transaction.related_expense
-                    else []
-                ),
-            ],
+            controls,
             journal,
             save,
         )
@@ -1509,7 +1670,11 @@ class FinanceView(ft.Row):
             if not category:
                 try:
                     opening = ft.TextField(
-                        label=self.tr("opening_balance"),
+                        label=self.tr(
+                            "transfer_owed"
+                            if isinstance(item, Account) and item.liability
+                            else "opening_balance"
+                        ),
                         value=str(journal.opening_balance(identifier)),
                     )
                 except LedgerError as exc:
@@ -1583,9 +1748,27 @@ class FinanceView(ft.Row):
                 self.account_name.value or "",
                 self.currency.value or "",
                 self.opening.value or "",
+                root=self.account_root.value or "Assets",
             )
             self.account_id.value = self.account_name.value = self.opening.value = ""
             self._set_message("account_created")
+
+        await self._action(save)
+
+    def _account_type_changed(self, event: ft.Event[ft.Dropdown]) -> None:
+        self._refresh_labels()
+        self.page.update()
+
+    async def _save_default_fee(self, event: ft.Event[ft.Button]) -> None:
+        async def save() -> None:
+            journal = self._require_journal()
+            if journal is not self.default_fee_journal:
+                raise ConflictError("crud_stale")
+            backup = await journal.set_default_fee_category(
+                self.default_fee.value or "", self.default_fee_source
+            )
+            self.default_fee_original = self.default_fee.value
+            self._saved(backup)
 
         await self._action(save)
 

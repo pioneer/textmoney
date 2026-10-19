@@ -123,8 +123,27 @@ failed saves retain the form. Each dialog captures its journal and source
 baseline, including new expenses. Editing keeps the accounting type fixed.
 Opening balances still use their guarded account-opening editor. Split and
 externally authored entries retain full read-only posting details; no new
-two-posting restriction is imposed on loading. Transfers, loans and currency
-conversion have no creation/editing service and are not added by this UI work.
+two-posting restriction is imposed on loading. Same-currency transfers extend
+this form and use two account postings plus an optional expense-fee posting.
+Standard `Liabilities:` accounts use the existing account model, with credit
+(negative) debt balances and positive repayment postings. Opening amount owed
+is entered as a positive number and stored as a negative liability posting.
+Currency conversion and loan schedules remain out of scope.
+
+Negative asset balances, including historical ones, now produce visible warnings
+instead of blocking loading or saving, as explicitly approved for overdrafts and
+backdated operations. This applies consistently to all operations; financial
+validation (balanced explicit amounts, declarations, currency, dates and IDs)
+remains strict. Liability credit balances are normal and do not produce an
+insufficient-funds warning.
+
+The default transfer fee category is standard boolean metadata
+`txncount-default-transfer-fee` on an expense category's `open` directive.
+Without it, `Expenses:Bank-Fees` is the default and is declared only when first
+used with a nonzero fee, within the same validated save. Transfer metadata
+`txncount-fee-mode` distinguishes added/deducted fees; editing derives amounts
+from postings, preserving IDs and unrelated annotations. A removed fee posting
+with metadata or an inline comment is retained at zero to preserve annotations.
 
 The compact UI keeps one movement amount in ordinary transaction rows and
 opens details/editors through icon actions. The shared date/time control

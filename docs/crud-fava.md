@@ -2,6 +2,67 @@
 
 ## Scope and format
 
+### Same-currency transfers
+
+The unified transaction form includes **Transfer / Переказ**, with source,
+destination, amount and optional fee. Cash, bank and single-currency liability
+accounts share account selection by display name. A transfer is one directive:
+
+| Fee mode | Source | Destination | Fee expense |
+| --- | --- | --- | --- |
+| None, amount 1000 | -1000 | +1000 | None |
+| Added, amount 1000, fee 5 | -1005 | +1000 | +5 |
+| Deducted, amount 1000, fee 5 | -1000 | +995 | +5 |
+
+Only fees enter expense totals; transfers never enter income totals.
+Same-account transfers, mismatched currencies, inactive/missing declarations,
+nonpositive amounts and deducted fees equal to or larger than the amount are
+rejected. The form edits source/destination, amount, fee mode/category,
+counterparty, description and date/time; confirmed deletion removes all postings.
+Unmarked/ambiguous split entries remain read-only rather than being reduced to
+two postings.
+
+Settings selects an active expense category as the default fee category.
+Its `open` directive stores `txncount-default-transfer-fee: TRUE`, so the
+choice synchronizes with the journal. In the absence of a marked category,
+`Expenses:Bank-Fees` is used and created with a localized display name only on
+the first nonzero fee, in the same backed-up save as the transfer. An inactive
+default must be reactivated or replaced; it is never silently bypassed.
+`txncount-fee-mode: "added"` or `"deducted"` is standard transaction metadata.
+Unrelated transaction/posting metadata and comments survive edits. If an
+annotated fee posting is removed, a zero-amount posting retains its annotations;
+new zero-fee transfers have only two postings.
+
+**Approved balance-policy change:** negative asset balances now warn instead
+of invalidating the journal. The warning identifies accounts with a negative
+balance anywhere in chronological history, even if later funding restored the
+current balance. This applies to creation, editing, deletion, opening edits and
+external reloads—not just transfers. Balanced postings, explicit declarations,
+single-currency amounts, IDs and dates remain strict.
+
+Liability accounts are explicitly created via **Loan / credit**. Enter a positive
+opening amount owed; the opening posting is negative in `Liabilities:` and
+positive in `Equity:Opening-Balances`. A bank-to-loan transfer credits the bank
+negatively and debits the liability positively, reducing debt without creating
+income or an expense other than an optional fee. Borrowing reverses those
+postings. Liability balances are shown with standard signed Beancount values;
+negative debt is not an overdraft warning. No interest, schedules, receivables,
+debt allocation or currency exchange is implemented.
+
+The Ukrainian browser workflow was checked with synthetic accounts at 390×844
+and 1366×900: a deducted-fee loan repayment saved through an overdraft warning
+and reduced the debt correctly; editing it to an added fee updated both balances
+and cleared the warning; confirmed deletion removed the operation and its fee.
+Automated tests also cover fee defaults, currency/amount rejection, backup and
+conflict failures, metadata preservation and Beancount/Fava validation.
+For release 0.1.4 (Android build 16), `uv run inv check` passed formatting, Ruff,
+Pyright and all 360 tests. `uv run inv build-android` produced
+`build/apk/txncount-0.1.4.apk`; `uv run inv check-beancount-apk` passed the actual
+packaged Python smoke checks, including transfers, fees, liabilities and
+overdraft editing/deletion. The app ID and signing certificate match previous
+TxnCount releases. These checks are not native Android/Windows runtime
+verification; no physical Android device was tested.
+
 Transaction lists and recent activity show a one-line description preview below
 the movement, truncated with an ellipsis when necessary. Multiline descriptions
 are flattened for the preview only; the editor retains the full original text.
@@ -40,8 +101,8 @@ Expense selectors exclude income categories. Receipts can be edited and deleted
 through the existing icons. Their accounting type stays fixed during editing;
 account, category, amount, description, sender and date/time remain editable.
 Stable IDs, timestamps left untouched by the user and unrelated metadata/comments
-are preserved. Reducing/deleting money already spent is rejected if it would
-create a negative historical balance.
+are preserved. Reducing/deleting money already spent now warns if it creates a
+negative historical asset balance, but remains allowed.
 
 An optional original-expense selection fills category and full original amount;
 change the amount for partial reimbursements and choose any same-currency
@@ -105,8 +166,8 @@ boundary changes the date in `txncount.beancount`, retaining the ID.
 - **Accounts:** change display name, opening amount and active state. Technical
   IDs, currency and declaration date are immutable. Opening edits retain the
   existing opening transaction's ID/metadata. A zero-opening account can gain
-  an explicit opening entry. Reducing an opening amount is rejected if any
-  historical running balance would become negative.
+  an   explicit opening entry. Reducing an opening amount now warns if a historical
+  asset balance becomes negative.
 - **Categories:** rename or deactivate/reactivate without changing IDs or
   hierarchy. An inactive parent makes all descendants unavailable for expenses.
   Historical balances and names remain visible for inactive items.

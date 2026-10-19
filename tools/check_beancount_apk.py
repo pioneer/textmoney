@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = {"autobean_refactor", "beancount_parser", "lark"}
 MVP_SMOKE = """
 import asyncio
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import reset_tzpath
@@ -87,6 +87,27 @@ async def smoke():
     await journal.delete_transaction(receipt.id, journal.source)
     assert journal.ledger.balances()["Assets:Cash"] == Decimal("132")
     print("Incoming APK Python payload: income/reimbursement/equity/totals/edit/delete PASS")
+    await journal.create_account("Loan", "Loan", "UAH", "100", root="Liabilities")
+    await journal.save_transfer(
+        "Assets:Cash", "Liabilities:Loan", "20", "2", "Expenses:Bank-Fees",
+        "added", date.today().isoformat(), datetime.now().astimezone().isoformat(),
+        "Repayment", "", journal.source
+    )
+    transfer = journal.ledger.transactions[-1]
+    assert len(transfer.postings) == 3
+    assert journal.ledger.balances()["Liabilities:Loan"] == Decimal("-80")
+    assert journal.ledger.balances()["Assets:Cash"] == Decimal("110")
+    await journal.save_transfer(
+        "Assets:Cash", "Liabilities:Loan", "200", "5", "Expenses:Bank-Fees",
+        "deducted", transfer.date.isoformat(), transfer.timestamp, "Edited", "",
+        journal.source, identifier=transfer.id
+    )
+    assert journal.ledger.balances()["Assets:Cash"] == Decimal("-68")
+    assert journal.ledger.balance_warnings() == {"Assets:Cash"}
+    await journal.load()
+    await journal.delete_transaction(transfer.id, journal.source)
+    assert journal.ledger.balances()["Assets:Cash"] == Decimal("132")
+    print("Transfer APK Python payload: fees/liabilities/overdraft/edit/delete PASS")
 
 asyncio.run(smoke())
 """

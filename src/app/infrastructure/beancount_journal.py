@@ -10,6 +10,7 @@ from lark.exceptions import UnexpectedInput
 
 from app.domain.ledger import (
     ADJUSTMENTS,
+    BANK_FEES,
     EQUITY,
     Account,
     Category,
@@ -64,6 +65,7 @@ class JournalCodec:
         equity_opened = None
         adjustments_opened = None
         operating_currencies: list[str] = []
+        default_fee_category = None
         names: set[str] = set()
         safe = (
             models.Note,
@@ -98,8 +100,8 @@ class JournalCodec:
                 if not isinstance(active, bool):
                     raise LedgerError("crud_active_invalid")
                 currencies = list(entry.currencies)
-                if entry.account.startswith("Assets:"):
-                    account_path(entry.account, "Assets")
+                if entry.account.startswith(("Assets:", "Liabilities:")):
+                    account_path(entry.account, entry.account.split(":")[0])
                     if len(currencies) != 1:
                         raise LedgerError(
                             "Each ordinary account needs exactly one declared currency."
@@ -116,6 +118,16 @@ class JournalCodec:
                             "MVP expense category declarations must not restrict currencies."
                         )
                     categories.append(Category(entry.account, name, entry.date, active))
+                    default_fee = entry.meta.get("txncount-default-transfer-fee", False)
+                    if not isinstance(default_fee, bool):
+                        raise LedgerError("transfer_category")
+                    if default_fee:
+                        if (
+                            not entry.account.startswith("Expenses:")
+                            or default_fee_category is not None
+                        ):
+                            raise LedgerError("transfer_category")
+                        default_fee_category = entry.account
                 elif entry.account in {EQUITY, ADJUSTMENTS}:
                     if currencies:
                         raise LedgerError(
@@ -173,6 +185,9 @@ class JournalCodec:
                 related = entry.meta.get("txncount-expense-id")
                 if related is not None and (not isinstance(related, str) or not related):
                     raise LedgerError("incoming_reference")
+                fee_mode = entry.meta.get("txncount-fee-mode", "added")
+                if not isinstance(fee_mode, str):
+                    raise LedgerError("transfer_mode")
                 transactions.append(
                     Transaction(
                         identifier,
@@ -184,6 +199,7 @@ class JournalCodec:
                         kind,
                         persistent_id,
                         related,
+                        fee_mode,
                     )
                 )
             else:
@@ -198,6 +214,7 @@ class JournalCodec:
             equity_opened,
             tuple(dict.fromkeys(operating_currencies)),
             adjustments_opened,
+            default_fee_category or BANK_FEES,
         )
         ledger.balances(today=self.today())
         return ledger
@@ -271,6 +288,11 @@ def transaction_text(transaction: Transaction) -> str:
                 "id": transaction.id,
                 "timestamp": transaction.timestamp,
                 "txncount-kind": transaction.kind,
+                **(
+                    {"txncount-fee-mode": transaction.fee_mode}
+                    if transaction.kind == "transfer"
+                    else {}
+                ),
                 **(
                     {"txncount-expense-id": transaction.related_expense}
                     if transaction.related_expense

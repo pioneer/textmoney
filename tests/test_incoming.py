@@ -224,7 +224,7 @@ def test_no_currency_conversion_and_income_categories_do_not_accept_expenses(
     asyncio.run(scenario())
 
 
-def test_spent_income_cannot_be_deleted_or_reduced_and_inactive_category_lifecycle(
+def test_spent_income_edits_warn_and_inactive_category_lifecycle(
     tmp_path: Path,
 ) -> None:
     async def scenario() -> None:
@@ -235,15 +235,15 @@ def test_spent_income_cannot_be_deleted_or_reduced_and_inactive_category_lifecyc
         incoming = journal.ledger.transactions[-1]
         await journal.add_expense("Assets:Cash", "Expenses:Food", "9", "", "2026-02-01")
         before = journal.source
-        with pytest.raises(LedgerError, match="Insufficient"):
-            await journal.delete_transaction(incoming.id, before)
-        with pytest.raises(LedgerError, match="Insufficient"):
-            await journal.edit_transaction(
-                incoming.id, "Assets:Cash", "Income:Work:Salary", "8", "", DAY, STAMP, "", before
-            )
-        assert journal.source == before
+        await journal.edit_transaction(
+            incoming.id, "Assets:Cash", "Income:Work:Salary", "8", "", DAY, STAMP, "", before
+        )
+        assert journal.ledger.balance_warnings() == {"Assets:Cash"}
         with pytest.raises(LedgerError, match="crud_has_history"):
-            await journal.delete_category("Income:Work:Salary", before)
+            await journal.delete_category("Income:Work:Salary", journal.source)
+        await journal.delete_transaction(incoming.id, journal.source)
+        assert journal.ledger.balances()["Assets:Cash"] == -9
+        before = journal.source
         await journal.edit_category("Income:Work", "Work", False, before)
         with pytest.raises(LedgerError, match="incoming_category"):
             await journal.add_incoming("Assets:Cash", "Income:Work:Salary", "1", "", DAY, "income")
@@ -484,6 +484,7 @@ def test_unified_form_creates_edits_and_deletes_each_supported_movement(
             "income",
             "reimbursement",
             "adjustment",
+            "transfer",
         ]
         mode.value = kind
         mode.on_select(MagicMock())
@@ -609,7 +610,7 @@ def test_switching_modes_preserves_common_draft_and_each_category(
             ["Bank: −8.00 UAH", "Food: 5.00 UAH", "Food: 3.00 UAH"],
         ),
         (
-            "transfer",
+            "external",
             "  Assets:Bank -8 UAH\n  Assets:Cash 8 UAH\n",
             ["Bank: −8.00 UAH", "Cash: 8.00 UAH"],
         ),

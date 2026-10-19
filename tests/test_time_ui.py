@@ -381,12 +381,12 @@ def test_optional_payee_is_blank_and_collapsed_after_success_not_after_validatio
         assert not payee.value and not tile.expanded
         account.value = "Assets:Cash"
         category.value = "Expenses:Food"
-        amount.value = "1000"
+        amount.value = "invalid"
         payee.value = "Unsaved shop"
         tile.expanded = True
         await dialog.actions[-1].on_click(MagicMock())
         assert payee.value == "Unsaved shop"
-        assert amount.value == "1000"
+        assert amount.value == "invalid"
         assert tile.expanded
         assert page.pop_dialog.call_count == 1
 
@@ -639,13 +639,16 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
             dialog.actions[0].on_click(MagicMock())
         else:
             await dialog.actions[-1].on_click(MagicMock())
-        if mode in {"save", "zero"}:
+        if mode in {"save", "zero", "negative"}:
             saved = next(t for t in journal.ledger.transactions if t.id == original.id)
             assert saved.date == original.date and saved.timestamp == original.timestamp
-            assert journal.opening_balance("Assets:Cash") == Decimal("120")
-            assert journal.ledger.balances()["Assets:Cash"] == Decimal(
-                "120" if mode == "zero" else "110"
+            assert journal.opening_balance("Assets:Cash") == Decimal(
+                "5" if mode == "negative" else "120"
             )
+            assert journal.ledger.balances()["Assets:Cash"] == Decimal(
+                "120" if mode == "zero" else "-5" if mode == "negative" else "110"
+            )
+            assert view.balance_warning.visible == (mode == "negative")
             assert 'receipt: "keep" ; comment' in journal.source
             assert any(p.read_text() == before for p in (tmp_path / "backups").iterdir())
             assert not loader.load_string(journal.source)[1]

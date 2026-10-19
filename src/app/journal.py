@@ -11,6 +11,7 @@ from autobean_refactor import models
 
 from app.domain.ledger import (
     ADJUSTMENTS,
+    BANK_FEES,
     EPOCH,
     EQUITY,
     ZERO,
@@ -154,10 +155,13 @@ class Journal:
         transaction = next((t for t in self.ledger.transactions if t.id == identifier), None)
         accounts = {a.id for a in self.ledger.accounts}
         categories = {c.id for c in self.ledger.categories}
+        if transaction is None or not transaction.persistent_id:
+            raise LedgerError("crud_transaction_readonly")
+        if transaction.kind == "transfer":
+            self.transfer_details(transaction)
+            return transaction
         if (
-            transaction is None
-            or not transaction.persistent_id
-            or transaction.kind not in {"expense", "income", "reimbursement", "adjustment"}
+            transaction.kind not in {"expense", "income", "reimbursement", "adjustment"}
             or len(transaction.postings) != 2
         ):
             raise LedgerError("crud_transaction_readonly")
@@ -179,6 +183,35 @@ class Journal:
         if len(asset) != 1 or len(expense) != 1:
             raise LedgerError("crud_transaction_readonly")
         return transaction
+
+    def transfer_details(
+        self, transaction: Transaction
+    ) -> tuple[Posting, Posting, Decimal, str, str]:
+        accounts = {a.id for a in self.ledger.accounts}
+        sources = [p for p in transaction.postings if p.account in accounts and p.amount < ZERO]
+        targets = [p for p in transaction.postings if p.account in accounts and p.amount > ZERO]
+        fees = [
+            p
+            for p in transaction.postings
+            if p.account.startswith("Expenses:") and p.amount >= ZERO
+        ]
+        if (
+            len(sources) != 1
+            or len(targets) != 1
+            or len(fees) > 1
+            or len(transaction.postings) != 2 + len(fees)
+            or sources[0].account == targets[0].account
+            or transaction.fee_mode not in {"added", "deducted"}
+        ):
+            raise LedgerError("crud_transaction_readonly")
+        fee = fees[0].amount if fees else ZERO
+        return (
+            sources[0],
+            targets[0],
+            fee,
+            fees[0].account if fees else BANK_FEES,
+            transaction.fee_mode,
+        )
 
     async def edit_expense(
         self,
@@ -251,7 +284,9 @@ class Journal:
         def edit(document: models.File) -> str:
             entry = self._transaction(document, original.id)
             original_asset = next(
-                p.account for p in original.postings if p.account.startswith("Assets:")
+                p.account
+                for p in original.postings
+                if p.account in {a.id for a in self.ledger.accounts}
             )
 
             def update() -> None:
@@ -338,7 +373,9 @@ class Journal:
             }
         ):
             raise LedgerError("crud_opening_complex")
-        return next(p.amount for p in transaction.postings if p.account == identifier)
+        amount = next(p.amount for p in transaction.postings if p.account == identifier)
+        account = next(a for a in self.ledger.accounts if a.id == identifier)
+        return -amount if account.liability else amount
 
     async def edit_account(
         self, identifier: str, name: str, opening: str | None, active: bool, expected_source: str
@@ -349,6 +386,9 @@ class Journal:
         label = display_name(name)
         balance = None if opening is None else money(opening)
         old_balance = None if opening is None else self.opening_balance(identifier)
+        if balance is not None and account.liability:
+            balance = -balance
+            old_balance = -old_balance if old_balance is not None else None
 
         def edit(document: models.File) -> str:
             entry = self._declaration(document, identifier)
@@ -427,6 +467,37 @@ class Journal:
     async def delete_account(self, identifier: str, expected_source: str) -> str | None:
         return await self._delete_declaration(identifier, expected_source, category=False)
 
+    async def set_default_fee_category(self, identifier: str, expected_source: str) -> str | None:
+        implicit = identifier == BANK_FEES and not any(
+            c.id == BANK_FEES for c in self.ledger.categories
+        )
+        if not implicit and (
+            not identifier.startswith("Expenses:") or not self.ledger.category_active(identifier)
+        ):
+            raise LedgerError("incoming_category")
+
+        def edit(document: models.File) -> str:
+            source = self.source
+            previous = [
+                c.id
+                for c in self.ledger.categories
+                if self._declaration(document, c.id).meta.get(
+                    "txncount-default-transfer-fee", False
+                )
+            ]
+            paths: list[str] = previous + ([identifier] if not implicit else [])
+            for path in dict.fromkeys(paths):
+                assert self.codec is not None
+                entry = self._declaration(self.codec.document(source), path)
+
+                def update(entry: models.Open = entry, path: str = path) -> None:
+                    entry.meta["txncount-default-transfer-fee"] = path == identifier
+
+                source = replace_directive(source, entry, update)
+            return source
+
+        return await self._change(edit, expected_source)
+
     async def delete_category(self, identifier: str, expected_source: str) -> str | None:
         return await self._delete_declaration(identifier, expected_source, category=True)
 
@@ -456,15 +527,19 @@ class Journal:
         return await self._change(edit, expected_source)
 
     async def create_account(
-        self, identifier: str, name: str, currency: str, opening: str = ""
+        self, identifier: str, name: str, currency: str, opening: str = "", *, root: str = "Assets"
     ) -> str | None:
         self._require_ready()
+        if root not in {"Assets", "Liabilities"}:
+            raise LedgerError("transfer_accounts")
         account = Account(
-            account_path(identifier, "Assets"), display_name(name), currency_code(currency)
+            account_path(identifier, root), display_name(name), currency_code(currency)
         )
         if account.id in {a.id for a in self.ledger.accounts}:
             raise LedgerError("That technical account ID already exists.")
         balance = money(opening.strip() or "0")
+        if account.liability:
+            balance = -balance
         text = open_account(account)
         if account.currency not in self.ledger.operating_currencies:
             text = (
@@ -472,7 +547,7 @@ class Journal:
                 + "\n\n"
                 + text
             )
-        if balance > ZERO:
+        if balance != ZERO:
             if self.ledger.equity_opened is None:
                 text += "\n" + equity_declaration(EPOCH)
             text += "\n" + transaction_text(
@@ -574,6 +649,110 @@ class Journal:
             transaction, narration=description_text(description), related_expense=related_expense
         )
         return await self._save(addition + transaction_text(transaction))
+
+    async def save_transfer(
+        self,
+        source_account: str,
+        destination: str,
+        amount: str,
+        fee: str,
+        fee_category: str,
+        fee_mode: str,
+        occurred: str,
+        timestamp: str,
+        description: str,
+        payee: str,
+        expected_source: str,
+        *,
+        identifier: str | None = None,
+        default_fee_name: str = "Bank fees",
+    ) -> str | None:
+        self._require_ready()
+        if expected_source != self.source:
+            raise ConflictError("crud_stale")
+        original = self.transaction_for_edit(identifier) if identifier else None
+        if original and original.kind != "transfer":
+            raise LedgerError("crud_transaction_readonly")
+        try:
+            day, stamp = date.fromisoformat(occurred), datetime.fromisoformat(timestamp)
+        except ValueError as exc:
+            raise LedgerError("crud_datetime") from exc
+        fee_amount = money(fee or "0")
+        ledger = replace(
+            self.ledger,
+            transactions=tuple(t for t in self.ledger.transactions if t.id != identifier),
+        )
+        addition = ""
+        if (
+            fee_amount
+            and fee_category == BANK_FEES
+            and not any(c.id == BANK_FEES for c in ledger.categories)
+        ):
+            category = Category(BANK_FEES, display_name(default_fee_name))
+            ledger = replace(ledger, categories=(*ledger.categories, category))
+            addition = open_category(category)
+        updated = ledger.transfer(
+            source_account,
+            destination,
+            money(amount),
+            fee_amount,
+            fee_category,
+            fee_mode,
+            day,
+            stamp,
+            identifier or str(uuid4()),
+            today=self.today(),
+        )
+        updated = replace(
+            updated,
+            narration=description_text(description),
+            payee=display_name(payee) if payee.strip() else "",
+        )
+        if original is None:
+            return await self._save(addition + "\n" + transaction_text(updated))
+
+        def edit(document: models.File) -> str:
+            entry = self._transaction(document, original.id)
+            old_source, old_target, _, _, _ = self.transfer_details(original)
+            old_postings = [p for p in entry.postings if isinstance(p, models.Posting)]
+            roles = [
+                next(p for p in old_postings if p.account == old_source.account),
+                next(p for p in old_postings if p.account == old_target.account),
+                *[p for p in old_postings if p.account.startswith("Expenses:")],
+            ]
+
+            def update() -> None:
+                entry.date = updated.date
+                entry.payee = updated.payee or None
+                entry.narration = updated.narration
+                if timestamp != original.timestamp:
+                    entry.meta["timestamp"] = updated.timestamp
+                entry.meta["txncount-fee-mode"] = fee_mode
+                for index, posting in enumerate(updated.postings):
+                    if index < len(roles):
+                        node = roles[index]
+                        node.account, node.number, node.currency = (
+                            posting.account,
+                            posting.amount,
+                            posting.currency,
+                        )
+                    else:
+                        entry.postings.append(
+                            models.Posting.from_value(
+                                posting.account, posting.amount, posting.currency
+                            )
+                        )
+                if len(roles) > len(updated.postings):
+                    node = roles[-1]
+                    if node.meta or node.inline_comment:
+                        node.number = ZERO
+                    else:
+                        entry.postings.remove(node)
+
+            result = replace_directive(self.source, entry, update)
+            return append(result, addition) if addition else result
+
+        return await self._change(edit, expected_source)
 
     async def add_expense(
         self,

@@ -227,7 +227,7 @@ testing. SAF storage behavior is unchanged.
 - Application ID is now `com.pioneer.txncount`, label `TxnCount`, version
   0.1.1, Android version code 13. This is a **separate Android installation**,
   not an upgrade of `com.pioneer.financepoc`; follow the
-  [migration checklist](../README.md#one-time-migration-from-the-original-android-app).
+  [historical migration notes](branding.md#historical-android-identity-migration).
 - Project version/build in `pyproject.toml` now drives the About display,
   generated packaged metadata and versioned APK filename.
 - Active parser module/action/task names now use `beancount_diagnostics` /
@@ -362,7 +362,7 @@ The signing certificate matches previous builds:
 Use a separate synthetic folder or a copy, not the only copy of your real data.
 
 1. For 0.1.1 and later, follow the
-   [new Android identity migration](../README.md#one-time-migration-from-the-original-android-app).
+   [historical Android identity migration](branding.md#historical-android-identity-migration).
    Install `build/apk/txncount-0.1.1.apk`, grant folder access again and verify
    existing accounts/history. This is separate from the old build 12 installation.
 2. Set `UAH USD EUR` in Settings; restart and confirm persistence. Open the same

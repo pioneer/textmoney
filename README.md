@@ -1,208 +1,127 @@
 # TxnCount
 
-TxnCount is an offline-first personal expense tracker. It stores your accounts
-and expenses as plain-text [Beancount](https://beancount.github.io/) data in a
-folder you choose. Your files stay under your control; the app has no account,
-database, or backend service.
+An offline-first personal expense tracker that keeps your data in
+plain-text [Beancount](https://beancount.github.io/) files in a folder you choose.
+No sign-up, backend service, or app-managed cloud storage.
 
-## What works today
+**Alpha software:** features and file support are still limited, and bugs are
+possible. Keep independent backups of important financial data.
 
-- Create accounts with a currency and optional opening balance; rename them,
-  safely adjust opening balances, and deactivate/reactivate them.
-- Create and rename hierarchical expense categories; deactivate/reactivate
-  categories without changing technical IDs or history.
-- Record expenses; edit their date/time, amount, account, category, payee and
-  description. Permanently delete ordinary expenses after confirmation.
-- Delete unused accounts/categories; keep those with history via deactivation.
-- Configure journal display currencies under Advanced settings; new account
-  currencies are added automatically without replacing existing choices.
-- Review account balances, recent activity, and transaction history.
-- Browse the same features in adaptive phone, tablet, and desktop layouts.
-- Follow the device language with explicit **System** selection, or choose
-  English, Ukrainian, or Russian; follow system light/dark appearance or
-  choose a theme explicitly.
-- Follow the device timezone or select an IANA timezone such as `Europe/Kyiv`.
-  Read dates in the app language; enter dates/times manually or through pickers.
-- Enter a prominent multiline description and one date/time group. An optional
-  shop/recipient starts blank and stays hidden until expanded.
-- Browse compact lists: expenses show account → category and one amount;
-  edit/delete use icons with translated tooltips. Details stay in the editor.
-- Make verified backups and detect external edits before saving.
-- Open the existing storage and Beancount technical diagnostics in Settings.
+TxnCount is being developed with substantial AI assistance.
 
-The app never combines different currencies into a converted total. It does not
-yet support income, transfers, currency exchange, loans, budgets, reports,
-split-expense editing, yearly-file layouts, or importing arbitrary books.
+## Implemented
 
-## Data, privacy, and synchronization
+- Record and edit expenses with an account, category, amount, date/time and
+  description. Add an optional shop/recipient when needed.
+- Manage single-currency accounts and opening balances.
+- Organize expenses with hierarchical categories.
+- Review balances and transaction history in compact phone and desktop layouts.
+- Delete expenses after confirmation; deactivate accounts and categories with
+  history rather than losing their records.
+- Use system, light or dark appearance, and system or explicit timezones.
+- Available translations: **English, Ukrainian and Russian**.
+- Keep verified backups and detect conflicting external changes before saving.
+- Use standard journal display currencies for compatible Beancount viewers,
+  without converting or combining different currencies.
 
-The selected folder contains `txncount.beancount`, a UTF-8 plain-text journal.
-TxnCount reads and writes that file directly; it does not copy it into an app
-database or upload it. Backups are stored in the same folder under `backups/`.
-Writes are not atomic. The app checks for external changes and refuses a
-conflicting overwrite, but cannot prevent a simultaneous write by another
-program in the final check/write window.
+## Future plans
 
-Edits splice only selected directives using the lossless parser; unrelated
-comments and metadata stay intact. Existing transaction IDs are retained.
-Historical accounts/categories are never deleted. Backups are not an automatic
-undo system: preserve an independent copy before updating an app used with real
-financial data. See the [CRUD safety and test guide](docs/crud-fava.md).
+Planned areas include income, transfers between accounts, currency exchange,
+budgets, reports and split-expense editing. These features are **not implemented
+yet**; priorities and scope may change during alpha, with no release dates promised.
 
-Dropbox, Dropsync, or another synchronization tool is optional and is not
-included. Install and configure a sync provider separately, then select its
-local folder in TxnCount. Let synchronization settle before editing the same
-journal on multiple devices. Keep independent backups of important data.
+## Get the app
 
-The current journal reader supports a deliberately narrow single-file
-Beancount profile. Unsupported accounting features, invalid syntax, and
-unbalanced transactions block writes rather than being discarded. See the
-[MVP format and limitations](docs/mvp-0.1.md) before using existing Beancount
-books.
+Download the Android APK from **[GitHub Releases](https://github.com/pioneer/txncount/releases/latest)**.
+Android 7.0 or newer is required. You can also track this repository with
+[Obtainium](https://github.com/ImranR98/Obtainium) for updates.
 
-## Platforms
-
-- **Android:** APK available; the user has confirmed recording an expense and
-  seeing the balance update on a physical phone. Further device/provider and
-  CRUD checks are listed in the current milestone guide; CRUD is awaiting
-  physical-device confirmation.
-- **Linux:** development and desktop UI are available; the app and accounting
-  tests run on Linux.
-- **Windows:** filesystem support is implemented, but Windows execution has not
-  yet been validated.
+Android is the currently distributed platform. Linux can run from source;
+Windows support is implemented but has not yet been validated.
+Current APKs use a development signing key; production signing is not yet
+established.
 
 ## Getting started
 
-On Android, install the APK built for the current version:
+1. Open TxnCount and choose a dedicated local data folder.
+2. Create an account with its currency and, optionally, an opening balance.
+3. Add expense categories under **Accounts**.
+4. Use **Add expense** to record your spending.
 
-```sh
-adb install -r build/apk/txncount-0.1.1.apk
-```
+Use the pencil and trash icons to edit or delete expenses. Opening balances can
+be edited from either the account or its opening transaction. Accounts and
+categories with history can be deactivated and reactivated; their records remain.
 
-Open TxnCount, choose a dedicated data folder, and create an account. Add at
-least one expense category in **Accounts**, then use the prominent **Add
-expense** action. Use a test folder with synthetic data while evaluating the
-current restricted Beancount profile.
+Settings lets you choose appearance and timezone. **Advanced → Journal display
+currencies** controls how compatible applications organize amounts; it does not
+exchange currencies or combine balances.
 
-Use the pencil icon in **Transactions** to update an ordinary expense or the trash icon to
-remove it after confirmation. Opening balances are edited under **Accounts**.
-The opening entry's pencil in **Transactions** also edits the same amount,
-using the same balance and conflict checks. Opening dates are hidden in lists
-and available in collapsed **Details**; amount edits retain the stored dates,
-ID and metadata. Complex/multiple opening entries remain read-only.
-Accounts and categories with history offer an Active checkbox instead of
-deletion; inactive items stay in history/balances but cannot be used for new
-expenses. Deactivating a parent category also hides its descendants from choices.
+## Your data and synchronization
 
-For an existing journal, open **Settings → Advanced → Journal display currencies**,
-enter e.g. `UAH USD EUR`, and save. Existing currencies are displayed without
-modifying the file on load. Creating an account adds its currency if missing,
-retaining existing configuration. These standard Beancount `operating_currency`
-options organize amounts when viewing the journal in compatible applications;
-accounts keep their own currencies. TxnCount never converts money or aggregates
-balances across currencies.
+Your selected folder contains a single UTF-8 journal, `txncount.beancount`, and
+a `backups/` directory. TxnCount accesses these files directly; it does not upload
+them or maintain a separate database. Edits preserve transaction IDs and unrelated
+comments and metadata.
 
-On a desktop with Fava installed, open the same root file:
+Dropbox, Dropsync or another folder synchronization tool can synchronize the
+folder separately. Synchronization is not built into TxnCount. Let it finish
+before editing on another device, and avoid simultaneous edits.
 
-```sh
-uv run fava /path/to/your/txncount.beancount
-```
+Backups and conflict checks reduce risk, but writes are **not atomic** and cannot
+prevent every concurrent external change. Backups are not automatic undo or a
+substitute for an independent copy.
 
-Fava and the official Beancount engine are development/test dependencies, not
-Android runtime dependencies. The current milestone remains **single-file by
-request**: changing an expense's year changes its date in the same file; yearly
-files and migration are deferred.
+TxnCount supports a limited, single-file Beancount profile, not arbitrary
+Beancount books. Unsupported accounting features or invalid data block saving
+rather than being silently discarded. See the [format guide](docs/mvp-0.1.md)
+and [editing and data-safety guide](docs/crud-fava.md) for details.
 
-In **Settings**, keep **Timezone → System** to follow this device, or select a
-named timezone and save. Timezone preferences are local, not
-synchronized journal configuration. Existing timestamps are displayed in the
-selected zone without rewriting them. Forms show one date and time with manual
-fields and picker buttons. Unchanged values retain the original accounting date
-and exact timestamp, even if legacy entries have differing dates. Editing the
-date or time sets both from the visible date/time. English manual dates use
-`MM/DD/YYYY`; Ukrainian/Russian use
-`DD.MM.YYYY`, with 24-hour times. Display dates use localized month names.
-Ambiguous/nonexistent daylight-saving times are rejected rather than guessed;
-an unchanged existing timestamp remains intact.
+## Version history
 
-**Language → System** follows the device's language preferences, falling back
-to English for unsupported languages. Explicit English/Ukrainian/Russian
-choices remain fixed until you choose System again. This choice persists locally.
-
-The optional **Shop / recipient** means who receives the money, not who pays or
-the expense category. Expand it only when needed; new expenses always start
-blank. Existing saved recipients remain intact when editing other fields.
-Earlier default-payee preferences are ignored, not applied to new transactions.
-Descriptions accept line breaks inside quoted journal strings; embedded quotes
-and backslashes are escaped rather than inserting new directives.
-
-For the latest APK, recovery behavior and Android device checklist, read the
-[CRUD/Fava guide](docs/crud-fava.md). The underlying restricted file profile is
-documented in [MVP 0.1](docs/mvp-0.1.md).
+| Version | Highlights |
+| --- | --- |
+| [0.1.1](https://github.com/pioneer/txncount/releases/tag/v0.1.1) | TxnCount Android app identity, versioned APK downloads and consistent in-app version display. |
+| 0.1.0 | Initial alpha: accounts, categories, expense editing/deletion, backups, translations and adaptive layouts. |
 
 ## Development
 
-Requires Python 3.13+ and `uv`. Invoke is the only project task runner:
+Requires **Python 3.13+** and [uv](https://docs.astral.sh/uv/).
+Clone the repository, then use Invoke for project operations:
 
 ```sh
+git clone https://github.com/pioneer/txncount.git
+cd txncount
 uv sync
 uv run inv run
-uv run inv check
-uv run inv build-android
 ```
 
-`uv run inv --list` shows available tasks. The generated APK is
-`build/apk/txncount-0.1.1.apk`. Future updates of the same app ID retain settings
-and SAF permissions; see the one-time identity migration below.
+Other useful commands:
+
+```sh
+uv run inv run-web        # Run in a local browser
+uv run inv check          # Format check, lint, Pyright and tests
+uv run inv build-android  # Build an Android APK
+uv run inv build-local    # Build for the current desktop OS
+uv run inv --list         # All available tasks
+```
+
+The APK is written to `build/apk/txncount-<version>.apk`. Native builds require
+platform toolchains; see [development and packaging](docs/development.md).
+See also [architecture](docs/architecture.md) and [testing](docs/testing.md).
 
 ## Versions and Android identity
 
-The single maintained version is `[project].version` in `pyproject.toml`;
-`[tool.flet].build_number` is the independently increasing Android version code.
-Current version: **0.1.1 (13)**. Invoke stages generated release metadata for the
-packaged About display and names the APK `txncount-<version>.apk`. Source runs
-read the same project configuration. Do not edit generated metadata.
+The app ID is `com.pioneer.txncount`. The maintained version is
+`[project].version` in `pyproject.toml`; `[tool.flet].build_number` is the
+independently increasing Android version code. These values drive the packaged
+version display and APK filename.
 
-Publish small updates as `0.1.2`, `0.1.3`, etc.; use `0.2.0` for a milestone and
-reserve `1.0.0` for a stable release. Every published update needs a new matching
-Git tag (`v0.1.1`), app version, and greater build number. Never replace an old
-release's APK with different code. Obtainium can track the repository and match
-`^txncount-.*\.apk$`. Building does not publish, commit or push automatically.
+Use patch releases for small changes and minor releases for milestones during
+alpha. Every published update gets a matching Git tag, a new app version and a
+greater Android build number. Never replace an existing release APK with
+different code.
 
-### One-time migration from the original Android app
-
-Version 0.1.1 uses **`com.pioneer.txncount`**, replacing the historical
-`com.pioneer.financepoc`. Android treats these as **separate apps**, even with
-the same signing certificate. This is not an in-place upgrade:
-
-1. Back up your shared data folder independently and let synchronization finish.
-2. Install the new APK; keep the old app until the new one is verified.
-3. In the new app, choose the **same existing data folder**. Do not create or
-   overwrite a replacement journal. Check accounts, history and balances.
-4. Reapply local language/theme/timezone settings and select the folder to grant
-   access. Old app-private settings and SAF permissions cannot transfer.
-5. Do not edit the same journal concurrently from both apps. After verification,
-   you can remove the old installation; retain the shared folder/backups.
-6. In Obtainium, remove the old tracked app entry (do not uninstall until step 5),
-   then add this repository again after the new-ID release is published. Confirm
-   it tracks `com.pioneer.txncount`, not the old package.
-
-Desktop retains the same configuration directory; the old folder preference is
-read only for migration to `txncount.folder.v1`. Journals, IDs and existing
-backup files are not renamed or rewritten by this identity change.
-Storage diagnostics now uses `storage-test.beancount` and its own folder choice;
-old synthetic test files are left untouched. The existing debug signing key is
-still used; this work does not establish secure production signing.
-
-## Project notes
-
-- [Architecture and dependency boundaries](docs/architecture.md)
-- [MVP 0.1 journal format, limitations, and device checklist](docs/mvp-0.1.md)
-- [CRUD and Fava compatibility, data safety, and test checklist](docs/crud-fava.md)
-- [Android storage validation history](docs/android-storage-validation.md)
-- [Beancount compatibility findings](docs/beancount-compatibility.md)
-- [Flet 1.x conventions](docs/flet.md)
-
-The validation reports record earlier technical investigations; they are historical
-references, not claims that the restricted MVP supports the full Beancount
-language or accounting engine.
+For each release, add a short entry to **Version history** above and a short,
+user-facing **What's new** summary to the GitHub release description. Keep
+installation requirements, important warnings and known limitations brief and
+relevant; detailed implementation and verification records belong in the docs.

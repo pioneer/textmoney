@@ -86,6 +86,10 @@ current restricted Beancount profile.
 
 Use the pencil icon in **Transactions** to update an ordinary expense or the trash icon to
 remove it after confirmation. Opening balances are edited under **Accounts**.
+The opening entry's pencil in **Transactions** also edits the same amount,
+using the same balance and conflict checks. Opening dates are hidden in lists
+and available in collapsed **Details**; amount edits retain the stored dates,
+ID and metadata. Complex/multiple opening entries remain read-only.
 Accounts and categories with history offer an Active checkbox instead of
 deletion; inactive items stay in history/balances but cannot be used for new
 expenses. Deactivating a parent category also hides its descendants from choices.

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
+from flet.controls.device_info import DeviceInfo
 
 from app.domain.ledger import Transaction
 from app.infrastructure.preferences import DesktopPreferences
@@ -196,7 +197,10 @@ def test_language_mode_restores_on_startup(
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
         page.locale_configuration = ft.LocaleConfiguration(
-            current_locale=ft.Locale(language_code="uk"),
+            current_locale=ft.Locale(language_code="en"),
+        )
+        page.get_device_info = AsyncMock(
+            return_value=DeviceInfo(locales=[ft.Locale(language_code="uk", country_code="UA")])
         )
         monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
         monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
@@ -208,6 +212,67 @@ def test_language_mode_restores_on_startup(
         assert view.language == (saved if manual else "uk")
         assert view.language_choice.value == (saved if manual else "system")
         assert view.system_language_name == "uk"
+        assert page.locale_configuration.current_locale == ft.Locale(
+            language_code=saved if saved in LANGUAGES and saved is not None else "uk"
+        )
+        page.get_device_info.assert_awaited_once()
+
+    asyncio.run(scenario())
+
+
+def test_missing_device_language_info_is_reported_explicitly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        page = MagicMock(spec=ft.Page)
+        page.platform = ft.PagePlatform.LINUX
+        page.get_device_info = AsyncMock(return_value=None)
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
+        view = FinanceView()
+        with pytest.raises(asyncio.CancelledError):
+            await view._lifecycle()
+        assert view.error_message == "error_system_language"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "tags, expected",
+    [
+        (["uk-UA", "en-US"], "uk"),
+        (["ru-RU", "uk-UA"], "ru"),
+        (["de-DE"], "en"),
+        ([], "en"),
+    ],
+)
+def test_startup_system_language_uses_client_locale_order_not_app_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tags: list[str],
+    expected: str,
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        page = MagicMock(spec=ft.Page)
+        page.platform = ft.PagePlatform.LINUX
+        page.locale_configuration = ft.LocaleConfiguration()
+        page.get_device_info = AsyncMock(
+            return_value=DeviceInfo(
+                locales=[ft.Locale(language_code=tag.split("-")[0]) for tag in tags]
+            )
+        )
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
+        view = FinanceView()
+        with pytest.raises(asyncio.CancelledError):
+            await view._lifecycle()
+        assert view.language == expected
+        assert view.language_choice.value == "system"
+        assert page.locale_configuration.current_locale == ft.Locale(language_code=expected)
+        assert not view.error_message
 
     asyncio.run(scenario())
 

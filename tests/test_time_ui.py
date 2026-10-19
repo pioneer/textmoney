@@ -8,12 +8,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
+from beancount import loader
+from flet.controls.device_info import DeviceInfo
 
 from app.domain.ledger import Account, LedgerError, Posting, Transaction
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.preferences import DesktopPreferences
 from app.journal import FILENAME, Journal
 from app.localization import date_input, format_timestamp, parse_date_input, translate
+from app.storage import StorageError
 from app.timekeeping import local_datetime, named_zone, wall_timestamp
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.finance import TIMEZONE_KEY, FinanceView
@@ -298,6 +301,10 @@ def test_readonly_transaction_opens_details_instead_of_hiding_its_postings(
         view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await view.journal.load()
         await view.journal.create_account("Cash", "Wallet", "UAH", "100")
+        (tmp_path / FILENAME).write_text(
+            view.journal.source.replace('txncount-kind: "opening"', 'txncount-kind: "external"')
+        )
+        await view.journal.load()
         original = view.journal.source
         event = MagicMock()
         event.control.data = view.journal.ledger.transactions[0].id
@@ -391,6 +398,9 @@ def test_new_expense_starts_empty_even_with_a_legacy_default_payee_preference(
         await DesktopPreferences().set("txncount.default-payee.v1", "Legacy shop")
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
+        page.get_device_info = AsyncMock(
+            return_value=DeviceInfo(locales=[ft.Locale(language_code="en")])
+        )
         monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
         monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
         view = FinanceView()
@@ -493,5 +503,143 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         assert description.value == "Unsaved\nsecond line"
         assert tile.expanded
         assert (tmp_path / FILENAME).read_text() == external
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_opening_rows_hide_dates_and_page_headings_are_not_repeated(language: str) -> None:
+    view = FinanceView()
+    view.language = language
+    view._refresh_labels()
+    opening = replace(
+        expense(),
+        date=date(1970, 1, 1),
+        kind="opening",
+        postings=(
+            Posting("Assets:Cash", Decimal("100"), "UAH"),
+            Posting("Equity:Opening-Balances", Decimal("-100"), "UAH"),
+        ),
+    )
+    for compact in (False, True):
+        row = view._transaction_card(opening, {"Assets:Cash": "Wallet"}, compact)
+        assert texts(row) == [
+            f"{view.tr('kind_opening')} → Wallet",
+            "100.00 UAH" if language == "en" else "100,00 UAH",
+        ]
+    header = view.body.controls[0]
+    assert isinstance(header, ft.Container)
+    assert header.content is view.page_title
+    for screen in ("home", "transactions", "accounts", "expense", "settings"):
+        view.current_screen = screen
+        view._refresh_labels()
+        assert texts(header) == [str(view.page_title.value)]
+        assert "TxnCount" not in texts(header)
+    assert view.tr("settings_title") not in texts(view.settings_screen)
+
+
+@pytest.mark.parametrize(
+    "mode", ["save", "zero", "negative", "conflict", "stale", "backup", "cancel"]
+)
+def test_opening_transaction_editor_uses_safe_account_balance_edit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        view = FinanceView()
+        journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_account("Cash", "Wallet", "UAH", "100")
+        await journal.create_category("Food", "Food")
+        if mode != "zero":
+            await journal.add_expense("Assets:Cash", "Expenses:Food", "10", "", "2026-01-01")
+        else:
+            await journal.edit_account("Assets:Cash", "Wallet", "0", True, journal.source)
+        source = journal.source.replace(
+            'txncount-kind: "opening"', 'txncount-kind: "opening"\n    receipt: "keep" ; comment'
+        )
+        (tmp_path / FILENAME).write_text(source)
+        await journal.load()
+        original = next(t for t in journal.ledger.transactions if t.kind == "opening")
+        before = journal.source
+        event = MagicMock()
+        event.control.data = original.id
+        view._edit_transaction(event)
+        dialog = page.show_dialog.call_args.args[0]
+        assert dialog.title == view.tr("kind_opening")
+        assert not any(isinstance(c, DateTimeFields) for c in dialog.content.controls)
+        details = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
+        assert not details.expanded
+        assert details.controls
+        assert any("1970" in str(c.value) for c in details.controls if isinstance(c, ft.Text))
+        amount = next(c for c in dialog.content.controls if isinstance(c, ft.TextField))
+        assert amount.value == ("0" if mode == "zero" else "100")
+        amount.value = "5" if mode == "negative" else "120"
+        expected = before
+        if mode in {"conflict", "stale"}:
+            expected += "\n; external\n"
+            (tmp_path / FILENAME).write_text(expected)
+            if mode == "stale":
+                await journal.poll()
+        elif mode == "backup":
+            journal.storage.folder.backup = AsyncMock(side_effect=StorageError("Synthetic"))
+        if mode == "cancel":
+            dialog.actions[0].on_click(MagicMock())
+        else:
+            await dialog.actions[-1].on_click(MagicMock())
+        if mode in {"save", "zero"}:
+            saved = next(t for t in journal.ledger.transactions if t.id == original.id)
+            assert saved.date == original.date and saved.timestamp == original.timestamp
+            assert journal.opening_balance("Assets:Cash") == Decimal("120")
+            assert journal.ledger.balances()["Assets:Cash"] == Decimal(
+                "120" if mode == "zero" else "110"
+            )
+            assert 'receipt: "keep" ; comment' in journal.source
+            assert any(p.read_text() == before for p in (tmp_path / "backups").iterdir())
+            assert not loader.load_string(journal.source)[1]
+        else:
+            assert (tmp_path / FILENAME).read_text() == expected
+            assert amount.value == ("5" if mode == "negative" else "120")
+            if mode != "cancel":
+                assert view.error_message
+
+    asyncio.run(scenario())
+
+
+def test_multiple_openings_remain_readonly_with_dates_in_collapsed_details(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        view = FinanceView()
+        journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_account("Cash", "Wallet", "UAH", "100")
+        original = journal.ledger.transactions[0]
+        source = journal.source + (
+            '\n1970-01-01 * "Additional opening"\n'
+            '  id: "second-opening"\n'
+            '  txncount-kind: "opening"\n'
+            "  Assets:Cash 10 UAH\n"
+            "  Equity:Opening-Balances -10 UAH\n"
+        )
+        (tmp_path / FILENAME).write_text(source)
+        await journal.load()
+        event = MagicMock()
+        event.control.data = original.id
+        view._edit_transaction(event)
+        dialog = page.show_dialog.call_args.args[0]
+        assert dialog.title == view.tr("details")
+        assert view.tr("crud_opening_complex") in texts(dialog.content)
+        assert not any(isinstance(c, ft.TextField) for c in dialog.content.controls)
+        details = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
+        assert not details.expanded
+        assert len(dialog.actions) == 1
+        assert (tmp_path / FILENAME).read_text() == source
 
     asyncio.run(scenario())

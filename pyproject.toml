@@ -56,7 +56,7 @@ product = "TxnCount"
 org = "com.pioneer"
 bundle_id = "com.pioneer.financepoc"
 company = "Pioneer"
-build_number = 10
+build_number = 12
 icon_background = "#ffffff"
 
 [tool.flet.dev_packages]

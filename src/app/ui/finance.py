@@ -193,17 +193,7 @@ class FinanceView(ft.Row):
             controls=[
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20, vertical=16),
-                    content=ft.Row(
-                        [
-                            ft.Column(
-                                [
-                                    ft.Text("TxnCount", size=17, weight=ft.FontWeight.W_600),
-                                    self.page_title,
-                                ],
-                                spacing=2,
-                            )
-                        ],
-                    ),
+                    content=self.page_title,
                 ),
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20, vertical=8),
@@ -473,7 +463,6 @@ class FinanceView(ft.Row):
             else self.tr("folder_selected")
         )
         self.settings_screen.controls = [
-            ft.Text(self.tr("settings_title"), size=21, weight=ft.FontWeight.W_600),
             ft.Container(
                 padding=16,
                 border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
@@ -827,11 +816,9 @@ class FinanceView(ft.Row):
             )
         else:
             heading.append(ft.Text(self.tr("multiple_postings"), size=12))
-        subtitle = format_date(transaction.date, self.language)
-        lines: list[ft.Control] = [
-            ft.Row(heading, spacing=8),
-            ft.Text(subtitle, size=12),
-        ]
+        lines: list[ft.Control] = [ft.Row(heading, spacing=8)]
+        if transaction.kind != "opening":
+            lines.append(ft.Text(format_date(transaction.date, self.language), size=12))
         actions: list[ft.Control] = [
             ft.IconButton(
                 icon=ft.Icons.EDIT_OUTLINED,
@@ -869,20 +856,22 @@ class FinanceView(ft.Row):
         if self.page.platform == ft.PagePlatform.ANDROID:
             self.bridge = FinanceSaf()
         try:
-            configuration = self.page.locale_configuration
-            locale = configuration.current_locale if configuration is not None else None
-            if locale is not None:
-                self.system_language_name = system_language([locale.language_tag])
+            device = await self.page.get_device_info()
+            if device is None:
+                raise LedgerError("error_system_language")
+            self.system_language_name = system_language(
+                [locale.language_tag for locale in device.locales]
+            )
             saved_language = await self.preferences.get(LANGUAGE_KEY)
             if isinstance(saved_language, str) and saved_language in LANGUAGES:
                 self.manual_language = True
                 self.language = saved_language
-                configuration = self.page.locale_configuration
-                if configuration is not None:
-                    configuration.current_locale = ft.Locale(language_code=saved_language)
             else:
                 self.manual_language = False
                 self.language = self.system_language_name
+            configuration = self.page.locale_configuration
+            if configuration is not None:
+                configuration.current_locale = ft.Locale(language_code=self.language)
             saved_theme = await self.preferences.get(THEME_KEY)
             if isinstance(saved_theme, str) and saved_theme in {"system", "light", "dark"}:
                 self.theme_name = saved_theme
@@ -1216,6 +1205,51 @@ class FinanceView(ft.Row):
             )
         )
 
+    def _opening_details(self, transaction: Transaction) -> ft.ExpansionTile:
+        return ft.ExpansionTile(
+            title=self.tr("details"),
+            controls=[
+                ft.Text(transaction.id, selectable=True),
+                ft.Text(f"{self.tr('date')}: {format_date(transaction.date, self.language)}"),
+                ft.Text(
+                    format_timestamp(transaction.timestamp, self.language, self._effective_zone())
+                ),
+            ],
+            maintain_state=True,
+            expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
+        )
+
+    def _edit_opening_balance(self, journal: Journal, transaction: Transaction) -> None:
+        accounts = [
+            account
+            for account in journal.ledger.accounts
+            if any(posting.account == account.id for posting in transaction.postings)
+        ]
+        if len(accounts) != 1:
+            raise LedgerError("crud_opening_complex")
+        account = accounts[0]
+        amount = ft.TextField(
+            label=self.tr("amount"), value=str(journal.opening_balance(account.id))
+        )
+        source = journal.source
+
+        async def save() -> str | None:
+            return await journal.edit_account(
+                account.id, account.name, amount.value or "0", account.active, source
+            )
+
+        self._edit_dialog(
+            self.tr("kind_opening"),
+            [
+                ft.Text(f"{account.name} ({account.currency})"),
+                amount,
+                ft.Text(self.tr("crud_opening_help"), size=12),
+                self._opening_details(transaction),
+            ],
+            journal,
+            save,
+        )
+
     def _edit_transaction(self, event: ft.Event[ft.IconButton]) -> None:
         try:
             journal = self._require_journal()
@@ -1230,6 +1264,14 @@ class FinanceView(ft.Row):
                 )
                 if transaction is None:
                     raise LedgerError("crud_missing") from exc
+                if transaction.kind == "opening":
+                    try:
+                        self._edit_opening_balance(journal, transaction)
+                    except LedgerError as opening_error:
+                        if str(opening_error) != "crud_opening_complex":
+                            raise
+                    else:
+                        return
                 names = {a.id: a.name for a in journal.ledger.accounts}
                 names.update({c.id: c.name for c in journal.ledger.categories})
                 self.page.show_dialog(
@@ -1238,12 +1280,26 @@ class FinanceView(ft.Row):
                         scrollable=True,
                         content=ft.Column(
                             [
-                                ft.Text(self.tr("crud_transaction_readonly")),
-                                ft.Text(transaction.id, selectable=True),
                                 ft.Text(
-                                    format_timestamp(
-                                        transaction.timestamp, self.language, self._effective_zone()
+                                    self.tr(
+                                        "crud_opening_complex"
+                                        if transaction.kind == "opening"
+                                        else "crud_transaction_readonly"
                                     )
+                                ),
+                                *(
+                                    [self._opening_details(transaction)]
+                                    if transaction.kind == "opening"
+                                    else [
+                                        ft.Text(transaction.id, selectable=True),
+                                        ft.Text(
+                                            format_timestamp(
+                                                transaction.timestamp,
+                                                self.language,
+                                                self._effective_zone(),
+                                            )
+                                        ),
+                                    ]
                                 ),
                                 ft.Text(
                                     self.tr("kind_opening")

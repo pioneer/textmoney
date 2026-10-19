@@ -15,7 +15,8 @@ boundary changes the date in `txncount.beancount`, retaining the ID.
   account's currency, never implicit conversion.
 - **Deletion:** permanently remove an ordinary expense after confirmation;
   no reversal is added. Comments from a removed directive are retained as
-  standalone comments. Opening entries must be managed through Accounts;
+  standalone comments. Opening amounts can be edited through Accounts or the
+  opening entry's pencil in Transactions, using the same validated service;
   split and externally authored/unmarked transactions remain read-only.
 - **Accounts:** change display name, opening amount and active state. Technical
   IDs, currency and declaration date are immutable. Opening edits retain the
@@ -221,6 +222,66 @@ testing. SAF storage behavior is unchanged.
 
 ## APK
 
+### System-language startup fix (build 12)
+
+The user reported that System incorrectly selected English on Ukrainian desktop
+and Android devices. Startup was reading `locale_configuration.current_locale`,
+which is the app override, not the host's locale list; `on_locale_change` alone
+does not supply initial device preferences. Startup now awaits Flet's supported
+`page.get_device_info()` and resolves its ordered `locales`, then sets the app
+and built-in widget locale. Later host events still update System mode; explicit
+language choices remain fixed. No native adapter or dependency was added.
+
+The MCP verifies `get_device_info`; its DeviceInfo model is absent from that
+index, so the installed Flet 1.0.1 Python model and Flutter implementation were
+checked: `locales` comes from `PlatformDispatcher.instance.locales`.
+
+- Added a failing reproduction with an English app override and Ukrainian device
+  locales; earlier tests incorrectly used the app override as the device locale.
+- `uv run inv format check`: **251 tests passed**, Ruff/Pyright clean, including
+  initial language, stored System/manual modes, ordered locale selection,
+  unsupported-language fallback and explicit unavailable-device-info errors.
+- Isolated browser with simulated `navigator.language=uk-UA` and preferred
+  languages `uk-UA,en-US`: first launch was Ukrainian; switching to English
+  then System restored Ukrainian. This verifies the actual Flet client device
+  information path, not a mocked app locale. No financial files accessed.
+- Physical Android and native desktop confirmation of this fix remain pending.
+  Install the new APK, select System and fully restart on a Ukrainian device;
+  the UI should remain Ukrainian. Then test English → System.
+- `uv run inv build-android`: build **12** succeeded.
+- `uv run inv check-beancount-apk check`: exact APK payload smoke passed on
+  host CPython; final **251 tests passed**, Ruff/Pyright clean. SDK
+  `aapt`/`apksigner` verified code 12 and the unchanged signing certificate.
+
+### Opening-balance and heading follow-up (build 11)
+
+- Opening entries in history/recent activity no longer show a date subtitle.
+  Their editor hides the original accounting date, timestamp and ID under
+  collapsed Details. These stored fields remain unchanged by amount edits.
+- The transaction pencil opens a dedicated opening-amount editor, reusing
+  `edit_account` and its negative-balance checks, verified backups, stable IDs,
+  metadata preservation and stale-source/conflict protection. Account and
+  currency cannot be reassigned here; multiple/complex openings stay read-only.
+  Account editing remains available as before.
+- The small TxnCount label above page titles is removed; the window/app title
+  remains. Settings has only the shared page title, without a duplicate heading.
+- Manual checks: edit an opening amount from both Transactions and Accounts,
+  verify immediate balances/history, inspect Details, try an insufficient
+  opening amount and an external conflict, and check all localized headings.
+- `uv run inv format check`: **246 tests passed**, Ruff/Pyright clean. Added
+  coverage for opening edits (including zero), dates/ID/comment preservation,
+  insufficient balances, external/stale conflicts, backup failures, cancellation,
+  complex-opening refusal, hidden row dates and localized nonduplicate headings.
+- Isolated synthetic-data browser check at 390 x 844 and 1366 x 900: no app-name
+  header or opening-date subtitle, dedicated amount editor and collapsed Details,
+  successful 100 → 120 opening edit with immediate 90 → 110 balance update,
+  unchanged dates/ID/receipt metadata, and a single Settings page heading.
+- `uv run inv build-android`: build **11** succeeded.
+- `uv run inv check-beancount-apk check`: packaged Python smoke passed on
+  host CPython; final **246 tests passed**, Ruff/Pyright clean. SDK
+  `aapt`/`apksigner` verified version code 11 and unchanged signing certificate.
+  This follow-up has not been physically tested on Android or Windows.
+
 ### Build 10 Settings follow-up
 
 The user accepted the simplified iteration. Settings now explicitly describes
@@ -242,13 +303,13 @@ to/from an explicit app language on Android.
 - SDK `aapt`/`apksigner`: version code 10 and unchanged signing certificate
   verified. This is not physical Android or Windows runtime verification.
 
-[build/apk/txncount.apk](../build/apk/txncount.apk), **build 10**, 141,391,482
+[build/apk/txncount.apk](../build/apk/txncount.apk), **build 12**, 141,395,218
 bytes (about 135 MiB). Package remains `com.pioneer.financepoc`, label
 `TxnCount`, version 0.1.0; Android 7.0+ (target API 36). Packaged ABIs:
 `arm64-v8a`, `armeabi-v7a`, `x86_64`.
 
 APK SHA-256:
-`6460e828d6918b46f340e9b9291bb510b92ffdd606d78cf1b36abb66f00bb66c`.
+`8fff603ff4163a39bbb6765461c8cd9a766f0bc3c2701f2f68be6c26fd21796f`.
 
 Update without uninstalling:
 

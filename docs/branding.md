@@ -1,8 +1,10 @@
 # TxnCount branding
 
 The canonical [assets/icon.png](../assets/icon.png) is original minimal artwork:
-a green folder and white document on a dark blue background, 1024 x 1024 PNG.
-It replaces the template's crossed square and is intentionally temporary.
+a rounded white text document with smooth dollar and euro symbols and a gold
+pencil on a dark blue background, 1024 x 1024 PNG. The bold money symbols remain prominent
+at launcher sizes, while text lines and the pencil indicate editable plain text.
+The symbols use Bezier curves with supersampled rendering, without a font dependency.
 Regenerate it with `uv run inv app-icon`; validate with `uv run inv icon-check`.
 There are no maintained duplicate platform icons. Invoke stages the root assets
 for Flet, which generates launcher/window icons and splash screens.

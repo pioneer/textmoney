@@ -11,6 +11,24 @@ from invoke.exceptions import Exit
 import tasks
 
 
+def test_app_icon_generates_canonical_currency_artwork(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "assets").mkdir()
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    tasks.app_icon(Context())
+    tasks.validate_icon()
+    with tasks.Image.open(tmp_path / "assets/icon.png") as image:
+        assert image.getpixel((0, 0)) == (23, 50, 77)
+        assert image.getpixel((640, 240)) == (105, 185, 167)
+        assert image.getpixel((260, 300)) == (255, 255, 255)
+        assert image.getpixel((340, 340)) == (23, 50, 77)
+        assert image.getpixel((450, 440)) == (23, 50, 77)
+        assert image.getpixel((780, 500)) == (244, 207, 118)
+        assert image.getpixel((196, 164)) == (23, 50, 77)
+
+
 def test_linux_development_icon_does_not_modify_shared_client(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

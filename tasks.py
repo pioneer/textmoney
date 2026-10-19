@@ -1,6 +1,7 @@
 """The sole task interface: uv run inv --list."""
 
 import json
+import math
 import os
 import platform
 import re
@@ -235,14 +236,93 @@ def probe_beancount_android(context: Context) -> None:
 
 @task
 def app_icon(context: Context) -> None:
-    """Generate the original minimal TxnCount folder icon."""
-    image = Image.new("RGB", (1024, 1024), "#17324d")
+    """Generate a rounded money document and pencil icon."""
+    scale = 3
+    image = Image.new("RGB", (1024 * scale, 1024 * scale), "#17324d")
     draw = ImageDraw.Draw(image)
-    draw.rectangle((128, 280, 896, 800), fill="#69b9a7")
-    draw.rectangle((128, 224, 448, 320), fill="#69b9a7")
-    draw.rectangle((352, 400, 688, 704), fill="#ffffff")
-    for y in (464, 544, 624):
-        draw.line((400, y, 640, y), fill="#17324d", width=24)
+
+    def polygon(points: tuple[tuple[int, int], ...], color: str) -> None:
+        draw.polygon([(x * scale, y * scale) for x, y in points], fill=color)
+
+    def rounded(box: tuple[int, int, int, int], radius: int, color: str) -> None:
+        draw.rounded_rectangle(
+            tuple(value * scale for value in box), radius=radius * scale, fill=color
+        )
+
+    def curve(points: tuple[tuple[int, int], ...], width: int) -> None:
+        # Sample connected cubic Bezier segments before supersampled rendering.
+        samples: list[tuple[float, float]] = []
+        for offset in range(0, len(points) - 1, 3):
+            a, b, c, d = points[offset : offset + 4]
+            for step in range(41):
+                t = step / 40
+                weights = ((1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t**2, t**3)
+                samples.append(
+                    (
+                        sum(p[0] * w for p, w in zip((a, b, c, d), weights, strict=True)) * scale,
+                        sum(p[1] * w for p, w in zip((a, b, c, d), weights, strict=True)) * scale,
+                    )
+                )
+        left: list[tuple[float, float]] = []
+        right: list[tuple[float, float]] = []
+        for index, (x, y) in enumerate(samples):
+            before = samples[max(0, index - 1)]
+            after = samples[min(len(samples) - 1, index + 1)]
+            dx, dy = after[0] - before[0], after[1] - before[1]
+            length = math.hypot(dx, dy)
+            if length == 0:
+                continue
+            nx, ny = -dy / length * width * scale / 2, dx / length * width * scale / 2
+            left.append((x + nx, y + ny))
+            right.append((x - nx, y - ny))
+        draw.polygon(left + right[::-1], fill="#17324d")
+
+    rounded((192, 160, 768, 864), 48, "#ffffff")
+    polygon(((616, 160), (768, 160), (768, 312)), "#17324d")
+    rounded((616, 160, 768, 312), 28, "#69b9a7")
+    polygon(((616, 160), (768, 160), (768, 280), (616, 280)), "#69b9a7")
+    polygon(((616, 160), (768, 160), (768, 312)), "#17324d")
+
+    curve(
+        (
+            (396, 388),
+            (358, 340),
+            (284, 350),
+            (284, 404),
+            (284, 466),
+            (402, 444),
+            (402, 512),
+            (402, 574),
+            (306, 586),
+            (274, 536),
+        ),
+        36,
+    )
+    rounded((326, 330, 352, 594), 4, "#17324d")
+    curve(
+        (
+            (622, 378),
+            (494, 308),
+            (444, 412),
+            (476, 504),
+            (500, 572),
+            (572, 586),
+            (624, 544),
+        ),
+        38,
+    )
+    rounded((446, 428, 586, 452), 4, "#17324d")
+    rounded((446, 474, 572, 498), 4, "#17324d")
+    rounded((260, 642, 574, 676), 6, "#69b9a7")
+    rounded((260, 714, 494, 748), 6, "#69b9a7")
+
+    polygon(((800, 350), (898, 412), (704, 736), (572, 816), (598, 678)), "#17324d")
+    polygon(((808, 370), (876, 414), (688, 720), (622, 678)), "#f4cf76")
+    polygon(((808, 370), (840, 320), (908, 364), (876, 414)), "#e58e87")
+    polygon(((850, 408), (868, 420), (680, 720), (662, 708)), "#d89c3d")
+    polygon(((622, 678), (688, 720), (592, 790)), "#edc7a2")
+    polygon(((600, 756), (624, 772), (592, 790)), "#17324d")
+    image = image.resize((1024, 1024), Image.Resampling.LANCZOS)
     image.save(ROOT / "assets/icon.png")
 
 

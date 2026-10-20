@@ -1465,6 +1465,12 @@ class FinanceView(ft.Row):
             label=self.tr("expense_category"),
             value=original_category,
         )
+        category_create = ft.IconButton(
+            data="category_create",
+            icon=ft.Icons.ADD,
+            tooltip=self.tr("create_category"),
+        )
+        category_row = ft.Row([category, category_create])
         amount = ft.TextField(
             data="amount",
             expand=True,
@@ -1770,7 +1776,11 @@ class FinanceView(ft.Row):
                 if c.id.startswith(root)
                 and (journal.ledger.category_active(c.id) or c.id == original_category)
             ]
+            category.hint_text = (
+                self.tr("category_none_available") if not category.options else None
+            )
             category.visible = kind not in {"adjustment", "transfer"}
+            category_row.visible = category.visible
             fee_fields.visible = kind == "transfer"
             fee.visible = fee_category.visible = kind == "transfer" and bool(fee_enabled.value)
             update_exchange()
@@ -1812,12 +1822,90 @@ class FinanceView(ft.Row):
             except Exception as exc:
                 self._error(exc, notify=True)
 
+        def create_category_dialog(event: ft.Event[ft.IconButton]) -> None:
+            category_path = ft.TextField(
+                data="quick_category_path",
+                label=self.tr("category_path"),
+                hint_text=self.tr("category_path_hint"),
+                autofocus=True,
+            )
+            category_name = ft.TextField(
+                data="quick_category_name",
+                label=self.tr("category_name"),
+                keyboard_type=ft.KeyboardType.NAME,
+            )
+            cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)
+            create = ft.TextButton(self.tr("create_category"))
+
+            async def save_category(event: ft.Event[ft.TextButton]) -> None:
+                nonlocal source
+
+                async def save() -> None:
+                    nonlocal source
+                    if self.journal is not journal or journal.source != source:
+                        raise ConflictError("crud_stale")
+                    root = "Income" if operation() == "income" else "Expenses"
+                    backup = await journal.create_category(
+                        category_path.value or "",
+                        category_name.value or "",
+                        root=root,
+                    )
+                    source = journal.source
+                    identifier = category_path.value or ""
+                    if not identifier.startswith(f"{root}:"):
+                        identifier = f"{root}:{identifier}"
+                    category.options = [
+                        ft.DropdownOption(
+                            key=item.id, text=self._category_label(item.id, item.name)
+                        )
+                        for item in journal.ledger.categories
+                        if item.id.startswith(f"{root}:") and item.active
+                    ]
+                    category.hint_text = None
+                    category.value = identifier
+                    category_values[operation()] = identifier
+                    self.page.pop_dialog()
+                    self._saved(backup)
+
+                create.disabled = cancel.disabled = True
+                try:
+                    await self._action(save)
+                finally:
+                    create.disabled = cancel.disabled = False
+                    self.page.update()
+
+            create.on_click = save_category
+            self.page.show_dialog(
+                ft.AlertDialog(
+                    modal=True,
+                    scrollable=True,
+                    title=self.tr("category_form_title"),
+                    content=ft.Column(
+                        [
+                            ft.Text(
+                                self.tr(
+                                    "kind_income" if operation() == "income" else "kind_expense"
+                                )
+                            ),
+                            category_path,
+                            category_name,
+                        ],
+                        tight=True,
+                        spacing=12,
+                        width=360,
+                        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                    ),
+                    actions=[cancel, create],
+                )
+            )
+
         sign.on_change = configure
         special.on_select = configure
         fee_enabled.on_change = configure
         account.on_select = configure
         destination.on_select = configure
         reference.on_select = fill_reference
+        category_create.on_click = create_category_dialog
 
         def recalculate(event: ft.Event[ft.TextField] | ft.Event[ft.Dropdown]) -> None:
             update_exchange()
@@ -1897,7 +1985,7 @@ class FinanceView(ft.Row):
             ft.Row([sign, amount], spacing=8),
             sign_hint,
             aligned_dropdown(account),
-            aligned_dropdown(category),
+            category_row,
             aligned_dropdown(destination),
             received,
             preview,

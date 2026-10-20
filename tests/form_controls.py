@@ -1,6 +1,6 @@
 """Stable control lookup for the universal transaction dialog's UI tests."""
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import cast
 from unittest.mock import MagicMock
@@ -16,12 +16,23 @@ def change(control: ft.Dropdown | ft.Checkbox | ft.SegmentedButton | ft.TextFiel
     cast(Callable[[object], object], handler)(MagicMock())
 
 
+def click(control: ft.Button | ft.IconButton | ft.TextButton) -> object:
+    assert control.on_click is not None
+    return cast(Callable[[object], object], control.on_click)(MagicMock())
+
+
+async def click_async(control: ft.Button | ft.IconButton | ft.TextButton) -> None:
+    assert control.on_click is not None
+    await cast(Callable[[object], Awaitable[None]], control.on_click)(MagicMock())
+
+
 @dataclass
 class TransactionForm:
     sign: ft.SegmentedButton
     sign_hint: ft.Text
     account: ft.Dropdown
     category: ft.Dropdown
+    category_create: ft.IconButton
     amount: ft.TextField
     second_account: ft.Dropdown
     second_amount: ft.TextField
@@ -74,6 +85,7 @@ def transaction_form(dialog: ft.AlertDialog) -> TransactionForm:
         sign_hint=get("sign_hint", ft.Text),
         account=get("account", ft.Dropdown),
         category=get("category", ft.Dropdown),
+        category_create=get("category_create", ft.IconButton),
         amount=get("amount", ft.TextField),
         second_account=get("second_account", ft.Dropdown),
         second_amount=get("second_amount", ft.TextField),

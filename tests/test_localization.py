@@ -75,6 +75,10 @@ def test_locale_sensitive_formatting_does_not_change_decimal_value() -> None:
     assert amount == Decimal("1234.50")
 
 
+def test_ukrainian_accounts_navigation_includes_categories() -> None:
+    assert translate("uk", "nav_accounts") == "Рахунки та категорії"
+
+
 def test_known_accounting_errors_are_localized() -> None:
     message = "Insufficient funds: an ordinary account would become negative."
     assert localized_error("en", message) == (

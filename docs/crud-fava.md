@@ -9,6 +9,13 @@ description first, then unsigned positive amount with **− / + / ↔** immediat
 to its left, accounts, category and date. A short hint below the amount explains
 the selection: debit from an account, credit to an account, or transfer between
 accounts. All dropdowns fill the form width and share aligned edges.
+An adjacent **+** button creates a category without leaving the transaction.
+The compact dialog uses the current operation's category type, the existing
+category path/name conventions and the same journal-backed creation service.
+After a successful create, the new category is selected and the transaction's
+write baseline is advanced to include the category change. With no matching
+categories the selector explains that one can be added. Failed creation keeps
+both dialogs and all transaction input available for correction.
 **Додатково**
 starts collapsed and holds fees, optional counterparty, time and special
 receipt choices.
@@ -188,13 +195,12 @@ and reduced the debt correctly; editing it to an added fee updated both balances
 and cleared the warning; confirmed deletion removed the operation and its fee.
 Automated tests also cover fee defaults, currency/amount rejection, backup and
 conflict failures, metadata preservation and Beancount/Fava validation.
-For release 0.1.4 (Android build 16), `uv run inv check` passed formatting, Ruff,
-Pyright and all 360 tests. `uv run inv build-android` produced
-`build/apk/txncount-0.1.4.apk`; `uv run inv check-beancount-apk` passed the actual
-packaged Python smoke checks, including transfers, fees, liabilities and
-overdraft editing/deletion. The app ID and signing certificate match previous
-TxnCount releases. These checks are not native Android/Windows runtime
-verification; no physical Android device was tested.
+For release 0.2.0 (Android build 17), `uv run inv check` passed formatting, Ruff,
+Pyright and all 443 tests. `uv run inv build-android` produced
+`build/apk/txncount-0.2.0.apk`; `uv run inv check-beancount-apk` passed the
+packaged Python checks for transfers, cross-currency exchanges, fees,
+liabilities, editing and deletion. These checks are not native Android/Windows
+runtime verification; no physical Android device was tested.
 
 Transaction lists and recent activity show a one-line description preview below
 the movement, truncated with an ellipsis when necessary. Multiline descriptions

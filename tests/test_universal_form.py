@@ -2,12 +2,12 @@ import asyncio
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
 from beancount import loader
-from form_controls import change, transaction_form
+from form_controls import change, click, click_async, transaction_form
 
 from app.domain.ledger import ADJUSTMENTS, BANK_FEES
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -97,6 +97,85 @@ def test_description_first_aligned_fields_and_sign_explanation_follow_account_ro
                 assert special_row.visible == (sign == "+")
                 assert (form.amount.value, form.second_amount.value) == ("105", "4200")
                 assert form.description.value == "Description stays primary"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(("mode", "root"), [("-", "Expenses"), ("+", "Income")])
+def test_create_category_from_transaction_and_select_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, root: str
+) -> None:
+    async def scenario() -> None:
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME), today=lambda: date(2026, 10, 20))
+        await journal.load()
+        await journal.create_account("Bank", "Bank", "UAH", "10000")
+        view, page = ui(journal, monkeypatch)
+        view._new_transaction(MagicMock())
+        transaction_dialog = page.show_dialog.call_args.args[0]
+        form = transaction_form(transaction_dialog)
+        assert form.category.hint_text == translate("uk", "category_none_available")
+        if mode == "+":
+            form.sign.selected = ["+"]
+            change(form.sign)
+        click(form.category_create)
+        category_dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(category_dialog, ft.AlertDialog)
+        assert category_dialog.title == "Додати категорію"
+        assert isinstance(category_dialog.content, ft.Column)
+        category_type = category_dialog.content.controls[0]
+        assert isinstance(category_type, ft.Text)
+        assert category_type.value == ("Дохід" if mode == "+" else "Витрата")
+        path, name = category_dialog.content.controls[1:]
+        assert isinstance(path, ft.TextField) and isinstance(name, ft.TextField)
+        path.value, name.value = "Daily", "Щоденні покупки"
+        create_action = category_dialog.actions[-1]
+        assert isinstance(create_action, ft.TextButton)
+        await click_async(create_action)
+        assert journal.source != ""
+        assert form.category.value == f"{root}:Daily"
+        assert form.category.hint_text is None
+        assert form.category.value in {option.key for option in form.category.options}
+        created = next(item for item in journal.ledger.categories if item.id == f"{root}:Daily")
+        assert created.name == "Щоденні покупки"
+        form.account.value, form.amount.value = "Assets:Bank", "25"
+        await transaction_dialog.actions[-1].on_click(MagicMock())
+        assert view.error_message is None
+        transaction = journal.ledger.transactions[-1]
+        assert transaction.kind == ("income" if mode == "+" else "expense")
+        assert any(posting.account == f"{root}:Daily" for posting in transaction.postings)
+        assert not loader.load_string(journal.source)[1]
+
+    asyncio.run(scenario())
+
+
+def test_failed_quick_category_creation_keeps_transaction_and_category_dialog(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        view, page = ui(journal, monkeypatch)
+        view._new_transaction(MagicMock())
+        transaction_dialog = page.show_dialog.call_args.args[0]
+        original_source = journal.source
+        form = transaction_form(transaction_dialog)
+        form.description.value = "Keep transaction draft"
+        click(form.category_create)
+        category_dialog = page.show_dialog.call_args.args[0]
+        path, name = category_dialog.content.controls[1:]
+        assert isinstance(path, ft.TextField) and isinstance(name, ft.TextField)
+        path.value, name.value = "Food", "Food"
+        monkeypatch.setattr(
+            journal,
+            "create_category",
+            AsyncMock(side_effect=OSError("synthetic storage failure")),
+        )
+        create_action = category_dialog.actions[-1]
+        assert isinstance(create_action, ft.TextButton)
+        await click_async(create_action)
+        assert journal.source == original_source
+        assert form.description.value == "Keep transaction draft"
+        assert not create_action.disabled
+        assert page.show_dialog.call_count == 3
 
     asyncio.run(scenario())
 
@@ -243,7 +322,11 @@ def test_sign_second_account_and_hidden_controls_preserve_draft_and_infer_only_v
             (form.account, form.category, form.second_account),
             strict=True,
         ):
-            assert isinstance(row, ft.Row) and row.controls == [dropdown]
+            assert isinstance(row, ft.Row)
+            if dropdown is form.category:
+                assert row.controls == [dropdown, form.category_create]
+            else:
+                assert row.controls == [dropdown]
         assert len(form.when.controls) == 1
         assert form.when.time_controls in (form.advanced.controls or [])
         assert not form.advanced.expanded and not form.special.visible

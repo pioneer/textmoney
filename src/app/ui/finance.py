@@ -46,6 +46,7 @@ LEGACY_FOLDER_KEY = "financepoc.folder.v1"
 LANGUAGE_KEY = "txncount.language.v1"
 THEME_KEY = "txncount.theme.v1"
 TIMEZONE_KEY = "txncount.timezone.v1"
+BACKUP_CLEANUP_KEY = "txncount.backup-cleanup.v1"
 COMPACT_MAX_WIDTH = 599
 MEDIUM_MAX_WIDTH = 1023
 MAX_CONTENT_WIDTH = 1180
@@ -78,6 +79,7 @@ class FinanceView(ft.Row):
         self.system_language_name = "en"
         self.theme_name = "system"
         self.timezone_name = "system"
+        self.auto_backup_cleanup = True
         self.system_zone = "system"
         self.screen_class = ScreenClass.COMPACT
         self.current_screen = "home"
@@ -92,6 +94,8 @@ class FinanceView(ft.Row):
         self.account_root = ft.Dropdown(value="Assets", on_select=self._account_type_changed)
         self.default_fee = ft.Dropdown()
         self.default_fee_save = ft.Button(on_click=self._save_default_fee)
+        self.backup_cleanup = ft.Checkbox(value=True, on_change=self._backup_cleanup_changed)
+        self.backup_clean_button = ft.Button(on_click=self._preview_backup_cleanup)
         self.default_fee_source = ""
         self.default_fee_original: str | None = None
         self.default_fee_journal: Journal | None = None
@@ -462,6 +466,12 @@ class FinanceView(ft.Row):
                         self.access,
                         ft.Row([self.select_button, self.reload_button], wrap=True),
                         ft.Text(self.tr("sync_status")),
+                        ft.Divider(),
+                        ft.Text(self.tr("backups_title"), size=18),
+                        self.backup_cleanup,
+                        ft.Text(self.tr("backups_policy")),
+                        ft.Text(self.tr("backups_protected"), size=12),
+                        self.backup_clean_button,
                     ],
                     spacing=12,
                 ),
@@ -503,6 +513,10 @@ class FinanceView(ft.Row):
             self.diagnostics_toggle,
             self.diagnostics,
         ]
+        self.backup_cleanup.label = self.tr("backups_automatic")
+        self.backup_cleanup.value = self.auto_backup_cleanup
+        self.backup_clean_button.content = self.tr("backups_clean")
+        self.backup_clean_button.disabled = not folder_ready
         screens = {
             "home": self.home_screen,
             "transactions": self.transactions_screen,
@@ -915,6 +929,10 @@ class FinanceView(ft.Row):
                 named_zone(saved_timezone)
                 self.timezone_name = saved_timezone
             self.timezone_choice.value = self.timezone_name
+            saved_cleanup = await self.preferences.get(BACKUP_CLEANUP_KEY)
+            if saved_cleanup not in {None, "on", "off"}:
+                raise PreferencesError(self.tr("backups_invalid_setting"))
+            self.auto_backup_cleanup = saved_cleanup != "off"
             await self._sync_system_zone()
             saved_folder = await self.preferences.get(FOLDER_KEY)
             if saved_folder is None:
@@ -1096,6 +1114,7 @@ class FinanceView(ft.Row):
         )
         await folder.status()
         self.journal = Journal(folder, today=self._today)
+        self.journal.storage.auto_cleanup = self.auto_backup_cleanup
         await self.journal.load()
         self.folder_label.value = (
             location if isinstance(folder, DesktopFolder) else self.tr("folder_selected")
@@ -1111,6 +1130,8 @@ class FinanceView(ft.Row):
                 self.reload_button,
                 self.account_save,
                 self.category_save,
+                self.backup_clean_button,
+                self.backup_cleanup,
             ]:
                 control.disabled = True
             self.page.update()
@@ -1124,6 +1145,7 @@ class FinanceView(ft.Row):
                     self.select_button,
                     self.welcome_select_button,
                     self.reload_button,
+                    self.backup_cleanup,
                 ]:
                     control.disabled = False
                 self._refresh()
@@ -1165,7 +1187,68 @@ class FinanceView(ft.Row):
         return self.journal
 
     def _saved(self, backup: str | None) -> None:
-        self._set_message("saved_backup" if backup else "saved_new")
+        self._set_message(
+            "backups_saved_warning"
+            if self.journal is not None and self.journal.storage.cleanup_error
+            else "saved_backup"
+            if backup
+            else "saved_new"
+        )
+
+    async def _backup_cleanup_changed(self, event: ft.Event[ft.Checkbox]) -> None:
+        enabled = bool(event.control.value)
+
+        async def save() -> None:
+            if self.preferences is None:
+                raise PreferencesError(self.tr("backups_setting_failed"))
+            if not await self.preferences.set(BACKUP_CLEANUP_KEY, "on" if enabled else "off"):
+                raise PreferencesError(self.tr("backups_setting_failed"))
+            self.auto_backup_cleanup = enabled
+            if self.journal is not None:
+                self.journal.storage.auto_cleanup = enabled
+            self._set_message("backups_setting_saved")
+
+        await self._action(save)
+
+    async def _preview_backup_cleanup(self, event: ft.Event[ft.Button]) -> None:
+        async def preview() -> None:
+            journal = self._require_journal()
+            source = journal.source
+            plan = await journal.storage.preview_cleanup()
+            cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)
+            confirm = ft.TextButton(self.tr("backups_clean"), disabled=not plan.remove)
+
+            async def clean(event: ft.Event[ft.TextButton]) -> None:
+                confirm.disabled = cancel.disabled = True
+
+                async def perform() -> None:
+                    if self.journal is not journal or journal.source != source:
+                        raise ConflictError("crud_stale")
+                    await journal.storage.cleanup_backups(plan)
+                    self.page.pop_dialog()
+                    self._set_message("backups_cleaned")
+
+                try:
+                    await self._action(perform)
+                finally:
+                    confirm.disabled = not plan.remove
+                    cancel.disabled = False
+                    self.page.update()
+
+            confirm.on_click = clean
+            self.page.show_dialog(
+                ft.AlertDialog(
+                    modal=True,
+                    scrollable=True,
+                    title=self.tr("backups_clean"),
+                    content=ft.Text(
+                        self.tr("backups_preview", count=len(plan.remove), size=plan.size)
+                    ),
+                    actions=[cancel, confirm],
+                )
+            )
+
+        await self._action(preview)
 
     async def _save_operating_currencies(self, event: ft.Event[ft.Button]) -> None:
         async def save() -> None:

@@ -218,6 +218,11 @@ class StorageView(ft.Column):
                         self.result.value = (
                             f"Write verified. Backup: {backup or 'new file; not needed'}."
                         )
+                        if self.session.cleanup_error:
+                            self.result.value += (
+                                " Backup maintenance failed; recovery copies retained. "
+                                "Check folder access before retrying."
+                            )
                     elif operation == "backup":
                         self.result.value = f"Backup verified: {await self.session.backup()}"
             except Exception as exc:

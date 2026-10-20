@@ -2,6 +2,64 @@
 
 ## Scope and format
 
+### Backup retention
+
+Before every modification, the previous journal is still backed up and verified.
+After the new journal has been written and read back successfully, automatic
+cleanup (enabled by default) keeps the union of:
+
+- The 20 most recent completed-write snapshots.
+- The latest snapshot on each of the last 30 UTC calendar dates, including today.
+- The latest snapshot in each of the last 12 UTC calendar months, including this month.
+
+Overlapping tiers keep a single file, not duplicate copies. Recent history is
+retained even when older than the daily/monthly windows. Future-dated snapshots
+are protected against clock skew; the current session's latest recovery copy is
+also retained. This bounds ordinary completed-write history, not protected files
+or total bytes. Each backup is still a full journal copy, so this reduces
+accumulated storage and file count, not necessarily uploads on each save.
+
+**Settings → Backups** offers a device-local automatic-cleanup checkbox and
+**Clean up old backups**. The latter previews the eligible count and bytes and
+requires confirmation. Confirmation recomputes retention and only deletes files
+still eligible from the approved preview; it cannot expand the approved set.
+Cleanup verifies the current journal baseline and never rewrites the journal.
+Other devices and external tools must not edit concurrently; there is no
+cross-device lock or atomic snapshot of the synchronized directory.
+
+New names include a UTC creation timestamp and UUID. They start as
+`txncount-<timestamp>-<uuid>-pending.beancount` and become `-committed.beancount`
+only after successful journal verification. A failed, conflicting, cancelled or
+uncertain write leaves its pending recovery copy protected, including after
+restart. Explicit diagnostic/manual backups also remain protected. Finalization
+or pruning errors do not undo a verified save: the UI explicitly reports that
+changes were saved but backup maintenance failed, and logs retain the traceback.
+Some old files may already have been deleted if pruning fails partway through.
+
+**Existing UUID-only backups are deliberately not migrated or deleted.** Their
+creation dates and failed-write status cannot be established reliably from
+synchronizer-modified timestamps. Inspect and archive/remove those externally
+after taking an independent copy. Unknown filenames, pending recovery copies,
+directories and symlinks are not deletion candidates. Resolve protected recovery
+copies explicitly outside the app once the journal is known to be correct.
+
+Desktop uses checked filesystem operations. Android uses SAF listing, renaming
+and deletion through the existing `saf_util` adapter; `content://` identifiers
+are never treated as filesystem paths. Providers that cannot list sizes, rename
+or delete report a maintenance error and retain protection rather than guessing.
+Sync tools propagate deletions; pause cleanup while troubleshooting sync and
+keep independent backups. Cleanup is not atomic and cannot eliminate external
+provider/synchronization races.
+
+Release 0.2.1 (Android build 18): `uv run inv check` passed formatting, Ruff, Pyright and 476 tests,
+including exact tier boundaries, overlap, failure/cancellation protection,
+restart, settings persistence, confirmation and Android transport validation.
+`uv run inv build-android` produced `build/apk/txncount-0.2.1.apk` and
+`uv run inv check-beancount-apk` passed. A browser
+smoke server loaded the synthetic journal, but the integrated browser remained
+blank, so visual interaction was not verified. Native SAF retention operations
+still require physical-device testing; Windows/macOS runtime checks were not run.
+
 ### Universal transaction form
 
 **Додати операцію** opens one form without a transaction-type dropdown:

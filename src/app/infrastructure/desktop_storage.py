@@ -1,8 +1,8 @@
 import asyncio
 import os
 from pathlib import Path
-from uuid import uuid4
 
+from app.domain.backups import BackupEntry, backup_name, backup_time
 from app.storage import StorageError
 
 TARGET = "storage-test.beancount"
@@ -52,7 +52,7 @@ class DesktopFolder:
             if directory.is_symlink():
                 raise StorageError("Refusing a symlink backups folder.")
             directory.mkdir(exist_ok=True)
-            name = f"{self.backup_prefix}-{uuid4().hex}.beancount"
+            name = backup_name(self.backup_prefix)
             path = directory / name
             with path.open("xb") as stream:
                 stream.write(data)
@@ -69,6 +69,62 @@ class DesktopFolder:
 
     async def backup(self, data: bytes) -> str:
         return await asyncio.to_thread(self._backup, data)
+
+    def _backup_directory(self) -> Path:
+        self._target()
+        directory = self.root / "backups"
+        if directory.is_symlink():
+            raise StorageError("Refusing a symlink backups folder.")
+        return directory
+
+    def _commit_backup(self, path: str) -> str:
+        name = path.removeprefix("backups/")
+        if path != f"backups/{name}" or backup_time(name, self.backup_prefix, pending=True) is None:
+            raise StorageError("Invalid pending backup name.")
+        try:
+            directory = self._backup_directory()
+            original = directory / name
+            destination = directory / name.replace("-pending.", "-committed.")
+            if original.is_symlink() or not original.is_file() or destination.exists():
+                raise StorageError("Backup finalization refused; recovery copy retained.")
+            original.rename(destination)
+            return f"backups/{destination.name}"
+        except OSError as exc:
+            raise StorageError("Backup finalization failed; inspect recovery copies.") from exc
+
+    async def commit_backup(self, path: str) -> str:
+        return await asyncio.to_thread(self._commit_backup, path)
+
+    def _list_backups(self) -> list[BackupEntry]:
+        try:
+            directory = self._backup_directory()
+            if not directory.exists():
+                return []
+            entries = []
+            for path in directory.iterdir():
+                created = backup_time(path.name, self.backup_prefix)
+                if created is not None and not path.is_symlink() and path.is_file():
+                    entries.append(BackupEntry(path.name, path.stat().st_size, created))
+            return entries
+        except OSError as exc:
+            raise StorageError("Could not list backups. Check folder access.") from exc
+
+    async def list_backups(self) -> list[BackupEntry]:
+        return await asyncio.to_thread(self._list_backups)
+
+    def _delete_backup(self, entry: BackupEntry) -> None:
+        if backup_time(entry.name, self.backup_prefix) != entry.created:
+            raise StorageError("Refusing to delete an unrecognized backup.")
+        try:
+            path = self._backup_directory() / entry.name
+            if path.is_symlink() or not path.is_file() or path.stat().st_size != entry.size:
+                raise StorageError("Backup changed during cleanup. Review backups and retry.")
+            path.unlink()
+        except OSError as exc:
+            raise StorageError("Could not delete old backup. Check folder access.") from exc
+
+    async def delete_backup(self, entry: BackupEntry) -> None:
+        await asyncio.to_thread(self._delete_backup, entry)
 
     def _write(self, data: bytes) -> None:
         try:

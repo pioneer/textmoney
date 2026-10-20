@@ -45,6 +45,8 @@ def test_all_locales_have_a_nonempty_translation_for_each_ui_key() -> None:
                 principal="100 USD",
                 gross="4200 UAH",
                 rate="1 USD = 42 UAH",
+                count=3,
+                size=1024,
             ).strip()
 
 

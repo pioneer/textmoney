@@ -1,8 +1,11 @@
 """Shared storage policy. No Flet or Android dependencies."""
 
+import asyncio
 import logging
+from datetime import UTC, datetime
 from typing import Protocol
 
+from app.domain.backups import BackupEntry, BackupPlan, retention_plan
 from app.domain.storage import ConflictError, digest
 
 logger = logging.getLogger(__name__)
@@ -24,6 +27,9 @@ class Folder(Protocol):
     async def read(self) -> bytes | None: ...
     async def backup(self, data: bytes) -> str: ...
     async def write(self, data: bytes) -> None: ...
+    async def commit_backup(self, path: str) -> str: ...
+    async def list_backups(self) -> list[BackupEntry]: ...
+    async def delete_backup(self, entry: BackupEntry) -> None: ...
 
 
 class StorageSession:
@@ -34,6 +40,9 @@ class StorageSession:
         self.loaded = False
         self.last_hash: str | None = None
         self.external_changes = False
+        self.auto_cleanup = True
+        self.cleanup_error = False
+        self.recovery_backup: str | None = None
 
     async def read(self) -> bool:
         data = await self.folder.read()
@@ -75,16 +84,21 @@ class StorageSession:
         return result
 
     async def write(self) -> str | None:
+        self.cleanup_error = False
         data = self.draft.encode("utf-8")
         previous = await self._checked_read()
         backup = None if previous is None else await self.folder.backup(previous)
+        self.recovery_backup = backup
         # Detect modifications during backup too; providers offer no compare-and-swap.
         await self._checked_read()
         try:
             await self.folder.write(data)
             if await self.folder.read() != data:
                 raise StorageError("Write read-back differs. Inspect file and backup.")
-        except StorageError as exc:
+        except asyncio.CancelledError:
+            self.loaded = False
+            raise
+        except (StorageError, TimeoutError) as exc:
             self.loaded = False
             raise StorageError(
                 f"Write failed or uncertain. Read before retrying. "
@@ -93,4 +107,36 @@ class StorageSession:
         self.last_hash = digest(data)
         self.external_changes = False
         logger.info("File write verified (previous backup=%s)", backup is not None)
+        try:
+            if backup is not None:
+                backup = await self.folder.commit_backup(backup)
+                self.recovery_backup = backup
+            if self.auto_cleanup:
+                await self.cleanup_backups()
+        except (StorageError, ConflictError, TimeoutError):
+            self.cleanup_error = True
+            logger.exception("Journal saved, but backup maintenance failed")
         return backup
+
+    async def preview_cleanup(self) -> BackupPlan:
+        await self._checked_read()
+        plan = retention_plan(await self.folder.list_backups(), datetime.now(UTC))
+        return BackupPlan(
+            tuple(item for item in plan.remove if f"backups/{item.name}" != self.recovery_backup)
+        )
+
+    async def cleanup_backups(self, approved: BackupPlan | None = None) -> int:
+        plan = await self.preview_cleanup()
+        allowed = None if approved is None else set(approved.remove)
+        removed = 0
+        for entry in plan.remove:
+            if f"backups/{entry.name}" == self.recovery_backup:
+                continue
+            if allowed is not None and entry not in allowed:
+                continue
+            await self._checked_read()
+            await self.folder.delete_backup(entry)
+            removed += 1
+        if removed:
+            logger.info("Old backup cleanup completed (count=%d)", removed)
+        return removed

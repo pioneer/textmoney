@@ -1,8 +1,8 @@
 import base64
-from uuid import uuid4
 
 from finance_saf import FinanceSaf
 
+from app.domain.backups import BackupEntry, backup_name, backup_time
 from app.storage import StorageError
 
 
@@ -42,12 +42,44 @@ class AndroidFolder:
     async def backup(self, data: bytes) -> str:
         result = await self._call(
             "backup",
-            name=f"{self.backup_prefix}-{uuid4().hex}.beancount",
+            name=backup_name(self.backup_prefix),
             data=base64.b64encode(data).decode("ascii"),
         )
         if not isinstance(result, str):
             raise StorageError("Invalid SAF backup response. Original not modified.")
         return result
+
+    async def commit_backup(self, path: str) -> str:
+        name = path.removeprefix("backups/")
+        if path != f"backups/{name}" or backup_time(name, self.backup_prefix, pending=True) is None:
+            raise StorageError("Invalid pending backup name.")
+        result = await self._call("commit_backup", name=name)
+        expected = path.replace("-pending.", "-committed.")
+        if result != expected:
+            raise StorageError("Invalid SAF backup finalization response. Inspect recovery copies.")
+        return expected
+
+    async def list_backups(self) -> list[BackupEntry]:
+        result = await self._call("list_backups")
+        if not isinstance(result, list):
+            raise StorageError("Invalid SAF backup listing.")
+        entries = []
+        for item in result:
+            if not isinstance(item, dict):
+                raise StorageError("Invalid SAF backup entry.")
+            name, size = item.get("name"), item.get("size")
+            if not isinstance(name, str) or type(size) is not int or size < 0:
+                raise StorageError("Invalid SAF backup name or size.")
+            created = backup_time(name, self.backup_prefix)
+            if created is not None:
+                entries.append(BackupEntry(name, size, created))
+        return entries
+
+    async def delete_backup(self, entry: BackupEntry) -> None:
+        if backup_time(entry.name, self.backup_prefix) != entry.created:
+            raise StorageError("Refusing to delete an unrecognized backup.")
+        if await self._call("delete_backup", name=entry.name, size=entry.size) is not True:
+            raise StorageError("Invalid SAF backup deletion response.")
 
     async def write(self, data: bytes) -> None:
         await self._call("write", data=base64.b64encode(data).decode("ascii"))

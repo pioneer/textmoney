@@ -100,7 +100,7 @@ class Journal:
         self.storage.draft = candidate
         try:
             backup = await self.storage.write()
-        except (StorageError, ConflictError, TimeoutError):
+        except (StorageError, ConflictError, TimeoutError, asyncio.CancelledError):
             self.ready = False
             self.storage.loaded = False
             raise

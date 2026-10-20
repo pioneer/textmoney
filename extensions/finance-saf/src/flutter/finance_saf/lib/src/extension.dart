@@ -63,6 +63,10 @@ class FinanceSafService extends FletService {
       throw StateError('Unsupported journal filename.');
     }
     final prefix = target == 'storage-test.beancount' ? 'storage-test' : 'txncount';
+    final pendingName =
+        RegExp('^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-pending\\.beancount\$');
+    final committedName =
+        RegExp('^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-committed\\.beancount\$');
     if (method == 'read') {
       final file = await _util.child(uri, [target]);
       if (file == null) return null;
@@ -71,7 +75,7 @@ class FinanceSafService extends FletService {
     }
     if (method == 'backup') {
       final name = args['name'] as String;
-      if (!RegExp('^$prefix-[a-f0-9]{32}\\.beancount\$').hasMatch(name)) {
+      if (!pendingName.hasMatch(name)) {
         throw StateError('Invalid backup name.');
       }
       final directory = await _util.mkdirp(uri, ['backups']);
@@ -88,6 +92,51 @@ class FinanceSafService extends FletService {
         throw StateError('Backup verification failed; original was not written.');
       }
       return 'backups/$name';
+    }
+    if (method == 'commit_backup' ||
+        method == 'list_backups' ||
+        method == 'delete_backup') {
+      final directory = await _util.child(uri, ['backups']);
+      if (directory == null) {
+        if (method == 'list_backups') return <Map<String, dynamic>>[];
+        throw StateError('Backups folder disappeared. Review recovery copies.');
+      }
+      if (!directory.isDir) throw StateError('Backups is not a directory.');
+      if (method == 'list_backups') {
+        final files = await _util.list(directory.uri);
+        return files
+            .where((file) => !file.isDir && committedName.hasMatch(file.name))
+            .map((file) => {'name': file.name, 'size': file.length})
+            .toList();
+      }
+      final name = args['name'] as String;
+      final valid = method == 'commit_backup'
+          ? pendingName.hasMatch(name)
+          : committedName.hasMatch(name);
+      if (!valid) throw StateError('Unrecognized backup name.');
+      final file = await _util.child(directory.uri, [name]);
+      if (file == null || file.isDir) {
+        throw StateError('Backup changed during cleanup. Review and retry.');
+      }
+      if (method == 'commit_backup') {
+        final newName = name.replaceFirst('-pending.', '-committed.');
+        if (await _util.child(directory.uri, [newName]) != null) {
+          throw StateError('Finalized backup already exists. Recovery copy retained.');
+        }
+        final renamed = await _util.rename(file.uri, false, newName);
+        if (renamed.name != newName) {
+          throw StateError('Provider changed the backup filename. Inspect recovery copies.');
+        }
+        return 'backups/$newName';
+      }
+      if (file.length < 0 || file.length != args['size']) {
+        throw StateError('Backup size changed during cleanup. Review and retry.');
+      }
+      await _util.delete(file.uri, false);
+      if (await _util.child(directory.uri, [name]) != null) {
+        throw StateError('Provider did not remove the old backup. Review and retry.');
+      }
+      return true;
     }
     if (method == 'write') {
       final bytes = base64Decode(args['data'] as String);

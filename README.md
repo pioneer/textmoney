@@ -116,6 +116,9 @@ before editing on another device, and avoid simultaneous edits.
 Backups and conflict checks reduce risk, but writes are **not atomic** and cannot
 prevent every concurrent external change. Backups are not automatic undo or a
 substitute for an independent copy.
+Automatic retention keeps 20 recent backups plus daily/monthly history; Settings
+offers a toggle and a cleanup preview. Protected recovery copies and legacy
+undated backups are never pruned. See [backup retention](docs/crud-fava.md#backup-retention).
 
 TxnCount supports a limited, single-file Beancount profile, not arbitrary
 Beancount books. Unsupported accounting features or invalid data block saving
@@ -126,6 +129,7 @@ and [editing and data-safety guide](docs/crud-fava.md) for details.
 
 | Version | Highlights |
 | --- | --- |
+| [0.2.1](https://github.com/pioneer/txncount/releases/tag/v0.2.1) | Bounded backup retention, automatic cleanup settings and a manual cleanup preview; protected recovery copies remain untouched. |
 | [0.2.0](https://github.com/pioneer/txncount/releases/tag/v0.2.0) | Cross-currency transfers, a universal transaction form, and inline category creation. |
 | [0.1.4](https://github.com/pioneer/txncount/releases/tag/v0.1.4) | Same-currency transfers, optional fees and loan repayments; configurable fee category and overdraft warnings. |
 | [0.1.3](https://github.com/pioneer/txncount/releases/tag/v0.1.3) | Income, reimbursements and balance adjustments; unified transaction form, description previews and improved Android/Linux icons. |

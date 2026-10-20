@@ -19,6 +19,7 @@ src/app/ui/beancount.py    separate bundled-fixture action; lazy parser import
 src/app/beancount_diagnostics.py   pure-Python syntax/editing/quantity experiment, not a full engine
 src/app/fixtures/beancount/ synthetic bundled books, never user storage
 src/app/domain/storage.py  SHA-256 and conflict error, no Flet imports
+src/app/domain/backups.py  timestamped backup identities and tiered retention
 src/app/domain/ledger.py   explicit accounts, Decimal postings and running-balance checks
 src/app/journal.py         one-journal load/append/save coordination, no Flet
 src/app/infrastructure/beancount_journal.py lossless reading, directive splices and generation
@@ -98,6 +99,14 @@ backup safety, provider limitations, and device verification status. The same
 adapters allow only `storage-test.beancount` and `txncount.beancount`, with separate
 backup namespaces. No synchronization implementation, analytics or authentication
 is included; synchronization belongs to the user's external folder tool.
+
+Backup retention keeps 20 recent snapshots plus daily/monthly tiers. The
+storage session finalizes a timestamped `pending` backup only after verified
+journal write/read-back; unfinished and legacy backups are never eligible for
+deletion. Adapters list, finalize and delete only their own backup namespace,
+using SAF document operations on Android. Cleanup failure is a post-save warning,
+not a failed financial transaction. The automatic-cleanup preference is local
+to each device. See [retention and recovery](crud-fava.md#backup-retention).
 
 The CRUD milestone intentionally remains single-file at the user's direction;
 no native SAF changes, migration, or multi-file transactions were introduced.

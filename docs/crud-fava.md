@@ -2,10 +2,86 @@
 
 ## Scope and format
 
+### Universal transaction form
+
+**Додати операцію** opens one form without a transaction-type dropdown:
+description first, then unsigned positive amount with **− / + / ↔** immediately
+to its left, accounts, category and date. A short hint below the amount explains
+the selection: debit from an account, credit to an account, or transfer between
+accounts. All dropdowns fill the form width and share aligned edges.
+**Додатково**
+starts collapsed and holds fees, optional counterparty, time and special
+receipt choices.
+
+| Button | Accounts | Meaning |
+| --- | --- | --- |
+| − (default) | One | Expense from the account |
+| + | One | Income into the account |
+| ↔ | Source and destination, both required | Transfer source → destination |
+
+Only **↔** shows the destination account and transfer fee controls, hiding the
+ordinary category. Minus and plus hide the second account completely, and its
+retained draft cannot turn an ordinary transaction into a transfer. Switching
+buttons preserves numeric amounts, description, fee settings and category drafts.
+For different currencies the first amount is the total source debit and the
+second is the actual destination credit; neither is automatically replaced.
+To reverse a transfer, explicitly change its source/destination accounts and
+the exchanged amounts as appropriate. Fees retain their selected currency.
+For same-currency fees, the single amount retains its existing nominal
+added/deducted meaning; the preview shows actual debited/credited totals.
+
+For **+**, **Додатково → Надходження**
+offers income, reimbursement or balance adjustment. Reimbursement additionally
+offers the original-expense reference. Hidden special/fee/reference values are
+excluded from unrelated saves, but drafts are retained when switching back.
+Date is always visible; time and timezone controls retain the existing picker,
+DST validation and unchanged-timestamp behavior under Advanced.
+
+Existing transactions use this layout too. Saved accounting kinds remain
+protected as explicitly requested: the three-button selector and special-kind
+choice are disabled, and submission guards enforce that rule. Transfer edits
+allow both account changes but cannot become ordinary transactions. Existing
+transfers open with **↔** selected, source first and destination second; no
+additional UI state is stored in the journal. Saved fees, payee, kind and time
+are summarized on collapsed Advanced.
+Opening balances and unsupported constructs keep their existing guarded editors.
+
+Verification: `uv run inv check` passes formatting, Ruff, Pyright and all 439
+tests. Focused form tests exercise both signs, same-currency and exchange
+directions, fee modes/currencies, draft retention, hidden-field isolation,
+saved-kind protection, invalid inputs and round-trip edit/delete through the
+actual Beancount loader. Existing reimbursement, adjustment, metadata, reporting
+and storage-failure regressions remain passing.
+
+Earlier Ukrainian browser checks at 390×844 and 1366×900 verified the compact default
+layout, collapsed Advanced controls, unchanged amounts when switching sign,
+and access to reimbursement/adjustment choices. A synthetic exchange with a
+5 USD fee was created, reopened and reversed: the 105 USD and 4200 UAH fields
+stayed attached to their accounts, the fee currency stayed USD, and the saved
+source principal was exactly 100 USD with `@@ 4200.00 UAH`. The UUID and
+timestamp survived editing, and visible balances matched persisted postings.
+No native Android/Windows run or new APK build was performed for this UI refactor.
+
+The description-first layout and debit/credit hints were also checked in the
+browser at both sizes. Dropdown bounds matched exactly: 262 px wide on mobile
+and 360 px on desktop, including the Advanced receipt selector. Changing to
+plus preserved the entered 250 and updated the explanation and account roles.
+Pinned Flet 1.0.1 requires expanded dropdowns inside rows for full-width fields;
+its Flutter implementation does not apply the exposed `expanded_insets` value.
+
+The explicit **− / + / ↔** revision was checked at 390×844 and 1366×900.
+Minus initially showed only one account. Switching an exchange to plus hid its
+destination, exchange preview and fees; returning to transfer restored both
+amounts (105 USD / 4200 UAH), accounts and 5 USD fee. Saving and reopening
+produced the expected single `@@` transaction and balances, including the
+non-blocking overdraft warning. The selector is constrained to 132 px, leaving
+130 px for the amount on the checked mobile layout. No native platform run or
+APK build was performed for this revision.
+
 ### Same-currency transfers
 
-The unified transaction form includes **Transfer / Переказ**, with source,
-destination, amount and optional fee. Cash, bank and single-currency liability
+Selecting **↔** enables a transfer with explicit source/destination accounts,
+one amount and an optional Advanced fee. Cash, bank and single-currency liability
 accounts share account selection by display name. A transfer is one directive:
 
 | Fee mode | Source | Destination | Fee expense |
@@ -96,7 +172,8 @@ removed. External synchronization races and non-atomic provider writes retain
 the limitations documented below. No market rates, third-account fees, interest
 calculations or automated FX gains/losses are introduced.
 
-Verification: `uv run inv check` passes formatting, Ruff, Pyright and 410 tests.
+At the cross-currency milestone, `uv run inv check` passed formatting, Ruff,
+Pyright and 410 tests.
 The exchange matrix uses the actual Beancount loader, unit balances and Fava,
 including inverse directions, repeating rates, extreme supported amounts and
 both fee currencies. Ukrainian browser checks at 390×844 and 1366×900 verified
@@ -127,13 +204,12 @@ Opening entries keep their localized opening-balance label.
 
 ### Incoming money
 
-The primary **Add transaction** (**Додати операцію**) action opens one scrollable
-creation form. It starts in **Expense** mode; choose **Income**,
-**Expense reimbursement** or **Balance adjustment** for money received.
+The primary **Add transaction** (**Додати операцію**) action opens the universal
+form with minus selected. Choose plus for income; use the Advanced receipt
+choice for **Expense reimbursement** or **Balance adjustment**.
 The same form edits ordinary expenses and receipts, keeping their accounting
-type fixed. Mode-specific labels, help and category choices hide unnecessary
-fields. Amount, description, counterparty, date/time and receiving/paying account
-are shared; category choices are remembered separately when switching modes.
+kind fixed. Amount, description, counterparty, date/time and account are shared;
+category choices are remembered separately when switching sign or special receipt.
 Validation and conflict failures keep the draft open. Cancel closes without
 saving; a new form starts blank with the current date/time and timezone.
 

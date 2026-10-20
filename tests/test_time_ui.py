@@ -10,6 +10,7 @@ import flet as ft
 import pytest
 from beancount import loader
 from flet.controls.device_info import DeviceInfo
+from form_controls import transaction_form
 
 from app.domain.ledger import Account, LedgerError, Posting, Transaction
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -221,7 +222,7 @@ def test_timezone_preference_persists_without_rewriting_journal_and_failure_reta
         original = view.journal.source
         view._transaction_dialog(view.journal)
         dialog = page.show_dialog.call_args.args[0]
-        amount = dialog.content.controls[5]
+        amount = transaction_form(dialog).amount
         amount.value = "12.34"
         view.timezone_choice.text = "Europe/Kyiv"
         await view._save_timezone(MagicMock())
@@ -363,8 +364,14 @@ def test_optional_payee_is_blank_and_collapsed_after_success_not_after_validatio
         await view.journal.create_category("Food", "Food")
         view._transaction_dialog(view.journal)
         dialog = page.show_dialog.call_args.args[0]
-        _, _, account, _, category, amount, _, _, tile = dialog.content.controls[:9]
-        payee = tile.controls[0]
+        form = transaction_form(dialog)
+        account, category, amount, tile, payee = (
+            form.account,
+            form.category,
+            form.amount,
+            form.advanced,
+            form.payee,
+        )
         assert not payee.value and not tile.expanded
         account.value = "Assets:Cash"
         category.value = "Expenses:Food"
@@ -376,8 +383,14 @@ def test_optional_payee_is_blank_and_collapsed_after_success_not_after_validatio
         page.pop_dialog.assert_called_once()
         view._transaction_dialog(view.journal)
         dialog = page.show_dialog.call_args.args[0]
-        _, _, account, _, category, amount, _, _, tile = dialog.content.controls[:9]
-        payee = tile.controls[0]
+        form = transaction_form(dialog)
+        account, category, amount, tile, payee = (
+            form.account,
+            form.category,
+            form.amount,
+            form.advanced,
+            form.payee,
+        )
         assert not payee.value and not tile.expanded
         account.value = "Assets:Cash"
         category.value = "Expenses:Food"
@@ -450,9 +463,8 @@ def test_new_expense_starts_empty_even_with_a_legacy_default_payee_preference(
         await journal.load()
         view._transaction_dialog(journal)
         dialog = page.show_dialog.call_args.args[0]
-        tile = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
-        assert tile.controls
-        payee = tile.controls[0]
+        form = transaction_form(dialog)
+        tile, payee = form.advanced, form.payee
         assert isinstance(payee, ft.TextField)
         assert not payee.value
         assert not tile.expanded
@@ -475,11 +487,11 @@ def test_description_is_prominent_and_currency_settings_are_advanced_in_all_lang
         view._refresh_labels()
         view._transaction_dialog(journal)
         dialog = page.show_dialog.call_args.args[0]
-        description = dialog.content.controls[6]
-        tile = dialog.content.controls[8]
-        assert description.multiline and description.min_lines == 2
+        form = transaction_form(dialog)
+        description, tile = form.description, form.advanced
+        assert description.multiline and description.min_lines == 1
         assert description.text_size == 17
-        assert tile.controls[0] not in dialog.content.controls
+        assert form.payee not in dialog.content.controls
         assert not tile.expanded
         assert view.advanced_settings in view.settings_screen.controls
         assert not view.advanced_settings.expanded
@@ -526,7 +538,7 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         assert payee.value == "Saved shop"
         when = next(c for c in dialog.content.controls if isinstance(c, DateTimeFields))
         assert when.occurred.value == "01/02/2026"
-        dialog.content.controls[5].value = "12"
+        transaction_form(dialog).amount.value = "12"
         await dialog.actions[-1].on_click(MagicMock())
         saved = next(t for t in journal.ledger.transactions if t.id == original.id)
         assert saved.payee == "Saved shop"

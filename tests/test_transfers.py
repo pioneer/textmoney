@@ -13,6 +13,7 @@ from autobean_refactor import models
 from beancount import loader
 from beancount.ops import summarize
 from fava.core import FavaLedger
+from form_controls import change, transaction_form
 
 from app.domain.ledger import BANK_FEES, LedgerError, exchange_values
 from app.domain.storage import ConflictError
@@ -309,19 +310,31 @@ def test_unified_transfer_form_fee_edit_and_complete_deletion(
         monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
         view._new_transaction(MagicMock())
         dialog = page.show_dialog.call_args.args[0]
-        mode, _, account, _, category, amount, description, when, _ = dialog.content.controls[:9]
-        fields = next(c for c in dialog.content.controls if type(c) is ft.Column)
-        destination, _, enabled, fee, deduction, _, fee_category, _ = fields.controls
+        form = transaction_form(dialog)
+        account, category, amount, description, when = (
+            form.account,
+            form.category,
+            form.amount,
+            form.description,
+            form.when,
+        )
+        destination, enabled, fee, deduction, fee_category = (
+            form.second_account,
+            form.fee_enabled,
+            form.fee,
+            form.fee_mode,
+            form.fee_category,
+        )
         assert isinstance(destination, ft.Dropdown)
         assert isinstance(enabled, ft.Checkbox)
         assert isinstance(fee, ft.TextField)
         assert isinstance(deduction, ft.Dropdown)
         assert isinstance(fee_category, ft.Dropdown)
-        mode.value = "transfer"
-        mode.on_select(MagicMock())
-        assert not category.visible and fields.visible and not fee.visible
-        assert destination.label == translate(language, "transfer_destination")
         account.value, destination.value = "Assets:Bank", "Liabilities:Loan"
+        form.sign.selected = ["transfer"]
+        change(destination)
+        assert not category.visible and not fee.visible
+        assert destination.label == translate(language, "destination_account")
         amount.value, description.value = "2100", "Synthetic repayment"
         enabled.value = True
         assert enabled.on_change is not None
@@ -340,16 +353,24 @@ def test_unified_transfer_form_fee_edit_and_complete_deletion(
         event.control.data = transaction.id
         view._edit_transaction(event)
         dialog = page.show_dialog.call_args.args[0]
-        assert dialog.content.controls[0].value == translate(language, "kind_transfer")
-        fields = next(c for c in dialog.content.controls if type(c) is ft.Column)
-        destination, _, enabled, fee, deduction, _, fee_category, _ = fields.controls
+        form = transaction_form(dialog)
+        assert form.sign.disabled and form.sign.selected == ["transfer"]
+        assert isinstance(form.advanced.subtitle, str)
+        assert translate(language, "kind_transfer") in form.advanced.subtitle
+        destination, enabled, fee, deduction, fee_category = (
+            form.second_account,
+            form.fee_enabled,
+            form.fee,
+            form.fee_mode,
+            form.fee_category,
+        )
         assert isinstance(destination, ft.Dropdown)
         assert isinstance(fee, ft.TextField)
         assert isinstance(deduction, ft.Dropdown)
         assert isinstance(fee_category, ft.Dropdown)
         assert destination.value == "Liabilities:Loan" and fee.value == "5"
         assert deduction.value == "deducted" and fee_category.value == BANK_FEES
-        dialog.content.controls[5].value = "1000"
+        form.amount.value = "1000"
         deduction.value = "added"
         fee.value = "2"
         await dialog.actions[-1].on_click(MagicMock())
@@ -815,10 +836,17 @@ def test_exchange_unified_form_preview_draft_and_edit(
         monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
         view._new_transaction(MagicMock())
         dialog = page.show_dialog.call_args.args[0]
-        mode, _, account, _, _, amount, description, when, _ = dialog.content.controls[:9]
-        fields = next(c for c in dialog.content.controls if type(c) is ft.Column)
+        form = transaction_form(dialog)
+        account, amount, description, when = form.account, form.amount, form.description, form.when
         destination, credited, enabled, fee, deduction, currency, category, preview = (
-            fields.controls
+            form.second_account,
+            form.second_amount,
+            form.fee_enabled,
+            form.fee,
+            form.fee_mode,
+            form.fee_currency,
+            form.fee_category,
+            form.preview,
         )
         assert isinstance(destination, ft.Dropdown)
         assert isinstance(credited, ft.TextField)
@@ -828,10 +856,10 @@ def test_exchange_unified_form_preview_draft_and_edit(
         assert isinstance(currency, ft.Dropdown)
         assert isinstance(category, ft.Dropdown)
         assert isinstance(preview, ft.Text)
-        mode.value = "transfer"
         account.value, destination.value = "Assets:Dollar", "Assets:Bank"
+        form.sign.selected = ["transfer"]
         amount.value, credited.value = "105.00", "4200.00"
-        mode.on_select(MagicMock())
+        change(destination)
         assert amount.label == f"{translate(language, 'exchange_debited')} (USD)"
         assert credited.label == f"{translate(language, 'exchange_credited')} (UAH)"
         assert credited.visible and not deduction.visible
@@ -860,16 +888,23 @@ def test_exchange_unified_form_preview_draft_and_edit(
         event.control.data = original.id
         view._edit_transaction(event)
         dialog = page.show_dialog.call_args.args[0]
-        fields = next(c for c in dialog.content.controls if type(c) is ft.Column)
+        form = transaction_form(dialog)
         destination, credited, enabled, fee, deduction, currency, category, preview = (
-            fields.controls
+            form.second_account,
+            form.second_amount,
+            form.fee_enabled,
+            form.fee,
+            form.fee_mode,
+            form.fee_currency,
+            form.fee_category,
+            form.preview,
         )
         assert isinstance(credited, ft.TextField) and isinstance(currency, ft.Dropdown)
         assert isinstance(fee, ft.TextField) and isinstance(deduction, ft.Dropdown)
-        assert credited.value == "4200.00" and dialog.content.controls[5].value == "105.00"
+        assert credited.value == "4200.00" and form.amount.value == "105.00"
         assert fee.value == "5.00" and currency.value == "USD"
         assert not deduction.visible
-        dialog.content.controls[5].value, credited.value, currency.value = "100", "4195", "UAH"
+        form.amount.value, credited.value, currency.value = "100", "4195", "UAH"
         await dialog.actions[-1].on_click(MagicMock())
         details = journal.transfer_details(journal.transaction_for_edit(original.id))
         assert details.debited == 100 and details.target.amount == 4195

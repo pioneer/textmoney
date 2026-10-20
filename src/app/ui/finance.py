@@ -1193,6 +1193,7 @@ class FinanceView(ft.Row):
         save: Callable[[], Awaitable[str | None]],
         *,
         deleting: bool = False,
+        stretch: bool = False,
     ) -> None:
         cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)
         submit = ft.TextButton(self.tr("crud_delete" if deleting else "crud_save"))
@@ -1224,7 +1225,15 @@ class FinanceView(ft.Row):
                 modal=True,
                 scrollable=True,
                 title=title,
-                content=ft.Column(controls, tight=True, spacing=12, width=360),
+                content=ft.Column(
+                    controls,
+                    tight=True,
+                    spacing=12,
+                    width=360,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH
+                    if stretch
+                    else ft.CrossAxisAlignment.START,
+                ),
                 actions=[cancel, submit],
             )
         )
@@ -1382,6 +1391,13 @@ class FinanceView(ft.Row):
 
     def _transaction_dialog(self, journal: Journal, transaction: Transaction | None = None) -> None:
         source = journal.source
+        dropdown_rows: list[ft.Row] = []
+
+        def aligned_dropdown(control: ft.Dropdown) -> ft.Row:
+            row = ft.Row([control])
+            dropdown_rows.append(row)
+            return row
+
         transfer = (
             journal.transfer_details(transaction)
             if transaction and transaction.kind == "transfer"
@@ -1400,15 +1416,42 @@ class FinanceView(ft.Row):
             if transaction and not transfer
             else None
         )
-        kind = ft.Dropdown(
-            label=self.tr("incoming_type"),
-            value=transaction.kind if transaction else "expense",
+        sign = ft.SegmentedButton(
+            data="sign",
+            width=132,
+            segments=[
+                ft.Segment(value="-", label="−"),
+                ft.Segment(value="+", label="+"),
+                ft.Segment(value="transfer", label="↔"),
+            ],
+            selected=[
+                "transfer"
+                if transfer
+                else "-"
+                if not transaction or transaction.kind == "expense"
+                else "+"
+            ],
+            show_selected_icon=False,
+            style=ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=8)),
+            disabled=transaction is not None,
+        )
+        special = ft.Dropdown(
+            data="special",
+            expand=True,
+            label=self.tr("special_receipt"),
+            value=transaction.kind
+            if transaction and transaction.kind in {"income", "reimbursement", "adjustment"}
+            else "income",
+            disabled=transaction is not None,
             options=[
                 ft.DropdownOption(key=k, text=self.tr(f"kind_{k}"))
-                for k in ("expense", "income", "reimbursement", "adjustment", "transfer")
+                for k in ("income", "reimbursement", "adjustment")
             ],
         )
         account = ft.Dropdown(
+            data="account",
+            expand=True,
+            label=self.tr("primary_account"),
             value=original_asset.account if original_asset else None,
             options=[
                 ft.DropdownOption(key=a.id, text=f"{a.name} ({a.currency})")
@@ -1416,26 +1459,37 @@ class FinanceView(ft.Row):
                 if a.active or (original_asset and original_asset.account == a.id)
             ],
         )
-        category = ft.Dropdown(label=self.tr("expense_category"), value=original_category)
-        amount = ft.TextField(
-            label=self.tr("amount"), value=str(abs(original_asset.amount)) if original_asset else ""
+        category = ft.Dropdown(
+            data="category",
+            expand=True,
+            label=self.tr("expense_category"),
+            value=original_category,
         )
+        amount = ft.TextField(
+            data="amount",
+            expand=True,
+            label=self.tr("amount"),
+            value=str(abs(original_asset.amount)) if original_asset else "",
+        )
+        sign_hint = ft.Text(data="sign_hint", size=12)
         destination = ft.Dropdown(
-            label=self.tr("transfer_destination"),
+            data="second_account",
+            expand=True,
+            label=self.tr("second_account"),
+            disabled=transaction is not None and transfer is None,
             value=transfer.target.account if transfer else None,
-            options=[
-                ft.DropdownOption(key=a.id, text=f"{a.name} ({a.currency})")
-                for a in journal.ledger.accounts
-                if a.active or (transfer and transfer.target.account == a.id)
-            ],
         )
         fee_enabled = ft.Checkbox(
-            label=self.tr("transfer_fee_enabled"), value=bool(transfer and transfer.fee)
+            data="fee_enabled",
+            label=self.tr("transfer_fee_enabled"),
+            value=bool(transfer and transfer.fee),
         )
         fee = ft.TextField(
-            label=self.tr("transfer_fee"), value=str(transfer.fee) if transfer else "0"
+            data="fee", label=self.tr("transfer_fee"), value=str(transfer.fee) if transfer else "0"
         )
         fee_mode = ft.Dropdown(
+            data="fee_mode",
+            expand=True,
             label=self.tr("transfer_mode"),
             value=transfer.mode if transfer else "added",
             options=[
@@ -1444,6 +1498,8 @@ class FinanceView(ft.Row):
             ],
         )
         fee_category = ft.Dropdown(
+            data="fee_category",
+            expand=True,
             label=self.tr("transfer_fee_category"),
             value=transfer.fee_category if transfer else journal.ledger.default_fee_category,
             options=[
@@ -1467,25 +1523,37 @@ class FinanceView(ft.Row):
                 else transfer.target.amount
             )
         received = ft.TextField(
+            data="second_amount",
             value=str(transfer.target.amount) if transfer and transfer.exchange else "",
         )
         fee_currency = ft.Dropdown(
+            data="fee_currency",
+            expand=True,
             label=self.tr("exchange_fee_currency"),
             value=transfer.fee_currency if transfer and transfer.exchange else None,
         )
-        preview = ft.Text(size=12, selectable=True)
-        transfer_fields = ft.Column(
-            [destination, received, fee_enabled, fee, fee_mode, fee_currency, fee_category, preview]
+        preview = ft.Text(data="preview", size=12, selectable=True)
+        fee_fields = ft.Column(
+            [
+                fee_enabled,
+                fee,
+                aligned_dropdown(fee_mode),
+                aligned_dropdown(fee_currency),
+                aligned_dropdown(fee_category),
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
         description = ft.TextField(
+            data="description",
             label=self.tr("crud_description_label"),
             value=transaction.narration if transaction else "",
             multiline=True,
-            min_lines=2,
-            max_lines=5,
+            min_lines=1,
+            max_lines=4,
             text_size=17,
         )
         payee = ft.TextField(
+            data="payee",
             value=transaction.payee if transaction else "",
             keyboard_type=ft.KeyboardType.NAME,
         )
@@ -1495,8 +1563,11 @@ class FinanceView(ft.Row):
             transaction.date if transaction else None,
             transaction.timestamp if transaction else None,
             device_zone=self._picker_zone(),
+            compact=True,
         )
         reference = ft.Dropdown(
+            data="reference",
+            expand=True,
             label=self.tr("incoming_reference_label"),
             value="",
             options=[ft.DropdownOption(key="", text=self.tr("incoming_no_reference"))],
@@ -1519,20 +1590,41 @@ class FinanceView(ft.Row):
             )
         reference.visible = False
         reference.disabled = transaction is not None
-        help_text = ft.Text(size=12)
-        payee_details = ft.ExpansionTile(
-            title=self.tr("payee"),
-            controls=[payee],
+        advanced = ft.ExpansionTile(
+            data="advanced",
+            title=self.tr("transaction_advanced"),
+            controls=[
+                aligned_dropdown(special),
+                aligned_dropdown(reference),
+                fee_fields,
+                payee,
+                when.time_controls,
+                *([ft.Text(transaction.id, selectable=True)] if transaction else []),
+                *(
+                    [ft.Text(self.tr("incoming_linked", identifier=transaction.related_expense))]
+                    if transaction and transaction.related_expense
+                    else []
+                ),
+            ],
             maintain_state=True,
-            expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
+            expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
         )
         category_values: dict[str, str | None] = {}
-        previous_kind = kind.value
         currencies = {a.id: a.currency for a in journal.ledger.accounts}
+        names = {a.id: a.name for a in journal.ledger.accounts}
+
+        def operation() -> str:
+            if sign.selected == ["transfer"]:
+                return "transfer"
+            if sign.selected == ["-"]:
+                return "expense"
+            return special.value or "income"
+
+        previous_kind = transaction.kind if transaction else "expense"
 
         def is_exchange() -> bool:
             return bool(
-                kind.value == "transfer"
+                operation() == "transfer"
                 and account.value in currencies
                 and destination.value in currencies
                 and currencies[account.value] != currencies[destination.value]
@@ -1540,101 +1632,168 @@ class FinanceView(ft.Row):
 
         def update_exchange() -> None:
             exchange = is_exchange()
-            source_currency = currencies.get(account.value or "", "")
-            target_currency = currencies.get(destination.value or "", "")
+            transferring = operation() == "transfer"
+            sign_hint.value = self.tr(
+                "amount_transfer_hint"
+                if transferring
+                else "amount_debit_hint"
+                if sign.selected == ["-"]
+                else "amount_credit_hint"
+            )
+            account.label = self.tr(
+                "source_account"
+                if transferring or sign.selected == ["-"]
+                else "destination_account"
+            )
+            destination.label = self.tr("destination_account")
+            primary_currency = currencies.get(account.value or "", "")
+            second_currency = currencies.get(destination.value or "", "")
+            source_currency, target_currency = primary_currency, second_currency
+            source_amount, target_amount = amount.value, received.value
+            primary_label = self.tr("exchange_debited")
+            second_label = self.tr("exchange_credited")
             amount.label = (
-                f"{self.tr('exchange_debited')} ({source_currency})"
+                f"{primary_label} ({primary_currency})"
                 if exchange
+                else f"{self.tr('amount')} ({primary_currency})"
+                if primary_currency
                 else self.tr("amount")
             )
-            received.label = f"{self.tr('exchange_credited')} ({target_currency})"
+            received.label = f"{second_label} ({second_currency})"
             received.visible = exchange
-            fee_mode.visible = bool(fee_enabled.value) and not exchange
-            fee_currency.visible = bool(fee_enabled.value) and exchange
+            fee_mode.visible = transferring and bool(fee_enabled.value) and not exchange
+            fee_currency.visible = transferring and bool(fee_enabled.value) and exchange
             fee_currency.options = [
                 ft.DropdownOption(key=c, text=c)
                 for c in dict.fromkeys([source_currency, target_currency])
                 if c
             ]
-            if fee_currency.value not in {o.key for o in fee_currency.options}:
+            if transferring and fee_currency.value not in {o.key for o in fee_currency.options}:
                 fee_currency.value = source_currency or None
             fee.label = (
                 f"{self.tr('transfer_fee')} ({fee_currency.value})"
                 if exchange
                 else self.tr("transfer_fee")
             )
-            preview.visible = exchange
-            if exchange:
+            preview.visible = operation() == "transfer"
+            if preview.visible:
+                sender, receiver = account.value, destination.value
+                movement = f"{names.get(sender or '', '…')} → {names.get(receiver or '', '…')}"
                 try:
-                    principal, gross, rate = exchange_values(
-                        money(amount.value or ""),
-                        money(received.value or ""),
-                        money(fee.value or "0") if fee_enabled.value else Decimal("0"),
-                        source_currency,
-                        target_currency,
-                        fee_currency.value or source_currency,
-                    )
-                    preview.value = self.tr(
-                        "exchange_preview",
-                        debited=format_amount(
-                            money(amount.value or ""), self.language, source_currency
-                        ),
-                        credited=format_amount(
-                            money(received.value or ""), self.language, target_currency
-                        ),
-                        principal=format_amount(principal, self.language, source_currency),
-                        gross=format_amount(gross, self.language, target_currency),
-                        rate=f"1 {source_currency} ≈ {rate:.12g} {target_currency}",
-                    )
+                    commission = money(fee.value or "0") if fee_enabled.value else Decimal("0")
+                    if exchange:
+                        principal, gross, rate = exchange_values(
+                            money(source_amount or ""),
+                            money(target_amount or ""),
+                            commission,
+                            source_currency,
+                            target_currency,
+                            fee_currency.value or source_currency,
+                        )
+                        preview.value = (
+                            movement
+                            + "\n"
+                            + self.tr(
+                                "exchange_preview",
+                                debited=format_amount(
+                                    money(source_amount or ""), self.language, source_currency
+                                ),
+                                credited=format_amount(
+                                    money(target_amount or ""), self.language, target_currency
+                                ),
+                                principal=format_amount(principal, self.language, source_currency),
+                                gross=format_amount(gross, self.language, target_currency),
+                                rate=f"1 {source_currency} ≈ {rate:.12g} {target_currency}",
+                            )
+                        )
+                    else:
+                        nominal = money(amount.value or "")
+                        debit = nominal + commission if fee_mode.value == "added" else nominal
+                        credit = nominal - commission if fee_mode.value == "deducted" else nominal
+                        if nominal <= 0 or credit <= 0:
+                            raise LedgerError("transfer_amount")
+                        preview.value = (
+                            movement
+                            + "\n"
+                            + self.tr(
+                                "transfer_preview",
+                                debited=format_amount(debit, self.language, source_currency),
+                                credited=format_amount(credit, self.language, target_currency),
+                            )
+                        )
                 except LedgerError as exc:
-                    preview.value = localized_error(self.language, str(exc))
+                    preview.value = movement + "\n" + localized_error(self.language, str(exc))
 
-        def configure(event: ft.Event[ft.Dropdown] | ft.Event[ft.Checkbox] | None = None) -> None:
+        def configure(
+            event: ft.Event[ft.Dropdown]
+            | ft.Event[ft.Checkbox]
+            | ft.Event[ft.SegmentedButton]
+            | None = None,
+        ) -> None:
             nonlocal previous_kind
-            changed = previous_kind != kind.value
-            if event is not None and previous_kind and changed:
+            kind = operation()
+            changed = previous_kind != kind
+            if changed:
                 category_values[previous_kind] = category.value
-                category.value = category_values.get(kind.value or "")
-            previous_kind = kind.value
-            root = "Income:" if kind.value == "income" else "Expenses:"
-            account.label = self.tr(
-                "pay_from" if kind.value in {"expense", "transfer"} else "incoming_account"
-            )
-            category.label = self.tr(
-                "income_category" if kind.value == "income" else "expense_category"
-            )
+                category.value = category_values.get(kind)
+            previous_kind = kind
+            root = "Income:" if kind == "income" else "Expenses:"
+            category.label = self.tr("income_category" if kind == "income" else "expense_category")
             payee.label = self.tr(
                 "transfer_counterparty"
-                if kind.value == "transfer"
+                if kind == "transfer"
                 else "payee"
-                if kind.value == "expense"
+                if kind == "expense"
                 else "incoming_sender"
             )
-            payee_details.title = payee.label
-            payee_details.controls = [
-                payee,
-                *([ft.Text(self.tr("payee_help"), size=12)] if kind.value == "expense" else []),
+            destination.options = [
+                ft.DropdownOption(key=a.id, text=f"{a.name} ({a.currency})")
+                for a in journal.ledger.accounts
+                if a.id != account.value
+                and (
+                    a.active
+                    or a.id
+                    in {
+                        original_asset.account if original_asset else "",
+                        transfer.target.account if transfer else "",
+                    }
+                )
             ]
-            help_text.value = self.tr(f"transaction_help_{kind.value}")
+            destination.visible = kind == "transfer"
+            if destination.visible and destination.value and destination.value == account.value:
+                destination.error_text = self.tr("transfer_accounts")
+            else:
+                destination.error_text = None
             category.options = [
                 ft.DropdownOption(key=c.id, text=self._category_label(c.id, c.name))
                 for c in journal.ledger.categories
                 if c.id.startswith(root)
                 and (journal.ledger.category_active(c.id) or c.id == original_category)
             ]
-            category.visible = kind.value not in {"adjustment", "transfer"}
-            transfer_fields.visible = kind.value == "transfer"
-            fee.visible = fee_mode.visible = fee_category.visible = bool(fee_enabled.value)
+            category.visible = kind not in {"adjustment", "transfer"}
+            fee_fields.visible = kind == "transfer"
+            fee.visible = fee_category.visible = kind == "transfer" and bool(fee_enabled.value)
             update_exchange()
-            if kind.value == "adjustment":
+            if kind == "adjustment":
                 category.value = ADJUSTMENTS
             elif category.value not in {o.key for o in category.options}:
                 category.value = None
-            reference.visible = kind.value == "reimbursement" and transaction is None
-            controls.remove(transfer_fields)
-            controls.insert(6 if kind.value == "transfer" else 9, transfer_fields)
-            if changed:
-                reference.value = ""
+            reference.visible = kind == "reimbursement" and transaction is None
+            special.visible = sign.selected == ["+"]
+            details = []
+            if transaction:
+                details.append(self.tr(f"kind_{transaction.kind}"))
+                if transaction.payee:
+                    details.append(transaction.payee)
+                if transfer and transfer.fee:
+                    details.append(
+                        f"{self.tr('transfer_fee')}: "
+                        f"{format_amount(transfer.fee, self.language, transfer.fee_currency)}"
+                    )
+                details.append(when.clock.value or "")
+            advanced.subtitle = " · ".join(details) or None
+            for row in dropdown_rows:
+                row.visible = row.controls[0].visible
             if event is not None:
                 self.page.update()
 
@@ -1653,7 +1812,8 @@ class FinanceView(ft.Row):
             except Exception as exc:
                 self._error(exc, notify=True)
 
-        kind.on_select = configure
+        sign.on_change = configure
+        special.on_select = configure
         fee_enabled.on_change = configure
         account.on_select = configure
         destination.on_select = configure
@@ -1661,15 +1821,21 @@ class FinanceView(ft.Row):
 
         def recalculate(event: ft.Event[ft.TextField] | ft.Event[ft.Dropdown]) -> None:
             update_exchange()
+            for row in dropdown_rows:
+                row.visible = row.controls[0].visible
             self.page.update()
 
         amount.on_change = received.on_change = fee.on_change = recalculate
         fee_currency.on_select = recalculate
+        fee_mode.on_select = recalculate
 
         async def save() -> str | None:
             self._effective_zone()
             occurred, timestamp = when.values()
-            if kind.value == "transfer":
+            kind = operation()
+            if transaction and kind != transaction.kind:
+                raise LedgerError("crud_transaction_readonly")
+            if kind == "transfer":
                 return await journal.save_transfer(
                     account.value or "",
                     destination.value or "",
@@ -1701,7 +1867,7 @@ class FinanceView(ft.Row):
                 )
             if journal.source != source:
                 raise ConflictError("crud_stale")
-            if kind.value == "expense":
+            if kind == "expense":
                 return await journal.add_expense(
                     account.value or "",
                     category.value or "",
@@ -1717,37 +1883,26 @@ class FinanceView(ft.Row):
                 amount.value or "",
                 payee.value or "",
                 occurred,
-                kind.value or "",
+                kind,
                 description.value or "",
                 timestamp,
                 related_expense=reference.value
-                if kind.value == "reimbursement" and reference.value
+                if kind == "reimbursement" and reference.value
                 else None,
                 expected_source=source,
             )
 
         controls: list[ft.Control] = [
-            ft.Text(self.tr(f"kind_{transaction.kind}")) if transaction else kind,
-            help_text,
-            account,
-            reference,
-            category,
-            amount,
             description,
+            ft.Row([sign, amount], spacing=8),
+            sign_hint,
+            aligned_dropdown(account),
+            aligned_dropdown(category),
+            aligned_dropdown(destination),
+            received,
+            preview,
             when,
-            payee_details,
-            transfer_fields,
-            *([ft.Text(transaction.id, selectable=True)] if transaction else []),
-            *(
-                [
-                    ft.Text(
-                        self.tr("incoming_linked", identifier=transaction.related_expense),
-                        selectable=True,
-                    )
-                ]
-                if transaction and transaction.related_expense
-                else []
-            ),
+            advanced,
         ]
         configure()
         self._edit_dialog(
@@ -1755,6 +1910,7 @@ class FinanceView(ft.Row):
             controls,
             journal,
             save,
+            stretch=True,
         )
 
     def _edit_entity(self, event: ft.Event[ft.IconButton]) -> None:

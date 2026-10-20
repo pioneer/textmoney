@@ -115,12 +115,33 @@ constraint: editing/deleting the original never cascades into a receipt.
 income/net-expense sums; reimbursements affect their receipt period and equity
 does not enter these totals. There is still no reporting screen.
 
-One **Add transaction** action opens the same scrollable form used for editing
-ordinary expenses and receipts. Creation modes adapt the account/category labels,
-help and optional reimbursement reference without changing the posting services.
-Common draft fields and per-mode category selections survive mode switches;
-failed saves retain the form. Each dialog captures its journal and source
-baseline, including new expenses. Editing keeps the accounting type fixed.
+One **Add transaction** action opens the same scrollable universal form used
+for editing. Description is the first field. A compact **− / + / ↔** selector
+sits beside the unsigned positive amount, with a localized debit/credit/transfer
+explanation below. Minus and plus show one account and an appropriate category;
+only transfer mode shows required source and destination accounts.
+Dropdowns stretch to the same form width, including Advanced controls.
+Account labels explicitly identify debit/source and credit/destination roles.
+The selected button alone determines the ordinary operation; a hidden destination
+draft never changes expense/income semantics. Mode changes do not replace amounts.
+Transfers always send from the first account to the second; exchange fields are
+source debit and destination credit. Account selectors determine currencies; the
+existing transfer builder still owns fee and accounting validation.
+
+Special receipts (reimbursement and balance adjustment) are explicit contextual
+choices under collapsed Advanced for positive, non-transfer transactions. They
+never become ordinary income implicitly. Hidden fee/reference/category values
+do not enter unrelated saves. Category selections and common draft fields
+survive sign/account/special-receipt changes. Advanced also holds fee settings,
+payee and time, with saved-value summaries when editing. `DateTimeFields` offers
+a compact date row and a separate time-control group using the same state,
+pickers and exact timestamp-preservation logic.
+
+Failed saves retain the form. Each dialog captures its journal and source
+baseline, including new expenses. As explicitly approved, editing keeps the
+accounting kind fixed: the mode selector is disabled, and saved-kind checks also
+protect submission. Transfers can change both accounts and amounts to reverse
+direction; this does not turn them into another kind.
 Opening balances still use their guarded account-opening editor. Split and
 externally authored entries retain full read-only posting details; no new
 two-posting restriction is imposed on loading. Same-currency transfers extend

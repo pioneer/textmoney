@@ -9,6 +9,7 @@ import flet as ft
 import pytest
 from beancount import loader
 from fava.core import FavaLedger
+from form_controls import change, transaction_form
 
 from app.domain.ledger import ADJUSTMENTS, EPOCH, LedgerError
 from app.domain.storage import ConflictError
@@ -384,10 +385,14 @@ def test_income_ui_failed_save_retains_draft_and_stale_journal_is_rejected(
         monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
         view._transaction_dialog(journal)
         dialog = page.show_dialog.call_args.args[0]
-        controls = dialog.content.controls
-        kind, _, account, _, category, amount, description = controls[:7]
-        kind.value = "income"
-        kind.on_select(MagicMock())
+        form = transaction_form(dialog)
+        form.choose("income")
+        account, category, amount, description = (
+            form.account,
+            form.category,
+            form.amount,
+            form.description,
+        )
         account.value = "Assets:Cash"
         category.value = "Income:Work:Salary"
         amount.value = "12.34"
@@ -429,30 +434,32 @@ def test_incoming_ui_and_reference_prefill(
         view._transaction_dialog(journal)
         dialog = page.show_dialog.call_args.args[0]
         assert dialog.title == translate(language, "add_transaction")
-        controls = dialog.content.controls
-        kind, _, account, reference, category, amount = controls[:6]
-        assert kind.on_select and reference.on_select
-        kind.value = "reimbursement"
-        kind.on_select(MagicMock())
+        form = transaction_form(dialog)
+        account, reference, category, amount = (
+            form.account,
+            form.reference,
+            form.category,
+            form.amount,
+        )
+        form.choose("reimbursement")
         assert reference.visible
-        assert all(option.key.startswith("Expenses:") for option in category.options)
+        assert all((option.key or "").startswith("Expenses:") for option in category.options)
         expense = next(t for t in journal.ledger.transactions if t.kind == "expense")
         reference.value = expense.id
-        reference.on_select(None)
+        change(reference)
         assert category.value == "Expenses:Food"
         assert amount.value == "30"
         assert account.value is None  # Never assumes the original paying account receives it.
-        kind.value = "adjustment"
-        kind.on_select(MagicMock())
+        form.choose("adjustment")
         assert not category.visible and category.value == ADJUSTMENTS
-        assert reference.value == ""
+        assert reference.value == expense.id
         assert not reference.visible
         amount.value = "9"
         reference.value = expense.id
         journal.source += "; external reload\n"
         report_error = MagicMock()
         view._error = report_error
-        reference.on_select(None)
+        change(reference)
         assert amount.value == "9"
         assert isinstance(report_error.call_args.args[0], ConflictError)
 
@@ -475,22 +482,19 @@ def test_unified_form_creates_edits_and_deletes_each_supported_movement(
         view._new_transaction(MagicMock())
         dialog = page.show_dialog.call_args.args[0]
         assert dialog.scrollable and dialog.modal
-        mode, help_text, account, reference, category, amount, description, when, tile = (
-            dialog.content.controls[:9]
+        form = transaction_form(dialog)
+        account, reference, category, amount = (
+            form.account,
+            form.reference,
+            form.category,
+            form.amount,
         )
-        assert mode.value == "expense"
-        assert [option.key for option in mode.options] == [
-            "expense",
-            "income",
-            "reimbursement",
-            "adjustment",
-            "transfer",
-        ]
-        mode.value = kind
-        mode.on_select(MagicMock())
-        assert help_text.value == translate(language, f"transaction_help_{kind}")
+        description, when = form.description, form.when
+        assert form.sign.selected == ["-"]
+        assert not form.advanced.expanded
+        form.choose(kind)
         assert account.label == translate(
-            language, "pay_from" if kind == "expense" else "incoming_account"
+            language, "source_account" if kind == "expense" else "destination_account"
         )
         assert reference.visible == (kind == "reimbursement")
         assert category.visible == (kind != "adjustment")
@@ -509,7 +513,7 @@ def test_unified_form_creates_edits_and_deletes_each_supported_movement(
         description.value = "Synthetic unified form"
         when.occurred.value = "01/10/2026" if language == "en" else "10.01.2026"
         when.clock.value = "12:00"
-        tile.controls[0].value = "Synthetic counterparty"
+        form.payee.value = "Synthetic counterparty"
         await dialog.actions[-1].on_click(MagicMock())
         assert view.error_message is None
         created = journal.ledger.transactions[-1]
@@ -528,9 +532,16 @@ def test_unified_form_creates_edits_and_deletes_each_supported_movement(
         event.control.data = created.id
         view._edit_transaction(event)
         dialog = page.show_dialog.call_args.args[0]
-        assert isinstance(dialog.content.controls[0], ft.Text)
-        assert dialog.content.controls[0].value == translate(language, f"kind_{kind}")
-        _, _, account, reference, category, amount = dialog.content.controls[:6]
+        form = transaction_form(dialog)
+        account, reference, category, amount = (
+            form.account,
+            form.reference,
+            form.category,
+            form.amount,
+        )
+        assert form.sign.disabled and form.second_account.disabled
+        assert isinstance(form.advanced.subtitle, str)
+        assert translate(language, f"kind_{kind}") in form.advanced.subtitle
         assert not reference.visible
         assert amount.value == "5"
         assert account.value == "Assets:Bank"
@@ -568,31 +579,35 @@ def test_switching_modes_preserves_common_draft_and_each_category(
         monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
         view._transaction_dialog(journal)
         dialog = page.show_dialog.call_args.args[0]
-        mode, _, account, _, category, amount, description, when, tile = dialog.content.controls[:9]
+        form = transaction_form(dialog)
+        account, category, amount, description, when, tile = (
+            form.account,
+            form.category,
+            form.amount,
+            form.description,
+            form.when,
+            form.advanced,
+        )
         account.value = "Assets:Bank"
         category.value = "Expenses:Food"
         amount.value = "12.34"
         description.value = "Unsaved\ntext"
-        tile.controls[0].value = "Synthetic person"
+        form.payee.value = "Synthetic person"
         tile.expanded = True
         original_when = when.values()
-        mode.value = "income"
-        mode.on_select(MagicMock())
+        form.choose("income")
         assert category.value is None
         assert {o.key for o in category.options} == {"Income:Work", "Income:Work:Salary"}
         category.value = "Income:Work:Salary"
-        mode.value = "adjustment"
-        mode.on_select(MagicMock())
+        form.choose("adjustment")
         assert not category.visible and category.value == ADJUSTMENTS
-        mode.value = "expense"
-        mode.on_select(MagicMock())
+        form.choose("expense")
         assert category.visible and category.value == "Expenses:Food"
-        mode.value = "income"
-        mode.on_select(MagicMock())
+        form.choose("income")
         assert category.value == "Income:Work:Salary"
         assert account.value == "Assets:Bank"
         assert amount.value == "12.34" and description.value == "Unsaved\ntext"
-        assert tile.controls[0].value == "Synthetic person" and tile.expanded
+        assert form.payee.value == "Synthetic person" and tile.expanded
         assert when.values() == original_when
         before = journal.source
         dialog.actions[0].on_click(MagicMock())

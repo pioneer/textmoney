@@ -10,6 +10,7 @@ import pytest
 from beancount import loader
 from beancount.core.data import Transaction as OfficialTransaction
 from fava.core import FavaLedger
+from form_controls import transaction_form
 
 from app.domain.ledger import LedgerError
 from app.domain.storage import ConflictError
@@ -529,11 +530,7 @@ def test_ui_edit_dialog_preserves_input_after_poll_conflict_and_cancel_does_not_
         submit_handler = dialog.actions[-1].on_click
         assert isinstance(dialog, ft.AlertDialog)
         assert isinstance(dialog.content, ft.Column)
-        amount = next(
-            c
-            for c in dialog.content.controls
-            if isinstance(c, ft.TextField) and c.label == view.tr("amount")
-        )
+        amount = transaction_form(dialog).amount
         assert isinstance(amount, ft.TextField)
         amount.value = "13.50"
         source = view.journal.source + "\n; external edit while dialog open\n"
@@ -689,11 +686,7 @@ def test_delete_with_history_offers_deactivation_instead_of_destroying_records(
         view._refresh()
         view._transaction_dialog(view.journal)
         dialog = page.show_dialog.call_args.args[0]
-        account = next(
-            c
-            for c in dialog.content.controls
-            if isinstance(c, ft.Dropdown) and c.label == view.tr("pay_from")
-        )
+        account = transaction_form(dialog).account
         assert not any(option.key == "Assets:Cash" for option in account.options)
 
     asyncio.run(scenario())

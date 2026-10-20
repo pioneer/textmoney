@@ -18,11 +18,14 @@ class DateTimeFields(ft.Column):
         timestamp: str | None = None,
         *,
         device_zone: str | None = "system",
+        compact: bool = False,
     ) -> None:
         super().__init__(spacing=8, width=320)
         self.language = language
         self.zone = zone
         self.device_zone = device_zone
+        self.compact = compact
+        self.time_controls = ft.Column(spacing=8)
         stamp = local_datetime(
             datetime.fromisoformat(timestamp) if timestamp else datetime.now().astimezone(), zone
         )
@@ -70,8 +73,7 @@ class DateTimeFields(ft.Column):
         self.occurred.helper = self.tr("date_hint")
         self.clock.label = self.tr("time")
         self.clock.hint_text = self.tr("time_hint")
-        self.controls = [
-            self._date_row(self.occurred),
+        self.time_controls.controls = [
             ft.Row(
                 [
                     self.clock,
@@ -92,6 +94,10 @@ class DateTimeFields(ft.Column):
                 ),
                 size=12,
             ),
+        ]
+        self.controls = [
+            self._date_row(self.occurred),
+            *([] if self.compact else self.time_controls.controls),
         ]
         self.clock.expand = True
 

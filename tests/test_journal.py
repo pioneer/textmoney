@@ -10,6 +10,7 @@ import pytest
 from beancount import loader
 from beancount.core import data
 from beancount.ops import summarize
+from form_controls import transaction_form
 
 from app.domain.ledger import LedgerError
 from app.domain.storage import ConflictError
@@ -239,8 +240,14 @@ def test_ui_success_conflict_reload_and_validation_retain_form_inputs(
         view._refresh()
         view._new_transaction(MagicMock())
         dialog = page.show_dialog.call_args.args[0]
-        _, _, account, _, category, amount, _, when, tile = dialog.content.controls[:9]
-        payee = tile.controls[0]
+        form = transaction_form(dialog)
+        account, category, amount, when, payee = (
+            form.account,
+            form.category,
+            form.amount,
+            form.when,
+            form.payee,
+        )
         account.value = "Assets:Cash"
         category.value = "Expenses:Food"
         amount.value = "1"
@@ -261,8 +268,14 @@ def test_ui_success_conflict_reload_and_validation_retain_form_inputs(
         assert view.error_message == "crud_stale"
         view._transaction_dialog(view.journal)
         dialog = page.show_dialog.call_args.args[0]
-        _, _, account, _, category, amount, _, when, tile = dialog.content.controls[:9]
-        payee = tile.controls[0]
+        form = transaction_form(dialog)
+        account, category, amount, when, payee = (
+            form.account,
+            form.category,
+            form.amount,
+            form.when,
+            form.payee,
+        )
         account.value = "Assets:Cash"
         category.value = "Expenses:Food"
         amount.value = "1"
@@ -273,8 +286,8 @@ def test_ui_success_conflict_reload_and_validation_retain_form_inputs(
         assert view.journal.ledger.balances()["Assets:Cash"] == Decimal("9")
         view._transaction_dialog(view.journal)
         dialog = page.show_dialog.call_args.args[0]
-        _, _, account, _, category, amount, _, _, tile = dialog.content.controls[:9]
-        payee = tile.controls[0]
+        form = transaction_form(dialog)
+        account, category, amount, payee = form.account, form.category, form.amount, form.payee
         account.value = "Assets:Cash"
         category.value = "Expenses:Food"
         amount.value = "10"

@@ -108,6 +108,25 @@ async def smoke():
     await journal.delete_transaction(transfer.id, journal.source)
     assert journal.ledger.balances()["Assets:Cash"] == Decimal("132")
     print("Transfer APK Python payload: fees/liabilities/overdraft/edit/delete PASS")
+    await journal.save_transfer(
+        "Assets:Eur", "Assets:Cash", "105", "5", "Expenses:Bank-Fees",
+        "added", date.today().isoformat(), datetime.now().astimezone().isoformat(),
+        "Exchange", "", journal.source, destination_amount="4200", fee_currency="EUR"
+    )
+    exchange = journal.ledger.transactions[-1]
+    details = journal.transfer_details(exchange)
+    assert details.converted == Decimal("100") and details.rate == Decimal("42")
+    await journal.load()
+    await journal.save_transfer(
+        "Assets:Eur", "Assets:Cash", "100", "5", "Expenses:Bank-Fees",
+        "added", exchange.date.isoformat(), exchange.timestamp, "Edited exchange", "",
+        journal.source, identifier=exchange.id, destination_amount="4195", fee_currency="UAH"
+    )
+    assert journal.ledger.balances()["Assets:Eur"] == Decimal("-100")
+    assert journal.ledger.balances()["Assets:Cash"] == Decimal("4327")
+    await journal.delete_transaction(exchange.id, journal.source)
+    assert journal.ledger.balances()["Assets:Cash"] == Decimal("132")
+    print("Exchange APK Python payload: total prices/both fee currencies/edit/delete PASS")
 
 asyncio.run(smoke())
 """

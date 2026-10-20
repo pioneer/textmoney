@@ -1,4 +1,4 @@
-"""Explicit single-currency movements, not a general Beancount booking engine."""
+"""Explicit monetary movements and bounded total-price exchanges, not a booking engine."""
 
 import re
 from dataclasses import dataclass, replace
@@ -67,6 +67,29 @@ def currency_code(value: str) -> str:
     return value
 
 
+def exchange_values(
+    debited: Decimal,
+    credited: Decimal,
+    fee: Decimal,
+    source_currency: str,
+    target_currency: str,
+    fee_currency: str,
+) -> tuple[Decimal, Decimal, Decimal]:
+    for value in (debited, credited, fee):
+        checked_amount(value)
+    if source_currency == target_currency or fee_currency not in {source_currency, target_currency}:
+        raise LedgerError("exchange_fee_invalid")
+    with localcontext() as context:
+        context.prec = 50
+        principal = debited - (fee if fee_currency == source_currency else ZERO)
+        gross = credited + (fee if fee_currency == target_currency else ZERO)
+        if debited <= ZERO or credited <= ZERO or fee < ZERO or principal <= ZERO:
+            raise LedgerError("transfer_amount")
+        checked_amount(principal)
+        checked_amount(gross)
+        return principal, gross, gross / principal
+
+
 @dataclass(frozen=True)
 class Account:
     id: str
@@ -93,6 +116,39 @@ class Posting:
     account: str
     amount: Decimal
     currency: str
+    total_price: Decimal | None = None
+    price_currency: str | None = None
+
+
+@dataclass(frozen=True)
+class TransferDetails:
+    source: Posting
+    target: Posting
+    fee: Decimal
+    fee_category: str
+    fee_currency: str
+    mode: str
+    debited: Decimal
+
+    @property
+    def exchange(self) -> bool:
+        return self.source.currency != self.target.currency
+
+    @property
+    def converted(self) -> Decimal:
+        return -self.source.amount
+
+    @property
+    def received_principal(self) -> Decimal:
+        return (
+            self.source.total_price if self.source.total_price is not None else self.target.amount
+        )
+
+    @property
+    def rate(self) -> Decimal:
+        with localcontext() as context:
+            context.prec = 50
+            return self.received_principal / self.converted
 
 
 @dataclass(frozen=True)
@@ -195,12 +251,33 @@ class Ledger:
                     )
                     if opened is None or transaction.date < opened:
                         raise LedgerError("Transaction predates its account/category declaration.")
-                    totals[posting.currency] = totals.get(posting.currency, ZERO) + posting.amount
+                    weight, currency = posting.amount, posting.currency
+                    if posting.total_price is not None:
+                        checked_amount(posting.total_price)
+                        if (
+                            posting.total_price <= ZERO
+                            or posting.amount == ZERO
+                            or posting.price_currency is None
+                            or posting.price_currency == posting.currency
+                        ):
+                            raise LedgerError("exchange_invalid")
+                        currency = currency_code(posting.price_currency)
+                        weight = (
+                            posting.total_price if posting.amount > ZERO else -posting.total_price
+                        )
+                    elif posting.price_currency is not None:
+                        raise LedgerError("exchange_invalid")
+                    totals[currency] = totals.get(currency, ZERO) + weight
                     if posting.account in accounts:
                         if posting.currency != accounts[posting.account].currency:
                             raise LedgerError("Posting currency differs from the account currency.")
                         balances[posting.account] += posting.amount
-                if len(totals) != 1 or any(total != ZERO for total in totals.values()):
+                if any(p.total_price is not None for p in transaction.postings):
+                    self.transfer_details(transaction)
+                if any(total != ZERO for total in totals.values()) or (
+                    len(totals) != 1
+                    and not any(p.total_price is not None for p in transaction.postings)
+                ):
                     raise LedgerError(
                         "Unbalanced or multi-currency transaction. No journal changes allowed."
                     )
@@ -217,6 +294,78 @@ class Ledger:
         self.balances(today=today, negative_assets=negative)
         return negative
 
+    def transfer_details(self, transaction: Transaction) -> TransferDetails:
+        accounts = {a.id for a in self.accounts}
+        prices = [p for p in transaction.postings if p.total_price is not None]
+        sources = [
+            p
+            for p in transaction.postings
+            if p.account in accounts and p.amount < ZERO and (not prices or p in prices)
+        ]
+        targets = [p for p in transaction.postings if p.account in accounts and p.amount > ZERO]
+        fees = [
+            p
+            for p in transaction.postings
+            if p.account.startswith("Expenses:") and p.amount >= ZERO
+        ]
+        if len(sources) != 1 or len(targets) != 1 or len(fees) > 1:
+            raise LedgerError("crud_transaction_readonly")
+        source, target = sources[0], targets[0]
+        fee = fees[0].amount if fees else ZERO
+        fee_currency = fees[0].currency if fees else source.currency
+        extra = [p for p in transaction.postings if p not in (source, target, *fees)]
+        if source.account == target.account or target.total_price is not None:
+            raise LedgerError("crud_transaction_readonly")
+        if prices:
+            if (
+                len(prices) != 1
+                or prices[0] != source
+                or source.currency == target.currency
+                or source.price_currency != target.currency
+                or source.total_price is None
+                or source.total_price <= ZERO
+                or fee_currency not in {source.currency, target.currency}
+                or (fees and fees[0].total_price is not None)
+                or len(extra) > 1
+            ):
+                raise LedgerError("exchange_invalid")
+            source_fee = fee if fee_currency == source.currency else ZERO
+            if extra:
+                debit = extra[0]
+                if (
+                    debit.account != source.account
+                    or debit.currency != source.currency
+                    or debit.amount != -source_fee
+                    or debit.total_price is not None
+                ):
+                    raise LedgerError("exchange_invalid")
+            elif source_fee:
+                raise LedgerError("exchange_invalid")
+            if source.total_price != target.amount + (
+                fee if fee_currency == target.currency else ZERO
+            ):
+                raise LedgerError("exchange_invalid")
+        elif (
+            len(extra) > 1
+            or any(
+                p.account != source.account or p.amount != ZERO or p.currency != source.currency
+                for p in extra
+            )
+            or source.currency != target.currency
+            or fee_currency != source.currency
+            or transaction.fee_mode not in {"added", "deducted"}
+        ):
+            raise LedgerError("crud_transaction_readonly")
+        return TransferDetails(
+            source,
+            target,
+            fee,
+            fees[0].account if fees else BANK_FEES,
+            fee_currency,
+            transaction.fee_mode,
+            -source.amount + (fee if prices and fee_currency == source.currency else ZERO),
+        )
+
     def transfer(
         self,
         source: str,
@@ -230,19 +379,24 @@ class Ledger:
         transaction_id: str,
         *,
         today: date | None = None,
+        destination_amount: Decimal | None = None,
+        fee_currency: str | None = None,
     ) -> Transaction:
         accounts = {a.id: a for a in self.accounts}
         if source == destination or source not in accounts or destination not in accounts:
             raise LedgerError("transfer_accounts")
         if not accounts[source].active or not accounts[destination].active:
             raise LedgerError("crud_inactive")
-        if accounts[source].currency != accounts[destination].currency:
+        currency = accounts[source].currency
+        target_currency = accounts[destination].currency
+        exchange = currency != target_currency
+        if exchange != (destination_amount is not None):
             raise LedgerError("transfer_currency")
         checked_amount(amount)
         checked_amount(fee)
-        if amount <= ZERO or fee < ZERO or fee_mode not in {"added", "deducted"}:
+        if amount <= ZERO or fee < ZERO or (not exchange and fee_mode not in {"added", "deducted"}):
             raise LedgerError("transfer_amount")
-        if fee_mode == "deducted" and fee >= amount:
+        if not exchange and fee_mode == "deducted" and fee >= amount:
             raise LedgerError("transfer_amount")
         if fee and (
             not fee_category.startswith("Expenses:") or not self.category_active(fee_category)
@@ -252,14 +406,42 @@ class Ledger:
             raise LedgerError("incoming_date")
         if timestamp.utcoffset() is None:
             raise LedgerError("crud_datetime")
-        currency = accounts[source].currency
-        debit = amount + fee if fee_mode == "added" else amount
-        credit = amount - fee if fee_mode == "deducted" else amount
-        postings = (
-            Posting(source, -checked_amount(debit), currency),
-            Posting(destination, checked_amount(credit), currency),
-            *((Posting(fee_category, fee, currency),) if fee else ()),
-        )
+        if exchange:
+            assert destination_amount is not None
+            if fee_currency is None and not fee:
+                fee_currency = currency
+            if fee_currency is None:
+                raise LedgerError("exchange_fee_invalid")
+            principal, gross, _ = exchange_values(
+                amount,
+                destination_amount,
+                fee,
+                currency,
+                target_currency,
+                fee_currency,
+            )
+            postings = (
+                Posting(
+                    source,
+                    -checked_amount(principal),
+                    currency,
+                    checked_amount(gross),
+                    target_currency,
+                ),
+                Posting(destination, destination_amount, target_currency),
+                *((Posting(fee_category, fee, fee_currency),) if fee else ()),
+                *((Posting(source, -fee, currency),) if fee and fee_currency == currency else ()),
+            )
+        else:
+            if fee_currency is not None and fee_currency != currency:
+                raise LedgerError("exchange_fee_invalid")
+            debit = amount + fee if fee_mode == "added" else amount
+            credit = amount - fee if fee_mode == "deducted" else amount
+            postings = (
+                Posting(source, -checked_amount(debit), currency),
+                Posting(destination, checked_amount(credit), currency),
+                *((Posting(fee_category, fee, currency),) if fee else ()),
+            )
         transaction = Transaction(
             transaction_id,
             occurred,

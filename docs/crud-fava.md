@@ -15,7 +15,7 @@ accounts share account selection by display name. A transfer is one directive:
 | Deducted, amount 1000, fee 5 | -1000 | +995 | +5 |
 
 Only fees enter expense totals; transfers never enter income totals.
-Same-account transfers, mismatched currencies, inactive/missing declarations,
+Same-account transfers, inactive/missing declarations,
 nonpositive amounts and deducted fees equal to or larger than the amount are
 rejected. The form edits source/destination, amount, fee mode/category,
 counterparty, description and date/time; confirmed deletion removes all postings.
@@ -47,7 +47,63 @@ negatively and debits the liability positively, reducing debt without creating
 income or an expense other than an optional fee. Borrowing reverses those
 postings. Liability balances are shown with standard signed Beancount values;
 negative debt is not an overdraft warning. No interest, schedules, receivables,
-debt allocation or currency exchange is implemented.
+or debt allocation is implemented.
+
+### Cross-currency transfers
+
+The same form automatically shows **Списано** (total debited) and **Зараховано**
+(actually credited) when account currencies differ. Both amounts are entered
+independently and remain authoritative. The optional fee uses either account's
+currency; the added/deducted selector is hidden for exchanges.
+
+| Inputs | Exchanged principal | Derived rate |
+| --- | --- | --- |
+| Debit 100 USD, credit 4200 UAH, no fee | 100 USD → 4200 UAH | 42 UAH/USD |
+| Debit 105 USD, credit 4200 UAH, fee 5 USD | 100 USD → 4200 UAH | 42 UAH/USD |
+| Debit 100 USD, credit 4195 UAH, fee 5 UAH | 100 USD → 4200 UAH | 42 UAH/USD |
+
+An exchange uses an exact **total price** (`@@`) on the converted source
+principal, never a rounded unit rate or artificial income/expense:
+
+```beancount
+2026-01-10 * "Exchange with a source-currency fee"
+  Assets:Dollar -100.00 USD @@ 4200.00 UAH
+  Assets:Bank 4200.00 UAH
+  Expenses:Bank-Fees 5.00 USD
+  Assets:Dollar -5.00 USD
+```
+
+For a destination-currency fee, the source total price includes the withheld fee:
+`-100.00 USD @@ 4200.00 UAH`, destination `4195.00 UAH`, expense `5.00 UAH`.
+These are one transaction, with the existing UUID, timestamp, backups and
+conflict checks. Fees alone affect expenses in their own currency. Balances
+sum actual units, not prices. Editing reconstructs totals, principal and fee
+currency from postings; no rate or financial state is stored separately.
+
+The model validates exact signed total-price weights plus a bounded exchange
+shape. It still rejects unit prices (`@`), costs, inferred units, third-currency
+fees and ambiguous splits; unmarked entries cannot be edited accidentally.
+Amounts retain the existing 12-integer-digit/two-decimal limit. Exchange
+serialization uses two decimals without changing monetary values: Beancount
+internally converts `@@` to a unit price and needs normal monetary tolerances
+for repeating ratios. Rate calculation uses 50-digit Decimal precision; the
+preview displays 12 significant digits and marks the rate approximate. The rate
+is never used to calculate or round postings.
+
+Existing same-currency transactions need no migration. Source-fee debit and fee
+expense annotations are retained on zero postings when their amounts are
+removed. External synchronization races and non-atomic provider writes retain
+the limitations documented below. No market rates, third-account fees, interest
+calculations or automated FX gains/losses are introduced.
+
+Verification: `uv run inv check` passes formatting, Ruff, Pyright and 410 tests.
+The exchange matrix uses the actual Beancount loader, unit balances and Fava,
+including inverse directions, repeating rates, extreme supported amounts and
+both fee currencies. Ukrainian browser checks at 390×844 and 1366×900 verified
+the source-fee preview (105 USD debited, 100 USD converted, 4200 UAH credited),
+editing to a destination fee (100 USD debited, 4195 UAH credited, 5 UAH fee),
+and deleting the complete transaction. These are not native Android/Windows
+runtime checks; no new APK was built for this extension.
 
 The Ukrainian browser workflow was checked with synthetic accounts at 390×844
 and 1366×900: a deducted-fee loan repayment saved through an overdraft warning

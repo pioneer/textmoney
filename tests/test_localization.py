@@ -35,7 +35,16 @@ def test_all_locales_have_a_nonempty_translation_for_each_ui_key() -> None:
     for language in LANGUAGES:
         for key in keys[language]:
             assert translate(
-                language, key, currency="UAH", zone="Europe/Kyiv", identifier="synthetic-id"
+                language,
+                key,
+                currency="UAH",
+                zone="Europe/Kyiv",
+                identifier="synthetic-id",
+                debited="105 USD",
+                credited="4200 UAH",
+                principal="100 USD",
+                gross="4200 UAH",
+                rate="1 USD = 42 UAH",
             ).strip()
 
 

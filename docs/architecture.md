@@ -128,7 +128,23 @@ this form and use two account postings plus an optional expense-fee posting.
 Standard `Liabilities:` accounts use the existing account model, with credit
 (negative) debt balances and positive repayment postings. Opening amount owed
 is entered as a positive number and stored as a negative liability posting.
-Currency conversion and loan schedules remain out of scope.
+Cross-currency transfers extend the same posting model with an optional exact
+total price and currency. A bounded exchange shape validates Beancount weights:
+one negative priced principal, one positive destination, an optional expense fee
+and, for source-currency fees, a separate unpriced debit from that same account.
+Balances always sum units; only fee expenses enter period reports. Costs, unit
+prices and inferred postings remain unsupported rather than being approximated.
+No booking engine or new runtime dependency is added. Loan schedules remain
+out of scope.
+
+For exchanges the shared form takes actual total debited and net credited
+amounts plus an optional source/destination-currency fee. These amounts are
+never recalculated from a rate. Source fees reduce the converted principal;
+destination fees increase its total price. A shared Decimal calculation derives
+the principal, gross received amount and rate for the preview and builder.
+Exchange edits reconstruct these from stored postings, including both amount
+fields and fee currency; the same guarded splicing and deletion pipeline is used.
+See [the accounting examples and precision policy](crud-fava.md#cross-currency-transfers).
 
 Negative asset balances, including historical ones, now produce visible warnings
 instead of blocking loading or saving, as explicitly approved for overdrafts and

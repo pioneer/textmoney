@@ -15,7 +15,13 @@ LANGUAGES: Final = ("en", "uk", "ru")
 _CATALOG: Final[dict[str, dict[str, str]]] = {
     "en": {
         "kind_transfer": "Transfer",
-        "transaction_help_transfer": "Move money between your accounts in the same currency. Only the optional fee counts as an expense. Receiving a repayment into a loan account reduces the amount owed. Negative cash/bank balances warn but do not block saving.",
+        "transaction_help_transfer": "Move money between your accounts. For different currencies enter the total debited and actually credited, including the fee's effect. Only the fee counts as an expense. A repayment into a loan account reduces the amount owed. Negative balances warn but do not block saving.",
+        "exchange_debited": "Total debited",
+        "exchange_credited": "Actually credited",
+        "exchange_fee_currency": "Fee currency",
+        "exchange_preview": "Debited: {debited}\nCredited: {credited}\nExchanged: {principal} → {gross}\nRate excluding fees: {rate}",
+        "exchange_invalid": "Unsupported or unbalanced exchange. Use one total-priced source principal, one destination and an optional source/destination-currency fee.",
+        "exchange_fee_invalid": "The fee must use the source or destination currency.",
         "transfer_counterparty": "Counterparty (optional)",
         "transfer_account_type": "Account type",
         "transfer_asset": "Own money / cash",
@@ -31,7 +37,7 @@ _CATALOG: Final[dict[str, dict[str, str]]] = {
         "transfer_default_fee": "Default transfer fee category",
         "transfer_bank_fees": "Bank fees",
         "transfer_accounts": "Choose two different, explicitly created accounts.",
-        "transfer_currency": "Both accounts must use the same currency. Currency exchange is not supported.",
+        "transfer_currency": "For different account currencies enter both debited and credited amounts; for the same currency use one transfer amount.",
         "transfer_amount": "Enter a positive transfer amount and nonnegative fee. A deducted fee must be smaller than the amount.",
         "transfer_category": "Choose one expense category as the default transfer fee category.",
         "transfer_negative": "Warning: these accounts have a negative balance at some point in their history. Saving is allowed:",
@@ -248,7 +254,13 @@ _CATALOG: Final[dict[str, dict[str, str]]] = {
     },
     "uk": {
         "kind_transfer": "Переказ",
-        "transaction_help_transfer": "Переміщення коштів між власними рахунками в одній валюті. Лише необов'язкова комісія є витратою. Переказ на кредитний рахунок зменшує борг. Від'ємний баланс коштів викликає попередження, але не блокує збереження.",
+        "transaction_help_transfer": "Переказ між власними рахунками. Для різних валют введіть фактично списану й зараховану суми з урахуванням комісії. Лише комісія є витратою. Переказ на кредитний рахунок зменшує борг. Від'ємний баланс викликає попередження, але не блокує збереження.",
+        "exchange_debited": "Списано",
+        "exchange_credited": "Зараховано",
+        "exchange_fee_currency": "Валюта комісії",
+        "exchange_preview": "Списано: {debited}\nЗараховано: {credited}\nОбміняно: {principal} → {gross}\nКурс без комісії: {rate}",
+        "exchange_invalid": "Непідтримуваний або незбалансований обмін. Потрібні сума обміну з повною ціною, зарахування та необов'язкова комісія у валюті одного з рахунків.",
+        "exchange_fee_invalid": "Комісія має бути у валюті вихідного рахунку або рахунку зарахування.",
         "transfer_counterparty": "Контрагент (необов'язково)",
         "transfer_account_type": "Тип рахунку",
         "transfer_asset": "Власні кошти / готівка",
@@ -264,7 +276,7 @@ _CATALOG: Final[dict[str, dict[str, str]]] = {
         "transfer_default_fee": "Типова категорія комісії переказу",
         "transfer_bank_fees": "Банківські комісії",
         "transfer_accounts": "Виберіть два різні, явно створені рахунки.",
-        "transfer_currency": "Рахунки мають бути в одній валюті. Обмін валют не підтримується.",
+        "transfer_currency": "Для різних валют введіть списану й зараховану суми; для однієї валюти — одну суму переказу.",
         "transfer_amount": "Сума переказу має бути додатною, комісія — невід'ємною. Комісія із суми має бути меншою за переказ.",
         "transfer_category": "Виберіть одну категорію витрат для типової комісії переказу.",
         "transfer_negative": "Увага: ці рахунки мають від'ємний баланс у певний момент історії. Збереження дозволено:",
@@ -481,7 +493,13 @@ _CATALOG: Final[dict[str, dict[str, str]]] = {
     },
     "ru": {
         "kind_transfer": "Перевод",
-        "transaction_help_transfer": "Перемещение денег между своими счетами в одной валюте. Только необязательная комиссия считается расходом. Перевод на кредитный счёт уменьшает долг. Отрицательный денежный баланс вызывает предупреждение, но не блокирует сохранение.",
+        "transaction_help_transfer": "Перевод между своими счетами. Для разных валют введите фактически списанную и зачисленную суммы с учётом комиссии. Только комиссия является расходом. Перевод на кредитный счёт уменьшает долг. Отрицательный баланс вызывает предупреждение, но не блокирует сохранение.",
+        "exchange_debited": "Списано",
+        "exchange_credited": "Зачислено",
+        "exchange_fee_currency": "Валюта комиссии",
+        "exchange_preview": "Списано: {debited}\nЗачислено: {credited}\nОбменено: {principal} → {gross}\nКурс без комиссии: {rate}",
+        "exchange_invalid": "Неподдерживаемый или несбалансированный обмен. Нужны сумма обмена с полной ценой, зачисление и необязательная комиссия в валюте одного из счетов.",
+        "exchange_fee_invalid": "Комиссия должна быть в валюте исходного счёта или счёта зачисления.",
         "transfer_counterparty": "Контрагент (необязательно)",
         "transfer_account_type": "Тип счёта",
         "transfer_asset": "Собственные деньги / наличные",
@@ -497,7 +515,7 @@ _CATALOG: Final[dict[str, dict[str, str]]] = {
         "transfer_default_fee": "Категория комиссии перевода по умолчанию",
         "transfer_bank_fees": "Банковские комиссии",
         "transfer_accounts": "Выберите два разных, явно созданных счёта.",
-        "transfer_currency": "Счета должны быть в одной валюте. Обмен валют не поддерживается.",
+        "transfer_currency": "Для разных валют введите списанную и зачисленную суммы; для одной валюты — одну сумму перевода.",
         "transfer_amount": "Сумма перевода должна быть положительной, комиссия — неотрицательной. Комиссия из суммы должна быть меньше перевода.",
         "transfer_category": "Выберите одну категорию расходов для комиссии перевода по умолчанию.",
         "transfer_negative": "Внимание: эти счета имеют отрицательный баланс в определённый момент истории. Сохранение разрешено:",
@@ -782,7 +800,8 @@ def system_language(locales: tuple[str, ...] | list[str]) -> str:
 def localized_error(language: str, message: str) -> str:
     key = (
         message
-        if message.startswith(("crud_", "incoming_", "transfer_")) and message in _CATALOG["en"]
+        if message.startswith(("crud_", "incoming_", "transfer_", "exchange_"))
+        and message in _CATALOG["en"]
         else _ERROR_KEYS.get(message)
     )
     if key is None:

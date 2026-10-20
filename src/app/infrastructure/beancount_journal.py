@@ -3,6 +3,7 @@
 import io
 from collections.abc import Callable
 from datetime import date, datetime
+from decimal import Decimal
 
 from autobean_refactor import models, printer
 from autobean_refactor.parser import Parser
@@ -150,14 +151,26 @@ class JournalCodec:
                         posting.number is None
                         or posting.currency is None
                         or posting.cost is not None
-                        or posting.price is not None
+                        or (
+                            posting.price is not None
+                            and not isinstance(posting.price, models.TotalPrice)
+                        )
                     ):
                         raise LedgerError(
-                            "Inference, costs or FX need a full engine. "
+                            "Inference, costs or unit prices need a full engine. "
                             "Saving blocked; journal preserved."
                         )
+                    price = posting.price
+                    if price is not None and (price.number is None or price.currency is None):
+                        raise LedgerError("exchange_invalid")
                     postings.append(
-                        Posting(posting.account, posting.number, currency_code(posting.currency))
+                        Posting(
+                            posting.account,
+                            posting.number,
+                            currency_code(posting.currency),
+                            price.number if price else None,
+                            currency_code(price.currency) if price and price.currency else None,
+                        )
                     )
                 identifier = entry.meta.get("id")
                 persistent_id = identifier is not None
@@ -275,13 +288,23 @@ def open_category(category: Category) -> str:
 
 
 def transaction_text(transaction: Transaction) -> str:
+    exchange = any(p.total_price is not None for p in transaction.postings)
     return render(
         models.Transaction.from_value(
             transaction.date,
             transaction.payee or None,
             transaction.narration,
             [
-                models.Posting.from_value(p.account, p.amount, p.currency)
+                models.Posting.from_value(
+                    p.account,
+                    p.amount.quantize(Decimal(".01")) if exchange else p.amount,
+                    p.currency,
+                    price=models.TotalPrice.from_value(
+                        p.total_price.quantize(Decimal(".01")), p.price_currency
+                    )
+                    if p.total_price is not None
+                    else None,
+                )
                 for p in transaction.postings
             ],
             meta={

@@ -21,6 +21,7 @@ from app.domain.ledger import (
     LedgerError,
     Posting,
     Transaction,
+    TransferDetails,
     account_path,
     currency_code,
     description_text,
@@ -163,6 +164,7 @@ class Journal:
         if (
             transaction.kind not in {"expense", "income", "reimbursement", "adjustment"}
             or len(transaction.postings) != 2
+            or any(p.total_price is not None for p in transaction.postings)
         ):
             raise LedgerError("crud_transaction_readonly")
         direction = -1 if transaction.kind == "expense" else 1
@@ -184,34 +186,8 @@ class Journal:
             raise LedgerError("crud_transaction_readonly")
         return transaction
 
-    def transfer_details(
-        self, transaction: Transaction
-    ) -> tuple[Posting, Posting, Decimal, str, str]:
-        accounts = {a.id for a in self.ledger.accounts}
-        sources = [p for p in transaction.postings if p.account in accounts and p.amount < ZERO]
-        targets = [p for p in transaction.postings if p.account in accounts and p.amount > ZERO]
-        fees = [
-            p
-            for p in transaction.postings
-            if p.account.startswith("Expenses:") and p.amount >= ZERO
-        ]
-        if (
-            len(sources) != 1
-            or len(targets) != 1
-            or len(fees) > 1
-            or len(transaction.postings) != 2 + len(fees)
-            or sources[0].account == targets[0].account
-            or transaction.fee_mode not in {"added", "deducted"}
-        ):
-            raise LedgerError("crud_transaction_readonly")
-        fee = fees[0].amount if fees else ZERO
-        return (
-            sources[0],
-            targets[0],
-            fee,
-            fees[0].account if fees else BANK_FEES,
-            transaction.fee_mode,
-        )
+    def transfer_details(self, transaction: Transaction) -> TransferDetails:
+        return self.ledger.transfer_details(transaction)
 
     async def edit_expense(
         self,
@@ -666,6 +642,8 @@ class Journal:
         *,
         identifier: str | None = None,
         default_fee_name: str = "Bank fees",
+        destination_amount: str | None = None,
+        fee_currency: str | None = None,
     ) -> str | None:
         self._require_ready()
         if expected_source != self.source:
@@ -702,6 +680,10 @@ class Journal:
             stamp,
             identifier or str(uuid4()),
             today=self.today(),
+            destination_amount=money(destination_amount)
+            if destination_amount is not None
+            else None,
+            fee_currency=fee_currency,
         )
         updated = replace(
             updated,
@@ -713,12 +695,26 @@ class Journal:
 
         def edit(document: models.File) -> str:
             entry = self._transaction(document, original.id)
-            old_source, old_target, _, _, _ = self.transfer_details(original)
+            details = self.transfer_details(original)
             old_postings = [p for p in entry.postings if isinstance(p, models.Posting)]
-            roles = [
-                next(p for p in old_postings if p.account == old_source.account),
-                next(p for p in old_postings if p.account == old_target.account),
-                *[p for p in old_postings if p.account.startswith("Expenses:")],
+            old_source = next(
+                p
+                for p in old_postings
+                if p.account == details.source.account
+                and p.number == details.source.amount
+                and (not details.exchange or p.price is not None)
+            )
+            fees = [p for p in old_postings if p.account.startswith("Expenses:")]
+            extra = [
+                p
+                for p in old_postings
+                if p.account == details.source.account and p is not old_source
+            ]
+            roles: list[models.Posting | None] = [
+                old_source,
+                next(p for p in old_postings if p.account == details.target.account),
+                fees[0] if fees else None,
+                extra[0] if extra else None,
             ]
 
             def update() -> None:
@@ -728,24 +724,46 @@ class Journal:
                 if timestamp != original.timestamp:
                     entry.meta["timestamp"] = updated.timestamp
                 entry.meta["txncount-fee-mode"] = fee_mode
+                exchange = any(p.total_price is not None for p in updated.postings)
                 for index, posting in enumerate(updated.postings):
-                    if index < len(roles):
-                        node = roles[index]
+                    number = posting.amount.quantize(Decimal(".01")) if exchange else posting.amount
+                    node = roles[index]
+                    if node is not None:
                         node.account, node.number, node.currency = (
                             posting.account,
-                            posting.amount,
+                            number,
                             posting.currency,
+                        )
+                        node.price = (
+                            models.TotalPrice.from_value(
+                                posting.total_price.quantize(Decimal(".01")), posting.price_currency
+                            )
+                            if posting.total_price is not None
+                            else None
                         )
                     else:
                         entry.postings.append(
                             models.Posting.from_value(
-                                posting.account, posting.amount, posting.currency
+                                posting.account,
+                                number,
+                                posting.currency,
+                                price=models.TotalPrice.from_value(
+                                    posting.total_price.quantize(Decimal(".01")),
+                                    posting.price_currency,
+                                )
+                                if posting.total_price is not None
+                                else None,
                             )
                         )
-                if len(roles) > len(updated.postings):
-                    node = roles[-1]
+                for index, node in enumerate(roles[len(updated.postings) :], len(updated.postings)):
+                    if node is None:
+                        continue
                     if node.meta or node.inline_comment:
                         node.number = ZERO
+                        node.currency = updated.postings[0].currency
+                        node.price = None
+                        if index == 3:
+                            node.account = updated.postings[0].account
                     else:
                         entry.postings.remove(node)
 

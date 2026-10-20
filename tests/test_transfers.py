@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -8,10 +9,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
+from autobean_refactor import models
 from beancount import loader
+from beancount.ops import summarize
 from fava.core import FavaLedger
 
-from app.domain.ledger import BANK_FEES, LedgerError
+from app.domain.ledger import BANK_FEES, LedgerError, exchange_values
 from app.domain.storage import ConflictError
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
@@ -308,7 +311,7 @@ def test_unified_transfer_form_fee_edit_and_complete_deletion(
         dialog = page.show_dialog.call_args.args[0]
         mode, _, account, _, category, amount, description, when, _ = dialog.content.controls[:9]
         fields = next(c for c in dialog.content.controls if type(c) is ft.Column)
-        destination, enabled, fee, deduction, fee_category = fields.controls
+        destination, _, enabled, fee, deduction, _, fee_category, _ = fields.controls
         assert isinstance(destination, ft.Dropdown)
         assert isinstance(enabled, ft.Checkbox)
         assert isinstance(fee, ft.TextField)
@@ -339,7 +342,7 @@ def test_unified_transfer_form_fee_edit_and_complete_deletion(
         dialog = page.show_dialog.call_args.args[0]
         assert dialog.content.controls[0].value == translate(language, "kind_transfer")
         fields = next(c for c in dialog.content.controls if type(c) is ft.Column)
-        destination, enabled, fee, deduction, fee_category = fields.controls
+        destination, _, enabled, fee, deduction, _, fee_category, _ = fields.controls
         assert isinstance(destination, ft.Dropdown)
         assert isinstance(fee, ft.TextField)
         assert isinstance(deduction, ft.Dropdown)
@@ -445,5 +448,432 @@ def test_liability_opening_row_and_editor_use_account_name_and_amount_owed(
         amount.value = "1600"
         await dialog.actions[-1].on_click(MagicMock())
         assert journal.ledger.balances()["Liabilities:Loan"] == -1600
+
+    asyncio.run(scenario())
+
+
+async def exchange_seeded(path: Path) -> Journal:
+    journal = await seeded(path)
+    await journal.create_account("Dollar", "Dollar", "USD", "1000")
+    await journal.create_account("Pound", "Pound", "GBP", "500")
+    return journal
+
+
+@pytest.mark.parametrize(
+    ("source", "target", "debit", "credit"),
+    [
+        ("Assets:Dollar", "Assets:Bank", "100.00", "4200.00"),
+        ("Assets:Bank", "Assets:Dollar", "4200", "100"),
+        ("Assets:Euro", "Assets:Pound", "3", "1"),
+        ("Assets:Pound", "Assets:Euro", "3.01", "7.99"),
+        ("Assets:Euro", "Liabilities:Loan", "2.47", "101.13"),
+        ("Assets:Dollar", "Assets:Bank", "999999999999.99", "0.01"),
+        ("Assets:Dollar", "Assets:Bank", "0.01", "999999999999.99"),
+    ],
+)
+@pytest.mark.parametrize("fee_side", ["none", "source", "destination"])
+def test_exchange_exact_balances_real_engine_and_roundtrip(
+    tmp_path: Path,
+    source: str,
+    target: str,
+    debit: str,
+    credit: str,
+    fee_side: str,
+) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        currencies = {a.id: a.currency for a in journal.ledger.accounts}
+        # Extreme values leave no room for a fee or its total-price component.
+        fee = (
+            Decimal("0.01")
+            if fee_side != "none" and min(Decimal(debit), Decimal(credit)) > Decimal(".01")
+            else Decimal("0")
+        )
+        currency = currencies[target] if fee_side == "destination" else currencies[source]
+        before = journal.source
+        balances = journal.ledger.balances()
+        backup = await transfer(
+            journal,
+            source_account=source,
+            destination=target,
+            amount=debit,
+            destination_amount=credit,
+            fee=str(fee),
+            fee_currency=currency,
+        )
+        transaction = journal.ledger.transactions[-1]
+        details = journal.transfer_details(transaction)
+        principal = Decimal(debit) - (fee if fee_side == "source" else 0)
+        gross = Decimal(credit) + (fee if fee_side == "destination" else 0)
+        assert details.debited == Decimal(debit)
+        assert details.target.amount == Decimal(credit)
+        assert details.converted == principal and details.received_principal == gross
+        assert details.rate.is_finite() and details.rate > 0
+        assert transaction.postings[0].total_price == gross
+        assert transaction.postings[0].price_currency == currencies[target]
+        assert journal.ledger.balances()[source] == balances[source] - Decimal(debit)
+        assert journal.ledger.balances()[target] == balances[target] + Decimal(credit)
+        assert journal.ledger.period_totals(date(2026, 1, 1), date(2026, 2, 1)) == {
+            "income": {},
+            "expenses": {currency: fee} if fee else {},
+        }
+        assert (tmp_path / str(backup)).read_text() == before
+        entries, errors, _ = loader.load_string(journal.source)
+        assert not errors, [e.message for e in errors]
+        official, _ = summarize.balance_by_account(entries)
+        for account in journal.ledger.accounts:
+            units = Decimal("0")
+            for position in official.get(account.id, ()):
+                if position.units.currency == account.currency:
+                    assert isinstance(position.units.number, Decimal)
+                    units += position.units.number
+            assert units == journal.ledger.balances()[account.id]
+        fava = FavaLedger(str(tmp_path / FILENAME))
+        assert not list(fava.errors)
+        await journal.load()
+        assert journal.transaction_for_edit(transaction.id) == transaction
+        assert journal.transfer_details(transaction) == details
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"amount": "0"},
+        {"amount": "-1"},
+        {"amount": "NaN"},
+        {"amount": "1.001"},
+        {"destination_amount": "0"},
+        {"destination_amount": "-1"},
+        {"destination_amount": "Infinity"},
+        {"destination_amount": "1.001"},
+        {"fee": "-1"},
+        {"fee": "100", "fee_currency": "USD"},
+        {"fee": "101", "fee_currency": "USD"},
+        {"fee": "1", "fee_currency": "EUR"},
+        {"fee": "1"},  # Nonzero fees require an explicit currency.
+        {"fee": "1", "fee_currency": "UAH", "destination_amount": "999999999999.99"},
+        {"destination": "Assets:Missing"},
+        {"destination": "Assets:Dollar"},
+        {"source_account": "Assets:Missing"},
+    ],
+)
+def test_exchange_rejects_invalid_without_writes(tmp_path: Path, changes: dict[str, str]) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        original = journal.source
+        backups = sorted((tmp_path / "backups").iterdir())
+        values = dict(
+            source_account="Assets:Dollar",
+            amount="100",
+            destination="Assets:Bank",
+            destination_amount="4200",
+            fee="0",
+        )
+        values.update(changes)
+        with pytest.raises(LedgerError):
+            await transfer(journal, **values)
+        assert journal.source == original == (tmp_path / FILENAME).read_text()
+        assert sorted((tmp_path / "backups").iterdir()) == backups
+        assert BANK_FEES not in {c.id for c in journal.ledger.categories}
+
+    asyncio.run(scenario())
+
+
+def test_exchange_edit_accounts_fee_sides_same_currency_and_delete(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        await transfer(
+            journal,
+            source_account="Assets:Dollar",
+            amount="105",
+            destination="Assets:Bank",
+            destination_amount="4200",
+            fee="5",
+            fee_currency="USD",
+        )
+        original = journal.ledger.transactions[-1]
+        text = journal.source.replace(
+            'txncount-kind: "transfer"',
+            'txncount-kind: "transfer"\n    receipt: "keep" ; annotation',
+        )
+        text = text.replace(
+            "Assets:Dollar -5.00 USD",
+            'Assets:Dollar -5.00 USD ; debit note\n        reference: "fee debit"',
+        )
+        text = text.replace(
+            "Expenses:Bank-Fees 5.00 USD",
+            'Expenses:Bank-Fees 5.00 USD ; fee note\n        reference: "expense"',
+        )
+        (tmp_path / FILENAME).write_text(text)
+        await journal.load()
+        await transfer(
+            journal,
+            identifier=original.id,
+            source_account="Assets:Euro",
+            destination="Assets:Pound",
+            amount="100",
+            destination_amount="80",
+            fee="1",
+            fee_currency="GBP",
+            occurred="2026-01-11",
+            fee_category="Expenses:Fees:Other",
+        )
+        updated = journal.transaction_for_edit(original.id)
+        details = journal.transfer_details(updated)
+        assert details.debited == 100 and details.received_principal == 81
+        assert updated.timestamp == original.timestamp and updated.date == date(2026, 1, 11)
+        assert all(
+            word in journal.source
+            for word in ("annotation", "debit note", "fee note", "fee debit", "expense")
+        )
+        await transfer(
+            journal,
+            identifier=original.id,
+            source_account="Assets:Dollar",
+            destination="Assets:Bank",
+            amount="105",
+            destination_amount="4200",
+            fee="5",
+            fee_currency="USD",
+        )
+        details = journal.transfer_details(journal.transaction_for_edit(original.id))
+        assert details.converted == 100 and details.rate == 42
+        await transfer(journal, identifier=original.id, fee="0")
+        assert all(
+            p.total_price is None for p in journal.transaction_for_edit(original.id).postings
+        )
+        assert not loader.load_string(journal.source)[1]
+        assert "fee debit" in journal.source
+        await transfer(journal, identifier=original.id, fee="2")
+        assert journal.transfer_details(journal.transaction_for_edit(original.id)).fee == 2
+        await journal.delete_transaction(original.id, journal.source)
+        assert journal.ledger.balances()["Assets:Dollar"] == 1000
+        assert journal.ledger.balances()["Assets:Bank"] == 2000
+        assert journal.ledger.period_totals(date(2026, 1, 1), date(2026, 2, 1)) == {
+            "income": {},
+            "expenses": {},
+        }
+
+    asyncio.run(scenario())
+
+
+def test_price_validation_does_not_accept_arbitrary_fx_constructs(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        await transfer(
+            journal,
+            source_account="Assets:Dollar",
+            amount="100",
+            destination="Assets:Bank",
+            destination_amount="4200",
+        )
+        transaction = journal.ledger.transactions[-1]
+        source = transaction.postings[0]
+        for invalid in (
+            replace(source, total_price=Decimal("4199")),
+            replace(source, total_price=Decimal("-4200")),
+            replace(source, price_currency="EUR"),
+            replace(source, price_currency=None),
+        ):
+            candidate = replace(transaction, postings=(invalid, *transaction.postings[1:]))
+            ledger = replace(journal.ledger, transactions=(candidate,))
+            with pytest.raises(LedgerError):
+                ledger.balances()
+        assert journal.codec is not None
+        for text in (
+            journal.source.replace("@@ 4200", "@ 42"),
+            journal.source.replace("-100.00 USD @@", "-100.00 USD {1 UAH} @@"),
+            journal.source.replace("@@ 4200", "@@"),
+        ):
+            with pytest.raises(LedgerError):
+                journal.codec.parse(text)
+        text = journal.source.replace('txncount-kind: "transfer"', 'txncount-kind: "expense"')
+        (tmp_path / FILENAME).write_text(text)
+        await journal.load()
+        with pytest.raises(LedgerError, match="crud_transaction_readonly"):
+            journal.transaction_for_edit(transaction.id)
+
+    asyncio.run(scenario())
+
+
+def test_exchange_rate_excludes_fees_and_keeps_repeating_precision() -> None:
+    assert exchange_values(Decimal("105"), Decimal("4200"), Decimal("5"), "USD", "UAH", "USD") == (
+        100,
+        4200,
+        42,
+    )
+    assert exchange_values(Decimal("100"), Decimal("4195"), Decimal("5"), "USD", "UAH", "UAH") == (
+        100,
+        4200,
+        42,
+    )
+    principal, gross, rate = exchange_values(
+        Decimal("3"), Decimal("1"), Decimal("0"), "USD", "UAH", "USD"
+    )
+    assert principal == 3 and gross == 1
+    assert str(rate) == "0." + "3" * 50
+
+
+@pytest.mark.parametrize("failure", ["stale", "conflict", "backup", "write", "inactive"])
+def test_exchange_reuses_failure_guards(tmp_path: Path, failure: str) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        if failure == "inactive":
+            await journal.edit_account("Assets:Dollar", "Dollar", None, False, journal.source)
+        original = journal.source
+        expected = original
+        changes = {}
+        error = StorageError
+        if failure == "stale":
+            changes["expected_source"] = "outdated"
+            error = ConflictError
+        elif failure == "conflict":
+            expected += "; external edit\n"
+            (tmp_path / FILENAME).write_text(expected)
+            error = ConflictError
+        elif failure == "backup":
+            journal.storage.folder.backup = AsyncMock(
+                side_effect=StorageError("Synthetic backup failure")
+            )
+        elif failure == "write":
+            journal.storage.folder.write = AsyncMock(
+                side_effect=StorageError("Synthetic write failure")
+            )
+        else:
+            error = LedgerError
+        with pytest.raises(error):
+            await transfer(
+                journal,
+                source_account="Assets:Dollar",
+                destination="Assets:Bank",
+                amount="105",
+                destination_amount="4200",
+                fee="5",
+                fee_currency="USD",
+                **changes,
+            )
+        assert journal.source == original
+        assert (tmp_path / FILENAME).read_text() == expected
+        assert BANK_FEES not in {c.id for c in journal.ledger.categories}
+
+    asyncio.run(scenario())
+
+
+def test_annotated_source_fee_retains_its_role_without_expense_annotation(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        await transfer(
+            journal,
+            source_account="Assets:Dollar",
+            amount="105",
+            destination="Assets:Bank",
+            destination_amount="4200",
+            fee="5",
+            fee_currency="USD",
+        )
+        original = journal.ledger.transactions[-1]
+        text = journal.source.replace(
+            "Assets:Dollar -5.00 USD", 'Assets:Dollar -5.00 USD\n      role: "source-fee"'
+        )
+        assert "source-fee" in text
+        (tmp_path / FILENAME).write_text(text)
+        await journal.load()
+        for fee in ("0", "5"):
+            await transfer(
+                journal,
+                identifier=original.id,
+                source_account="Assets:Dollar",
+                amount="105",
+                destination="Assets:Bank",
+                destination_amount="4200",
+                fee=fee,
+                fee_currency="USD",
+            )
+        assert journal.codec is not None
+        document = journal.codec.document(journal.source)
+        entry = journal._transaction(document, original.id)
+        marked = [p for p in entry.postings if isinstance(p, models.Posting) and p.meta.get("role")]
+        assert len(marked) == 1
+        assert marked[0].account == "Assets:Dollar" and marked[0].number == -5
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_exchange_unified_form_preview_draft_and_edit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    language: str,
+) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        view = FinanceView()
+        view.journal, view.language, view.timezone_name = journal, language, "UTC"
+        page = MagicMock(spec=ft.Page)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view._new_transaction(MagicMock())
+        dialog = page.show_dialog.call_args.args[0]
+        mode, _, account, _, _, amount, description, when, _ = dialog.content.controls[:9]
+        fields = next(c for c in dialog.content.controls if type(c) is ft.Column)
+        destination, credited, enabled, fee, deduction, currency, category, preview = (
+            fields.controls
+        )
+        assert isinstance(destination, ft.Dropdown)
+        assert isinstance(credited, ft.TextField)
+        assert isinstance(enabled, ft.Checkbox)
+        assert isinstance(fee, ft.TextField)
+        assert isinstance(deduction, ft.Dropdown)
+        assert isinstance(currency, ft.Dropdown)
+        assert isinstance(category, ft.Dropdown)
+        assert isinstance(preview, ft.Text)
+        mode.value = "transfer"
+        account.value, destination.value = "Assets:Dollar", "Assets:Bank"
+        amount.value, credited.value = "105.00", "4200.00"
+        mode.on_select(MagicMock())
+        assert amount.label == f"{translate(language, 'exchange_debited')} (USD)"
+        assert credited.label == f"{translate(language, 'exchange_credited')} (UAH)"
+        assert credited.visible and not deduction.visible
+        enabled.value, fee.value, currency.value = True, "5", "USD"
+        assert enabled.on_change is not None
+        cast(Callable[[ft.Event[ft.Checkbox]], None], enabled.on_change)(MagicMock())
+        assert "100" in (preview.value or "") and "42 UAH" in (preview.value or "")
+        assert not deduction.visible and currency.visible
+        currency.value = "UAH"
+        assert currency.on_select is not None
+        cast(Callable[[ft.Event[ft.Dropdown]], None], currency.on_select)(MagicMock())
+        assert amount.value == "105.00" and credited.value == "4200.00"
+        currency.value, amount.value, credited.value = "USD", "3.00", "1.00"
+        description.value = "Unsaved exchange draft"
+        when.occurred.value = "01/10/2026" if language == "en" else "10.01.2026"
+        when.clock.value = "12:00"
+        await dialog.actions[-1].on_click(MagicMock())
+        assert view.error_message is not None
+        assert description.value == "Unsaved exchange draft"
+        assert amount.value == "3.00" and credited.value == "1.00"
+        amount.value, credited.value = "105.00", "4200.00"
+        await dialog.actions[-1].on_click(MagicMock())
+        assert view.error_message is None
+        original = journal.ledger.transactions[-1]
+        event = MagicMock()
+        event.control.data = original.id
+        view._edit_transaction(event)
+        dialog = page.show_dialog.call_args.args[0]
+        fields = next(c for c in dialog.content.controls if type(c) is ft.Column)
+        destination, credited, enabled, fee, deduction, currency, category, preview = (
+            fields.controls
+        )
+        assert isinstance(credited, ft.TextField) and isinstance(currency, ft.Dropdown)
+        assert isinstance(fee, ft.TextField) and isinstance(deduction, ft.Dropdown)
+        assert credited.value == "4200.00" and dialog.content.controls[5].value == "105.00"
+        assert fee.value == "5.00" and currency.value == "USD"
+        assert not deduction.visible
+        dialog.content.controls[5].value, credited.value, currency.value = "100", "4195", "UAH"
+        await dialog.actions[-1].on_click(MagicMock())
+        details = journal.transfer_details(journal.transaction_for_edit(original.id))
+        assert details.debited == 100 and details.target.amount == 4195
+        assert details.rate == 42 and details.fee_currency == "UAH"
+        assert not loader.load_string(journal.source)[1]
 
     asyncio.run(scenario())

@@ -17,8 +17,9 @@ TxnCount is being developed with substantial AI assistance.
   reimbursements can go to a different account; linking the original expense
   is optional. Reimbursements reduce net expenses rather than count as income.
 - Manage single-currency accounts and opening balances.
-- Transfer between own same-currency accounts, including cash and loan repayments.
-  Optional fees can be added on top or deducted from the transfer amount.
+- Transfer between own accounts, including cash, loan repayments and currency
+  exchanges. Enter both actual amounts for exchanges; the rate is calculated
+  excluding optional fees in either account's currency.
 - Organize expenses with hierarchical categories.
 - Review balances and transaction history in compact phone and desktop layouts.
 - Delete expenses after confirmation; deactivate accounts and categories with
@@ -31,8 +32,7 @@ TxnCount is being developed with substantial AI assistance.
 
 ## Future plans
 
-Planned areas include currency exchange,
-budgets, reports and split-expense editing. These features are **not implemented
+Planned areas include budgets, reports and split-expense editing. These features are **not implemented
 yet**; priorities and scope may change during alpha, with no release dates promised.
 
 ## Get the app
@@ -69,6 +69,15 @@ under Settings. The bank-fee category is created automatically on first use.
 For loans, choose **Loan / credit** when creating the account and enter the
 opening amount owed. Balances use standard Beancount signs: debt is negative;
 a transfer into the loan account reduces it.
+
+For accounts in different currencies, enter **Total debited** (**Списано**) and
+**Actually credited** (**Зараховано**). Neither amount is calculated or replaced.
+If there is a fee, select its currency: a source-currency fee is included in the
+debited total; a destination-currency fee has already been withheld from the
+credited amount. The preview shows the exchanged principal and derived rate
+excluding fees. For example, 105 USD debited with a 5 USD fee and 4200 UAH
+credited means 100 USD exchanged at 42 UAH/USD.
+Same-currency transfers keep their added/deducted fee selector.
 
 Negative cash/bank balances—including past overdrafts—show a warning but do not
 prevent saving. Currency mismatches and invalid accounting still block saving.

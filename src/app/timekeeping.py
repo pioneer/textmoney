@@ -20,7 +20,7 @@ def local_datetime(value: datetime, zone: str = "system") -> datetime:
 
 def wall_timestamp(day: date, clock: str, zone: str = "system") -> str:
     try:
-        if not re.fullmatch(r"\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?", clock):
+        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?", clock):
             raise ValueError
         wall = datetime.fromisoformat(f"{day.isoformat()}T{clock}")
         if wall.tzinfo is not None or "T" in clock or " " in clock:

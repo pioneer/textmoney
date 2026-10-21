@@ -315,7 +315,8 @@ def test_atomic_replacement_preserves_linux_access_acl(
 
     def permissions(source: Path, temporary: Path, metadata: os.stat_result) -> None:
         assert temporary.stat().st_size == 0
-        assert "system.posix_acl_access" in os.listxattr(temporary)
+        if sys.platform == "linux":
+            assert "system.posix_acl_access" in os.listxattr(temporary)
         original_permissions(source, temporary, metadata)
 
     monkeypatch.setattr(desktop_storage, "_preserve_permissions", permissions)

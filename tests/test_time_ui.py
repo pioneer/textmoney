@@ -49,7 +49,10 @@ def test_dst_gaps_and_folds_are_not_silently_guessed(day: date, error: str) -> N
         wall_timestamp(day, "03:30", "Europe/Kyiv")
 
 
-@pytest.mark.parametrize("clock", ["", "24:00", "12:60", "1200", "12", "12:00+02:00"])
+@pytest.mark.parametrize(
+    "clock",
+    ["", "24:00", "24:00:00", "24:00:00.000000", "12:60", "12:00:60", "1200", "12", "12:00+02:00"],
+)
 def test_invalid_time_is_actionable(clock: str) -> None:
     with pytest.raises(LedgerError, match="crud_time_invalid"):
         wall_timestamp(date(2026, 1, 1), clock, "UTC")
@@ -269,12 +272,13 @@ def test_android_system_zone_comes_from_client_and_missing_zone_blocks_edits(
 
 
 def test_system_timezone_uses_os_rules_for_selected_date(monkeypatch: pytest.MonkeyPatch) -> None:
-    if not hasattr(system_time, "tzset"):
+    tzset = getattr(system_time, "tzset", None)
+    if tzset is None:
         pytest.skip("POSIX timezone test; Windows requires platform testing.")
     try:
         with monkeypatch.context() as context:
             context.setenv("TZ", "Europe/Kyiv")
-            system_time.tzset()
+            tzset()
             assert wall_timestamp(date(2026, 1, 15), "12:00").endswith("+02:00")
             assert wall_timestamp(date(2026, 7, 15), "12:00").endswith("+03:00")
             with pytest.raises(LedgerError, match="crud_time_missing"):
@@ -282,7 +286,7 @@ def test_system_timezone_uses_os_rules_for_selected_date(monkeypatch: pytest.Mon
             with pytest.raises(LedgerError, match="crud_time_ambiguous"):
                 wall_timestamp(date(2026, 10, 25), "03:30")
     finally:
-        system_time.tzset()
+        tzset()
 
 
 def test_manual_edit_saves_localized_date_and_named_zone_time_with_stable_id(

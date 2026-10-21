@@ -19,11 +19,19 @@ from pathlib import Path
 from zoneinfo import reset_tzpath
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
+from app.domain.ledger import LedgerError
 from app.timekeeping import wall_timestamp
 
 reset_tzpath(())  # Force the bundled tzdata fallback, not the host's timezone database.
 assert wall_timestamp(date(2026, 1, 15), "12:00", "Europe/Kyiv").endswith("+02:00")
 assert wall_timestamp(date(2026, 7, 15), "12:00", "Europe/Kyiv").endswith("+03:00")
+for invalid_clock in ("24:00", "24:00:00", "24:00:00.000000"):
+    try:
+        wall_timestamp(date(2026, 1, 15), invalid_clock, "UTC")
+    except LedgerError as error:
+        assert str(error) == "crud_time_invalid"
+    else:
+        raise AssertionError(f"Invalid time accepted: {invalid_clock}")
 print("Timezone APK Python payload: named zones and DST PASS")
 
 async def smoke():

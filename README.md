@@ -113,9 +113,20 @@ Dropbox, Dropsync or another folder synchronization tool can synchronize the
 folder separately. Synchronization is not built into TxnCount. Let it finish
 before editing on another device, and avoid simultaneous edits.
 
-Backups and conflict checks reduce risk, but writes are **not atomic** and cannot
-prevent every concurrent external change. Backups are not automatic undo or a
-substitute for an independent copy.
+On Linux and Windows, saves stage the complete journal in an exclusively created
+file in the same directory, flush and synchronize it, recheck the original hash,
+then use `os.replace()`. On filesystems supporting atomic replacement, readers
+opening the journal see complete old or new content, not a partial write.
+Linux also synchronizes the parent directory where supported; Windows does not,
+so atomicity is not a universal power-loss durability guarantee.
+**Android SAF still writes directly and non-atomically.**
+
+Hash checks cannot eliminate the final check/replace race or protect against two
+writers or synchronization tools overwriting each other. There are no
+cross-process locks or automatic merges. A save reported as uncertain may already
+have committed: inspect and reload before retrying, to avoid duplicate entries.
+Backups require manual recovery; they are not automatic undo or a substitute for
+an independent copy. See [desktop write guarantees](docs/crud-fava.md#desktop-atomic-replacement).
 Automatic retention keeps 20 recent backups plus daily/monthly history; Settings
 offers a toggle and a cleanup preview. Protected recovery copies and legacy
 undated backups are never pruned. See [backup retention](docs/crud-fava.md#backup-retention).

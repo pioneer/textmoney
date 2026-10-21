@@ -22,11 +22,19 @@ class StorageError(Exception):
     """An actionable storage operation failure, safe to display and log."""
 
 
+class WriteError(StorageError):
+    """A desktop write failure with an explicit commit outcome."""
+
+    def __init__(self, message: str, *, committed: bool | None) -> None:
+        super().__init__(message)
+        self.committed = committed
+
+
 class Folder(Protocol):
     async def status(self) -> str: ...
     async def read(self) -> bytes | None: ...
     async def backup(self, data: bytes) -> str: ...
-    async def write(self, data: bytes) -> None: ...
+    async def write(self, data: bytes, *, expected_hash: str | None) -> None: ...
     async def commit_backup(self, path: str) -> str: ...
     async def list_backups(self) -> list[BackupEntry]: ...
     async def delete_backup(self, entry: BackupEntry) -> None: ...
@@ -92,12 +100,22 @@ class StorageSession:
         # Detect modifications during backup too; providers offer no compare-and-swap.
         await self._checked_read()
         try:
-            await self.folder.write(data)
+            await self.folder.write(data, expected_hash=self.last_hash)
             if await self.folder.read() != data:
                 raise StorageError("Write read-back differs. Inspect file and backup.")
         except asyncio.CancelledError:
             self.loaded = False
             raise
+        except ConflictError:
+            self.external_changes = True
+            self.loaded = False
+            raise
+        except WriteError as exc:
+            self.loaded = False
+            raise WriteError(
+                f"{exc} Read before retrying. Recovery: {backup or 'no previous file'}.",
+                committed=exc.committed,
+            ) from exc
         except (StorageError, TimeoutError) as exc:
             self.loaded = False
             raise StorageError(

@@ -81,7 +81,7 @@ class AndroidFolder:
         if await self._call("delete_backup", name=entry.name, size=entry.size) is not True:
             raise StorageError("Invalid SAF backup deletion response.")
 
-    async def write(self, data: bytes) -> None:
+    async def write(self, data: bytes, *, expected_hash: str | None) -> None:
         await self._call("write", data=base64.b64encode(data).decode("ascii"))
 
 

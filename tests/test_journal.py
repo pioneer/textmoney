@@ -18,7 +18,7 @@ from app.infrastructure.android_storage import AndroidFolder
 from app.infrastructure.beancount_journal import JournalCodec
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
-from app.storage import StorageError
+from app.storage import StorageError, WriteError
 from app.ui.finance import FinanceView
 
 
@@ -91,6 +91,38 @@ def test_invalid_expense_and_duplicates_do_not_write(tmp_path: Path) -> None:
             await journal.add_expense("Assets:Cash", "Expenses:Food", "1", "Shop", "bad-date")
         assert original == (tmp_path / FILENAME).read_bytes()
         assert backups == set((tmp_path / "backups").iterdir())
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("after_replacement", [False, True])
+def test_atomic_write_failure_invalidates_journal_until_reload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, after_replacement: bool
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        original = (tmp_path / FILENAME).read_bytes()
+        source = journal.source
+        ledger = journal.ledger
+        operation = "_sync_directory" if after_replacement else "_preserve_permissions"
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                f"app.infrastructure.desktop_storage.{operation}",
+                MagicMock(side_effect=OSError("synthetic write failure")),
+            )
+            with pytest.raises(WriteError) as error:
+                await journal.add_expense("Assets:Cash", "Expenses:Food", "1", "Shop", "2026-10-01")
+        assert error.value.committed is after_replacement
+        assert not journal.ready and not journal.storage.loaded
+        assert journal.source == source and journal.ledger == ledger
+        assert journal.storage.recovery_backup is not None
+        assert (tmp_path / journal.storage.recovery_backup).read_bytes() == original
+        assert ((tmp_path / FILENAME).read_bytes() != original) is after_replacement
+        with pytest.raises(LedgerError, match="Reload"):
+            await journal.add_expense("Assets:Cash", "Expenses:Food", "1", "Shop", "2026-10-01")
+        await journal.load()
+        assert journal.ready
+        assert len(journal.ledger.transactions) == len(ledger.transactions) + int(after_replacement)
 
     asyncio.run(scenario())
 

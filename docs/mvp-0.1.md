@@ -128,9 +128,13 @@ The official engine remains a desktop test oracle, not an Android dependency.
   before deciding to resubmit.
 - A failed backup prevents writing. An uncertain write blocks further saves
   until Reload; inspect history and backup first to avoid duplicate submission.
-- Writes are **not atomic**. SAF has no compare-and-swap; a concurrent external
-  write after the last hash check cannot be excluded. No automatic merging.
-  A failed/partial write may require manual restoration from the displayed backup.
+- Current desktop saves use same-directory staging, file fsync, a final hash
+  check and `os.replace()`; parent-directory fsync is attempted where supported
+  (not on Windows). Android SAF writes remain **non-atomic**. Neither adapter
+  offers compare-and-swap or automatic merging; a concurrent external write
+  after the last hash check cannot be excluded. Failed/uncertain writes may
+  require manual restoration from the displayed backup. See the current
+  [desktop write contract](crud-fava.md#desktop-atomic-replacement).
 - Invalid external data hides stale balances/history and disables saves.
   Disappearance of an already loaded journal blocks reset in that session.
 - Folder access is remembered; unsaved forms/baselines are memory-only and do

@@ -153,14 +153,14 @@ def test_failed_write_preserves_pending_copy_across_restart_and_cleanup(
     tmp_path: Path, failure: str
 ) -> None:
     class FailingFolder(DesktopFolder):
-        async def write(self, data: bytes) -> None:
+        async def write(self, data: bytes, *, expected_hash: str | None) -> None:
             if failure == "write":
                 raise StorageError("Synthetic write failure.")
             if failure == "timeout":
                 raise TimeoutError("Synthetic timeout.")
             if failure == "cancelled":
                 raise asyncio.CancelledError()
-            await super().write(b"truncated")
+            await super().write(b"truncated", expected_hash=expected_hash)
 
         async def backup(self, data: bytes) -> str:
             result = await super().backup(data)

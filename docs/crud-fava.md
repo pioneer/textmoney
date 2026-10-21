@@ -458,11 +458,80 @@ to a newer version. Conflicts leave the draft visible. Cancel/reopen after
 reviewing the current data; Settings also has Cancel to reload current currency
 settings. Backup/write failures are explicit, not success-shaped fallbacks.
 
-Writes remain **non-atomic** on SAF and desktop. There is no provider
-compare-and-swap, automatic merge or rollback. A simultaneous external write in
-the final check/write window remains possible. A partial/uncertain write blocks
-further saves; inspect the verified backup and restore externally if necessary.
+Android SAF writes remain **non-atomic**: the native provider stream writes
+directly to the document. Desktop uses atomic replacement as described below.
+Neither has compare-and-swap, cross-process locking, automatic merge or rollback.
+A simultaneous external write in the final check/write window remains possible.
+A failed/uncertain write blocks further saves; inspect the verified backup and
+restore externally if necessary.
 Take an independent backup before upgrading a real-data installation.
+
+### Desktop atomic replacement
+
+Linux and Windows share the following save sequence:
+
+1. Validate the complete candidate before touching storage.
+2. Check the existing SHA-256 baseline, create and read-verify the previous
+   contents as a unique `pending` backup, then check the baseline again.
+3. Exclusively create an unpredictable `.<journal-name>.<random>.tmp` in the
+   journal's directory. No truncating write is made to the original journal.
+4. Preserve existing permissions, write all candidate bytes, flush the stream,
+   apply existing mode bits and fsync the temporary file; then close it.
+5. Read and check the original SHA-256 baseline again, enforce target/folder
+   restrictions, and call `os.replace(temporary, journal)`. Replacement is the
+   commit point.
+6. Fsync the parent directory on supported POSIX filesystems. Windows skips
+   directory sync with an explicit durability warning. Filesystems reporting
+   unsupported directory sync also produce a warning; other sync failures are
+   surfaced as errors **after replacement**.
+7. Read back the journal and compare exact bytes. Only then update the hash and
+   in-memory ledger, finalize the backup and apply existing retention.
+
+**Atomicity:** on filesystems supporting same-directory atomic replacement,
+readers opening the journal see complete old or new contents. Existing open
+handles can continue seeing the old file. Staging creation, partial/short writes,
+permission copying, flush or file-fsync failures leave the original untouched.
+Ordinary pre-replacement failures and detected conflicts remove the temporary
+file; cleanup failures are explicitly reported. Existing target-symlink and
+backup-directory restrictions remain. No adversarial directory-race guarantee
+is added.
+
+**Permissions and portability:** existing POSIX owner/group and mode bits, Linux
+access ACLs, and Windows DACLs are copied; permission-copy failure aborts before
+replacement. An inherited Linux access ACL is removed when the original has
+none, avoiding broader permissions from the staging directory. Windows DACL
+copying happens before any candidate bytes are written
+and protects the copied DACL against broader directory inheritance. New POSIX
+files are `0600`; new Windows files inherit the selected folder's permissions.
+This does not preserve inode identity, modification timestamps, arbitrary
+extended attributes, Windows ownership/SACLs or alternate data streams.
+Directory write permission is needed. Windows sharing/access restrictions can
+make replacement fail; there is no fallback to truncation and no automatic retry.
+Native Windows behavior has not been verified on a Windows host.
+
+**Durability and recovery:** file fsync and supported parent-directory fsync
+improve power-loss resilience, but do not certify every disk, network filesystem
+or synchronization tool. Backup creation/finalization still does not fsync the
+backup directory; its power-loss durability is not strengthened here.
+A directory-sync or read-back error can occur after the new journal is already
+saved. Readiness is invalidated and the verified `pending` backup is retained,
+not pruned. Inspect the journal/history and recovery backup, then reload before
+deciding whether to submit again. Backup finalization/retention failures after
+successful read-back remain a successful save with a maintenance warning.
+There is no automatic restoration.
+
+An error returned by replacement itself is treated conservatively as an
+uncertain outcome: keep any remaining complete temporary file and the backup.
+A process crash before replacement leaves the old journal and may leave an
+incomplete or complete hidden temporary file. Temporary files are never
+automatically promoted or pruned; inspect them before manual recovery/cleanup.
+Cancellation of an asynchronous caller does not stop an already running desktop
+I/O thread, so cancellation may also require inspecting and reloading the journal.
+
+**Concurrency:** this is not locking or compare-and-swap. The final hash check
+only narrows the TOCTOU window; two TxnCount instances, Dropbox, Dropsync or any
+other writer can still overwrite changes made after that check. Do not edit
+simultaneously. Android's SAF/provider behavior is unchanged by desktop staging.
 
 ## Compact lists and simpler expense entry (build 9)
 

@@ -616,7 +616,7 @@ def test_partial_crud_write_is_reported_and_preserves_verified_backup(tmp_path: 
         journal = await seeded(tmp_path)
         original = journal.source
 
-        async def corrupt(data: bytes) -> None:
+        async def corrupt(data: bytes, *, expected_hash: str | None) -> None:
             (tmp_path / FILENAME).write_bytes(b"; synthetic partial write")
 
         journal.storage.folder.write = corrupt

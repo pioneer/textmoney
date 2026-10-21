@@ -1,11 +1,76 @@
 import asyncio
+import errno
+import logging
 import os
+import stat
+import sys
+import tempfile
 from pathlib import Path
 
 from app.domain.backups import BackupEntry, backup_name, backup_time
-from app.storage import StorageError
+from app.domain.storage import ConflictError, digest
+from app.storage import StorageError, WriteError
 
 TARGET = "storage-test.beancount"
+logger = logging.getLogger(__name__)
+
+
+def _sync_directory(directory: Path) -> None:
+    if sys.platform == "win32":
+        logger.warning("Directory synchronization is unavailable on Windows; durability is limited")
+        return
+    try:
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    except OSError as exc:
+        if exc.errno not in {errno.EINVAL, errno.ENOTSUP, errno.ENOSYS}:
+            raise
+        logger.warning(
+            "Filesystem does not support directory synchronization; durability is limited"
+        )
+
+
+def _preserve_permissions(source: Path, temporary: Path, metadata: os.stat_result) -> None:
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        security = ctypes.WinDLL("advapi32", use_last_error=True)
+        get_security = security.GetFileSecurityW
+        get_security.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        get_security.restype = wintypes.BOOL
+        set_security = security.SetFileSecurityW
+        set_security.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.LPVOID]
+        set_security.restype = wintypes.BOOL
+        required = wintypes.DWORD()
+        # Copy the existing DACL rather than inheriting a potentially broader directory ACL.
+        get_security(str(source), 4, None, 0, ctypes.byref(required))
+        if not required.value:
+            raise ctypes.WinError(ctypes.get_last_error())
+        descriptor = ctypes.create_string_buffer(required.value)
+        if not get_security(str(source), 4, descriptor, required.value, ctypes.byref(required)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if not set_security(str(temporary), 4 | 0x80000000, descriptor):
+            raise ctypes.WinError(ctypes.get_last_error())
+    else:
+        current = temporary.stat()
+        if (current.st_uid, current.st_gid) != (metadata.st_uid, metadata.st_gid):
+            os.chown(temporary, metadata.st_uid, metadata.st_gid)
+        if sys.platform == "linux":
+            access_acl = "system.posix_acl_access"
+            if access_acl in os.listxattr(source):
+                os.setxattr(temporary, access_acl, os.getxattr(source, access_acl))
+            elif access_acl in os.listxattr(temporary):
+                os.removexattr(temporary, access_acl)
 
 
 class DesktopFolder:
@@ -126,17 +191,75 @@ class DesktopFolder:
     async def delete_backup(self, entry: BackupEntry) -> None:
         await asyncio.to_thread(self._delete_backup, entry)
 
-    def _write(self, data: bytes) -> None:
+    def _write(self, data: bytes, expected_hash: str | None) -> None:
+        temporary: Path | None = None
+        phase = "staging"
         try:
             path = self._target()
-            with path.open("wb") as stream:
-                stream.write(data)
+            metadata = path.stat() if path.exists() else None
+            if metadata is not None:
+                if not stat.S_ISREG(metadata.st_mode):
+                    raise StorageError("Journal must be a regular file.")
+                if not os.access(path, os.W_OK):
+                    raise StorageError("Journal is read-only. Check file permissions.")
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                prefix=f".{self.filename}.",
+                suffix=".tmp",
+                dir=self.root,
+                delete=False,
+            ) as stream:
+                temporary = Path(stream.name)
+                if metadata is not None:
+                    _preserve_permissions(path, temporary, metadata)
+                if stream.write(data) != len(data):
+                    raise OSError(errno.EIO, "Incomplete temporary journal write")
                 stream.flush()
+                if metadata is not None:
+                    os.chmod(temporary, stat.S_IMODE(metadata.st_mode))
                 os.fsync(stream.fileno())
-        except OSError as exc:
-            raise StorageError(
-                f"Write failed ({type(exc).__name__}). Inspect test file and latest backup."
+            if digest(self._read()) != expected_hash:
+                raise ConflictError(
+                    "Conflict: file changed externally. Draft retained. Read to reload."
+                )
+            path = self._target()
+            phase = "replacing"
+            os.replace(temporary, path)
+            phase = "replaced"
+            _sync_directory(self.root)
+        except (OSError, StorageError) as exc:
+            committed: bool | None = None
+            if phase == "staging":
+                outcome = "Write failed before replacement; original not modified."
+                committed = False
+            elif phase == "replacing" and temporary is not None:
+                outcome = (
+                    "Replacement failed or uncertain; inspect the journal and staged file "
+                    f"{temporary.name}."
+                )
+            else:
+                outcome = (
+                    "Journal replaced, but directory synchronization failed; "
+                    "save may already be committed."
+                )
+                committed = True
+            raise WriteError(
+                f"{outcome} {exc}"
+                if isinstance(exc, StorageError)
+                else f"{outcome} ({type(exc).__name__})",
+                committed=committed,
             ) from exc
+        finally:
+            if temporary is not None and phase == "staging":
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError as exc:
+                    logger.exception("Could not remove an uncommitted temporary journal")
+                    raise WriteError(
+                        "Temporary journal cleanup failed; original not modified. "
+                        f"Inspect {temporary.name}.",
+                        committed=False,
+                    ) from exc
 
-    async def write(self, data: bytes) -> None:
-        await asyncio.to_thread(self._write, data)
+    async def write(self, data: bytes, *, expected_hash: str | None) -> None:
+        await asyncio.to_thread(self._write, data, expected_hash)

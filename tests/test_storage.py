@@ -1,6 +1,14 @@
 import asyncio
+import errno
 import hashlib
+import os
+import stat
+import struct
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
+from typing import Literal
 from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
@@ -9,7 +17,7 @@ import pytest
 from app.domain.storage import ConflictError, digest
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import TARGET, DesktopFolder
-from app.storage import SAMPLE, StorageError, StorageSession
+from app.storage import SAMPLE, StorageError, StorageSession, WriteError
 from app.ui.home import StorageView
 
 
@@ -53,6 +61,416 @@ def test_create_modify_and_verified_unique_backups(tmp_path: Path) -> None:
         assert session.last_hash == digest(b"synthetic replacement\n")
 
     asyncio.run(scenario())
+
+
+def test_atomic_replacement_orders_sync_check_replace_and_directory_sync(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        target = tmp_path / TARGET
+        target.write_bytes(b"original")
+        folder = DesktopFolder(str(tmp_path))
+        session = StorageSession(folder)
+        await session.read()
+        session.draft = "complete replacement"
+        events: list[str] = []
+        original_replace, original_fsync, original_read = os.replace, os.fsync, folder._read
+
+        def sync(descriptor: int) -> None:
+            events.append(
+                "directory-sync" if stat.S_ISDIR(os.fstat(descriptor).st_mode) else "file-sync"
+            )
+            original_fsync(descriptor)
+
+        def read() -> bytes | None:
+            events.append("read")
+            return original_read()
+
+        def replace(source: Path, destination: Path) -> None:
+            assert source.parent == destination.parent == tmp_path
+            assert source.name.startswith(f".{TARGET}.") and source.suffix == ".tmp"
+            assert source.read_bytes() == b"complete replacement"
+            assert destination.read_bytes() == b"original"
+            assert events[-2:] == ["file-sync", "read"]
+            events.append("replace")
+            original_replace(source, destination)
+
+        monkeypatch.setattr(os, "replace", replace)
+        monkeypatch.setattr(os, "fsync", sync)
+        monkeypatch.setattr(folder, "_read", read)
+        backup = await session.write()
+        assert backup and "-committed." in backup
+        assert (tmp_path / backup).read_bytes() == b"original"
+        assert target.read_bytes() == b"complete replacement"
+        assert session.last_hash == digest(target.read_bytes())
+        assert not list(tmp_path.glob(f".{TARGET}.*.tmp"))
+        if sys.platform != "win32":
+            assert events[events.index("replace") + 1] == "directory-sync"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "failure", ["create", "permissions", "partial", "short", "flush", "fsync", "replace"]
+)
+def test_atomic_write_failures_preserve_original_and_pending_backup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    async def scenario() -> None:
+        target = tmp_path / TARGET
+        target.write_bytes(b"original")
+        folder = DesktopFolder(str(tmp_path))
+        session = StorageSession(folder)
+        await session.read()
+        session.draft = "complete replacement"
+        original_backup = folder.backup
+        original_temporary = tempfile.NamedTemporaryFile
+
+        def temporary(*, mode: Literal["wb"], prefix: str, suffix: str, dir: Path, delete: bool):
+            stream = original_temporary(
+                mode=mode, prefix=prefix, suffix=suffix, dir=dir, delete=delete
+            )
+            original_write = stream.write
+
+            def write(data: bytes) -> int:
+                original_write(data[:2])
+                if failure == "short":
+                    return 2
+                raise OSError(errno.ENOSPC, "synthetic partial write")
+
+            if failure in {"partial", "short"}:
+                monkeypatch.setattr(stream, "write", write)
+            elif failure == "flush":
+                monkeypatch.setattr(
+                    stream, "flush", MagicMock(side_effect=OSError(errno.ENOSPC, "synthetic flush"))
+                )
+            return stream
+
+        async def backup(data: bytes) -> str:
+            result = await original_backup(data)
+            if failure == "create":
+                monkeypatch.setattr(
+                    tempfile, "NamedTemporaryFile", MagicMock(side_effect=PermissionError())
+                )
+            elif failure == "fsync":
+                monkeypatch.setattr(
+                    os, "fsync", MagicMock(side_effect=OSError(errno.EIO, "synthetic fsync"))
+                )
+            elif failure == "replace":
+                monkeypatch.setattr(os, "replace", MagicMock(side_effect=PermissionError()))
+            elif failure == "permissions":
+                monkeypatch.setattr(
+                    "app.infrastructure.desktop_storage._preserve_permissions",
+                    MagicMock(side_effect=PermissionError()),
+                )
+            else:
+                monkeypatch.setattr(tempfile, "NamedTemporaryFile", temporary)
+            return result
+
+        monkeypatch.setattr(folder, "backup", backup)
+        with pytest.raises(WriteError) as error:
+            await session.write()
+        assert error.value.committed is (None if failure == "replace" else False)
+        assert target.read_bytes() == b"original"
+        pending = list((tmp_path / "backups").glob("*-pending.beancount"))
+        assert len(pending) == 1 and pending[0].read_bytes() == b"original"
+        assert not list((tmp_path / "backups").glob("*-committed.beancount"))
+        assert session.draft == "complete replacement" and not session.loaded
+        staged = list(tmp_path.glob(f".{TARGET}.*.tmp"))
+        if failure == "replace":
+            assert len(staged) == 1 and staged[0].read_bytes() == b"complete replacement"
+            assert staged[0].name in str(error.value)
+        else:
+            assert not staged
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("initial", [b"original", None])
+def test_atomic_write_rechecks_baseline_after_staging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, initial: bytes | None
+) -> None:
+    async def scenario() -> None:
+        target = tmp_path / TARGET
+        if initial is not None:
+            target.write_bytes(initial)
+        folder = DesktopFolder(str(tmp_path))
+        session = StorageSession(folder)
+        await session.read()
+        session.draft = "candidate"
+        original_fsync = os.fsync
+
+        def sync(descriptor: int) -> None:
+            original_fsync(descriptor)
+            target.write_bytes(b"external edit during staging")
+
+        original_backup = folder.backup
+
+        async def backup(data: bytes) -> str:
+            result = await original_backup(data)
+            monkeypatch.setattr(os, "fsync", sync)
+            return result
+
+        monkeypatch.setattr(folder, "backup", backup)
+        if initial is None:
+            monkeypatch.setattr(os, "fsync", sync)
+        with pytest.raises(ConflictError):
+            await session.write()
+        assert target.read_bytes() == b"external edit during staging"
+        assert session.external_changes and not session.loaded
+        assert not list(tmp_path.glob(f".{TARGET}.*.tmp"))
+        if initial is not None:
+            assert next((tmp_path / "backups").iterdir()).read_bytes() == initial
+
+    asyncio.run(scenario())
+
+
+def test_atomic_replacement_preserves_existing_permissions(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        target = tmp_path / TARGET
+        target.write_bytes(b"original")
+        target.chmod(0o640 if sys.platform != "win32" else 0o600)
+        previous = target.stat()
+        session = StorageSession(DesktopFolder(str(tmp_path)))
+        await session.read()
+        session.draft = "replacement"
+        await session.write()
+        current = target.stat()
+        assert stat.S_IMODE(current.st_mode) == stat.S_IMODE(previous.st_mode)
+        if sys.platform != "win32":
+            assert (current.st_uid, current.st_gid) == (previous.st_uid, previous.st_gid)
+
+    asyncio.run(scenario())
+
+
+def test_final_baseline_read_failure_does_not_replace_journal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / TARGET
+    target.write_bytes(b"original")
+    folder = DesktopFolder(str(tmp_path))
+    session = StorageSession(folder)
+    asyncio.run(session.read())
+    session.draft = "replacement"
+    backup, fsync = folder.backup, os.fsync
+
+    def sync(descriptor: int) -> None:
+        fsync(descriptor)
+        monkeypatch.setattr(
+            folder, "_read", MagicMock(side_effect=StorageError("synthetic read failure"))
+        )
+
+    async def fail(data: bytes) -> str:
+        result = await backup(data)
+        monkeypatch.setattr(os, "fsync", sync)
+        return result
+
+    monkeypatch.setattr(folder, "backup", fail)
+    with pytest.raises(WriteError, match="original not modified") as error:
+        asyncio.run(session.write())
+    assert error.value.committed is False
+    assert target.read_bytes() == b"original"
+    assert not list(tmp_path.glob(f".{TARGET}.*.tmp"))
+    assert next((tmp_path / "backups").iterdir()).read_bytes() == b"original"
+    assert not session.loaded
+
+
+def test_new_atomic_journal_is_private_on_posix(tmp_path: Path) -> None:
+    if sys.platform == "win32":
+        pytest.skip("POSIX permission bits")
+    session = StorageSession(DesktopFolder(str(tmp_path)))
+    asyncio.run(session.read())
+    asyncio.run(session.write())
+    assert stat.S_IMODE((tmp_path / TARGET).stat().st_mode) == 0o600
+
+
+@pytest.mark.parametrize("existing_acl", [True, False])
+def test_atomic_replacement_preserves_linux_access_acl(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, existing_acl: bool
+) -> None:
+    if sys.platform != "linux":
+        pytest.skip("Linux POSIX access ACL")
+    from app.infrastructure import desktop_storage
+
+    target = tmp_path / TARGET
+    target.write_bytes(b"original")
+    target.chmod(0o640)
+    # Linux ACL xattr: owner, named user, group, mask and other.
+    entries = [(1, 6, 0xFFFFFFFF), (2, 4, os.getuid() + 1), (4, 0, 0xFFFFFFFF)]
+    entries += [(16, 4, 0xFFFFFFFF), (32, 0, 0xFFFFFFFF)]
+    acl = struct.pack("<I", 2) + b"".join(struct.pack("<HHI", *entry) for entry in entries)
+    directory_entries = [(1, 7, 0xFFFFFFFF), *entries[1:]]
+    directory_acl = struct.pack("<I", 2) + b"".join(
+        struct.pack("<HHI", *entry) for entry in directory_entries
+    )
+    try:
+        if existing_acl:
+            os.setxattr(target, "system.posix_acl_access", acl)
+        os.setxattr(tmp_path, "system.posix_acl_default", directory_acl)
+    except OSError as exc:
+        if exc.errno in {errno.ENOTSUP, errno.EOPNOTSUPP}:
+            pytest.skip("Filesystem does not support access ACLs")
+        raise
+    original_permissions = desktop_storage._preserve_permissions
+
+    def permissions(source: Path, temporary: Path, metadata: os.stat_result) -> None:
+        assert temporary.stat().st_size == 0
+        assert "system.posix_acl_access" in os.listxattr(temporary)
+        original_permissions(source, temporary, metadata)
+
+    monkeypatch.setattr(desktop_storage, "_preserve_permissions", permissions)
+    session = StorageSession(DesktopFolder(str(tmp_path)))
+    asyncio.run(session.read())
+    session.draft = "replacement"
+    asyncio.run(session.write())
+    assert target.read_bytes() == b"replacement"
+    assert stat.S_IMODE(target.stat().st_mode) == 0o640
+    if existing_acl:
+        assert os.getxattr(target, "system.posix_acl_access") == acl
+    else:
+        assert "system.posix_acl_access" not in os.listxattr(target)
+
+
+def test_temporary_cleanup_failure_is_explicit_and_preserves_original(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    target = tmp_path / TARGET
+    target.write_bytes(b"original")
+    folder = DesktopFolder(str(tmp_path))
+    session = StorageSession(folder)
+    asyncio.run(session.read())
+    session.draft = "replacement"
+    backup = folder.backup
+
+    async def fail(data: bytes) -> str:
+        result = await backup(data)
+        monkeypatch.setattr(os, "fsync", MagicMock(side_effect=OSError(errno.EIO, "fsync")))
+        monkeypatch.setattr(Path, "unlink", MagicMock(side_effect=PermissionError()))
+        return result
+
+    monkeypatch.setattr(folder, "backup", fail)
+    with pytest.raises(StorageError, match="cleanup failed"):
+        asyncio.run(session.write())
+    assert target.read_bytes() == b"original"
+    assert len(list(tmp_path.glob(f".{TARGET}.*.tmp"))) == 1
+    assert next((tmp_path / "backups").iterdir()).read_bytes() == b"original"
+    assert not session.loaded
+    assert "Could not remove an uncommitted temporary journal" in caplog.text
+
+
+def test_replace_exception_can_have_an_uncertain_commit_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / TARGET
+    target.write_bytes(b"original")
+    session = StorageSession(DesktopFolder(str(tmp_path)))
+    asyncio.run(session.read())
+    session.draft = "replacement"
+    replace = os.replace
+
+    def uncertain(source: Path, destination: Path) -> None:
+        replace(source, destination)
+        raise OSError(errno.EIO, "synthetic uncertain replacement response")
+
+    replacement = MagicMock(side_effect=uncertain)
+    monkeypatch.setattr(os, "replace", replacement)
+    with pytest.raises(WriteError) as error:
+        asyncio.run(session.write())
+    assert error.value.committed is None
+    assert target.read_bytes() == b"replacement"
+    assert next((tmp_path / "backups").iterdir()).read_bytes() == b"original"
+    assert not session.loaded
+    with pytest.raises(StorageError, match="Read first"):
+        asyncio.run(session.write())
+    replacement.assert_called_once()
+
+
+@pytest.mark.parametrize("failure", ["directory", "readback"])
+def test_post_replacement_failure_is_uncertain_and_keeps_backup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    async def scenario() -> None:
+        target = tmp_path / TARGET
+        target.write_bytes(b"original")
+        folder = DesktopFolder(str(tmp_path))
+        session = StorageSession(folder)
+        await session.read()
+        session.draft = "replacement"
+        replace = os.replace
+
+        def commit(source: Path, destination: Path) -> None:
+            replace(source, destination)
+            if failure == "readback":
+                monkeypatch.setattr(folder, "read", AsyncMock(return_value=b"unexpected"))
+
+        monkeypatch.setattr(os, "replace", commit)
+        if failure == "directory":
+            monkeypatch.setattr(
+                "app.infrastructure.desktop_storage._sync_directory",
+                MagicMock(side_effect=OSError(errno.EIO, "synthetic directory failure")),
+            )
+        with pytest.raises(StorageError) as error:
+            await session.write()
+        if failure == "directory":
+            assert isinstance(error.value, WriteError) and error.value.committed is True
+            assert "already be committed" in str(error.value)
+        assert not session.loaded
+        assert target.read_bytes() == b"replacement"
+        assert next((tmp_path / "backups").iterdir()).read_bytes() == b"original"
+        assert not list(tmp_path.glob(f".{TARGET}.*.tmp"))
+        assert not list((tmp_path / "backups").glob("*-committed.beancount"))
+
+    asyncio.run(scenario())
+
+
+def test_unsupported_directory_sync_is_explicit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from app.infrastructure.desktop_storage import _sync_directory
+
+    if sys.platform != "win32":
+        monkeypatch.setattr(
+            os, "fsync", MagicMock(side_effect=OSError(errno.EINVAL, "unsupported"))
+        )
+    _sync_directory(tmp_path)
+    assert "durability is limited" in caplog.text
+
+
+def test_process_interruption_before_replace_leaves_main_and_backup_intact(tmp_path: Path) -> None:
+    target = tmp_path / TARGET
+    target.write_bytes(b"original")
+    code = """
+import asyncio, os, time
+from app.infrastructure.desktop_storage import DesktopFolder
+from app.storage import StorageSession
+def interrupted(source, destination):
+    print('STAGED', flush=True)
+    time.sleep(60)
+os.replace = interrupted
+async def main():
+    session = StorageSession(DesktopFolder(os.environ['SYNTHETIC_FOLDER']))
+    await session.read()
+    session.draft = 'complete replacement'
+    await session.write()
+asyncio.run(main())
+"""
+    with pytest.raises(subprocess.TimeoutExpired) as error:
+        subprocess.run(
+            [sys.executable, "-c", code],
+            env=os.environ
+            | {
+                "SYNTHETIC_FOLDER": str(tmp_path),
+                "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src"),
+            },
+            capture_output=True,
+            timeout=10,
+            check=True,
+        )
+    assert b"STAGED" in (error.value.stdout or b"")
+    assert target.read_bytes() == b"original"
+    assert next((tmp_path / "backups").iterdir()).read_bytes() == b"original"
+    staged = list(tmp_path.glob(f".{TARGET}.*.tmp"))
+    assert len(staged) == 1 and staged[0].read_bytes() == b"complete replacement"
 
 
 @pytest.mark.parametrize("external", [b"external replacement", b"", None])
@@ -131,14 +549,10 @@ def test_io_failures_are_actionable(
         if operation == "read":
             monkeypatch.setattr(Path, "read_bytes", MagicMock(side_effect=PermissionError()))
         else:
-            original_open = Path.open
-
-            def open_unless_writing(path: Path, mode: str = "r", *args, **kwargs):
-                if mode == "wb":
-                    raise PermissionError()
-                return original_open(path, mode, *args, **kwargs)
-
-            monkeypatch.setattr(Path, "open", open_unless_writing)
+            monkeypatch.setattr(
+                "app.infrastructure.desktop_storage.tempfile.NamedTemporaryFile",
+                MagicMock(side_effect=PermissionError()),
+            )
         with pytest.raises(StorageError, match="failed"):
             await (session.read() if operation == "read" else session.write())
         assert session.draft == "unsaved"
@@ -150,7 +564,7 @@ def test_io_failures_are_actionable(
 
 def test_write_failure_keeps_previous_verified_backup(tmp_path: Path) -> None:
     class FailingFolder(DesktopFolder):
-        async def write(self, data: bytes) -> None:
+        async def write(self, data: bytes, *, expected_hash: str | None) -> None:
             raise StorageError("Synthetic output failure.")
 
     async def scenario() -> None:
@@ -236,7 +650,7 @@ def test_android_transport_roundtrip_and_permission_status() -> None:
         assert "persisted" in await folder.status()
         assert await folder.read() == b"synthetic"
         assert await folder.backup(b"synthetic") == "backups/synthetic.beancount"
-        await folder.write(b"synthetic")
+        await folder.write(b"synthetic", expected_hash=None)
         assert bridge.call.call_args.kwargs["data"] == "c3ludGhldGlj"
         with pytest.raises(StorageError, match="grant missing"):
             await folder.status()
@@ -246,8 +660,8 @@ def test_android_transport_roundtrip_and_permission_status() -> None:
 
 def test_readback_mismatch_requires_new_read_and_keeps_backup(tmp_path: Path) -> None:
     class TruncatingFolder(DesktopFolder):
-        async def write(self, data: bytes) -> None:
-            await super().write(data[:2])
+        async def write(self, data: bytes, *, expected_hash: str | None) -> None:
+            await super().write(data[:2], expected_hash=expected_hash)
 
     async def scenario() -> None:
         (tmp_path / TARGET).write_bytes(b"original")

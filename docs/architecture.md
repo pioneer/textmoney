@@ -112,6 +112,15 @@ using SAF document operations on Android. Cleanup failure is a post-save warning
 not a failed financial transaction. The automatic-cleanup preference is local
 to each device. See [retention and recovery](crud-fava.md#backup-retention).
 
+Desktop writes exclusively stage a same-directory temporary file, preserve file
+permissions, flush/fsync it, recheck the supplied baseline hash, then commit with
+`os.replace()`. Parent-directory fsync follows on supported POSIX filesystems;
+Windows lacks that step. Explicit write errors distinguish pre-commit,
+post-replacement and uncertain outcomes. Shared read-back, backup finalization
+and retention remain unchanged. Android SAF retains its direct non-atomic write.
+Neither adapter provides locking or compare-and-swap. See
+[write guarantees and recovery](crud-fava.md#desktop-atomic-replacement).
+
 The CRUD milestone intentionally remains single-file at the user's direction;
 no native SAF changes, migration, or multi-file transactions were introduced.
 Fava and the official engine serve only as desktop test oracles. See the

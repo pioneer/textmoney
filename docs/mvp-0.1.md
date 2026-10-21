@@ -37,12 +37,18 @@ confirmation of build 6 is pending.
 - Five-second polling reloads valid external changes and recalculates everything.
   All forms survive reload, conflicts and failures. Failed saves show a modal;
   successful saves clear only the submitted form.
-- **Product UI foundation**: Home, Transactions, Accounts and Settings adapt
+- **Product UI foundation**: Home, Transactions, Accounting and Settings adapt
   between compact bottom navigation, medium navigation rail and expanded rail.
   English, Ukrainian and Russian labels, locale-sensitive amounts/dates, and
   system/light/dark themes are available. Language and theme choices persist;
   desktop settings use the platform user configuration directory while Android
   continues to use Flet SharedPreferences.
+- **Accounting**: Accounts and Categories have separate subtabs with matching
+  panel spacing, Add actions and existing edit/delete controls. Creation uses
+  scrollable dialogs; failed saves retain the draft and stale journal snapshots
+  cannot be submitted. Categories retain the expandable expense/income tree.
+  The selected subtab survives navigation, refresh, language and width changes
+  during the session. Operating currencies remain in Settings.
 - Original storage/parser screens remain under **Technical diagnostics**. Their
   `poc-test.beancount` remains separate from the application journal.
 

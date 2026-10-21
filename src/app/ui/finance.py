@@ -130,12 +130,33 @@ class FinanceView(ft.Row):
         self.history = ft.Column(spacing=0)
         self.home_balances = ft.Row(wrap=True, spacing=12, run_spacing=12)
         self.home_activity = ft.Column(spacing=0)
-        self.accounts_panel_content = ft.Column()
-        self.categories_panel_content = ft.Column()
-        self.accounts_panel = ft.Container(padding=16, content=self.accounts_panel_content)
-        self.categories_panel = ft.Container(padding=16, content=self.categories_panel_content)
-        self.account_save = ft.Button(on_click=self._create_account)
-        self.category_save = ft.Button(on_click=self._create_category)
+        self.accounts_panel_content = ft.Column(spacing=16)
+        self.categories_panel_content = ft.Column(spacing=16)
+        self.accounts_panel = ft.Container(
+            padding=16,
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border_radius=12,
+            content=self.accounts_panel_content,
+        )
+        self.categories_panel = ft.Container(
+            padding=16,
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border_radius=12,
+            content=self.categories_panel_content,
+            visible=False,
+        )
+        self.account_save = ft.Button(icon=ft.Icons.ADD, on_click=self._create_account)
+        self.category_save = ft.Button(icon=ft.Icons.ADD, on_click=self._create_category)
+        self.accounting_tab_bar = ft.TabBar(tabs=[], scrollable=False, secondary=True)
+        self.accounting_tabs = ft.Tabs(
+            length=2,
+            selected_index=0,
+            on_change=self._accounting_tab_changed,
+            content=ft.Column(
+                [self.accounting_tab_bar, self.accounts_panel, self.categories_panel],
+                spacing=16,
+            ),
+        )
         self.fab = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
             on_click=self._new_transaction,
@@ -406,39 +427,18 @@ class FinanceView(ft.Row):
             self.history,
         ]
         self.accounts_panel_content.controls = [
-            ft.Text(self.tr("account_list_title"), size=18, weight=ft.FontWeight.W_600),
+            ft.Row([self.account_save], alignment=ft.MainAxisAlignment.END, wrap=True),
             self.account_list,
-            ft.Divider(),
-            ft.Text(self.tr("account_form_title"), size=18, weight=ft.FontWeight.W_600),
-            ft.Text(self.tr("account_code"), size=13),
-            self.account_root,
-            self.account_id,
-            self.account_name,
-            self.currency,
-            self.opening,
-            self.account_save,
         ]
         self.categories_panel_content.controls = [
-            ft.Text(self.tr("categories_title"), size=18, weight=ft.FontWeight.W_600),
+            ft.Row([self.category_save], alignment=ft.MainAxisAlignment.END, wrap=True),
             self.category_list,
-            ft.Divider(),
-            ft.Text(self.tr("category_form_title"), size=18, weight=ft.FontWeight.W_600),
-            self.category_root,
-            self.category_id,
-            self.category_name,
-            self.category_save,
         ]
-        account_panels: list[ft.Control] = [
-            ft.Text(self.tr("accounts_title"), size=21, weight=ft.FontWeight.W_600),
-            ft.Row(
-                [self.accounts_panel, self.categories_panel],
-                wrap=True,
-                spacing=16,
-                run_spacing=12,
-                vertical_alignment=ft.CrossAxisAlignment.START,
-            ),
+        self.accounting_tab_bar.tabs = [
+            ft.Tab(label=self.tr("accounts_title")),
+            ft.Tab(label=self.tr("categories_title")),
         ]
-        self.accounts_screen.controls = account_panels
+        self.accounts_screen.controls = [self.accounting_tabs]
         self.category_root.label = self.tr("incoming_type")
         self.category_root.options = [
             ft.DropdownOption(key="Expenses", text=self.tr("kind_expense")),
@@ -558,11 +558,8 @@ class FinanceView(ft.Row):
             if self.page:
                 self.page.navigation_bar = None
         available = max(320, (width or 390) - rail_width - 48)
-        self.accounts_panel.width = (
-            520 if self.screen_class == ScreenClass.EXPANDED else min(320, available)
-        )
-        self.categories_panel.width = (
-            440 if self.screen_class == ScreenClass.EXPANDED else min(320, available)
+        self.accounts_panel.width = self.categories_panel.width = min(
+            MAX_CONTENT_WIDTH - 40, available
         )
         self._build_navigation()
         self._build_home_layout()
@@ -2233,9 +2230,14 @@ class FinanceView(ft.Row):
         except Exception as exc:
             self._error(exc, notify=True)
 
-    async def _create_account(self, event: ft.Event[ft.Button]) -> None:
-        async def save() -> None:
-            await self._require_journal().create_account(
+    def _create_account(self, event: ft.Event[ft.Button]) -> None:
+        journal = self._require_journal()
+        source = journal.source
+
+        async def save() -> str | None:
+            if journal.source != source:
+                raise ConflictError("crud_stale")
+            backup = await journal.create_account(
                 self.account_id.value or "",
                 self.account_name.value or "",
                 self.currency.value or "",
@@ -2243,9 +2245,21 @@ class FinanceView(ft.Row):
                 root=self.account_root.value or "Assets",
             )
             self.account_id.value = self.account_name.value = self.opening.value = ""
-            self._set_message("account_created")
+            return backup
 
-        await self._action(save)
+        self._edit_dialog(
+            self.tr("account_form_title"),
+            [
+                self.account_root,
+                self.account_id,
+                self.account_name,
+                self.currency,
+                self.opening,
+            ],
+            journal,
+            save,
+            stretch=True,
+        )
 
     def _account_type_changed(self, event: ft.Event[ft.Dropdown]) -> None:
         self._refresh_labels()
@@ -2264,17 +2278,33 @@ class FinanceView(ft.Row):
 
         await self._action(save)
 
-    async def _create_category(self, event: ft.Event[ft.Button]) -> None:
-        async def save() -> None:
-            await self._require_journal().create_category(
+    def _create_category(self, event: ft.Event[ft.Button]) -> None:
+        journal = self._require_journal()
+        source = journal.source
+
+        async def save() -> str | None:
+            if journal.source != source:
+                raise ConflictError("crud_stale")
+            backup = await journal.create_category(
                 self.category_id.value or "",
                 self.category_name.value or "",
                 root=self.category_root.value or "Expenses",
             )
             self.category_id.value = self.category_name.value = ""
-            self._set_message("category_created")
+            return backup
 
-        await self._action(save)
+        self._edit_dialog(
+            self.tr("category_form_title"),
+            [self.category_root, self.category_id, self.category_name],
+            journal,
+            save,
+            stretch=True,
+        )
+
+    def _accounting_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
+        self.accounts_panel.visible = event.control.selected_index == 0
+        self.categories_panel.visible = event.control.selected_index == 1
+        self.page.update()
 
     def _navigate(self, screen: str) -> None:
         self.current_screen = screen
@@ -2293,6 +2323,9 @@ class FinanceView(ft.Row):
             self._navigate(screens[event.control.selected_index])
 
     def _go_accounts(self, event: ft.Event[ft.TextButton]) -> None:
+        self.accounting_tabs.selected_index = 0
+        self.accounts_panel.visible = True
+        self.categories_panel.visible = False
         self._navigate("accounts")
 
     def _picker_zone(self) -> str | None:

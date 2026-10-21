@@ -127,6 +127,44 @@ class FinanceSafService extends FletService {
     };
   }
 
+  bool _syncName(String name) => RegExp(
+      r'^([a-f0-9]{64}\.beancount|(edge|conflict)-[a-f0-9]{64}-[a-f0-9]{64}\.json|(ack|head)-[a-f0-9]{64}\.json)$')
+      .hasMatch(name);
+
+  Future<Map<String, String>> _syncScan(String uri, String target) async {
+    final result = <String, String>{};
+    final children = await _util.list(uri);
+    for (final child in children) {
+      if (child.name == target || !child.name.toLowerCase().endsWith('.beancount')) continue;
+      if (child.isDir || result.containsKey(child.name)) {
+        throw StateError('sync_metadata');
+      }
+      result[child.name] = base64Encode(await _stream.readFileBytes(child.uri));
+    }
+    final directory = await _util.child(uri, ['.txncount-sync']);
+    if (directory != null) {
+      if (!directory.isDir) throw StateError('sync_metadata');
+      for (final child in await _util.list(directory.uri)) {
+        final name = '.txncount-sync/${child.name}';
+        if (child.isDir || !_syncName(child.name) || result.containsKey(name)) {
+          throw StateError('sync_metadata');
+        }
+        result[name] = base64Encode(await _stream.readFileBytes(child.uri));
+      }
+    }
+    return result;
+  }
+
+  Future<void> _checkSync(String uri, String target, dynamic expected) async {
+    if (expected == null) return;
+    final files = await _syncScan(uri, target);
+    final wanted = Map<String, dynamic>.from(expected as Map);
+    if (files.length != wanted.length ||
+        files.entries.any((entry) => wanted[entry.key] != entry.value)) {
+      throw StateError('sync_changed');
+    }
+  }
+
   Future<dynamic> _execute(String method, dynamic args) async {
     if (method == 'timezone') {
       return (await FlutterTimezone.getLocalTimezone()).identifier;
@@ -152,6 +190,25 @@ class FinanceSafService extends FletService {
         RegExp('^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-pending\\.beancount\$');
     final committedName =
         RegExp('^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-committed\\.beancount\$');
+    if (method == 'sync_scan') return _syncScan(uri, target);
+    if (method == 'sync_put') {
+      final name = args['name'] as String;
+      if (!_syncName(name)) throw StateError('sync_metadata');
+      final directory = await _util.mkdirp(uri, ['.txncount-sync']);
+      final existing = await _readDocument(directory.uri, name);
+      if (existing != null) {
+        if (existing != args['data']) throw StateError('sync_metadata');
+        return null;
+      }
+      final saved = await _stream.writeFileBytes(
+          directory.uri, name, 'application/octet-stream', base64Decode(args['data'] as String),
+          overwrite: false, append: false);
+      if (saved.fileName != name ||
+          await _readDocument(directory.uri, name) != args['data']) {
+        throw StateError('sync_metadata');
+      }
+      return null;
+    }
     if (method == 'recovery') {
       return _snapshot(uri, target, prefix, pendingName);
     }
@@ -302,6 +359,7 @@ class FinanceSafService extends FletService {
         }
       }
       await _record(uri, '.$target.recovery.json', encoded);
+      await _checkSync(uri, target, args['sync_versions']);
       if (await _readDocument(uri, target) != args['previous']) {
         throw StateError('Journal changed after recovery preparation. Saving is blocked.');
       }

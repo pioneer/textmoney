@@ -40,6 +40,7 @@ class SafProvider:
             else SaveRecord(None, digest(data) or "", None, "complete").encode()
         )
         self.backups: dict[str, bytes] = {}
+        self.sync_files: dict[str, bytes] = {}
         self.archives: list[bytes] = []
         self.fault = ""
         self.writes = 0
@@ -75,6 +76,15 @@ class SafProvider:
         return {"ok": True, "value": await self.execute(method, args)}
 
     async def execute(self, method: str, args: dict[str, object]) -> object:
+        if method == "sync_scan":
+            return {name: encoded(data) for name, data in self.sync_files.items()}
+        if method == "sync_put":
+            name, data = args["name"], decoded(args["data"])
+            assert isinstance(name, str) and data is not None
+            key = f".txncount-sync/{name}"
+            assert key not in self.sync_files or self.sync_files[key] == data
+            self.sync_files[key] = data
+            return None
         if method == "status":
             return True
         if method == "read":
@@ -104,6 +114,11 @@ class SafProvider:
             self.marker = record
             if self.fault == "prepared":
                 raise StorageError("Synthetic interruption before journal modification")
+            expected = args.get("sync_versions")
+            if expected is not None and expected != {
+                name: encoded(data) for name, data in self.sync_files.items()
+            }:
+                raise ConflictError("sync_changed")
             self.writes += 1
             if self.fault == "partial":
                 self.data = b""

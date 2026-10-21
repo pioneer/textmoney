@@ -10,6 +10,7 @@ import pytest
 from beancount import loader
 from fava.core import FavaLedger
 from form_controls import change, transaction_form
+from journal_fixtures import review_external_fixture
 
 from app.domain.ledger import ADJUSTMENTS, EPOCH, LedgerError
 from app.domain.storage import ConflictError
@@ -37,7 +38,7 @@ def test_packaging_smoke_script_against_current_source(
 
 async def seeded(directory: Path) -> Journal:
     journal = Journal(DesktopFolder(str(directory), FILENAME), today=lambda: date(2026, 3, 1))
-    await journal.load()
+    await review_external_fixture(journal)
     await journal.create_account("Bank", "Bank", "UAH", "100")
     await journal.create_account("Cash", "Cash", "UAH")
     await journal.create_account("Euro", "Euro", "EUR")
@@ -100,7 +101,7 @@ def test_income_partial_reimbursements_other_account_and_pretracking_adjustment(
             "2026-02-02",
             "reimbursement",
         )
-        await journal.load()
+        await review_external_fixture(journal)
         assert journal.ledger.balances() == {
             "Assets:Bank": Decimal("570"),
             "Assets:Cash": Decimal("85"),
@@ -166,7 +167,15 @@ def test_incoming_edit_delete_preserves_ids_metadata_comments_and_backup(
         )
         decorated += '\n2026-01-01 event "test" "Preserve me"\n; unrelated tail\n'
         path.write_text(decorated, newline="")
-        await journal.load()
+        from app.synchronization import SyncConflict, file_hash
+
+        with pytest.raises(SyncConflict):
+            await journal.load()
+        state = journal.sync_state
+        assert state is not None
+        await journal.resolve_sync(
+            next(iter(state.versions)), state, decorated, local_hash=file_hash(decorated.encode())
+        )
         before = journal.source
         await journal.edit_transaction(
             original.id,
@@ -277,7 +286,7 @@ def test_incoming_conflict_and_backup_failure_preserve_original(tmp_path: Path) 
         with pytest.raises(ConflictError):
             await journal.add_incoming("Assets:Cash", ADJUSTMENTS, "5", "", DAY, "adjustment")
         assert path.read_text(newline="") == before + "; external\n"
-        await journal.load()
+        await review_external_fixture(journal)
         folder = journal.storage.folder
         assert isinstance(folder, DesktopFolder)
         original_backup = folder.backup

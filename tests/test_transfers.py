@@ -14,6 +14,7 @@ from beancount import loader
 from beancount.ops import summarize
 from fava.core import FavaLedger
 from form_controls import change, transaction_form
+from journal_fixtures import review_external_fixture
 
 from app.domain.ledger import BANK_FEES, LedgerError, exchange_values
 from app.domain.storage import ConflictError
@@ -165,7 +166,7 @@ def test_transfer_edit_fee_modes_accounts_and_delete_preserve_metadata(tmp_path:
             'Assets:Bank -1005 UAH ; posting comment\n        reference: "keep posting"',
         )
         (tmp_path / FILENAME).write_text(source)
-        await journal.load()
+        await review_external_fixture(journal)
         await transfer(
             journal,
             identifier=original.id,
@@ -394,7 +395,7 @@ def test_fee_annotation_survives_disabling_fee_and_then_reenabling(tmp_path: Pat
             'Expenses:Bank-Fees 5 UAH ; fee receipt\n        receipt: "preserve"',
         )
         (tmp_path / FILENAME).write_text(source)
-        await journal.load()
+        await review_external_fixture(journal)
         await transfer(journal, identifier=transaction.id, fee="0")
         saved = journal.transaction_for_edit(transaction.id)
         assert len(saved.postings) == 3 and saved.postings[-1].amount == 0
@@ -628,7 +629,7 @@ def test_exchange_edit_accounts_fee_sides_same_currency_and_delete(tmp_path: Pat
             'Expenses:Bank-Fees 5.00 USD ; fee note\n        reference: "expense"',
         )
         (tmp_path / FILENAME).write_text(text)
-        await journal.load()
+        await review_external_fixture(journal)
         await transfer(
             journal,
             identifier=original.id,
@@ -712,7 +713,7 @@ def test_price_validation_does_not_accept_arbitrary_fx_constructs(tmp_path: Path
                 journal.codec.parse(text)
         text = journal.source.replace('txncount-kind: "transfer"', 'txncount-kind: "expense"')
         (tmp_path / FILENAME).write_text(text)
-        await journal.load()
+        await review_external_fixture(journal)
         with pytest.raises(LedgerError, match="crud_transaction_readonly"):
             journal.transaction_for_edit(transaction.id)
 
@@ -800,7 +801,7 @@ def test_annotated_source_fee_retains_its_role_without_expense_annotation(tmp_pa
         )
         assert "source-fee" in text
         (tmp_path / FILENAME).write_text(text)
-        await journal.load()
+        await review_external_fixture(journal)
         for fee in ("0", "5"):
             await transfer(
                 journal,

@@ -27,6 +27,8 @@ TxnCount is being developed with substantial AI assistance.
 - Use system, light or dark appearance, and system or explicit timezones.
 - Available translations: **English, Ukrainian and Russian**.
 - Keep verified backups and detect conflicting external changes before saving.
+- Preserve synchronization conflict copies and review UUID-based transaction
+  differences; propose a lossless merge only with verified common ancestry.
 - Use standard journal display currencies for compatible Beancount viewers,
   without converting or combining different currencies.
 
@@ -104,14 +106,27 @@ exchange currencies or combine balances.
 
 ## Your data and synchronization
 
-Your selected folder contains a single UTF-8 journal, `txncount.beancount`, and
-a `backups/` directory. TxnCount accesses these files directly; it does not upload
+Your selected folder contains a single UTF-8 journal, `txncount.beancount`,
+a `backups/` directory, and protected `.txncount-sync/` recovery evidence.
+TxnCount accesses these files directly; it does not upload
 them or maintain a separate database. Edits preserve transaction IDs and unrelated
 comments and metadata.
 
 Dropbox, Dropsync or another folder synchronization tool can synchronize the
-folder separately. Synchronization is not built into TxnCount. Let it finish
-before editing on another device, and avoid simultaneous edits.
+folder separately, **including hidden recovery files**. Cloud synchronization is
+not built into TxnCount. Let it finish before editing on another device, and avoid
+simultaneous edits. Local checks cannot establish that uploading/downloading is finished.
+
+Detected conflict copies, divergent preserved versions, and external edits/deletions
+block saving. **Settings → Review synchronization conflicts** shows both versions
+and added/changed/deleted transactions. Proven independent UUID changes have
+preselected merge choices; different edits to the same UUID and deletion-versus-edit
+need an explicit choice. Without a verified common ancestor, all differing
+transactions require review. Declaration, option, comment and unsupported-syntax
+changes use conservative whole-version selection or external manual comparison.
+Complete candidates are validated before saving. Cancel postpones resolution
+without discarding either version; conflict files are never automatically deleted.
+See [detection, ancestry and recovery limits](docs/synchronization.md).
 
 On Linux and Windows, saves stage the complete journal in an exclusively created
 file in the same directory, flush and synchronize it, recheck the original hash,
@@ -129,7 +144,7 @@ read-back is not proof of physical durability.
 
 Hash checks cannot eliminate the final check/replace race or protect against two
 writers or synchronization tools overwriting each other. There are no
-cross-process locks or automatic merges. A save reported as uncertain may already
+cross-process locks or unattended merges. A save reported as uncertain may already
 have committed: inspect and reload before retrying, to avoid duplicate entries.
 Backups require manual recovery; they are not automatic undo or a substitute for
 an independent copy. See [desktop write guarantees](docs/crud-fava.md#desktop-atomic-replacement).

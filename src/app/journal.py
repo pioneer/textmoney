@@ -39,7 +39,26 @@ from app.infrastructure.beancount_journal import (
     replace_directive,
     transaction_text,
 )
-from app.storage import Folder, RecoveryFolder, RecoveryRequired, StorageError, StorageSession
+from app.storage import (
+    Folder,
+    RecoveryFolder,
+    RecoveryRequired,
+    StorageError,
+    StorageSession,
+    WriteError,
+)
+from app.synchronization import (
+    MergeReview,
+    SyncConflict,
+    SyncFolder,
+    SyncState,
+    file_hash,
+    json_bytes,
+    preserve,
+    record_head,
+    record_revision,
+    review_versions,
+)
 
 FILENAME = "txncount.beancount"
 
@@ -56,6 +75,7 @@ class Journal:
         self.recovery_valid = False
         self.recovery_backup_valid = False
         self.recovery_transactions = 0
+        self.sync_state: SyncState | None = None
 
     def _parse(self, source: str) -> Ledger:
         if self.codec is None:
@@ -74,6 +94,7 @@ class Journal:
             raise StorageError(
                 "The journal disappeared. Restore it before reloading; forms retained."
             )
+        await self.check_sync()
         try:
             ledger = await asyncio.to_thread(self._parse, self.storage.draft)
         except LedgerError:
@@ -83,6 +104,100 @@ class Journal:
         self.ledger = ledger
         self.existed = exists
         self.ready = True
+
+    async def check_sync(self) -> None:
+        folder = self.storage.folder
+        if not isinstance(folder, SyncFolder):
+            return
+        try:
+            data = await folder.read()
+            if data is None and self.existed:
+                raise StorageError(
+                    "The journal disappeared. Restore it before reloading; forms retained."
+                )
+            current = data or b""
+            state = await asyncio.to_thread(SyncState.read, await folder.sync_scan(), current)
+            if state.versions:
+                await preserve(folder, current)
+                for data in state.versions.values():
+                    await preserve(folder, data)
+                state = await asyncio.to_thread(SyncState.read, await folder.sync_scan(), current)
+        except (StorageError, TimeoutError, asyncio.CancelledError):
+            self.ready = self.storage.loaded = False
+            raise
+        if self.sync_state != state:
+            self.sync_state = state
+        if state.versions:
+            self.ready = False
+            raise SyncConflict("sync_required")
+
+    async def sync_review(self, name: str, *, local: bytes) -> MergeReview:
+        state = self.sync_state
+        if state is None or name not in state.versions:
+            raise SyncConflict("sync_changed")
+        remote = state.versions[name]
+        try:
+            return await asyncio.to_thread(
+                review_versions,
+                local.decode("utf-8"),
+                remote.decode("utf-8"),
+                state.common_base(local, remote),
+            )
+        except UnicodeDecodeError as exc:
+            raise LedgerError("sync_manual") from exc
+
+    async def resolve_sync(
+        self, name: str, expected: SyncState, candidate: str, *, local_hash: str
+    ) -> None:
+        folder = self.storage.folder
+        if not isinstance(folder, SyncFolder):
+            raise StorageError("sync_manual")
+        self.ready = False
+        self.storage.loaded = False
+        current = await folder.read() or b""
+        fresh = SyncState.read(await folder.sync_scan(), current)
+        if (
+            file_hash(current) != local_hash
+            or name not in expected.versions
+            or fresh.versions != expected.versions
+            or fresh.files != expected.files
+        ):
+            raise SyncConflict("sync_changed")
+        await asyncio.to_thread(self._parse, candidate)
+        # Preserve both originals before the same guarded platform save used by CRUD.
+        await preserve(folder, current)
+        remote = expected.versions[name]
+        await preserve(folder, remote)
+        await self.storage.read()  # Android recovery is never bypassed.
+        if self.storage.last_hash != file_hash(current):
+            raise SyncConflict("sync_changed")
+        evidence = await record_revision(folder, current, candidate.encode())
+        evidence.update(await record_revision(folder, remote, candidate.encode()))
+        await folder.sync_expect(
+            {key: file_hash(value) for key, value in (fresh.files | evidence).items()}
+        )
+        self.storage.draft = candidate
+        try:
+            await self.storage.write()
+        except (StorageError, ConflictError, TimeoutError, asyncio.CancelledError):
+            self.storage.loaded = False
+            raise
+        acknowledgment = json_bytes(
+            {"name": name, "hash": file_hash(remote), "result": file_hash(candidate.encode())}
+        )
+        try:
+            await record_head(folder, candidate.encode())
+            await folder.sync_put(f"ack-{file_hash(acknowledgment)}.json", acknowledgment)
+            await self.load()
+        except SyncConflict:
+            return  # The selected version is resolved; other versions still block editing.
+        except (StorageError, TimeoutError) as exc:
+            self.storage.loaded = False
+            raise WriteError(
+                "Journal may already be saved; conflict acknowledgment failed. "
+                "Reload before retrying.",
+                committed=True,
+            ) from exc
 
     async def _validate_recovery(self) -> None:
         self.recovery_valid = self.recovery_backup_valid = False
@@ -118,7 +233,26 @@ class Journal:
     async def poll(self) -> bool:
         if not self.storage.loaded:
             return False
+        await self.check_sync()
         if await self.storage.poll():
+            folder = self.storage.folder
+            if isinstance(folder, SyncFolder):
+                await preserve(folder, self.source.encode())
+                current = await folder.read() or b""
+                await preserve(folder, current)
+                try:
+                    before = await asyncio.to_thread(self._parse, self.source)
+                    after = await asyncio.to_thread(self._parse, current.decode("utf-8"))
+                    newer = {item.id: item for item in after.transactions}
+                    lost_or_edited = any(newer.get(item.id) != item for item in before.transactions)
+                except (UnicodeDecodeError, LedgerError):
+                    lost_or_edited = True
+                if lost_or_edited:
+                    parent, child = file_hash(self.source.encode()), file_hash(current)
+                    await folder.sync_put(
+                        f"conflict-{parent}-{child}.json",
+                        json_bytes({"parent": parent, "child": child}),
+                    )
             await self.load()
             return True
         return False
@@ -137,7 +271,25 @@ class Journal:
         ledger = await asyncio.to_thread(self._parse, candidate)
         self.storage.draft = candidate
         try:
+            await self.check_sync()
+            folder = self.storage.folder
+            if isinstance(folder, SyncFolder):
+                state = self.sync_state
+                assert state is not None
+                evidence = await record_revision(folder, self.source.encode(), candidate.encode())
+                await folder.sync_expect(
+                    {name: file_hash(data) for name, data in (state.files | evidence).items()}
+                )
             backup = await self.storage.write()
+            if isinstance(folder, SyncFolder):
+                try:
+                    await record_head(folder, candidate.encode())
+                except (StorageError, TimeoutError) as exc:
+                    raise WriteError(
+                        "Journal saved; synchronization evidence finalization failed. "
+                        "Reload before retrying.",
+                        committed=True,
+                    ) from exc
         except (StorageError, ConflictError, TimeoutError, asyncio.CancelledError):
             self.ready = False
             self.storage.loaded = False

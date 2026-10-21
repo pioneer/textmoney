@@ -36,6 +36,7 @@ from app.localization import (
     translate,
 )
 from app.storage import RecoveryRequired, StorageError
+from app.synchronization import SyncConflict, file_hash
 from app.timekeeping import local_datetime, named_zone
 from app.ui.datetime_fields import DateTimeFields
 from app.version import release_identity
@@ -480,6 +481,13 @@ class FinanceView(ft.Row):
                             and self.journal.storage.recovery.required,
                         ),
                         ft.Text(self.tr("sync_status")),
+                        ft.TextButton(
+                            self.tr("sync_review"),
+                            on_click=self._review_sync,
+                            visible=self.journal is not None
+                            and self.journal.sync_state is not None
+                            and bool(self.journal.sync_state.versions),
+                        ),
                         ft.Divider(),
                         ft.Text(self.tr("backups_title"), size=18),
                         self.backup_cleanup,
@@ -1326,6 +1334,176 @@ class FinanceView(ft.Row):
         if self.journal is None:
             raise LedgerError("Select a folder first.")
         return self.journal
+
+    async def _review_sync(self, event: ft.Event[ft.TextButton]) -> None:
+        async def review() -> None:
+            journal = self._require_journal()
+            try:
+                await journal.load()
+            except SyncConflict:
+                self._set_message("sync_required")
+            state = journal.sync_state
+            if state is None or not state.versions:
+                self._set_message("reloaded")
+                return
+            selected = ft.Dropdown(
+                label=self.tr("sync_version"),
+                value=next(iter(state.versions)),
+                options=[ft.DropdownOption(key=name, text=name) for name in state.versions],
+            )
+
+            async def open_version(event: ft.Event[ft.TextButton]) -> None:
+                async def show() -> None:
+                    name = selected.value
+                    if name is None or self.journal is not journal:
+                        raise SyncConflict("sync_changed")
+                    local = await journal.storage.folder.read() or b""
+                    controls: list[ft.Control] = [
+                        ft.Text(self.tr("sync_help")),
+                        ft.Text(f"{self.tr('sync_version')}: {name}", selectable=True),
+                    ]
+                    choices: dict[str, ft.Dropdown] = {}
+                    whole = ft.Dropdown(
+                        label=self.tr("sync_whole"),
+                        options=[
+                            ft.DropdownOption(key="local", text=self.tr("sync_local")),
+                            ft.DropdownOption(key="remote", text=self.tr("sync_remote")),
+                        ],
+                    )
+                    proposal = None
+                    try:
+                        proposal = await journal.sync_review(name, local=local)
+                    except LedgerError:
+                        controls.append(ft.Text(self.tr("sync_manual")))
+                    if proposal is not None and proposal.compatible:
+                        controls.append(
+                            ft.Text(
+                                self.tr(
+                                    "sync_base_known"
+                                    if proposal.base is not None
+                                    else "sync_no_base"
+                                )
+                            )
+                        )
+                        for item in proposal.differences:
+                            local_description = proposal.local.descriptions.get(
+                                item.identifier, self.tr("sync_absent")
+                            )
+                            remote_description = proposal.remote.descriptions.get(
+                                item.identifier, self.tr("sync_absent")
+                            )
+                            controls.extend(
+                                [
+                                    ft.Divider(),
+                                    ft.Text(f"{self.tr('sync_' + item.kind)} · {item.identifier}"),
+                                    ft.Text(f"{self.tr('sync_local')}:\n{local_description}"),
+                                    ft.Text(f"{self.tr('sync_remote')}:\n{remote_description}"),
+                                    ft.ExpansionTile(
+                                        title=ft.Text(self.tr("sync_details")),
+                                        controls=[
+                                            ft.Text(
+                                                f"{self.tr('sync_local')}:\n{item.local or ''}",
+                                                selectable=True,
+                                            ),
+                                            ft.Text(
+                                                f"{self.tr('sync_remote')}:\n{item.remote or ''}",
+                                                selectable=True,
+                                            ),
+                                        ],
+                                    ),
+                                ]
+                            )
+                            choice = ft.Dropdown(
+                                label=self.tr("sync_choose"),
+                                value=item.automatic,
+                                options=[
+                                    ft.DropdownOption(key="local", text=self.tr("sync_local")),
+                                    ft.DropdownOption(key="remote", text=self.tr("sync_remote")),
+                                ],
+                            )
+                            choices[item.identifier] = choice
+                            controls.append(choice)
+                        if proposal.automatic:
+                            controls.append(ft.Text(self.tr("sync_auto")))
+                    else:
+                        controls.extend([ft.Text(self.tr("sync_manual")), whole])
+                        for label, data in (
+                            ("sync_local", local),
+                            ("sync_remote", state.versions[name]),
+                        ):
+                            controls.append(
+                                ft.ExpansionTile(
+                                    title=ft.Text(self.tr(label)),
+                                    subtitle=ft.Text(file_hash(data)),
+                                    controls=[
+                                        ft.Text(
+                                            data.decode("utf-8", errors="replace"), selectable=True
+                                        )
+                                    ],
+                                )
+                            )
+
+                    async def confirm(event: ft.Event[ft.TextButton]) -> None:
+                        async def commit() -> None:
+                            if self.journal is not journal or journal.sync_state is not state:
+                                raise SyncConflict("sync_changed")
+                            if proposal is not None and proposal.compatible:
+                                candidate = proposal.candidate(
+                                    {
+                                        key: control.value
+                                        for key, control in choices.items()
+                                        if control.value is not None
+                                    }
+                                )
+                            elif whole.value == "local":
+                                candidate = local.decode("utf-8")
+                            elif whole.value == "remote":
+                                candidate = state.versions[name].decode("utf-8")
+                            else:
+                                raise LedgerError("sync_choose")
+                            await journal.resolve_sync(
+                                name, state, candidate, local_hash=file_hash(local)
+                            )
+                            self.page.pop_dialog()
+                            self._set_message(
+                                "sync_remaining"
+                                if journal.sync_state and journal.sync_state.versions
+                                else "reloaded"
+                            )
+
+                        await self._action(commit)
+
+                    self.page.pop_dialog()
+                    self.page.show_dialog(
+                        ft.AlertDialog(
+                            modal=True,
+                            scrollable=True,
+                            title=self.tr("sync_review"),
+                            content=ft.Column(controls, width=360, tight=True),
+                            actions=[
+                                ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss),
+                                ft.TextButton(self.tr("sync_confirm"), on_click=confirm),
+                            ],
+                        )
+                    )
+
+                await self._action(show)
+
+            self.page.show_dialog(
+                ft.AlertDialog(
+                    modal=True,
+                    title=self.tr("sync_review"),
+                    content=ft.Column(
+                        [ft.Text(self.tr("sync_help")), selected], tight=True, width=360
+                    ),
+                    actions=[
+                        ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss),
+                        ft.TextButton(self.tr("sync_review"), on_click=open_version),
+                    ],
+                )
+            )
+
+        await self._action(review)
 
     def _saved(self, backup: str | None) -> None:
         self._set_message(

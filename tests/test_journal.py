@@ -1,4 +1,5 @@
 import asyncio
+import os
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -19,6 +20,7 @@ from app.infrastructure.beancount_journal import JournalCodec
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.storage import StorageError, WriteError
+from app.synchronization import SyncConflict, file_hash
 from app.ui.finance import FinanceView
 
 
@@ -106,9 +108,27 @@ def test_atomic_write_failure_invalidates_journal_until_reload(
         ledger = journal.ledger
         operation = "_sync_directory" if after_replacement else "_preserve_permissions"
         with monkeypatch.context() as patch:
+            from app.infrastructure.desktop_storage import _sync_directory
+
+            replace_file = os.replace
+            committed = False
+
+            def replace(source: Path, destination: Path) -> None:
+                nonlocal committed
+                replace_file(source, destination)
+                committed = destination == tmp_path / FILENAME
+
+            def sync(directory: Path) -> None:
+                if committed and directory == tmp_path:
+                    raise OSError("synthetic write failure")
+                _sync_directory(directory)
+
+            patch.setattr("app.infrastructure.desktop_storage.os.replace", replace)
             patch.setattr(
                 f"app.infrastructure.desktop_storage.{operation}",
-                MagicMock(side_effect=OSError("synthetic write failure")),
+                sync
+                if after_replacement
+                else MagicMock(side_effect=OSError("synthetic write failure")),
             )
             with pytest.raises(WriteError) as error:
                 await journal.add_expense("Assets:Cash", "Expenses:Food", "1", "Shop", "2026-10-01")
@@ -141,7 +161,13 @@ def test_append_preserves_comments_metadata_custom_directives_and_other_files(
         (tmp_path / FILENAME).write_bytes(original.encode())
         other = tmp_path / "unrelated.beancount"
         other.write_bytes(b"unsupported and private; do not modify")
-        await journal.load()
+        with pytest.raises(SyncConflict):
+            await journal.load()
+        state = journal.sync_state
+        assert state is not None
+        await journal.resolve_sync(
+            next(iter(state.versions)), state, original, local_hash=file_hash(original.encode())
+        )
         await journal.add_expense("Assets:Cash", "Expenses:Food", "1", "Shop", "2026-10-01")
         result = (tmp_path / FILENAME).read_bytes()
         assert result.startswith(original.encode())
@@ -169,7 +195,7 @@ def test_unsupported_content_blocks_writes_and_preserves_original(
         with (tmp_path / FILENAME).open("ab") as stream:
             stream.write(suffix.encode())
         original = (tmp_path / FILENAME).read_bytes()
-        with pytest.raises(LedgerError):
+        with pytest.raises((LedgerError, SyncConflict)):
             await journal.load()
         assert not journal.ready
         with pytest.raises(LedgerError, match="Reload"):

@@ -26,6 +26,10 @@ checks were not performed.
 ### Backup retention
 
 Before every modification, the previous journal is still backed up and verified.
+Synchronization additionally retains verified exact versions in `.txncount-sync/`.
+These are protected recovery evidence, outside ordinary backup retention, with
+no automatic cleanup. Never delete them while investigating conflicts. See
+[conflict review and manual recovery](synchronization.md).
 After the new journal has been written and read back successfully, automatic
 cleanup (enabled by default) keeps the union of:
 
@@ -490,7 +494,8 @@ Linux and Windows share the following save sequence:
 4. Preserve existing permissions, write all candidate bytes, flush the stream,
    apply existing mode bits and fsync the temporary file; then close it.
 5. Read and check the original SHA-256 baseline again, enforce target/folder
-   restrictions, and call `os.replace(temporary, journal)`. Replacement is the
+   restrictions, recheck the captured synchronization-source inventory and
+   call `os.replace(temporary, journal)`. Replacement is the
    commit point.
 6. Fsync the parent directory on supported POSIX filesystems. Windows skips
    directory sync with an explicit durability warning. Filesystems reporting
@@ -544,6 +549,9 @@ I/O thread, so cancellation may also require inspecting and reloading the journa
 only narrows the TOCTOU window; two TxnCount instances, Dropbox, Dropsync or any
 other writer can still overwrite changes made after that check. Do not edit
 simultaneously. Android's SAF/provider behavior is unchanged by desktop staging.
+Local conflict preservation and reviewed merges narrow a different risk: divergent
+versions left by external synchronization. They do not eliminate that race.
+See [synchronization](synchronization.md).
 
 ## Compact lists and simpler expense entry (build 9)
 

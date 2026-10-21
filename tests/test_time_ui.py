@@ -11,6 +11,7 @@ import pytest
 from beancount import loader
 from flet.controls.device_info import DeviceInfo
 from form_controls import transaction_form
+from journal_fixtures import review_external_fixture
 
 from app.domain.ledger import Account, LedgerError, Posting, Transaction
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -340,7 +341,7 @@ def test_readonly_transaction_opens_details_instead_of_hiding_its_postings(
             view.journal.source.replace('txncount-kind: "opening"', 'txncount-kind: "external"'),
             newline="",
         )
-        await view.journal.load()
+        await review_external_fixture(view.journal)
         original = view.journal.source
         event = MagicMock()
         event.control.data = view.journal.ledger.transactions[0].id
@@ -534,7 +535,7 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         stamp = "2026-01-02T00:30:00.123456Z"
         source = journal.source.replace(original.timestamp, stamp)
         (tmp_path / FILENAME).write_text(source, newline="")
-        await journal.load()
+        await review_external_fixture(journal)
         event = MagicMock()
         event.control.data = original.id
         view._edit_transaction(event)
@@ -631,7 +632,7 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
             'txncount-kind: "opening"', 'txncount-kind: "opening"\n    receipt: "keep" ; comment'
         )
         (tmp_path / FILENAME).write_text(source, newline="")
-        await journal.load()
+        await review_external_fixture(journal)
         original = next(t for t in journal.ledger.transactions if t.kind == "opening")
         before = journal.source
         event = MagicMock()

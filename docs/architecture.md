@@ -23,6 +23,7 @@ src/app/domain/backups.py  timestamped backup identities and tiered retention
 src/app/domain/recovery.py checksummed, hash-only Android save records and classification
 src/app/domain/ledger.py   explicit accounts, Decimal postings and running-balance checks
 src/app/journal.py         one-journal load/append/save coordination, no Flet
+src/app/synchronization.py verified local lineage, conflict evidence and lossless UUID merge
 src/app/infrastructure/beancount_journal.py lossless reading, directive splices and generation
 src/app/storage.py         shared read/backup/conflict/write policy and draft
 src/app/infrastructure/    desktop I/O and Android bridge transport
@@ -103,8 +104,23 @@ desktop hash baselines are in memory only; Android additionally stores save hash
 and backup identifiers for crash review, never a second ledger. See the [report](android-storage-validation.md) for
 backup safety, provider limitations, and device verification status. The same
 adapters allow only `storage-test.beancount` and `txncount.beancount`, with separate
-backup namespaces. No synchronization implementation, analytics or authentication
-is included; synchronization belongs to the user's external folder tool.
+backup namespaces. Cloud transport still belongs to the user's external folder
+tool; local synchronization conflict detection/review is described below. No
+analytics or authentication is included.
+
+`SyncFolder` adds checked sibling listing, immutable evidence storage and a final
+source-inventory guard to the existing adapters. `synchronization.py` validates
+hash-addressed exact snapshots and explicit parent/child records. Only verified
+recorded derivation can establish a three-way base, never an arbitrary backup or
+timestamp. Authored candidates are preserved before saving; separate head records
+identify verified saves. Divergent surviving heads can expose main-file replacement
+while the app was closed. Missing/damaged referenced evidence blocks writes.
+The journal service preserves both versions, gates readiness, validates complete
+resolution candidates, then reuses `StorageSession.write` and Android recovery.
+Acknowledgments suppress only reviewed filename/hash pairs on the resolved lineage;
+the original conflict documents remain untouched. UI owns localized choices,
+not merge decisions. No cloud client, global lock or general version-control
+system is introduced. See [synchronization guarantees](synchronization.md).
 
 Backup retention keeps 20 recent snapshots plus daily/monthly tiers. The
 storage session finalizes a timestamped `pending` backup only after verified

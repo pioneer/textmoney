@@ -202,6 +202,29 @@ not locally observed runs. No remaining compile blocker in the original build.
 This section supersedes the original PoC's lack of crash detection. It does not
 upgrade its device-testing results into evidence for the new recovery behavior.
 
+### Synchronization conflict review
+
+The current bridge additionally uses the pinned `saf_util.list`, `mkdirp`,
+`child`, and existing `saf_stream` byte APIs to inspect sibling Beancount
+documents and preserve immutable exact versions in `.txncount-sync/`.
+Python receives document bytes/names, never guessed filesystem paths. No new
+Android storage permission, native dependency or cloud API is added.
+The native write operation compares the reviewed sibling/evidence inventory
+after preparing the existing recovery record, immediately before the final
+journal comparison and direct write. These comparisons are not a provider
+transaction; synchronization can still race them.
+
+Conflict resolution uses the same prepared/completed recovery records, verified
+pre-write backups and native serialization as ordinary financial operations.
+A timeout/cancellation can leave the merged candidate committed without its
+conflict acknowledgment. Review interrupted-save recovery first, then review
+the remaining conflict; there is no automatic financial retry. An unchanged
+conflict file remains preserved after acknowledgment.
+Partial or inconsistent auxiliary evidence blocks writing and requires external
+inspection, rather than an automatic reset or deletion.
+See [synchronization behavior and test limits](synchronization.md).
+Mocked SAF tests are not evidence of real-provider behavior or durability.
+
 ### API findings and save sequence
 
 The pinned `saf_stream` 3.1.0 Android implementation uses
@@ -223,7 +246,8 @@ deletes the original as an intermediate replacement step.
    It contains schema version, previous/candidate SHA-256 hashes, backup ID,
    `prepared` phase, acknowledged pending-backup IDs and a SHA-256 checksum over
    the metadata. It contains **no journal contents**.
-4. Check original bytes again, then directly write the candidate through SAF.
+4. Recheck any captured synchronization-source inventory and original bytes,
+   then directly write the candidate through SAF.
    Native read-back must match the candidate; shared Python read-back still runs.
 5. Preserve existing backup finalization/retention. Finally write and read-verify
    a `complete` record after checking both journal and intent again. Completion

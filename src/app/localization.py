@@ -14,6 +14,27 @@ LANGUAGES: Final = ("en", "uk", "ru")
 
 _CATALOG: Final[dict[str, dict[str, str]]] = {
     "en": {
+        "sync_required": "Conflicting journal versions were found and preserved. Saving is blocked. Open Settings → Review synchronization conflicts.",
+        "sync_review": "Review synchronization conflicts",
+        "sync_details": "Source and metadata (read only)",
+        "sync_version": "Other journal version",
+        "sync_local": "Current journal",
+        "sync_remote": "Other version",
+        "sync_whole": "Explicitly choose one complete version",
+        "sync_choose": "Choose which version of this transaction to keep",
+        "sync_confirm": "Confirm reviewed result",
+        "sync_absent": "Not present (choosing this removes/omits the transaction)",
+        "sync_added": "Added",
+        "sync_deleted": "Absent or deleted",
+        "sync_modified": "Modified",
+        "sync_base_known": "A common ancestor was verified from recorded parent hashes and exact snapshots.",
+        "sync_no_base": "No verified common ancestor. Every difference requires your choice; absence is not proof of deletion.",
+        "sync_auto": "Independent changes have been selected using the verified ancestor. Review before confirming.",
+        "sync_manual": "Automatic merging is unsafe: declarations, options, comments or unsupported content differ. Compare both preserved files externally, or explicitly choose one complete valid version. Choosing a whole version can omit changes from the other.",
+        "sync_help": "Pause Dropbox/Dropsync on all devices. Both versions are preserved in .txncount-sync. Cancel to postpone without changing the journal. The original conflict file is never deleted. Local checks cannot prove synchronization is finished. Resolve Android interrupted-save recovery first if requested.",
+        "sync_changed": "A source version changed during resolution. Nothing will be retried automatically. Reload and review again.",
+        "sync_metadata": "Synchronization evidence is missing, damaged or ambiguous. Saving is blocked. Preserve the folder and inspect .txncount-sync; do not delete evidence to bypass review.",
+        "sync_remaining": "The reviewed result was saved. Other conflicting versions still need review in Settings.",
         "recovery_required": "An unfinished or uncertain Android save needs review. Saving is blocked. Open Settings → Review interrupted save. Do not resubmit the transaction.",
         "recovery_review": "Review interrupted save",
         "recovery_keep": "I reviewed this version — keep it",
@@ -294,6 +315,27 @@ _CATALOG: Final[dict[str, dict[str, str]]] = {
         "crud_referenced": "Other journal directives reference this account/category. Delete is blocked; use deactivation instead.",
     },
     "uk": {
+        "sync_required": "Знайдено й збережено конфліктні версії журналу. Зміни заблоковано. Відкрийте Налаштування → Перевірити конфлікти синхронізації.",
+        "sync_review": "Перевірити конфлікти синхронізації",
+        "sync_details": "Текст і метадані (лише перегляд)",
+        "sync_version": "Інша версія журналу",
+        "sync_local": "Поточний журнал",
+        "sync_remote": "Інша версія",
+        "sync_whole": "Явно виберіть одну повну версію",
+        "sync_choose": "Виберіть версію операції, яку слід залишити",
+        "sync_confirm": "Підтвердити перевірений результат",
+        "sync_absent": "Відсутня (цей вибір вилучає або не додає операцію)",
+        "sync_added": "Додано",
+        "sync_deleted": "Відсутня або видалена",
+        "sync_modified": "Змінено",
+        "sync_base_known": "Спільну початкову версію перевірено за записаними батьківськими хешами та точними знімками.",
+        "sync_no_base": "Немає перевіреної спільної версії. Кожну відмінність потрібно вибрати вручну; відсутність не доводить видалення.",
+        "sync_auto": "Незалежні зміни вибрано за перевіреною спільною версією. Перегляньте перед підтвердженням.",
+        "sync_manual": "Автоматичне об'єднання небезпечне: відрізняються рахунки, параметри, коментарі або непідтримуваний вміст. Порівняйте збережені файли зовні або явно виберіть одну повну коректну версію. Вона може не містити змін іншої версії.",
+        "sync_help": "Призупиніть Dropbox/Dropsync на всіх пристроях. Обидві версії збережено в .txncount-sync. Скасування відкладе рішення без змін журналу. Конфліктний файл не видаляється. Локальна перевірка не доводить завершення синхронізації. За потреби спочатку завершіть відновлення перерваного збереження Android.",
+        "sync_changed": "Початкову версію змінено під час узгодження. Автоматичного повтору не буде. Оновіть дані й перевірте знову.",
+        "sync_metadata": "Дані синхронізації відсутні, пошкоджені або неоднозначні. Зміни заблоковано. Збережіть папку й перевірте .txncount-sync; не видаляйте дані для обходу перевірки.",
+        "sync_remaining": "Перевірений результат збережено. Інші конфліктні версії ще потребують перевірки в Налаштуваннях.",
         "recovery_required": "Незавершене або невизначене збереження на Android потребує перевірки. Зміни заблоковано. Відкрийте Налаштування → Перевірити перерване збереження. Не надсилайте операцію повторно.",
         "recovery_review": "Перевірити перерване збереження",
         "recovery_keep": "Я перевірив цю версію — залишити її",
@@ -574,6 +616,27 @@ _CATALOG: Final[dict[str, dict[str, str]]] = {
         "crud_referenced": "Інші директиви посилаються на рахунок/категорію. Видалення заблоковане; скористайтеся деактивацією.",
     },
     "ru": {
+        "sync_required": "Найдены и сохранены конфликтующие версии журнала. Изменения заблокированы. Откройте Настройки → Проверить конфликты синхронизации.",
+        "sync_review": "Проверить конфликты синхронизации",
+        "sync_details": "Текст и метаданные (только просмотр)",
+        "sync_version": "Другая версия журнала",
+        "sync_local": "Текущий журнал",
+        "sync_remote": "Другая версия",
+        "sync_whole": "Явно выберите одну полную версию",
+        "sync_choose": "Выберите версию операции, которую нужно оставить",
+        "sync_confirm": "Подтвердить проверенный результат",
+        "sync_absent": "Отсутствует (этот выбор удаляет или не добавляет операцию)",
+        "sync_added": "Добавлено",
+        "sync_deleted": "Отсутствует или удалено",
+        "sync_modified": "Изменено",
+        "sync_base_known": "Общая исходная версия проверена по записанным родительским хешам и точным снимкам.",
+        "sync_no_base": "Нет проверенной общей версии. Каждое различие требует выбора; отсутствие не доказывает удаление.",
+        "sync_auto": "Независимые изменения выбраны по проверенной общей версии. Проверьте перед подтверждением.",
+        "sync_manual": "Автоматическое объединение небезопасно: различаются счета, параметры, комментарии или неподдерживаемое содержимое. Сравните сохранённые файлы вне приложения или явно выберите одну полную корректную версию. Она может не содержать изменений другой версии.",
+        "sync_help": "Приостановите Dropbox/Dropsync на всех устройствах. Обе версии сохранены в .txncount-sync. Отмена отложит решение без изменения журнала. Конфликтующий файл не удаляется. Локальная проверка не доказывает завершение синхронизации. При необходимости сначала завершите восстановление прерванного сохранения Android.",
+        "sync_changed": "Исходная версия изменилась при согласовании. Автоматического повтора не будет. Обновите данные и проверьте снова.",
+        "sync_metadata": "Данные синхронизации отсутствуют, повреждены или неоднозначны. Изменения заблокированы. Сохраните папку и проверьте .txncount-sync; не удаляйте данные для обхода проверки.",
+        "sync_remaining": "Проверенный результат сохранён. Другие конфликтующие версии ещё требуют проверки в Настройках.",
         "recovery_required": "Незавершённое или неопределённое сохранение на Android требует проверки. Изменения заблокированы. Откройте Настройки → Проверить прерванное сохранение. Не отправляйте операцию повторно.",
         "recovery_review": "Проверить прерванное сохранение",
         "recovery_keep": "Я проверил эту версию — оставить её",
@@ -923,7 +986,9 @@ def system_language(locales: tuple[str, ...] | list[str]) -> str:
 def localized_error(language: str, message: str) -> str:
     key = (
         message
-        if message.startswith(("crud_", "incoming_", "transfer_", "exchange_", "recovery_"))
+        if message.startswith(
+            ("crud_", "incoming_", "transfer_", "exchange_", "recovery_", "sync_")
+        )
         and message in _CATALOG["en"]
         else _ERROR_KEYS.get(message)
     )

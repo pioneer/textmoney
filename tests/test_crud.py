@@ -11,6 +11,7 @@ from beancount import loader
 from beancount.core.data import Transaction as OfficialTransaction
 from fava.core import FavaLedger
 from form_controls import transaction_form
+from journal_fixtures import review_external_fixture
 
 from app.domain.ledger import LedgerError
 from app.domain.storage import ConflictError
@@ -195,7 +196,7 @@ def test_expense_edit_preserves_id_metadata_tags_comments_and_unrelated_bytes(
         source = source.replace("\n", "\r\n")
         target = tmp_path / FILENAME
         target.write_bytes(source.encode())
-        await journal.load()
+        await review_external_fixture(journal)
         await journal.edit_expense(
             transaction.id,
             "Assets:Cash",
@@ -238,7 +239,7 @@ def test_expense_delete_physically_removes_entry_but_keeps_comments(tmp_path: Pa
             f'; keep this comment\n{transaction.date} * "Synthetic"',
         ).replace('  txncount-kind: "expense"', '  txncount-kind: "expense" ; keep inline')
         (tmp_path / FILENAME).write_text(source, newline="")
-        await journal.load()
+        await review_external_fixture(journal)
         await journal.delete_expense(transaction.id, journal.source)
         assert transaction.id not in journal.source
         assert "; keep this comment" in journal.source
@@ -261,7 +262,7 @@ def test_operating_currencies_new_existing_configuration_and_comments(tmp_path: 
             'option "operating_currency" "EUR"', 'option "operating_currency" "EUR" ; keep option'
         )
         (tmp_path / FILENAME).write_text(source, newline="")
-        await journal.load()
+        await review_external_fixture(journal)
         await journal.set_operating_currencies("EUR", journal.source)
         assert "; keep option" in journal.source
         assert journal.ledger.operating_currencies == ("EUR",)
@@ -270,7 +271,7 @@ def test_operating_currencies_new_existing_configuration_and_comments(tmp_path: 
         # An existing file without options is never silently changed on load.
         source = journal.source.replace('option "operating_currency" "EUR"', "")
         (tmp_path / FILENAME).write_text(source, newline="")
-        await journal.load()
+        await review_external_fixture(journal)
         assert journal.source == source
         assert journal.ledger.operating_currencies == ()
         await journal.set_operating_currencies("UAH USD", journal.source)
@@ -425,7 +426,7 @@ def test_split_and_opening_entries_are_readonly_in_expense_editor(tmp_path: Path
         )
         assert source != journal.source
         (tmp_path / FILENAME).write_text(source, newline="")
-        await journal.load()
+        await review_external_fixture(journal)
         with pytest.raises(LedgerError, match="crud_transaction_readonly"):
             await journal.delete_expense(journal.ledger.transactions[-1].id, source)
         assert journal.source == source
@@ -441,7 +442,7 @@ def test_fava_missing_operating_currency_error_is_resolved_in_existing_file(tmp_
         path.write_text(legacy, newline="")
         fava = FavaLedger(str(path), poll_watcher=True)
         assert any("No operating currency specified" in error.message for error in fava.errors)
-        await journal.load()
+        await review_external_fixture(journal)
         await journal.set_operating_currencies("UAH USD EUR", journal.source)
         await journal.edit_account("Assets:Cash", "Renamed", "120", False, journal.source)
         await journal.edit_category("Expenses:Food", "Renamed", False, journal.source)
@@ -699,7 +700,7 @@ def test_untagged_id_expense_is_readonly_without_inventing_new_identity(tmp_path
         source = journal.source.replace(f'    id: "{expense.id}"\n', "")
         assert source != journal.source
         (tmp_path / FILENAME).write_text(source, newline="")
-        await journal.load()
+        await review_external_fixture(journal)
         external = journal.ledger.transactions[-1]
         assert not external.persistent_id
         with pytest.raises(LedgerError, match="crud_transaction_readonly"):

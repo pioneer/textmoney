@@ -23,6 +23,7 @@ def test_linux_icon_is_large_transparent_and_keeps_android_source(
     shutil.copyfile(source, assets / "icon.png")
     original = source.read_bytes()
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "compile_translations", lambda: None)
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nversion = "0.2.2"\n[tool.flet]\nbuild_number = 19\n'
     )
@@ -190,6 +191,7 @@ def test_linux_run_selects_development_client_even_after_packaging(
     monkeypatch.setattr(tasks, "stage_release", lambda: None)
     monkeypatch.setattr(tasks.platform, "system", lambda: "Linux")
     monkeypatch.setattr(tasks, "prepare_linux_dev_client", lambda: client)
+    monkeypatch.setattr(tasks, "compile_translations", lambda: None)
 
     def launch(*args: str, env: dict[str, str], cwd: Path = tmp_path) -> None:
         monkeypatch.chdir(cwd)
@@ -290,7 +292,15 @@ def test_check_order_and_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(tasks, "execute", record)
     tasks.check(Context())
-    assert calls == ["ruff format --check .", "ruff check .", "pyright", "pytest"]
+    assert calls == [
+        "python tools/locales.py validate",
+        "python tools/locales.py compile",
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "python tools/locales.py compile",
+        "pytest",
+    ]
 
 
 def test_deployment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -420,11 +430,21 @@ def test_device_discovery(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> No
 
 
 def test_check_stops_on_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    execute = MagicMock(side_effect=Exit("format failed", code=1))
-    monkeypatch.setattr(tasks, "execute", execute)
+    calls: list[tuple[str, ...]] = []
+
+    def fail_on_format(*args: str, **kwargs: object) -> None:
+        calls.append(args)
+        if args[:2] == ("ruff", "format"):
+            raise Exit("format failed", code=1)
+
+    monkeypatch.setattr(tasks, "execute", fail_on_format)
     with pytest.raises(Exit, match="format failed"):
         tasks.check(Context())
-    execute.assert_called_once_with("ruff", "format", "--check", ".")
+    assert calls == [
+        ("python", "tools/locales.py", "validate"),
+        ("python", "tools/locales.py", "compile"),
+        ("ruff", "format", "--check", "."),
+    ]
 
 
 def test_command_failure_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -469,6 +489,7 @@ def test_asset_staging_and_clean_preserve_sources(
     environment.mkdir()
     (environment / "keep").touch()
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "compile_translations", lambda: None)
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nversion = "0.1.1"\n[tool.flet]\nbuild_number = 13\n'
     )

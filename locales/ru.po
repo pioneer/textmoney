@@ -1,0 +1,1503 @@
+# TxnCount gettext catalog.
+# Stable msgids are translation keys; translate msgstr values only.
+msgid ""
+msgstr ""
+"Project-Id-Version: TxnCount 0.2.4\n"
+"Report-Msgid-Bugs-To: https://github.com/pioneer/txncount/issues\n"
+"POT-Creation-Date: 2026-10-22 01:49+0300\n"
+"PO-Revision-Date: 2026-10-22 01:49+0300\n"
+"Last-Translator: TxnCount localization contributors\n"
+"Language: ru\n"
+"Language-Team: TxnCount ru translators\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#. Stable TxnCount key: ui.sync_required; do not translate this identifier.
+msgid "ui.sync_required"
+msgstr ""
+"Найдены и сохранены конфликтующие версии журнала. Изменения "
+"заблокированы. Откройте Настройки → Проверить конфликты синхронизации."
+
+#. Stable TxnCount key: ui.sync_review; do not translate this identifier.
+msgid "ui.sync_review"
+msgstr "Проверить конфликты синхронизации"
+
+#. Stable TxnCount key: ui.sync_details; do not translate this identifier.
+msgid "ui.sync_details"
+msgstr "Текст и метаданные (только просмотр)"
+
+#. Stable TxnCount key: ui.sync_version; do not translate this identifier.
+msgid "ui.sync_version"
+msgstr "Другая версия журнала"
+
+#. Stable TxnCount key: ui.sync_local; do not translate this identifier.
+msgid "ui.sync_local"
+msgstr "Текущий журнал"
+
+#. Stable TxnCount key: ui.sync_remote; do not translate this identifier.
+msgid "ui.sync_remote"
+msgstr "Другая версия"
+
+#. Stable TxnCount key: ui.sync_whole; do not translate this identifier.
+msgid "ui.sync_whole"
+msgstr "Явно выберите одну полную версию"
+
+#. Stable TxnCount key: ui.sync_choose; do not translate this identifier.
+msgid "ui.sync_choose"
+msgstr "Выберите версию операции, которую нужно оставить"
+
+#. Stable TxnCount key: ui.sync_confirm; do not translate this identifier.
+msgid "ui.sync_confirm"
+msgstr "Подтвердить проверенный результат"
+
+#. Stable TxnCount key: ui.sync_absent; do not translate this identifier.
+msgid "ui.sync_absent"
+msgstr "Отсутствует (этот выбор удаляет или не добавляет операцию)"
+
+#. Stable TxnCount key: ui.sync_added; do not translate this identifier.
+msgid "ui.sync_added"
+msgstr "Добавлено"
+
+#. Stable TxnCount key: ui.sync_deleted; do not translate this identifier.
+msgid "ui.sync_deleted"
+msgstr "Отсутствует или удалено"
+
+#. Stable TxnCount key: ui.sync_modified; do not translate this identifier.
+msgid "ui.sync_modified"
+msgstr "Изменено"
+
+#. Stable TxnCount key: ui.sync_base_known; do not translate this identifier.
+msgid "ui.sync_base_known"
+msgstr ""
+"Общая исходная версия проверена по записанным родительским хешам и точным"
+" снимкам."
+
+#. Stable TxnCount key: ui.sync_no_base; do not translate this identifier.
+msgid "ui.sync_no_base"
+msgstr ""
+"Нет проверенной общей версии. Каждое различие требует выбора; отсутствие "
+"не доказывает удаление."
+
+#. Stable TxnCount key: ui.sync_auto; do not translate this identifier.
+msgid "ui.sync_auto"
+msgstr ""
+"Независимые изменения выбраны по проверенной общей версии. Проверьте "
+"перед подтверждением."
+
+#. Stable TxnCount key: ui.sync_manual; do not translate this identifier.
+msgid "ui.sync_manual"
+msgstr ""
+"Автоматическое объединение небезопасно: различаются счета, параметры, "
+"комментарии или неподдерживаемое содержимое. Сравните сохранённые файлы "
+"вне приложения или явно выберите одну полную корректную версию. Она может"
+" не содержать изменений другой версии."
+
+#. Stable TxnCount key: ui.sync_help; do not translate this identifier.
+msgid "ui.sync_help"
+msgstr ""
+"Приостановите Dropbox/Dropsync на всех устройствах. Обе версии сохранены "
+"в .txncount-sync. Отмена отложит решение без изменения журнала. "
+"Конфликтующий файл не удаляется. Локальная проверка не доказывает "
+"завершение синхронизации. При необходимости сначала завершите "
+"восстановление прерванного сохранения Android."
+
+#. Stable TxnCount key: ui.sync_changed; do not translate this identifier.
+msgid "ui.sync_changed"
+msgstr ""
+"Исходная версия изменилась при согласовании. Автоматического повтора не "
+"будет. Обновите данные и проверьте снова."
+
+#. Stable TxnCount key: ui.sync_metadata; do not translate this identifier.
+msgid "ui.sync_metadata"
+msgstr ""
+"Данные синхронизации отсутствуют, повреждены или неоднозначны. Изменения "
+"заблокированы. Сохраните папку и проверьте .txncount-sync; не удаляйте "
+"данные для обхода проверки."
+
+#. Stable TxnCount key: ui.sync_remaining; do not translate this identifier.
+msgid "ui.sync_remaining"
+msgstr ""
+"Проверенный результат сохранён. Другие конфликтующие версии ещё требуют "
+"проверки в Настройках."
+
+#. Stable TxnCount key: ui.recovery_required; do not translate this identifier.
+msgid "ui.recovery_required"
+msgstr ""
+"Незавершённое или неопределённое сохранение на Android требует проверки. "
+"Изменения заблокированы. Откройте Настройки → Проверить прерванное "
+"сохранение. Не отправляйте операцию повторно."
+
+#. Stable TxnCount key: ui.recovery_review; do not translate this identifier.
+msgid "ui.recovery_review"
+msgstr "Проверить прерванное сохранение"
+
+#. Stable TxnCount key: ui.recovery_keep; do not translate this identifier.
+msgid "ui.recovery_keep"
+msgstr "Я проверил эту версию — оставить её"
+
+#. Stable TxnCount key: ui.recovery_restore_external; do not translate this
+#. identifier.
+msgid "ui.recovery_restore_external"
+msgstr ""
+"Восстановите журнал из проверенной копии вне TxnCount, затем обновите "
+"данные и проверьте. Автоматического восстановления не было."
+
+#. Stable TxnCount key: ui.recovery_help; do not translate this identifier.
+msgid "ui.recovery_help"
+msgstr ""
+"Отмена сохранит всё без изменений. Приостановите Dropbox/Dropsync и "
+"проверьте журнал и копии. Для восстановления сначала сохраните текущий "
+"журнал отдельно, восстановите проверенную копию, затем обновите данные и "
+"проверьте снова. Сохранение версии не повторяет операцию: создаёт снимок,"
+" сохраняет старую запись восстановления и разрешает редактирование. Даже "
+"корректный журнал может не содержать части операций. Непроверенная копия "
+"не гарантирует безопасности."
+
+#. Stable TxnCount key: ui.recovery_summary; do not translate this identifier.
+msgid "ui.recovery_summary"
+msgstr ""
+"Состояние: {state}\n"
+"Текущий журнал: {valid}; операций: {count}\n"
+"Предыдущая копия: {backup}\n"
+"Состояние копии: {verified}"
+
+#. Stable TxnCount key: ui.recovery_candidate; do not translate this
+#. identifier.
+msgid "ui.recovery_candidate"
+msgstr "соответствует новой версии; возможно, уже сохранено"
+
+#. Stable TxnCount key: ui.recovery_unchanged; do not translate this
+#. identifier.
+msgid "ui.recovery_unchanged"
+msgstr "соответствует предыдущей версии"
+
+#. Stable TxnCount key: ui.recovery_unexpected; do not translate this
+#. identifier.
+msgid "ui.recovery_unexpected"
+msgstr "неожиданная версия — возможно усечение или внешние изменения"
+
+#. Stable TxnCount key: ui.recovery_metadata; do not translate this identifier.
+msgid "ui.recovery_metadata"
+msgstr "метаданные сохранения отсутствуют или повреждены"
+
+#. Stable TxnCount key: ui.recovery_valid; do not translate this identifier.
+msgid "ui.recovery_valid"
+msgstr "проверка пройдена"
+
+#. Stable TxnCount key: ui.recovery_invalid; do not translate this identifier.
+msgid "ui.recovery_invalid"
+msgstr "отсутствует или некорректен"
+
+#. Stable TxnCount key: ui.recovery_verified; do not translate this identifier.
+msgid "ui.recovery_verified"
+msgstr "хеш и журнал проверены"
+
+#. Stable TxnCount key: ui.recovery_unverified; do not translate this
+#. identifier.
+msgid "ui.recovery_unverified"
+msgstr "отсутствует, повреждена или не проверена"
+
+#. Stable TxnCount key: ui.primary_account; do not translate this identifier.
+msgid "ui.primary_account"
+msgstr "Счёт"
+
+#. Stable TxnCount key: ui.amount_debit_hint; do not translate this identifier.
+msgid "ui.amount_debit_hint"
+msgstr "−: Списание со счёта"
+
+#. Stable TxnCount key: ui.amount_credit_hint; do not translate this
+#. identifier.
+msgid "ui.amount_credit_hint"
+msgstr "+: Зачисление на счёт"
+
+#. Stable TxnCount key: ui.amount_transfer_hint; do not translate this
+#. identifier.
+msgid "ui.amount_transfer_hint"
+msgstr "↔: Перевод между счетами"
+
+#. Stable TxnCount key: ui.source_account; do not translate this identifier.
+msgid "ui.source_account"
+msgstr "Счёт списания"
+
+#. Stable TxnCount key: ui.destination_account; do not translate this
+#. identifier.
+msgid "ui.destination_account"
+msgstr "Счёт зачисления"
+
+#. Stable TxnCount key: ui.source_account_optional; do not translate this
+#. identifier.
+msgid "ui.source_account_optional"
+msgstr "Счёт списания (необязательно)"
+
+#. Stable TxnCount key: ui.destination_account_optional; do not translate this
+#. identifier.
+msgid "ui.destination_account_optional"
+msgstr "Счёт зачисления (необязательно)"
+
+#. Stable TxnCount key: ui.transaction_advanced; do not translate this
+#. identifier.
+msgid "ui.transaction_advanced"
+msgstr "Дополнительно"
+
+#. Stable TxnCount key: ui.second_account; do not translate this identifier.
+msgid "ui.second_account"
+msgstr "Второй счёт (необязательно)"
+
+#. Stable TxnCount key: ui.no_second_account; do not translate this identifier.
+msgid "ui.no_second_account"
+msgstr "Без второго счёта"
+
+#. Stable TxnCount key: ui.special_receipt; do not translate this identifier.
+msgid "ui.special_receipt"
+msgstr "Поступление"
+
+#. Stable TxnCount key: ui.transfer_preview; do not translate this identifier.
+msgid "ui.transfer_preview"
+msgstr ""
+"Списано: {debited}\n"
+"Зачислено: {credited}"
+
+#. Stable TxnCount key: ui.kind_transfer; do not translate this identifier.
+msgid "ui.kind_transfer"
+msgstr "Перевод"
+
+#. Stable TxnCount key: ui.transaction_help_transfer; do not translate this
+#. identifier.
+msgid "ui.transaction_help_transfer"
+msgstr ""
+"Перевод между своими счетами. Для разных валют введите фактически "
+"списанную и зачисленную суммы с учётом комиссии. Только комиссия является"
+" расходом. Перевод на кредитный счёт уменьшает долг. Отрицательный баланс"
+" вызывает предупреждение, но не блокирует сохранение."
+
+#. Stable TxnCount key: ui.exchange_debited; do not translate this identifier.
+msgid "ui.exchange_debited"
+msgstr "Списано"
+
+#. Stable TxnCount key: ui.exchange_credited; do not translate this identifier.
+msgid "ui.exchange_credited"
+msgstr "Зачислено"
+
+#. Stable TxnCount key: ui.exchange_fee_currency; do not translate this
+#. identifier.
+msgid "ui.exchange_fee_currency"
+msgstr "Валюта комиссии"
+
+#. Stable TxnCount key: ui.exchange_preview; do not translate this identifier.
+msgid "ui.exchange_preview"
+msgstr ""
+"Списано: {debited}\n"
+"Зачислено: {credited}\n"
+"Обменено: {principal} → {gross}\n"
+"Курс без комиссии: {rate}"
+
+#. Stable TxnCount key: ui.exchange_invalid; do not translate this identifier.
+msgid "ui.exchange_invalid"
+msgstr ""
+"Неподдерживаемый или несбалансированный обмен. Нужны сумма обмена с "
+"полной ценой, зачисление и необязательная комиссия в валюте одного из "
+"счетов."
+
+#. Stable TxnCount key: ui.exchange_fee_invalid; do not translate this
+#. identifier.
+msgid "ui.exchange_fee_invalid"
+msgstr "Комиссия должна быть в валюте исходного счёта или счёта зачисления."
+
+#. Stable TxnCount key: ui.transfer_counterparty; do not translate this
+#. identifier.
+msgid "ui.transfer_counterparty"
+msgstr "Контрагент (необязательно)"
+
+#. Stable TxnCount key: ui.transfer_account_type; do not translate this
+#. identifier.
+msgid "ui.transfer_account_type"
+msgstr "Тип счёта"
+
+#. Stable TxnCount key: ui.transfer_asset; do not translate this identifier.
+msgid "ui.transfer_asset"
+msgstr "Собственные деньги / наличные"
+
+#. Stable TxnCount key: ui.transfer_liability; do not translate this
+#. identifier.
+msgid "ui.transfer_liability"
+msgstr "Заём / кредит"
+
+#. Stable TxnCount key: ui.transfer_owed; do not translate this identifier.
+msgid "ui.transfer_owed"
+msgstr "Начальная сумма долга"
+
+#. Stable TxnCount key: ui.transfer_destination; do not translate this
+#. identifier.
+msgid "ui.transfer_destination"
+msgstr "Перевести на"
+
+#. Stable TxnCount key: ui.transfer_fee_enabled; do not translate this
+#. identifier.
+msgid "ui.transfer_fee_enabled"
+msgstr "Добавить комиссию"
+
+#. Stable TxnCount key: ui.transfer_fee; do not translate this identifier.
+msgid "ui.transfer_fee"
+msgstr "Комиссия"
+
+#. Stable TxnCount key: ui.transfer_mode; do not translate this identifier.
+msgid "ui.transfer_mode"
+msgstr "Способ списания комиссии"
+
+#. Stable TxnCount key: ui.transfer_added; do not translate this identifier.
+msgid "ui.transfer_added"
+msgstr "Сверх суммы перевода"
+
+#. Stable TxnCount key: ui.transfer_deducted; do not translate this identifier.
+msgid "ui.transfer_deducted"
+msgstr "Из суммы перевода"
+
+#. Stable TxnCount key: ui.transfer_fee_category; do not translate this
+#. identifier.
+msgid "ui.transfer_fee_category"
+msgstr "Категория комиссии"
+
+#. Stable TxnCount key: ui.transfer_default_fee; do not translate this
+#. identifier.
+msgid "ui.transfer_default_fee"
+msgstr "Категория комиссии перевода по умолчанию"
+
+#. Stable TxnCount key: ui.transfer_bank_fees; do not translate this
+#. identifier.
+msgid "ui.transfer_bank_fees"
+msgstr "Банковские комиссии"
+
+#. Stable TxnCount key: ui.transfer_accounts; do not translate this identifier.
+msgid "ui.transfer_accounts"
+msgstr "Выберите два разных, явно созданных счёта."
+
+#. Stable TxnCount key: ui.transfer_currency; do not translate this identifier.
+msgid "ui.transfer_currency"
+msgstr ""
+"Для разных валют введите списанную и зачисленную суммы; для одной валюты "
+"— одну сумму перевода."
+
+#. Stable TxnCount key: ui.transfer_amount; do not translate this identifier.
+msgid "ui.transfer_amount"
+msgstr ""
+"Сумма перевода должна быть положительной, комиссия — неотрицательной. "
+"Комиссия из суммы должна быть меньше перевода."
+
+#. Stable TxnCount key: ui.transfer_category; do not translate this identifier.
+msgid "ui.transfer_category"
+msgstr "Выберите одну категорию расходов для комиссии перевода по умолчанию."
+
+#. Stable TxnCount key: ui.transfer_negative; do not translate this identifier.
+msgid "ui.transfer_negative"
+msgstr ""
+"Внимание: эти счета имеют отрицательный баланс в определённый момент "
+"истории. Сохранение разрешено:"
+
+#. Stable TxnCount key: ui.add_transaction; do not translate this identifier.
+msgid "ui.add_transaction"
+msgstr "Добавить операцию"
+
+#. Stable TxnCount key: ui.income_category; do not translate this identifier.
+msgid "ui.income_category"
+msgstr "Категория дохода"
+
+#. Stable TxnCount key: ui.transaction_help_expense; do not translate this
+#. identifier.
+msgid "ui.transaction_help_expense"
+msgstr "Расход денег со счёта. Используется валюта счёта."
+
+#. Stable TxnCount key: ui.transaction_help_income; do not translate this
+#. identifier.
+msgid "ui.transaction_help_income"
+msgstr "Поступление, увеличивающее доход. Категории доходов создаются в Счетах."
+
+#. Stable TxnCount key: ui.transaction_help_reimbursement; do not translate
+#. this identifier.
+msgid "ui.transaction_help_reimbursement"
+msgstr ""
+"Уменьшает расходы на дату получения, а не увеличивает доход. Выберите "
+"исходный расход для заполнения категории и суммы или оставьте без ссылки."
+" Можно указать частичную сумму; учёта долгов и лимита возмещения нет."
+
+#. Stable TxnCount key: ui.transaction_help_adjustment; do not translate this
+#. identifier.
+msgid "ui.transaction_help_adjustment"
+msgstr ""
+"Увеличивает баланс без изменения доходов и расходов, например возврат "
+"денег за покупку до начала учёта. Не меняет начальный баланс."
+
+#. Stable TxnCount key: ui.incoming_type; do not translate this identifier.
+msgid "ui.incoming_type"
+msgstr "Тип"
+
+#. Stable TxnCount key: ui.kind_income; do not translate this identifier.
+msgid "ui.kind_income"
+msgstr "Доход"
+
+#. Stable TxnCount key: ui.kind_reimbursement; do not translate this
+#. identifier.
+msgid "ui.kind_reimbursement"
+msgstr "Возмещение расходов"
+
+#. Stable TxnCount key: ui.kind_adjustment; do not translate this identifier.
+msgid "ui.kind_adjustment"
+msgstr "Корректировка баланса"
+
+#. Stable TxnCount key: ui.incoming_account; do not translate this identifier.
+msgid "ui.incoming_account"
+msgstr "Получить на счёт"
+
+#. Stable TxnCount key: ui.incoming_choose_account; do not translate this
+#. identifier.
+msgid "ui.incoming_choose_account"
+msgstr "Выберите существующий счёт для получения."
+
+#. Stable TxnCount key: ui.incoming_sender; do not translate this identifier.
+msgid "ui.incoming_sender"
+msgstr "Отправитель (необязательно)"
+
+#. Stable TxnCount key: ui.incoming_reference_label; do not translate this
+#. identifier.
+msgid "ui.incoming_reference_label"
+msgstr "Исходный расход (необязательно)"
+
+#. Stable TxnCount key: ui.incoming_no_reference; do not translate this
+#. identifier.
+msgid "ui.incoming_no_reference"
+msgstr "Без ссылки на расход"
+
+#. Stable TxnCount key: ui.incoming_linked; do not translate this identifier.
+msgid "ui.incoming_linked"
+msgstr "Ссылка на расход: {identifier}"
+
+#. Stable TxnCount key: ui.incoming_category; do not translate this identifier.
+msgid "ui.incoming_category"
+msgstr "Выберите активную категорию соответствующего типа."
+
+#. Stable TxnCount key: ui.incoming_amount; do not translate this identifier.
+msgid "ui.incoming_amount"
+msgstr "Сумма должна быть больше нуля."
+
+#. Stable TxnCount key: ui.incoming_date; do not translate this identifier.
+msgid "ui.incoming_date"
+msgstr "Выберите дату от 1 января 1970 года до сегодня."
+
+#. Stable TxnCount key: ui.incoming_reference; do not translate this
+#. identifier.
+msgid "ui.incoming_reference"
+msgstr ""
+"Выберите существующий расход с той же категорией и валютой, датированный "
+"не позже поступления."
+
+#. Stable TxnCount key: ui.incoming_period; do not translate this identifier.
+msgid "ui.incoming_period"
+msgstr "Конечная дата не может предшествовать начальной."
+
+#. Stable TxnCount key: ui.app_name; do not translate this identifier.
+msgid "ui.app_name"
+msgstr "TxnCount"
+
+#. Stable TxnCount key: ui.timezone; do not translate this identifier.
+msgid "ui.timezone"
+msgstr "Часовой пояс"
+
+#. Stable TxnCount key: ui.advanced; do not translate this identifier.
+msgid "ui.advanced"
+msgstr "Дополнительные настройки"
+
+#. Stable TxnCount key: ui.payee_help; do not translate this identifier.
+msgid "ui.payee_help"
+msgstr ""
+"Необязательно: магазин или человек, получающий деньги, а не категория "
+"расходов. Оставьте пустым, если это не нужно."
+
+#. Stable TxnCount key: ui.display_currency_codes; do not translate this
+#. identifier.
+msgid "ui.display_currency_codes"
+msgstr ""
+"Коды через пробел, например UAH USD EUR. Валюты новых счетов добавляются "
+"автоматически; существующие настройки сохраняются."
+
+#. Stable TxnCount key: ui.timezone_help; do not translate this identifier.
+msgid "ui.timezone_help"
+msgstr ""
+"Системный пояс этого устройства или имя IANA, например Europe/Kyiv. "
+"Существующие временные метки и учётные даты не изменяются."
+
+#. Stable TxnCount key: ui.timezone_system; do not translate this identifier.
+msgid "ui.timezone_system"
+msgstr "Системный"
+
+#. Stable TxnCount key: ui.timezone_saved; do not translate this identifier.
+msgid "ui.timezone_saved"
+msgstr "Часовой пояс сохранён."
+
+#. Stable TxnCount key: ui.timezone_current; do not translate this identifier.
+msgid "ui.timezone_current"
+msgstr "Текущий часовой пояс: {zone}"
+
+#. Stable TxnCount key: ui.time; do not translate this identifier.
+msgid "ui.time"
+msgstr "Время (24 часа)"
+
+#. Stable TxnCount key: ui.date_hint; do not translate this identifier.
+msgid "ui.date_hint"
+msgstr "ДД.ММ.ГГГГ"
+
+#. Stable TxnCount key: ui.time_hint; do not translate this identifier.
+msgid "ui.time_hint"
+msgstr "ЧЧ:ММ или ЧЧ:ММ:СС"
+
+#. Stable TxnCount key: ui.pick_date; do not translate this identifier.
+msgid "ui.pick_date"
+msgstr "Выбрать дату"
+
+#. Stable TxnCount key: ui.pick_time; do not translate this identifier.
+msgid "ui.pick_time"
+msgstr "Выбрать время"
+
+#. Stable TxnCount key: ui.details; do not translate this identifier.
+msgid "ui.details"
+msgstr "Подробности"
+
+#. Stable TxnCount key: ui.crud_timezone_invalid; do not translate this
+#. identifier.
+msgid "ui.crud_timezone_invalid"
+msgstr ""
+"Неизвестный часовой пояс. Выберите системный или имя IANA, например "
+"Europe/Kyiv."
+
+#. Stable TxnCount key: ui.crud_timezone_unavailable; do not translate this
+#. identifier.
+msgid "ui.crud_timezone_unavailable"
+msgstr ""
+"Не удалось получить часовой пояс устройства. Повторите попытку или "
+"задайте пояс в настройках."
+
+#. Stable TxnCount key: ui.crud_timezone_save; do not translate this
+#. identifier.
+msgid "ui.crud_timezone_save"
+msgstr "Не удалось сохранить часовой пояс. Повторите попытку."
+
+#. Stable TxnCount key: ui.crud_date_invalid; do not translate this identifier.
+msgid "ui.crud_date_invalid"
+msgstr "Введите правильную дату в формате, указанном под полем."
+
+#. Stable TxnCount key: ui.crud_time_invalid; do not translate this identifier.
+msgid "ui.crud_time_invalid"
+msgstr "Введите время в 24-часовом формате: ЧЧ:ММ или ЧЧ:ММ:СС."
+
+#. Stable TxnCount key: ui.crud_time_missing; do not translate this identifier.
+msgid "ui.crud_time_missing"
+msgstr ""
+"Этого местного времени не существует из-за перевода часов вперёд. "
+"Выберите другое время."
+
+#. Stable TxnCount key: ui.crud_time_ambiguous; do not translate this
+#. identifier.
+msgid "ui.crud_time_ambiguous"
+msgstr ""
+"Это время повторяется при переводе часов назад. Выберите однозначное "
+"время. Неизменённые существующие метки можно сохранять."
+
+#. Stable TxnCount key: ui.multiple_postings; do not translate this identifier.
+msgid "ui.multiple_postings"
+msgstr "Несколько проводок"
+
+#. Stable TxnCount key: ui.version; do not translate this identifier.
+msgid "ui.version"
+msgstr "Версия 0.1"
+
+#. Stable TxnCount key: ui.nav_home; do not translate this identifier.
+msgid "ui.nav_home"
+msgstr "Главная"
+
+#. Stable TxnCount key: ui.nav_transactions; do not translate this identifier.
+msgid "ui.nav_transactions"
+msgstr "Операции"
+
+#. Stable TxnCount key: ui.nav_accounts; do not translate this identifier.
+msgid "ui.nav_accounts"
+msgstr "Учёт"
+
+#. Stable TxnCount key: ui.nav_settings; do not translate this identifier.
+msgid "ui.nav_settings"
+msgstr "Настройки"
+
+#. Stable TxnCount key: ui.welcome_title; do not translate this identifier.
+msgid "ui.welcome_title"
+msgstr "Добро пожаловать в TxnCount"
+
+#. Stable TxnCount key: ui.welcome_body; do not translate this identifier.
+msgid "ui.welcome_body"
+msgstr ""
+"Счета и расходы хранятся в обычном текстовом файле Beancount в выбранной "
+"вами папке. Синхронизация необязательна и выполняется вашим приложением."
+
+#. Stable TxnCount key: ui.welcome_step; do not translate this identifier.
+msgid "ui.welcome_step"
+msgstr "Выберите папку, чтобы начать. Затем можно будет создать первый счёт."
+
+#. Stable TxnCount key: ui.select_folder; do not translate this identifier.
+msgid "ui.select_folder"
+msgstr "Выбрать папку данных"
+
+#. Stable TxnCount key: ui.change_folder; do not translate this identifier.
+msgid "ui.change_folder"
+msgstr "Сменить папку"
+
+#. Stable TxnCount key: ui.reload; do not translate this identifier.
+msgid "ui.reload"
+msgstr "Обновить данные"
+
+#. Stable TxnCount key: ui.no_folder; do not translate this identifier.
+msgid "ui.no_folder"
+msgstr "Для начала выберите папку."
+
+#. Stable TxnCount key: ui.folder; do not translate this identifier.
+msgid "ui.folder"
+msgstr "Папка данных"
+
+#. Stable TxnCount key: ui.folder_selected; do not translate this identifier.
+msgid "ui.folder_selected"
+msgstr "Папка выбрана"
+
+#. Stable TxnCount key: ui.access; do not translate this identifier.
+msgid "ui.access"
+msgstr "Доступ к папке"
+
+#. Stable TxnCount key: ui.access_unchecked; do not translate this identifier.
+msgid "ui.access_unchecked"
+msgstr "Доступ ещё не проверен."
+
+#. Stable TxnCount key: ui.access_ok; do not translate this identifier.
+msgid "ui.access_ok"
+msgstr "Папка доступна."
+
+#. Stable TxnCount key: ui.access_failed; do not translate this identifier.
+msgid "ui.access_failed"
+msgstr "Не удалось подтвердить доступ. Выберите папку ещё раз."
+
+#. Stable TxnCount key: ui.journal_loaded; do not translate this identifier.
+msgid "ui.journal_loaded"
+msgstr "Данные актуальны."
+
+#. Stable TxnCount key: ui.journal_new; do not translate this identifier.
+msgid "ui.journal_new"
+msgstr "Папка готова. Создайте первый счёт, когда будете готовы."
+
+#. Stable TxnCount key: ui.external_reloaded; do not translate this identifier.
+msgid "ui.external_reloaded"
+msgstr "Внешние изменения загружены. Введённые данные формы сохранены."
+
+#. Stable TxnCount key: ui.reloaded; do not translate this identifier.
+msgid "ui.reloaded"
+msgstr "Данные обновлены. Введённые данные формы сохранены."
+
+#. Stable TxnCount key: ui.reload_hint; do not translate this identifier.
+msgid "ui.reload_hint"
+msgstr "Проверьте обновлённый баланс и историю перед повторной попыткой."
+
+#. Stable TxnCount key: ui.saved; do not translate this identifier.
+msgid "ui.saved"
+msgstr "Изменения сохранены и проверены."
+
+#. Stable TxnCount key: ui.saved_backup; do not translate this identifier.
+msgid "ui.saved_backup"
+msgstr "Изменения сохранены и проверены. Создана резервная копия."
+
+#. Stable TxnCount key: ui.backups_title; do not translate this identifier.
+msgid "ui.backups_title"
+msgstr "Резервные копии"
+
+#. Stable TxnCount key: ui.backups_automatic; do not translate this identifier.
+msgid "ui.backups_automatic"
+msgstr "Автоматически очищать старые копии"
+
+#. Stable TxnCount key: ui.backups_policy; do not translate this identifier.
+msgid "ui.backups_policy"
+msgstr ""
+"Хранить 20 последних копий, дополнительно одну в день за 30 календарных "
+"дней и одну в месяц за 12 календарных месяцев (включая сегодня и текущий "
+"месяц)."
+
+#. Stable TxnCount key: ui.backups_protected; do not translate this identifier.
+msgid "ui.backups_protected"
+msgstr ""
+"Копии незавершённых записей, ручные копии и старые копии без даты "
+"автоматически не удаляются. Просматривайте их отдельно. Удаление "
+"распространяется через синхронизацию."
+
+#. Stable TxnCount key: ui.backups_clean; do not translate this identifier.
+msgid "ui.backups_clean"
+msgstr "Очистить старые копии"
+
+#. Stable TxnCount key: ui.backups_cleaned; do not translate this identifier.
+msgid "ui.backups_cleaned"
+msgstr "Очистка резервных копий завершена. Защищённые копии сохранены."
+
+#. Stable TxnCount key: ui.backups_saved_warning; do not translate this
+#. identifier.
+msgid "ui.backups_saved_warning"
+msgstr ""
+"Изменения сохранены и проверены, но обслуживание резервных копий не "
+"удалось. Копии для восстановления сохранены; проверьте доступ к папке и "
+"повторите очистку в настройках."
+
+#. Stable TxnCount key: ui.backups_setting_saved; do not translate this
+#. identifier.
+msgid "ui.backups_setting_saved"
+msgstr "Настройка очистки копий сохранена на этом устройстве."
+
+#. Stable TxnCount key: ui.backups_setting_failed; do not translate this
+#. identifier.
+msgid "ui.backups_setting_failed"
+msgstr "Не удалось сохранить настройку очистки копий. Попробуйте ещё раз."
+
+#. Stable TxnCount key: ui.backups_invalid_setting; do not translate this
+#. identifier.
+msgid "ui.backups_invalid_setting"
+msgstr "Некорректная настройка очистки копий. Проверьте локальный файл настроек."
+
+#. Stable TxnCount key: ui.saved_new; do not translate this identifier.
+msgid "ui.saved_new"
+msgstr "Изменения сохранены и проверены в новом файле."
+
+#. Stable TxnCount key: ui.cancelled; do not translate this identifier.
+msgid "ui.cancelled"
+msgstr "Выбор папки отменён. Данные не изменены."
+
+#. Stable TxnCount key: ui.action_failed; do not translate this identifier.
+msgid "ui.action_failed"
+msgstr "Не удалось выполнить действие."
+
+#. Stable TxnCount key: ui.conflict_title; do not translate this identifier.
+msgid "ui.conflict_title"
+msgstr "Сохранение приостановлено"
+
+#. Stable TxnCount key: ui.conflict_body; do not translate this identifier.
+msgid "ui.conflict_body"
+msgstr ""
+"Журнал изменился вне TxnCount. Данные не перезаписаны, введённые значения"
+" сохранены. Обновите данные и проверьте баланс перед повторной попыткой."
+
+#. Stable TxnCount key: ui.keep_editing; do not translate this identifier.
+msgid "ui.keep_editing"
+msgstr "Продолжить редактирование"
+
+#. Stable TxnCount key: ui.home_balances; do not translate this identifier.
+msgid "ui.home_balances"
+msgstr "Ваши балансы"
+
+#. Stable TxnCount key: ui.home_recent; do not translate this identifier.
+msgid "ui.home_recent"
+msgstr "Последние операции"
+
+#. Stable TxnCount key: ui.home_no_accounts; do not translate this identifier.
+msgid "ui.home_no_accounts"
+msgstr "Счетов пока нет. Создайте первый, когда будете готовы."
+
+#. Stable TxnCount key: ui.home_no_transactions; do not translate this
+#. identifier.
+msgid "ui.home_no_transactions"
+msgstr "Здесь появятся последние операции."
+
+#. Stable TxnCount key: ui.currency_group; do not translate this identifier.
+msgid "ui.currency_group"
+msgstr "В валюте {currency}"
+
+#. Stable TxnCount key: ui.transactions_title; do not translate this
+#. identifier.
+msgid "ui.transactions_title"
+msgstr "Операции"
+
+#. Stable TxnCount key: ui.transactions_empty; do not translate this
+#. identifier.
+msgid "ui.transactions_empty"
+msgstr "Операций пока нет."
+
+#. Stable TxnCount key: ui.accounts_title; do not translate this identifier.
+msgid "ui.accounts_title"
+msgstr "Счета"
+
+#. Stable TxnCount key: ui.accounts_empty; do not translate this identifier.
+msgid "ui.accounts_empty"
+msgstr "Счетов пока нет."
+
+#. Stable TxnCount key: ui.categories_title; do not translate this identifier.
+msgid "ui.categories_title"
+msgstr "Категории"
+
+#. Stable TxnCount key: ui.categories_expenses; do not translate this
+#. identifier.
+msgid "ui.categories_expenses"
+msgstr "Расходы"
+
+#. Stable TxnCount key: ui.categories_income; do not translate this identifier.
+msgid "ui.categories_income"
+msgstr "Доходы"
+
+#. Stable TxnCount key: ui.categories_empty; do not translate this identifier.
+msgid "ui.categories_empty"
+msgstr "Категорий пока нет."
+
+#. Stable TxnCount key: ui.create_account; do not translate this identifier.
+msgid "ui.create_account"
+msgstr "Создать счёт"
+
+#. Stable TxnCount key: ui.account_name; do not translate this identifier.
+msgid "ui.account_name"
+msgstr "Название счёта"
+
+#. Stable TxnCount key: ui.account_code; do not translate this identifier.
+msgid "ui.account_code"
+msgstr "Код счёта (дополнительно)"
+
+#. Stable TxnCount key: ui.account_code_hint; do not translate this identifier.
+msgid "ui.account_code_hint"
+msgstr "Например, Cash или Bank:Daily"
+
+#. Stable TxnCount key: ui.currency; do not translate this identifier.
+msgid "ui.currency"
+msgstr "Валюта"
+
+#. Stable TxnCount key: ui.opening_balance; do not translate this identifier.
+msgid "ui.opening_balance"
+msgstr "Начальный баланс (необязательно)"
+
+#. Stable TxnCount key: ui.create_category; do not translate this identifier.
+msgid "ui.create_category"
+msgstr "Создать категорию"
+
+#. Stable TxnCount key: ui.category_path; do not translate this identifier.
+msgid "ui.category_path"
+msgstr "Путь категории"
+
+#. Stable TxnCount key: ui.category_path_hint; do not translate this
+#. identifier.
+msgid "ui.category_path_hint"
+msgstr "Например, Food:Groceries"
+
+#. Stable TxnCount key: ui.category_none_available; do not translate this
+#. identifier.
+msgid "ui.category_none_available"
+msgstr "Категорий пока нет — создайте первую"
+
+#. Stable TxnCount key: ui.category_name; do not translate this identifier.
+msgid "ui.category_name"
+msgstr "Название категории"
+
+#. Stable TxnCount key: ui.pay_from; do not translate this identifier.
+msgid "ui.pay_from"
+msgstr "С какого счёта"
+
+#. Stable TxnCount key: ui.choose_account; do not translate this identifier.
+msgid "ui.choose_account"
+msgstr "Выберите счёт"
+
+#. Stable TxnCount key: ui.expense_category; do not translate this identifier.
+msgid "ui.expense_category"
+msgstr "Категория"
+
+#. Stable TxnCount key: ui.choose_category; do not translate this identifier.
+msgid "ui.choose_category"
+msgstr "Выберите категорию"
+
+#. Stable TxnCount key: ui.amount; do not translate this identifier.
+msgid "ui.amount"
+msgstr "Сумма"
+
+#. Stable TxnCount key: ui.payee; do not translate this identifier.
+msgid "ui.payee"
+msgstr "Магазин / получатель (необязательно)"
+
+#. Stable TxnCount key: ui.date; do not translate this identifier.
+msgid "ui.date"
+msgstr "Дата"
+
+#. Stable TxnCount key: ui.kind_opening; do not translate this identifier.
+msgid "ui.kind_opening"
+msgstr "Начальный баланс"
+
+#. Stable TxnCount key: ui.kind_expense; do not translate this identifier.
+msgid "ui.kind_expense"
+msgstr "Расход"
+
+#. Stable TxnCount key: ui.kind_external; do not translate this identifier.
+msgid "ui.kind_external"
+msgstr "Операция"
+
+#. Stable TxnCount key: ui.settings_title; do not translate this identifier.
+msgid "ui.settings_title"
+msgstr "Настройки"
+
+#. Stable TxnCount key: ui.language; do not translate this identifier.
+msgid "ui.language"
+msgstr "Язык"
+
+#. Stable TxnCount key: ui.language_system; do not translate this identifier.
+msgid "ui.language_system"
+msgstr "Системный"
+
+#. Stable TxnCount key: ui.error_system_language; do not translate this
+#. identifier.
+msgid "ui.error_system_language"
+msgstr ""
+"Не удалось получить язык устройства. Перезапустите приложение или "
+"выберите язык явно."
+
+#. Stable TxnCount key: ui.language_en; do not translate this identifier.
+msgid "ui.language_en"
+msgstr "English"
+
+#. Stable TxnCount key: ui.language_uk; do not translate this identifier.
+msgid "ui.language_uk"
+msgstr "Українська"
+
+#. Stable TxnCount key: ui.language_ru; do not translate this identifier.
+msgid "ui.language_ru"
+msgstr "Русский"
+
+#. Stable TxnCount key: ui.language_name; do not translate this identifier.
+msgid "ui.language_name"
+msgstr "Русский"
+
+#. Stable TxnCount key: ui.appearance; do not translate this identifier.
+msgid "ui.appearance"
+msgstr "Внешний вид"
+
+#. Stable TxnCount key: ui.theme_system; do not translate this identifier.
+msgid "ui.theme_system"
+msgstr "Как в системе"
+
+#. Stable TxnCount key: ui.theme_light; do not translate this identifier.
+msgid "ui.theme_light"
+msgstr "Светлая"
+
+#. Stable TxnCount key: ui.theme_dark; do not translate this identifier.
+msgid "ui.theme_dark"
+msgstr "Тёмная"
+
+#. Stable TxnCount key: ui.storage_section; do not translate this identifier.
+msgid "ui.storage_section"
+msgstr "Ваши данные"
+
+#. Stable TxnCount key: ui.storage_explanation; do not translate this
+#. identifier.
+msgid "ui.storage_explanation"
+msgstr ""
+"Журнал — текстовый файл в формате Beancount в этой папке. TxnCount не "
+"загружает его в интернет. Для синхронизации между устройствами "
+"используйте надёжное для вас приложение, например Dropbox или Dropsync."
+
+#. Stable TxnCount key: ui.storage_filename; do not translate this identifier.
+msgid "ui.storage_filename"
+msgstr "Файл журнала: txncount.beancount"
+
+#. Stable TxnCount key: ui.about; do not translate this identifier.
+msgid "ui.about"
+msgstr "О TxnCount"
+
+#. Stable TxnCount key: ui.about_body; do not translate this identifier.
+msgid "ui.about_body"
+msgstr "Офлайн-учёт личных расходов. Ваши файлы остаются под вашим контролем."
+
+#. Stable TxnCount key: ui.diagnostics; do not translate this identifier.
+msgid "ui.diagnostics"
+msgstr "Техническая диагностика"
+
+#. Stable TxnCount key: ui.diagnostics_show; do not translate this identifier.
+msgid "ui.diagnostics_show"
+msgstr "Показать диагностику"
+
+#. Stable TxnCount key: ui.diagnostics_hide; do not translate this identifier.
+msgid "ui.diagnostics_hide"
+msgstr "Скрыть диагностику"
+
+#. Stable TxnCount key: ui.app_version; do not translate this identifier.
+msgid "ui.app_version"
+msgstr "Версия приложения"
+
+#. Stable TxnCount key: ui.account_created; do not translate this identifier.
+msgid "ui.account_created"
+msgstr "Счёт создан."
+
+#. Stable TxnCount key: ui.category_created; do not translate this identifier.
+msgid "ui.category_created"
+msgstr "Категория создана."
+
+#. Stable TxnCount key: ui.form_error; do not translate this identifier.
+msgid "ui.form_error"
+msgstr "Проверьте введённые данные и попробуйте ещё раз."
+
+#. Stable TxnCount key: ui.error_reload; do not translate this identifier.
+msgid "ui.error_reload"
+msgstr "Сначала обновите корректный журнал. Введённые данные формы сохранены."
+
+#. Stable TxnCount key: ui.error_folder_starting; do not translate this
+#. identifier.
+msgid "ui.error_folder_starting"
+msgstr "Доступ к папке настраивается. Попробуйте ещё раз."
+
+#. Stable TxnCount key: ui.error_select_folder_first; do not translate this
+#. identifier.
+msgid "ui.error_select_folder_first"
+msgstr "Сначала выберите папку данных."
+
+#. Stable TxnCount key: ui.error_duplicate_account; do not translate this
+#. identifier.
+msgid "ui.error_duplicate_account"
+msgstr "Этот код счёта уже используется."
+
+#. Stable TxnCount key: ui.error_duplicate_category; do not translate this
+#. identifier.
+msgid "ui.error_duplicate_category"
+msgstr "Такая категория уже существует."
+
+#. Stable TxnCount key: ui.error_date_format; do not translate this identifier.
+msgid "ui.error_date_format"
+msgstr "Введите дату в формате ГГГГ-ММ-ДД."
+
+#. Stable TxnCount key: ui.error_amount_format; do not translate this
+#. identifier.
+msgid "ui.error_amount_format"
+msgstr "Введите неотрицательную сумму не более чем с двумя знаками после запятой."
+
+#. Stable TxnCount key: ui.error_amount_invalid; do not translate this
+#. identifier.
+msgid "ui.error_amount_invalid"
+msgstr "Некорректная сумма."
+
+#. Stable TxnCount key: ui.error_amount_range; do not translate this
+#. identifier.
+msgid "ui.error_amount_range"
+msgstr "До запятой допускается не более 12 цифр, после — не более двух."
+
+#. Stable TxnCount key: ui.error_identifier; do not translate this identifier.
+msgid "ui.error_identifier"
+msgstr ""
+"Сегменты пути должны начинаться с заглавной буквы и разделяться "
+"двоеточием."
+
+#. Stable TxnCount key: ui.error_name; do not translate this identifier.
+msgid "ui.error_name"
+msgstr "Введите название длиной 1–120 символов без управляющих символов."
+
+#. Stable TxnCount key: ui.error_currency; do not translate this identifier.
+msgid "ui.error_currency"
+msgstr "Введите трёхбуквенный код валюты, например UAH, USD или EUR."
+
+#. Stable TxnCount key: ui.error_negative; do not translate this identifier.
+msgid "ui.error_negative"
+msgstr "На счёте недостаточно средств для этого расхода."
+
+#. Stable TxnCount key: ui.error_expense_positive; do not translate this
+#. identifier.
+msgid "ui.error_expense_positive"
+msgstr "Сумма расхода должна быть больше нуля."
+
+#. Stable TxnCount key: ui.error_expense_date; do not translate this
+#. identifier.
+msgid "ui.error_expense_date"
+msgstr "Выберите дату от 1970-01-01 до сегодня."
+
+#. Stable TxnCount key: ui.error_future_transaction; do not translate this
+#. identifier.
+msgid "ui.error_future_transaction"
+msgstr "Операции с будущей датой не поддерживаются."
+
+#. Stable TxnCount key: ui.error_choose_account_category; do not translate this
+#. identifier.
+msgid "ui.error_choose_account_category"
+msgstr "Выберите счёт и категорию, созданные в приложении."
+
+#. Stable TxnCount key: ui.error_conflict; do not translate this identifier.
+msgid "ui.error_conflict"
+msgstr ""
+"Журнал изменился вне TxnCount. Данные не перезаписаны. Обновите журнал "
+"перед сохранением."
+
+#. Stable TxnCount key: ui.error_invalid_journal; do not translate this
+#. identifier.
+msgid "ui.error_invalid_journal"
+msgstr ""
+"Журнал содержит некорректные или неподдерживаемые учётные данные. Он не "
+"изменён."
+
+#. Stable TxnCount key: ui.error_unsupported; do not translate this identifier.
+msgid "ui.error_unsupported"
+msgstr "Журнал использует неподдерживаемую учётную функцию. Он не изменён."
+
+#. Stable TxnCount key: ui.error_unbalanced; do not translate this identifier.
+msgid "ui.error_unbalanced"
+msgstr ""
+"Операция не сбалансирована или содержит несколько валют. Данные не "
+"изменены."
+
+#. Stable TxnCount key: ui.error_undeclared; do not translate this identifier.
+msgid "ui.error_undeclared"
+msgstr "Операция ссылается на счёт, который не был создан."
+
+#. Stable TxnCount key: ui.error_currency_mismatch; do not translate this
+#. identifier.
+msgid "ui.error_currency_mismatch"
+msgstr "Валюта операции не совпадает с валютой счёта."
+
+#. Stable TxnCount key: ui.error_duplicate_id; do not translate this
+#. identifier.
+msgid "ui.error_duplicate_id"
+msgstr "ID операции повторяется. Исправьте журнал перед сохранением."
+
+#. Stable TxnCount key: ui.error_transaction_shape; do not translate this
+#. identifier.
+msgid "ui.error_transaction_shape"
+msgstr "В операции должно быть не менее двух явных записей."
+
+#. Stable TxnCount key: ui.error_date_order; do not translate this identifier.
+msgid "ui.error_date_order"
+msgstr "Дата операции предшествует дате создания счёта или категории."
+
+#. Stable TxnCount key: ui.error_utf8; do not translate this identifier.
+msgid "ui.error_utf8"
+msgstr "Журнал не является корректным UTF-8. Файл не изменён."
+
+#. Stable TxnCount key: ui.error_not_ready; do not translate this identifier.
+msgid "ui.error_not_ready"
+msgstr "Сначала прочитайте журнал."
+
+#. Stable TxnCount key: ui.error_no_backup_source; do not translate this
+#. identifier.
+msgid "ui.error_no_backup_source"
+msgstr "Нет существующего файла для резервного копирования."
+
+#. Stable TxnCount key: ui.error_backup; do not translate this identifier.
+msgid "ui.error_backup"
+msgstr "Не удалось проверить резервную копию. Журнал не изменён."
+
+#. Stable TxnCount key: ui.error_write_uncertain; do not translate this
+#. identifier.
+msgid "ui.error_write_uncertain"
+msgstr ""
+"Не удалось подтвердить сохранение. Обновите данные и проверьте историю и "
+"копии перед повторной попыткой."
+
+#. Stable TxnCount key: ui.error_read; do not translate this identifier.
+msgid "ui.error_read"
+msgstr "Не удалось прочитать журнал. Проверьте доступ к папке."
+
+#. Stable TxnCount key: ui.error_folder_missing; do not translate this
+#. identifier.
+msgid "ui.error_folder_missing"
+msgstr "Папка недоступна. Выберите её ещё раз."
+
+#. Stable TxnCount key: ui.error_file_disappeared; do not translate this
+#. identifier.
+msgid "ui.error_file_disappeared"
+msgstr "Журнал исчез. Восстановите его перед обновлением."
+
+#. Stable TxnCount key: ui.error_grant; do not translate this identifier.
+msgid "ui.error_grant"
+msgstr "Нет разрешения на чтение и запись. Выберите папку ещё раз."
+
+#. Stable TxnCount key: ui.error_symlink; do not translate this identifier.
+msgid "ui.error_symlink"
+msgstr "Расположение журнала небезопасно. Выберите обычную локальную папку."
+
+#. Stable TxnCount key: ui.error_invalid_response; do not translate this
+#. identifier.
+msgid "ui.error_invalid_response"
+msgstr "Поставщик хранилища вернул некорректный ответ."
+
+#. Stable TxnCount key: ui.error_storage_generic; do not translate this
+#. identifier.
+msgid "ui.error_storage_generic"
+msgstr "Ошибка хранилища. Проверьте доступ к папке и свободное место."
+
+#. Stable TxnCount key: ui.error_timeout; do not translate this identifier.
+msgid "ui.error_timeout"
+msgstr ""
+"Время ожидания хранилища истекло. Результат сохранения неизвестен; "
+"обновите данные и проверьте журнал и копию."
+
+#. Stable TxnCount key: ui.error_unexpected; do not translate this identifier.
+msgid "ui.error_unexpected"
+msgstr ""
+"Произошла непредвиденная ошибка. Сохранение приостановлено; проверьте "
+"диагностику."
+
+#. Stable TxnCount key: ui.error_language_save; do not translate this
+#. identifier.
+msgid "ui.error_language_save"
+msgstr "Не удалось сохранить язык. Текущий выбор действует."
+
+#. Stable TxnCount key: ui.error_theme_save; do not translate this identifier.
+msgid "ui.error_theme_save"
+msgstr "Не удалось сохранить внешний вид."
+
+#. Stable TxnCount key: ui.account_list_title; do not translate this
+#. identifier.
+msgid "ui.account_list_title"
+msgstr "Ваши счета"
+
+#. Stable TxnCount key: ui.category_form_title; do not translate this
+#. identifier.
+msgid "ui.category_form_title"
+msgstr "Добавить категорию"
+
+#. Stable TxnCount key: ui.account_form_title; do not translate this
+#. identifier.
+msgid "ui.account_form_title"
+msgstr "Добавить счёт"
+
+#. Stable TxnCount key: ui.sync_status; do not translate this identifier.
+msgid "ui.sync_status"
+msgstr "Внешние изменения проверяются автоматически."
+
+#. Stable TxnCount key: ui.operation_category; do not translate this
+#. identifier.
+msgid "ui.operation_category"
+msgstr "Категория"
+
+#. Stable TxnCount key: ui.operation_account; do not translate this identifier.
+msgid "ui.operation_account"
+msgstr "Счёт"
+
+#. Stable TxnCount key: ui.operation_amount; do not translate this identifier.
+msgid "ui.operation_amount"
+msgstr "Сумма"
+
+#. Stable TxnCount key: ui.technical_id; do not translate this identifier.
+msgid "ui.technical_id"
+msgstr "Технический ID"
+
+#. Stable TxnCount key: ui.status_new_file; do not translate this identifier.
+msgid "ui.status_new_file"
+msgstr "Журнал будет создан после сохранения первого счёта."
+
+#. Stable TxnCount key: ui.no_activity; do not translate this identifier.
+msgid "ui.no_activity"
+msgstr "Пока нечего показать."
+
+#. Stable TxnCount key: ui.crud_edit; do not translate this identifier.
+msgid "ui.crud_edit"
+msgstr "Редактировать"
+
+#. Stable TxnCount key: ui.crud_delete; do not translate this identifier.
+msgid "ui.crud_delete"
+msgstr "Удалить"
+
+#. Stable TxnCount key: ui.crud_save; do not translate this identifier.
+msgid "ui.crud_save"
+msgstr "Сохранить изменения"
+
+#. Stable TxnCount key: ui.crud_cancel; do not translate this identifier.
+msgid "ui.crud_cancel"
+msgstr "Отмена"
+
+#. Stable TxnCount key: ui.crud_active; do not translate this identifier.
+msgid "ui.crud_active"
+msgstr "Активный (для новых расходов)"
+
+#. Stable TxnCount key: ui.crud_inactive_label; do not translate this
+#. identifier.
+msgid "ui.crud_inactive_label"
+msgstr "Неактивный"
+
+#. Stable TxnCount key: ui.crud_description_label; do not translate this
+#. identifier.
+msgid "ui.crud_description_label"
+msgstr "Описание"
+
+#. Stable TxnCount key: ui.crud_timestamp; do not translate this identifier.
+msgid "ui.crud_timestamp"
+msgstr "Дата и время (ISO с часовым поясом)"
+
+#. Stable TxnCount key: ui.crud_timestamp_hint; do not translate this
+#. identifier.
+msgid "ui.crud_timestamp_hint"
+msgstr "Оставьте пустым для текущего времени или введите 2026-01-01T12:00:00+02:00"
+
+#. Stable TxnCount key: ui.crud_operating; do not translate this identifier.
+msgid "ui.crud_operating"
+msgstr "Валюты отображения журнала"
+
+#. Stable TxnCount key: ui.crud_operating_help; do not translate this
+#. identifier.
+msgid "ui.crud_operating_help"
+msgstr ""
+"Валюты для упорядочивания сумм при просмотре журнала в совместимых "
+"приложениях. Счета сохраняют собственные валюты; эта настройка не "
+"конвертирует деньги и не объединяет балансы."
+
+#. Stable TxnCount key: ui.crud_confirm; do not translate this identifier.
+msgid "ui.crud_confirm"
+msgstr "Удалить навсегда?"
+
+#. Stable TxnCount key: ui.crud_confirm_body; do not translate this identifier.
+msgid "ui.crud_confirm_body"
+msgstr ""
+"Запись будет удалена из журнала без обратной операции. Перед сохранением "
+"создаётся проверенная резервная копия. Продолжить?"
+
+#. Stable TxnCount key: ui.crud_account_help; do not translate this identifier.
+msgid "ui.crud_account_help"
+msgstr ""
+"Технический ID и валюта неизменны. Счёт с историей (включая начальный "
+"баланс) можно только деактивировать. Начальный баланс должен покрывать "
+"все расходы."
+
+#. Stable TxnCount key: ui.crud_category_help; do not translate this
+#. identifier.
+msgid "ui.crud_category_help"
+msgstr ""
+"Технический ID неизменен. Категории с историей или дочерними категориями "
+"нельзя удалять. Деактивация родителя скрывает и дочерние для новых "
+"расходов."
+
+#. Stable TxnCount key: ui.crud_transaction_readonly; do not translate this
+#. identifier.
+msgid "ui.crud_transaction_readonly"
+msgstr ""
+"Здесь можно менять и удалять только расходы TxnCount с двумя проводками и"
+" постоянным ID. Начальный баланс меняйте в Счетах. Разделённые и внешние "
+"операции доступны только для чтения."
+
+#. Stable TxnCount key: ui.crud_inactive; do not translate this identifier.
+msgid "ui.crud_inactive"
+msgstr ""
+"Активируйте счёт/категорию и родительские категории перед использованием "
+"в расходе."
+
+#. Stable TxnCount key: ui.crud_active_invalid; do not translate this
+#. identifier.
+msgid "ui.crud_active_invalid"
+msgstr ""
+"Неверные метаданные активности. Ожидается TRUE или FALSE. Журнал не "
+"изменён."
+
+#. Stable TxnCount key: ui.crud_lossless; do not translate this identifier.
+msgid "ui.crud_lossless"
+msgstr "Невозможно гарантировать сохранение всего содержимого. Журнал не изменён."
+
+#. Stable TxnCount key: ui.crud_stale; do not translate this identifier.
+msgid "ui.crud_stale"
+msgstr ""
+"Данные изменились после открытия формы. Перезаписи нет. Отмените и "
+"откройте форму заново после проверки данных."
+
+#. Stable TxnCount key: ui.crud_missing; do not translate this identifier.
+msgid "ui.crud_missing"
+msgstr "Счёт/категория больше не существует. Обновите журнал."
+
+#. Stable TxnCount key: ui.crud_datetime; do not translate this identifier.
+msgid "ui.crud_datetime"
+msgstr "Введите корректную дату и дату/время ISO с часовым поясом."
+
+#. Stable TxnCount key: ui.crud_description; do not translate this identifier.
+msgid "ui.crud_description"
+msgstr ""
+"Описание должно содержать не больше 500 символов. Переносы строк "
+"разрешены, другие управляющие символы — нет."
+
+#. Stable TxnCount key: ui.crud_currencies; do not translate this identifier.
+msgid "ui.crud_currencies"
+msgstr "Укажите хотя бы одну трёхбуквенную валюту отображения, например UAH USD."
+
+#. Stable TxnCount key: ui.crud_opening_complex; do not translate this
+#. identifier.
+msgid "ui.crud_opening_complex"
+msgstr ""
+"Начальный баланс имеет несколько или сложные записи. Безопасное изменение"
+" здесь невозможно; используйте внешний редактор Beancount."
+
+#. Stable TxnCount key: ui.crud_opening_help; do not translate this identifier.
+msgid "ui.crud_opening_help"
+msgstr ""
+"Измените сумму здесь или при редактировании счёта. Исходные даты и "
+"метаданные сохраняются."
+
+#. Stable TxnCount key: ui.crud_children; do not translate this identifier.
+msgid "ui.crud_children"
+msgstr ""
+"У категории есть дочерние категории. Сначала удалите неиспользуемые "
+"дочерние или деактивируйте родителя."
+
+#. Stable TxnCount key: ui.crud_has_history; do not translate this identifier.
+msgid "ui.crud_has_history"
+msgstr ""
+"Счёт/категория имеет историю и не может быть удалён. Используйте флажок "
+"активности для деактивации или активации."
+
+#. Stable TxnCount key: ui.crud_referenced; do not translate this identifier.
+msgid "ui.crud_referenced"
+msgstr ""
+"Другие директивы ссылаются на счёт/категорию. Удаление заблокировано; "
+"используйте деактивацию."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_01"
+msgstr "янв."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_02"
+msgstr "февр."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_03"
+msgstr "мар."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_04"
+msgstr "апр."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_05"
+msgstr "мая"
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_06"
+msgstr "июн."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_07"
+msgstr "июл."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_08"
+msgstr "авг."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_09"
+msgstr "сент."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_10"
+msgstr "окт."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_11"
+msgstr "нояб."
+
+#. Abbreviated month name used in compact dates.
+msgid "ui.date_month_12"
+msgstr "дек."
+
+#. Plural message; keep the named {count} and {size} placeholders.
+msgid "ui.backups_preview"
+msgid_plural "ui.backups_preview.plural"
+msgstr[0] ""
+"Можно удалить: {count} файл, {size} байт. Последние, ежедневные и "
+"ежемесячные копии останутся. Перед очисткой список будет проверен "
+"повторно."
+msgstr[1] ""
+"Можно удалить: {count} файла, {size} байт. Последние, ежедневные и "
+"ежемесячные копии останутся. Перед очисткой список будет проверен "
+"повторно."
+msgstr[2] ""
+"Можно удалить: {count} файлов, {size} байт. Последние, ежедневные и "
+"ежемесячные копии останутся. Перед очисткой список будет проверен "
+"повторно."

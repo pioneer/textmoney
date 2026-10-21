@@ -34,6 +34,7 @@ from app.localization import (
     localized_error,
     system_language,
     translate,
+    translate_plural,
 )
 from app.storage import RecoveryRequired, StorageError
 from app.synchronization import SyncConflict, file_hash
@@ -359,7 +360,10 @@ class FinanceView(ft.Row):
         self.language_choice.label = self.tr("language")
         self.language_choice.options = [
             ft.DropdownOption(key="system", text=self.tr("language_system")),
-            *[ft.DropdownOption(key=code, text=self.tr(f"language_{code}")) for code in LANGUAGES],
+            *[
+                ft.DropdownOption(key=code, text=translate(code, "language_name"))
+                for code in LANGUAGES
+            ],
         ]
         self.language_choice.value = self.language if self.manual_language else "system"
         self.theme_choice.label = self.tr("appearance")
@@ -1561,7 +1565,13 @@ class FinanceView(ft.Row):
                     scrollable=True,
                     title=self.tr("backups_clean"),
                     content=ft.Text(
-                        self.tr("backups_preview", count=len(plan.remove), size=plan.size)
+                        translate_plural(
+                            self.language,
+                            "backups_preview",
+                            "backups_preview.plural",
+                            len(plan.remove),
+                            size=plan.size,
+                        )
                     ),
                     actions=[cancel, confirm],
                 )

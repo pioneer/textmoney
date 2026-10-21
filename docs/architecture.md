@@ -12,7 +12,7 @@ src/app/logging_config.py  logging policy and exception reporting
 src/app/application.py     page lifecycle and event boundary
 src/app/ui/finance.py      MVP screens, forms, polling and lifecycle
 src/app/ui/home.py         home composition and preserved storage diagnostics
-src/app/localization.py    English/Ukrainian/Russian catalog and locale formatting
+src/app/localization.py    gettext catalog loading, runtime language discovery and locale formatting
 src/app/timekeeping.py     named/system timezone conversion and DST validation
 src/app/ui/datetime_fields.py shared manual/date-picker/time-picker controls
 src/app/ui/beancount.py    separate bundled-fixture action; lazy parser import
@@ -41,7 +41,11 @@ packages, generic repositories, dependency injection containers, or abstract
 base classes in anticipation of features.
 
 UI owns controls and navigation, not business decisions or raw HTTP/database
-calls. One width classifier selects bottom navigation for compact displays and
+calls. GNU gettext PO files in `locales/` are the editable translation source;
+Invoke compiles them to packaged MO catalogs in `src/app/locale/`. Runtime
+language choices are discovered from those compiled catalogs, with English as
+the required fallback. See the [localization guide](localization.md) for
+validation, compilation and Weblate setup. One width classifier selects bottom navigation for compact displays and
 a navigation rail for medium/expanded displays. The same screens and form state
 are retained through resizing. Translation resources are separate from controls;
 language/theme choices are saved locally. Domain functions use Python types and return results or raise meaningful

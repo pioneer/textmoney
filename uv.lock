@@ -2283,6 +2283,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "babel" },
     { name = "beancount" },
     { name = "fava" },
     { name = "flet", extra = ["all"] },
@@ -2307,6 +2308,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "babel", specifier = ">=2.16,<3" },
     { name = "beancount", specifier = "==3.2.3" },
     { name = "fava", specifier = ">=1.30,<2" },
     { name = "flet", extras = ["all"], specifier = "==1.0.1" },

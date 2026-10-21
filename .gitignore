@@ -9,6 +9,7 @@ src/.flet/
 *.p8
 __pycache__/
 *.py[cod]
+*.mo
 *.egg-info/
 .pytest_cache/
 .ruff_cache/

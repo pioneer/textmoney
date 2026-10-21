@@ -198,3 +198,5 @@ uv run inv --list         # All available tasks
 The APK is written to `build/apk/txncount-<version>.apk`. Native builds require
 platform toolchains; see [development and packaging](docs/development.md).
 See also [architecture](docs/architecture.md) and [testing](docs/testing.md).
+Translation maintenance and the planned Weblate configuration are documented in
+[the localization guide](docs/localization.md).

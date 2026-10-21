@@ -54,6 +54,7 @@ def debug_env(debug: bool) -> dict[str, str]:
 
 def stage_assets(*, linux: bool = False) -> None:
     validate_icon()
+    compile_translations()
     # Flet's exclusions match exact paths, so nested development caches can leak.
     for cache in (ROOT / "src").rglob("__pycache__"):
         if cache.is_symlink():
@@ -198,6 +199,7 @@ def prepare_linux_dev_client() -> Path:
 
 
 def run_app(*, web: bool = False, debug: bool = False, port: int = 8550) -> None:
+    compile_translations()
     stage_release()
     args = [
         "flet",
@@ -457,7 +459,36 @@ def doctor(context: Context) -> None:
 @task
 def test(context: Context) -> None:
     """Run all non-GUI regression tests."""
+    compile_translations()
     execute("pytest")
+
+
+def compile_translations() -> None:
+    execute("python", "tools/locales.py", "compile")
+
+
+@task
+def translations_validate(context: Context) -> None:
+    """Validate gettext keys, placeholders, plural forms and the POT template."""
+    execute("python", "tools/locales.py", "validate")
+
+
+@task
+def translations_compile(context: Context) -> None:
+    """Compile PO catalogs for source runs and packaged applications."""
+    compile_translations()
+
+
+@task
+def translations_template(context: Context) -> None:
+    """Refresh messages.pot from the English base PO catalog."""
+    execute("python", "tools/locales.py", "template")
+
+
+@task
+def translations_init(context: Context, language: str) -> None:
+    """Create a new language PO catalog from messages.pot."""
+    execute("python", "tools/locales.py", "init", language)
 
 
 @task
@@ -487,6 +518,8 @@ def typecheck(context: Context) -> None:
 @task
 def check(context: Context) -> None:
     """Run format-check, lint, typecheck, test in order; stop on failure."""
+    translations_validate(context)
+    compile_translations()
     for operation in (format_check, lint, typecheck, test):
         operation(context)
 

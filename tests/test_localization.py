@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -8,16 +9,20 @@ import flet as ft
 import pytest
 from flet.controls.device_info import DeviceInfo
 
+from app import localization
 from app.domain.ledger import Transaction
 from app.infrastructure.preferences import DesktopPreferences
 from app.localization import (
     LANGUAGES,
+    LOCALE_DIR,
+    MissingTranslationKey,
     catalog_keys,
     format_amount,
     format_date,
     localized_error,
     system_language,
     translate,
+    translate_plural,
 )
 from app.ui.finance import (
     COMPACT_MAX_WIDTH,
@@ -26,6 +31,9 @@ from app.ui.finance import (
     ScreenClass,
     screen_class,
 )
+from tools import locales as locale_tools
+
+LOCALES_SOURCE = Path(__file__).resolve().parents[1] / "locales"
 
 
 def test_all_locales_have_a_nonempty_translation_for_each_ui_key() -> None:
@@ -52,6 +60,124 @@ def test_all_locales_have_a_nonempty_translation_for_each_ui_key() -> None:
                 backup="backups/synthetic",
                 verified="verified",
             ).strip()
+
+
+@pytest.mark.parametrize(
+    ("language", "forms"),
+    [
+        ("en", ("file", "files", "files", "files", "files", "files")),
+        ("uk", ("файл", "файли", "файлів", "файлів", "файл", "файлів")),
+        ("ru", ("файл", "файла", "файлов", "файлов", "файл", "файлов")),
+    ],
+)
+def test_gettext_plural_forms_and_named_interpolation(
+    language: str,
+    forms: tuple[str, ...],
+) -> None:
+    counts = (1, 2, 5, 11, 21, 25)
+    for count, form in zip(counts, forms, strict=True):
+        result = translate_plural(
+            language,
+            "backups_preview",
+            "backups_preview.plural",
+            count,
+            size=1024,
+        )
+        assert f"{count} {form}" in result
+        assert "1024" in result
+
+    with pytest.raises(ValueError, match="backups_preview"):
+        translate_plural("en", "backups_preview", "backups_preview.plural", 1)
+
+
+def test_missing_english_key_is_reported() -> None:
+    with pytest.raises(MissingTranslationKey, match="not_a_real_key"):
+        translate("en", "not_a_real_key")
+
+
+def test_missing_selected_translation_falls_back_to_english(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class EmptyCatalog:
+        @staticmethod
+        def gettext(message: str) -> str:
+            return message
+
+        @staticmethod
+        def ngettext(singular: str, plural: str, count: int) -> str:
+            return singular if count == 1 else plural
+
+    empty_catalog = EmptyCatalog()
+    translations = localization._translations
+    monkeypatch.setattr(
+        localization,
+        "_translations",
+        lambda language: empty_catalog if language == "uk" else translations(language),
+    )
+    assert translate("uk", "nav_accounts") == translate("en", "nav_accounts")
+    assert "1 file" in translate_plural(
+        "uk", "backups_preview", "backups_preview.plural", 1, size=10
+    )
+
+
+def test_compiled_catalogs_are_available_as_runtime_resources() -> None:
+    for language in LANGUAGES:
+        path = LOCALE_DIR / language / "LC_MESSAGES" / "txncount.mo"
+        assert path.is_file()
+        assert localization._translations(language).gettext("ui.language_name")
+
+
+def test_runtime_discovers_compiled_language_directories(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "fr" / "LC_MESSAGES").mkdir(parents=True)
+    (tmp_path / "fr" / "LC_MESSAGES" / "txncount.mo").touch()
+    monkeypatch.setattr(localization, "LOCALE_DIR", tmp_path)
+    assert localization._available_languages() == ("fr",)
+
+
+def test_new_language_catalog_can_be_initialized_without_app_code_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    shutil.copy(LOCALES_SOURCE / "en.po", tmp_path / "en.po")
+    shutil.copy(LOCALES_SOURCE / "messages.pot", tmp_path / "messages.pot")
+    monkeypatch.setattr(locale_tools, "LOCALES", tmp_path)
+
+    locale_tools.initialize_catalog("de")
+    catalogs = locale_tools.validate_catalogs(tmp_path)
+
+    assert set(catalogs) == {"en", "de"}
+    assert catalogs["de"].num_plurals == 2
+
+    runtime = tmp_path / "runtime"
+    locale_tools.compile_catalogs(tmp_path, runtime)
+    monkeypatch.setattr(localization, "LOCALE_DIR", runtime)
+    monkeypatch.setattr(localization, "LANGUAGES", ("en", "de"))
+    localization._translations.cache_clear()
+    try:
+        assert localization._available_languages() == ("en", "de")
+        assert translate("de", "nav_accounts") == translate("en", "nav_accounts")
+    finally:
+        localization._translations.cache_clear()
+
+
+def test_catalog_validation_rejects_invalid_metadata_and_placeholders(
+    tmp_path: Path,
+) -> None:
+    for source in LOCALES_SOURCE.glob("*.po"):
+        shutil.copy(source, tmp_path / source.name)
+    russian = tmp_path / "ru.po"
+    russian_text = russian.read_text(encoding="utf-8")
+
+    russian.write_text(russian_text.replace("{verified}", "{wrong}", 1), encoding="utf-8")
+    with pytest.raises(ValueError, match="placeholder mismatch"):
+        locale_tools.validate_catalogs(tmp_path)
+
+    russian.write_text(russian_text.replace('"Language: ru\\n"', '"Language: xx\\n"', 1))
+    with pytest.raises(ValueError, match="Language metadata"):
+        locale_tools.validate_catalogs(tmp_path)
 
 
 @pytest.mark.parametrize(

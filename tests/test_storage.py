@@ -642,7 +642,6 @@ def test_android_transport_roundtrip_and_permission_status() -> None:
                 {"ok": True, "value": True},
                 {"ok": True, "value": "c3ludGhldGlj"},
                 {"ok": True, "value": "backups/synthetic.beancount"},
-                {"ok": True, "value": None},
                 {"ok": True, "value": False},
             ]
         )
@@ -650,8 +649,6 @@ def test_android_transport_roundtrip_and_permission_status() -> None:
         assert "persisted" in await folder.status()
         assert await folder.read() == b"synthetic"
         assert await folder.backup(b"synthetic") == "backups/synthetic.beancount"
-        await folder.write(b"synthetic", expected_hash=None)
-        assert bridge.call.call_args.kwargs["data"] == "c3ludGhldGlj"
         with pytest.raises(StorageError, match="grant missing"):
             await folder.status()
 

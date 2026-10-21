@@ -39,7 +39,7 @@ from app.infrastructure.beancount_journal import (
     replace_directive,
     transaction_text,
 )
-from app.storage import Folder, StorageError, StorageSession
+from app.storage import Folder, RecoveryFolder, RecoveryRequired, StorageError, StorageSession
 
 FILENAME = "txncount.beancount"
 
@@ -53,6 +53,9 @@ class Journal:
         self.existed = False
         self.codec: JournalCodec | None = None
         self.today = today
+        self.recovery_valid = False
+        self.recovery_backup_valid = False
+        self.recovery_transactions = 0
 
     def _parse(self, source: str) -> Ledger:
         if self.codec is None:
@@ -61,7 +64,11 @@ class Journal:
 
     async def load(self) -> None:
         self.ready = False
-        exists = await self.storage.read()
+        try:
+            exists = await self.storage.read()
+        except RecoveryRequired:
+            await self._validate_recovery()
+            raise
         if self.existed and not exists:
             self.storage.loaded = False
             raise StorageError(
@@ -76,6 +83,37 @@ class Journal:
         self.ledger = ledger
         self.existed = exists
         self.ready = True
+
+    async def _validate_recovery(self) -> None:
+        self.recovery_valid = self.recovery_backup_valid = False
+        self.recovery_transactions = 0
+        state = self.storage.recovery
+        if state is None:
+            return
+        for current in (True, False):
+            data = state.current if current else state.backup
+            if data is None:
+                continue
+            try:
+                ledger = await asyncio.to_thread(self._parse, data.decode("utf-8"))
+            except (UnicodeDecodeError, LedgerError):
+                continue
+            if current:
+                self.recovery_valid = True
+                self.recovery_transactions = len(ledger.transactions)
+            else:
+                self.recovery_backup_valid = state.backup_verified
+
+    async def accept_recovery(self) -> None:
+        folder = self.storage.folder
+        state = self.storage.recovery
+        if not isinstance(folder, RecoveryFolder) or state is None or not state.required:
+            raise RecoveryRequired("recovery_required")
+        if not self.recovery_valid:
+            raise RecoveryRequired("recovery_restore_external")
+        self.ready = self.storage.loaded = False
+        await folder.accept_recovery(state)
+        await self.load()
 
     async def poll(self) -> bool:
         if not self.storage.loaded:

@@ -135,6 +135,10 @@ The official engine remains a desktop test oracle, not an Android dependency.
   after the last hash check cannot be excluded. Failed/uncertain writes may
   require manual restoration from the displayed backup. See the current
   [desktop write contract](crud-fava.md#desktop-atomic-replacement).
+- Android now records save intent before direct writes. Unfinished or damaged
+  recovery state blocks modifications across restart, including valid-looking
+  truncation. Review in Settings; no automatic restoration or retry. See
+  [current Android recovery](android-storage-validation.md#current-android-save-recovery).
 - Invalid external data hides stale balances/history and disables saves.
   Disappearance of an already loaded journal blocks reset in that session.
 - Folder access is remembered; unsaved forms/baselines are memory-only and do

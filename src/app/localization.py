@@ -14,6 +14,20 @@ LANGUAGES: Final = ("en", "uk", "ru")
 
 _CATALOG: Final[dict[str, dict[str, str]]] = {
     "en": {
+        "recovery_required": "An unfinished or uncertain Android save needs review. Saving is blocked. Open Settings → Review interrupted save. Do not resubmit the transaction.",
+        "recovery_review": "Review interrupted save",
+        "recovery_keep": "I reviewed this version — keep it",
+        "recovery_restore_external": "Restore the journal from a verified backup outside TxnCount, then reload and review. No automatic restoration was attempted.",
+        "recovery_help": "Cancel to preserve everything. Pause Dropbox/Dropsync and inspect the journal and backups before deciding. To restore a backup, first preserve the current journal externally, restore the verified copy, then Reload and review again. Keeping this version does not replay the transaction: it preserves a new snapshot and the old recovery record, then allows editing. A valid journal can still be missing transactions. An unverified backup must not be assumed safe.",
+        "recovery_summary": "Detected state: {state}\nCurrent journal: {valid}; transactions: {count}\nPrevious backup: {backup}\nBackup status: {verified}",
+        "recovery_candidate": "matches the intended new version; it may already be saved",
+        "recovery_unchanged": "matches the previous version",
+        "recovery_unexpected": "unexpected version — possible truncation or external changes",
+        "recovery_metadata": "missing or damaged save metadata",
+        "recovery_valid": "passes validation",
+        "recovery_invalid": "missing or invalid",
+        "recovery_verified": "hash and journal validation passed",
+        "recovery_unverified": "missing, corrupt, or not verifiable",
         "primary_account": "Account",
         "amount_debit_hint": "−: Money leaves the account",
         "amount_credit_hint": "+: Money enters the account",
@@ -280,6 +294,20 @@ _CATALOG: Final[dict[str, dict[str, str]]] = {
         "crud_referenced": "Other journal directives reference this account/category. Delete is blocked; use deactivation instead.",
     },
     "uk": {
+        "recovery_required": "Незавершене або невизначене збереження на Android потребує перевірки. Зміни заблоковано. Відкрийте Налаштування → Перевірити перерване збереження. Не надсилайте операцію повторно.",
+        "recovery_review": "Перевірити перерване збереження",
+        "recovery_keep": "Я перевірив цю версію — залишити її",
+        "recovery_restore_external": "Відновіть журнал із перевіреної копії поза TxnCount, потім оновіть дані та перевірте. Автоматичного відновлення не було.",
+        "recovery_help": "Скасування збереже все без змін. Призупиніть Dropbox/Dropsync та перевірте журнал і копії. Для відновлення спочатку збережіть поточний журнал окремо, відновіть перевірену копію, потім оновіть дані й перевірте знову. Залишення версії не повторює операцію: створює знімок, зберігає старий запис відновлення та дозволяє редагування. Навіть коректний журнал може не містити частини операцій. Неперевірена копія не гарантує безпеки.",
+        "recovery_summary": "Стан: {state}\nПоточний журнал: {valid}; операцій: {count}\nПопередня копія: {backup}\nСтан копії: {verified}",
+        "recovery_candidate": "відповідає новій версії; можливо, вже збережено",
+        "recovery_unchanged": "відповідає попередній версії",
+        "recovery_unexpected": "неочікувана версія — можливе обрізання або зовнішні зміни",
+        "recovery_metadata": "метадані збереження відсутні або пошкоджені",
+        "recovery_valid": "перевірку пройдено",
+        "recovery_invalid": "відсутній або некоректний",
+        "recovery_verified": "хеш і журнал перевірено",
+        "recovery_unverified": "відсутня, пошкоджена або не перевірена",
         "primary_account": "Рахунок",
         "amount_debit_hint": "−: Списання з рахунку",
         "amount_credit_hint": "+: Зарахування на рахунок",
@@ -546,6 +574,20 @@ _CATALOG: Final[dict[str, dict[str, str]]] = {
         "crud_referenced": "Інші директиви посилаються на рахунок/категорію. Видалення заблоковане; скористайтеся деактивацією.",
     },
     "ru": {
+        "recovery_required": "Незавершённое или неопределённое сохранение на Android требует проверки. Изменения заблокированы. Откройте Настройки → Проверить прерванное сохранение. Не отправляйте операцию повторно.",
+        "recovery_review": "Проверить прерванное сохранение",
+        "recovery_keep": "Я проверил эту версию — оставить её",
+        "recovery_restore_external": "Восстановите журнал из проверенной копии вне TxnCount, затем обновите данные и проверьте. Автоматического восстановления не было.",
+        "recovery_help": "Отмена сохранит всё без изменений. Приостановите Dropbox/Dropsync и проверьте журнал и копии. Для восстановления сначала сохраните текущий журнал отдельно, восстановите проверенную копию, затем обновите данные и проверьте снова. Сохранение версии не повторяет операцию: создаёт снимок, сохраняет старую запись восстановления и разрешает редактирование. Даже корректный журнал может не содержать части операций. Непроверенная копия не гарантирует безопасности.",
+        "recovery_summary": "Состояние: {state}\nТекущий журнал: {valid}; операций: {count}\nПредыдущая копия: {backup}\nСостояние копии: {verified}",
+        "recovery_candidate": "соответствует новой версии; возможно, уже сохранено",
+        "recovery_unchanged": "соответствует предыдущей версии",
+        "recovery_unexpected": "неожиданная версия — возможно усечение или внешние изменения",
+        "recovery_metadata": "метаданные сохранения отсутствуют или повреждены",
+        "recovery_valid": "проверка пройдена",
+        "recovery_invalid": "отсутствует или некорректен",
+        "recovery_verified": "хеш и журнал проверены",
+        "recovery_unverified": "отсутствует, повреждена или не проверена",
         "primary_account": "Счёт",
         "amount_debit_hint": "−: Списание со счёта",
         "amount_credit_hint": "+: Зачисление на счёт",
@@ -881,12 +923,14 @@ def system_language(locales: tuple[str, ...] | list[str]) -> str:
 def localized_error(language: str, message: str) -> str:
     key = (
         message
-        if message.startswith(("crud_", "incoming_", "transfer_", "exchange_"))
+        if message.startswith(("crud_", "incoming_", "transfer_", "exchange_", "recovery_"))
         and message in _CATALOG["en"]
         else _ERROR_KEYS.get(message)
     )
     if key is None:
-        if message.startswith("Write failed or uncertain."):
+        if message.startswith(
+            ("Write failed or uncertain.", "SAF save outcome is uncertain.", "Journal may already")
+        ):
             key = "error_write_uncertain"
         elif message.startswith("Read failed ("):
             key = "error_read"

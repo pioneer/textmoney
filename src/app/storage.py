@@ -3,9 +3,10 @@
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from app.domain.backups import BackupEntry, BackupPlan, retention_plan
+from app.domain.recovery import RecoveryState
 from app.domain.storage import ConflictError, digest
 
 logger = logging.getLogger(__name__)
@@ -23,11 +24,25 @@ class StorageError(Exception):
 
 
 class WriteError(StorageError):
-    """A desktop write failure with an explicit commit outcome."""
+    """A write failure with an explicit commit outcome."""
 
     def __init__(self, message: str, *, committed: bool | None) -> None:
         super().__init__(message)
         self.committed = committed
+
+
+class RecoveryRequired(StorageError):
+    """A persistent save record needs explicit review before further writes."""
+
+
+@runtime_checkable
+class RecoveryFolder(Protocol):
+    async def inspect_recovery(self) -> RecoveryState: ...
+    async def write_guarded(
+        self, data: bytes, *, expected_hash: str | None, backup: str | None
+    ) -> None: ...
+    async def finish_write(self) -> None: ...
+    async def accept_recovery(self, state: RecoveryState) -> None: ...
 
 
 class Folder(Protocol):
@@ -51,8 +66,14 @@ class StorageSession:
         self.auto_cleanup = True
         self.cleanup_error = False
         self.recovery_backup: str | None = None
+        self.recovery: RecoveryState | None = None
 
     async def read(self) -> bool:
+        if isinstance(self.folder, RecoveryFolder):
+            self.loaded = False
+            self.recovery = await self.folder.inspect_recovery()
+            if self.recovery.required:
+                raise RecoveryRequired("recovery_required")
         data = await self.folder.read()
         try:
             text = self.missing_text if data is None else data.decode("utf-8")
@@ -100,7 +121,10 @@ class StorageSession:
         # Detect modifications during backup too; providers offer no compare-and-swap.
         await self._checked_read()
         try:
-            await self.folder.write(data, expected_hash=self.last_hash)
+            if isinstance(self.folder, RecoveryFolder):
+                await self.folder.write_guarded(data, expected_hash=self.last_hash, backup=backup)
+            else:
+                await self.folder.write(data, expected_hash=self.last_hash)
             if await self.folder.read() != data:
                 raise StorageError("Write read-back differs. Inspect file and backup.")
         except asyncio.CancelledError:
@@ -134,6 +158,12 @@ class StorageSession:
         except (StorageError, ConflictError, TimeoutError):
             self.cleanup_error = True
             logger.exception("Journal saved, but backup maintenance failed")
+        if isinstance(self.folder, RecoveryFolder):
+            try:
+                await self.folder.finish_write()
+            except (StorageError, TimeoutError, asyncio.CancelledError):
+                self.loaded = False
+                raise
         return backup
 
     async def preview_cleanup(self) -> BackupPlan:

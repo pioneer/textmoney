@@ -35,7 +35,7 @@ from app.localization import (
     system_language,
     translate,
 )
-from app.storage import StorageError
+from app.storage import RecoveryRequired, StorageError
 from app.timekeeping import local_datetime, named_zone
 from app.ui.datetime_fields import DateTimeFields
 from app.version import release_identity
@@ -472,6 +472,13 @@ class FinanceView(ft.Row):
                         self.folder_label,
                         self.access,
                         ft.Row([self.select_button, self.reload_button], wrap=True),
+                        ft.TextButton(
+                            self.tr("recovery_review"),
+                            on_click=self._review_recovery,
+                            visible=self.journal is not None
+                            and self.journal.storage.recovery is not None
+                            and self.journal.storage.recovery.required,
+                        ),
                         ft.Text(self.tr("sync_status")),
                         ft.Divider(),
                         ft.Text(self.tr("backups_title"), size=18),
@@ -1237,7 +1244,14 @@ class FinanceView(ft.Row):
             if not isinstance(selected, str):
                 raise StorageError("Invalid folder picker response.")
             self.journal = None
-            await self._attach(selected)
+            try:
+                await self._attach(selected)
+            except RecoveryRequired:
+                if not await self.preferences.set(FOLDER_KEY, selected):
+                    raise StorageError(
+                        "Recovery is required, but the selected folder could not be remembered."
+                    ) from None
+                raise
             if not await self.preferences.set(FOLDER_KEY, selected):
                 raise StorageError("Folder loaded, but could not remember it for restart.")
 
@@ -1251,6 +1265,62 @@ class FinanceView(ft.Row):
             self._set_message("reloaded")
 
         await self._action(reload)
+
+    async def _review_recovery(self, event: ft.Event[ft.TextButton]) -> None:
+        async def review() -> None:
+            journal = self._require_journal()
+            try:
+                await journal.load()
+            except RecoveryRequired:
+                state = journal.storage.recovery
+                if state is None or not state.required:
+                    raise
+            else:
+                self._set_message("reloaded")
+                return
+            state = journal.storage.recovery
+            assert state is not None
+            summary = self.tr(
+                "recovery_summary",
+                state=self.tr(f"recovery_{state.classification}"),
+                count=journal.recovery_transactions,
+                valid=self.tr("recovery_valid" if journal.recovery_valid else "recovery_invalid"),
+                backup=state.record.backup
+                if state.record and state.record.backup
+                else "\n".join(f"backups/{name}" for name in state.pending) or "-",
+                verified=self.tr(
+                    "recovery_verified" if journal.recovery_backup_valid else "recovery_unverified"
+                ),
+            )
+
+            async def accept(event: ft.Event[ft.TextButton]) -> None:
+                async def confirm() -> None:
+                    if self.journal is not journal or journal.storage.recovery is not state:
+                        raise ConflictError("crud_stale")
+                    await journal.accept_recovery()
+                    self.page.pop_dialog()
+                    self._set_message("reloaded")
+
+                await self._action(confirm)
+
+            self.page.show_dialog(
+                ft.AlertDialog(
+                    modal=True,
+                    scrollable=True,
+                    title=self.tr("recovery_review"),
+                    content=ft.Text(f"{summary}\n\n{self.tr('recovery_help')}", selectable=True),
+                    actions=[
+                        ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss),
+                        ft.TextButton(
+                            self.tr("recovery_keep"),
+                            on_click=accept,
+                            disabled=not journal.recovery_valid,
+                        ),
+                    ],
+                )
+            )
+
+        await self._action(review)
 
     def _require_journal(self) -> Journal:
         if self.journal is None:

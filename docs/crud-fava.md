@@ -466,6 +466,18 @@ A failed/uncertain write blocks further saves; inspect the verified backup and
 restore externally if necessary.
 Take an independent backup before upgrading a real-data installation.
 
+Android now persists a verified, checksummed save-intent record before the
+destructive provider operation. On reopening, unfinished saves, damaged records
+and missing metadata for existing journals or unaccounted pending backups require
+explicit review, even when the current
+journal is syntactically valid. No automatic journal replacement or transaction
+retry is performed. Settings offers **Review interrupted save**: compare the
+current version, validate the associated previous backup, and explicitly keep a
+reviewed version (with a new protected snapshot), or cancel and restore
+externally. Invalid/missing journals cannot be accepted until fixed externally.
+See [Android recovery](android-storage-validation.md#current-android-save-recovery)
+for the complete ordering, metadata lifecycle and provider limitations.
+
 ### Desktop atomic replacement
 
 Linux and Windows share the following save sequence:

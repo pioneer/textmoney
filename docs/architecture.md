@@ -20,6 +20,7 @@ src/app/beancount_diagnostics.py   pure-Python syntax/editing/quantity experimen
 src/app/fixtures/beancount/ synthetic bundled books, never user storage
 src/app/domain/storage.py  SHA-256 and conflict error, no Flet imports
 src/app/domain/backups.py  timestamped backup identities and tiered retention
+src/app/domain/recovery.py checksummed, hash-only Android save records and classification
 src/app/domain/ledger.py   explicit accounts, Decimal postings and running-balance checks
 src/app/journal.py         one-journal load/append/save coordination, no Flet
 src/app/infrastructure/beancount_journal.py lossless reading, directive splices and generation
@@ -98,7 +99,8 @@ Operating currencies and active-state metadata are synchronized in the
 Beancount journal. Edit dialogs capture the journal instance and source baseline:
 poll/reload/folder changes cannot silently rebase an old draft. File contents are accessed directly through
 the chosen adapter, never mirrored into app-private storage. Unsaved drafts and
-hash baselines are in memory only. See the [report](android-storage-validation.md) for
+desktop hash baselines are in memory only; Android additionally stores save hashes
+and backup identifiers for crash review, never a second ledger. See the [report](android-storage-validation.md) for
 backup safety, provider limitations, and device verification status. The same
 adapters allow only `storage-test.beancount` and `txncount.beancount`, with separate
 backup namespaces. No synchronization implementation, analytics or authentication
@@ -117,9 +119,16 @@ permissions, flush/fsync it, recheck the supplied baseline hash, then commit wit
 `os.replace()`. Parent-directory fsync follows on supported POSIX filesystems;
 Windows lacks that step. Explicit write errors distinguish pre-commit,
 post-replacement and uncertain outcomes. Shared read-back, backup finalization
-and retention remain unchanged. Android SAF retains its direct non-atomic write.
+and retention remain unchanged. Android SAF retains its direct non-atomic write,
+but `RecoveryFolder` adds a verified save intent before writing and completion
+after shared verification/maintenance. `Journal.load` blocks unresolved states
+before publishing balances or allowing edits. Explicit recovery acceptance
+validates and snapshots the reviewed journal without rewriting it. The native
+bridge serializes operations across service instances so timeout/cancellation
+does not let inspection overtake still-running I/O in the same Flutter process.
 Neither adapter provides locking or compare-and-swap. See
-[write guarantees and recovery](crud-fava.md#desktop-atomic-replacement).
+[write guarantees](crud-fava.md#desktop-atomic-replacement) and
+[Android recovery](android-storage-validation.md#current-android-save-recovery).
 
 The CRUD milestone intentionally remains single-file at the user's direction;
 no native SAF changes, migration, or multi-file transactions were introduced.

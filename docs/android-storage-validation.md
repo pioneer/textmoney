@@ -189,12 +189,146 @@ not locally observed runs. No remaining compile blocker in the original build.
 - Polling reads/hashes the entire small test file every five seconds after Read;
   Android may suspend it in the background. Resume/foreground detection needs
   phone testing. Polling pauses on errors until an explicit retry.
-- No file-size cap, streaming UI, merge, background service or crash recovery.
+- The original PoC had no file-size cap, streaming UI, merge, background service
+  or crash recovery. Current journal recovery is described below.
   Unsaved input survives conflicts/errors within the session, not process death.
 - No real Dropbox/Dropsync sync was tested. File relocation, revoked grants,
   uninstall or clearing app data can invalidate remembered access.
 - Flet target resolution is not fully locked by `uv.lock`; the JNI override is
   necessary for the tested build. Debug signing is for sideloaded testing only.
+
+## Current Android save recovery
+
+This section supersedes the original PoC's lack of crash detection. It does not
+upgrade its device-testing results into evidence for the new recovery behavior.
+
+### API findings and save sequence
+
+The pinned `saf_stream` 3.1.0 Android implementation uses
+`ContentResolver.openOutputStream(uri, "wt")` and `OutputStream.use { write(data) }`.
+The native write coroutine runs on `Dispatchers.IO`; a Python transport timeout
+or task cancellation does not cancel it. `saf_util` 3.1.1 rename delegates to
+`DocumentFile.renameTo` / `DocumentsContract.renameDocument`. Neither dependency
+establishes an atomic replace-existing operation or physical-durability contract.
+Renaming a staging document after deleting the journal would add a dangerous
+missing-file window. TxnCount therefore keeps direct provider writes and never
+deletes the original as an intermediate replacement step.
+
+1. Validate the complete candidate in the existing journal service. Check the
+   SHA-256 baseline, create/read-verify the previous backup, and check again.
+2. Inspect existing recovery evidence; reject unresolved state and changed
+   journal bytes. The native bridge verifies the supplied previous bytes against
+   the associated pending backup immediately before preparing the write.
+3. Write and read-verify `.<journal-name>.recovery.json` in the selected SAF tree.
+   It contains schema version, previous/candidate SHA-256 hashes, backup ID,
+   `prepared` phase, acknowledged pending-backup IDs and a SHA-256 checksum over
+   the metadata. It contains **no journal contents**.
+4. Check original bytes again, then directly write the candidate through SAF.
+   Native read-back must match the candidate; shared Python read-back still runs.
+5. Preserve existing backup finalization/retention. Finally write and read-verify
+   a `complete` record after checking both journal and intent again. Completion
+   errors invalidate readiness and report that saving may already have happened.
+   Ordinary backup-maintenance failures still mean a successful financial save
+   with a warning, if the completion record can be verified.
+
+All bridge operations are queued across service instances in one Flutter
+process. Inspection, recovery confirmation or another request cannot overtake a
+still-running native save after the Python caller times out or is cancelled.
+There is no automatic retry. This queue is **not a cross-process lock**.
+No new runtime/native dependency, storage permission, folder grant or journal
+serialization is introduced. Desktop atomic replacement is unchanged.
+
+### Reopening and user decisions
+
+An unfinished intent blocks normal journal loading/saving. Missing metadata for
+an existing journal or pending backups, corrupt/incomplete/checksum-invalid metadata, or pending copies
+not acknowledged by a completed record also block saving. Fresh folders without
+either journal, record or pending backup remain usable. Existing journals from
+before this change and legacy/manual pending backups conservatively require a
+one-time review; validation alone does not bypass it.
+
+Recovery compares the current hash with both recorded versions:
+
+- **Previous:** journal is unchanged; do not assume the transaction committed.
+- **Candidate:** the intended bytes are present; do not resubmit the transaction.
+- **Unexpected:** possible partial write, valid-looking truncation or legitimate
+  external synchronization. Parsing successfully does not clear this condition.
+- **Missing/damaged metadata:** no reliable version classification is possible.
+
+The current journal is validated independently. The associated backup is located
+by its exact pending name or finalized counterpart; its SHA-256 must match the
+recorded previous version and it must pass journal validation before the UI calls
+it verified. Missing/corrupt backups are explicitly reported. If metadata cannot
+identify a backup, pending names are shown, but their provenance is not invented.
+
+**Settings → Review interrupted save** shows the classification, validation,
+transaction count and backup status. Cancel preserves everything. After pausing
+external sync and inspecting the files, the user can:
+
+- Explicitly **keep the reviewed version**. Only a present, validated journal is
+  eligible. Create/read-verify a new protected pending snapshot of that version;
+  archive the old metadata in `backups/*-pending-recovery.json`; recheck current
+  bytes, metadata and pending-backup inventory; then persist/read-verify a
+  `resolved` record. The journal itself is **not rewritten**.
+- Restore externally: first preserve the current journal independently, restore
+  a verified backup, Reload and review again. Invalid or missing journals must
+  take this route; no automatic restoration is attempted.
+
+If journal bytes or metadata change during confirmation, confirmation refuses;
+the external version is never overwritten. Pending financial snapshots and
+recovery archives are outside automatic retention. Records are overwritten only
+when starting the next guarded save or explicitly confirming recovery.
+
+### Limits and verification
+
+SAF read-back proves observed bytes, **not physical durability**. A provider may
+cache data, return stale reads, lose multiple documents on power loss, reject
+hidden filenames, revoke access or rename documents unexpectedly. No fsync or
+atomicity guarantee is claimed for either journal or recovery record. If the
+provider/external tool removes or rolls back *all* recovery evidence, detection
+cannot be guaranteed. Pending-backup inventory catches some missing/rolled-back
+intent cases, not every multi-document storage failure. A checksum detects
+corruption, not malicious tampering.
+
+The final comparison cannot eliminate TOCTOU. Dropbox/Dropsync and multiple app
+processes still require independent coordination; metadata should be synchronized
+with the folder, not manually removed to dismiss a warning. Completed records
+do not classify every later legitimate external edit as an interrupted save.
+Unsaved form contents remain memory-only; the record does not preserve the
+candidate's bytes or replay operations.
+
+Verification performed on Linux:
+
+- `uv run inv doctor`: existing Flet 1.0.1 / Flutter 3.44.8 and Android SDK found.
+- `adb devices` via the existing SDK: no attached device/emulator.
+- `uv run inv format`, `lint`, `typecheck` and focused `test` runs: Python
+  implementation and fault-injected transport/provider-model regressions.
+- `uv run inv build-android`: APK compilation of the updated Flutter bridge;
+  output remains `build/apk/txncount-0.2.3.apk` (development build, no release).
+- `uv run inv check`: formatting, lint and Pyright passed; **574 tests passed**.
+
+The automated provider model covers successful/first saves, failed metadata
+preparation, partial writes, valid-looking transaction loss, completion failures,
+missing/corrupt records and backups, finalized-backup lookup, external recovery
+races, explicit acceptance and cancellation/timeout with native work still
+running. These are **mocked guarantees**, not device/provider observations.
+Compilation does not certify the queue or provider's crash behavior at runtime.
+
+New physical-device checklist (disposable synthetic journal only):
+
+1. Save normally, force-stop/reopen and confirm no recovery prompt and correct
+   balances, record and previous backup.
+2. Interrupt a save around marker preparation, journal truncation and backup
+   finalization. On reopening, require review; include a valid but shortened book.
+3. Verify previous/candidate/unexpected classification and exact backup hashes.
+   Try missing/corrupt records and backups. Never dismiss warnings by deletion.
+4. Cancel review and confirm no file changed. Keep a reviewed version and inspect
+   the protected snapshot/archive; verify no duplicate transaction was replayed.
+5. Restore externally, Reload and explicitly review. Change the journal through
+   an editor/Dropsync during confirmation; it must not overwrite that version.
+6. Exercise slow-provider timeout, background/resume, low space and revoked
+   access. Check that recovery waits for outstanding I/O and remains blocked
+   while access/outcomes cannot be established.
 
 ## Physical-device checklist (Phase B)
 

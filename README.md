@@ -50,7 +50,7 @@ established.
 
 1. Open TxnCount and choose a dedicated local data folder.
 2. Create an account with its currency and, optionally, an opening balance.
-3. Add expense categories under **Accounts**.
+3. Add expense categories under **Accounting → Categories**.
 4. Use **Add transaction** (**Додати операцію**), enter a description in the first
    field, then a positive amount, select the account and category, and save.
    The default **−** records spending; the hint below the amount explains the sign.
@@ -61,7 +61,7 @@ the category selector shows income categories. For special receipts, use
 **Expense reimbursement** reduces an expense category, while
 **Balance adjustment** records receipts that should affect neither
 income nor current expenses (for example, recovery of a pre-tracking purchase).
-Create income categories under Accounts by selecting the Income category type.
+Create income categories under **Accounting → Categories** by selecting the Income category type.
 Reimbursements reduce expenses on the date received, which can produce negative
 net expenses in that period. A linked expense is a reference, not a tracked debt.
 
@@ -129,6 +129,7 @@ and [editing and data-safety guide](docs/crud-fava.md) for details.
 
 | Version | Highlights |
 | --- | --- |
+| [0.2.3](https://github.com/pioneer/txncount/releases/tag/v0.2.3) | Localized startup without an English-language flash; unified Accounting labels, Accounts/Categories subtabs and creation dialogs; larger transparent Linux icons and corrected Wayland development identity. |
 | [0.2.2](https://github.com/pioneer/txncount/releases/tag/v0.2.2) | Matching income/expense category sections and a compact, collapsible category tree with session-preserved expansion state. |
 | [0.2.1](https://github.com/pioneer/txncount/releases/tag/v0.2.1) | Bounded backup retention, automatic cleanup settings and a manual cleanup preview; protected recovery copies remain untouched. |
 | [0.2.0](https://github.com/pioneer/txncount/releases/tag/v0.2.0) | Cross-currency transfers, a universal transaction form, and inline category creation. |

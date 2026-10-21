@@ -165,7 +165,7 @@ def test_incoming_edit_delete_preserves_ids_metadata_comments_and_backup(
             f'  id: "{original.id}"\n  receipt: "Synthetic"\n  ; keep transaction comment',
         )
         decorated += '\n2026-01-01 event "test" "Preserve me"\n; unrelated tail\n'
-        path.write_text(decorated)
+        path.write_text(decorated, newline="")
         await journal.load()
         before = journal.source
         await journal.edit_transaction(
@@ -273,10 +273,10 @@ def test_incoming_conflict_and_backup_failure_preserve_original(tmp_path: Path) 
             )
         assert journal.source == before
         path = tmp_path / FILENAME
-        path.write_text(before + "; external\n")
+        path.write_text(before + "; external\n", newline="")
         with pytest.raises(ConflictError):
             await journal.add_incoming("Assets:Cash", ADJUSTMENTS, "5", "", DAY, "adjustment")
-        assert path.read_text() == before + "; external\n"
+        assert path.read_text(newline="") == before + "; external\n"
         await journal.load()
         folder = journal.storage.folder
         assert isinstance(folder, DesktopFolder)
@@ -284,7 +284,7 @@ def test_incoming_conflict_and_backup_failure_preserve_original(tmp_path: Path) 
         folder.backup = AsyncMock(side_effect=StorageError("Synthetic backup failure"))
         with pytest.raises(StorageError, match="backup failure"):
             await journal.add_incoming("Assets:Cash", ADJUSTMENTS, "5", "", DAY, "adjustment")
-        assert path.read_text() == before + "; external\n"
+        assert path.read_text(newline="") == before + "; external\n"
         folder.backup = original_backup
 
     asyncio.run(scenario())
@@ -307,7 +307,7 @@ def test_incoming_storage_errors_do_not_claim_success(
             folder.write = failure
         with pytest.raises(StorageError):
             await journal.add_incoming("Assets:Cash", ADJUSTMENTS, "5", "", DAY, "adjustment")
-        assert (tmp_path / FILENAME).read_text() == before
+        assert (tmp_path / FILENAME).read_text(newline="") == before
         assert journal.source == before
         assert not journal.ready
         assert not journal.storage.loaded
@@ -340,7 +340,7 @@ def test_invalid_incoming_preserves_source_and_backups(
         with pytest.raises(LedgerError):
             await journal.add_incoming("Assets:Cash", category, amount, "", day, kind)
         assert journal.source == before
-        assert (tmp_path / FILENAME).read_text() == before
+        assert (tmp_path / FILENAME).read_text(newline="") == before
         assert set((tmp_path / "backups").iterdir()) == backups
 
     asyncio.run(scenario())
@@ -645,7 +645,7 @@ def test_unified_editor_keeps_complex_and_external_movements_readonly(
             '  id: "protected"\n'
             f'  txncount-kind: "{kind}"\n' + postings
         )
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         view = FinanceView()
         view.journal = journal
@@ -661,6 +661,6 @@ def test_unified_editor_keeps_complex_and_external_movements_readonly(
         text = [c.value for c in dialog.content.controls if isinstance(c, ft.Text)]
         assert all(value in text for value in expected)
         assert journal.source == source
-        assert (tmp_path / FILENAME).read_text() == source
+        assert (tmp_path / FILENAME).read_text(newline="") == source
 
     asyncio.run(scenario())

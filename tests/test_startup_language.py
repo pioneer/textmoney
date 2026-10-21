@@ -21,6 +21,7 @@ def test_startup_shows_only_spinner_until_preferences_and_language_are_ready(
 ) -> None:
     async def scenario() -> None:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setenv("APPDATA", str(tmp_path))
         if saved:
             await DesktopPreferences().set("txncount.language.v1", saved)
         page = MagicMock(spec=ft.Page)
@@ -78,6 +79,7 @@ def test_startup_failure_exits_spinner_and_displays_actionable_error(
 ) -> None:
     async def scenario() -> None:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setenv("APPDATA", str(tmp_path))
         await DesktopPreferences().set("txncount.language.v1", "uk")
         page = MagicMock(spec=ft.Page)
         page.width = 390

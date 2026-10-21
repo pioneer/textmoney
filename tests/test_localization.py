@@ -217,6 +217,7 @@ def test_language_mode_restores_on_startup(
 ) -> None:
     async def scenario() -> None:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setenv("APPDATA", str(tmp_path))
         if saved is not None:
             await DesktopPreferences().set("txncount.language.v1", saved)
         page = MagicMock(spec=ft.Page)
@@ -257,6 +258,7 @@ def test_legacy_folder_preference_is_migrated_without_overriding_current_choice(
 ) -> None:
     async def scenario() -> None:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setenv("APPDATA", str(tmp_path))
         preferences = DesktopPreferences()
         await preferences.set("financepoc.folder.v1", "/synthetic/legacy")
         if existing_new_key:
@@ -295,6 +297,7 @@ def test_missing_device_language_info_is_reported_explicitly(
 ) -> None:
     async def scenario() -> None:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setenv("APPDATA", str(tmp_path))
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
         page.width = 390
@@ -326,6 +329,7 @@ def test_startup_system_language_uses_client_locale_order_not_app_default(
 ) -> None:
     async def scenario() -> None:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setenv("APPDATA", str(tmp_path))
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
         page.width = 390

@@ -2,6 +2,7 @@ import json
 import math
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -99,6 +100,8 @@ def test_linux_development_icon_does_not_modify_shared_client(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    if sys.platform == "win32":
+        pytest.skip("Linux development client requires POSIX executable permissions and symlinks.")
     root = tmp_path / "project"
     (root / "assets").mkdir(parents=True)
     tasks.Image.new("RGB", (1024, 1024), "green").save(root / "assets/icon.png")
@@ -164,7 +167,7 @@ def test_only_linux_native_run_uses_branded_client(
     tasks.run_app(web=web, debug=True)
     if branded:
         prepare.assert_called_once()
-        assert execute.call_args.kwargs["env"]["FLET_VIEW_PATH"] == "/synthetic/client"
+        assert execute.call_args.kwargs["env"]["FLET_VIEW_PATH"] == str(Path("/synthetic/client"))
         assert execute.call_args.kwargs["env"]["FLET_APP_ID"] == tasks.LINUX_DEV_APP_ID
         assert execute.call_args.kwargs["cwd"] == tasks.ROOT / "src"
     else:

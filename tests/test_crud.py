@@ -129,7 +129,7 @@ def test_invalid_description_leaves_source_and_backups_unchanged(
                 description,
                 before,
             )
-        assert journal.source == (tmp_path / FILENAME).read_text() == before
+        assert journal.source == (tmp_path / FILENAME).read_text(newline="") == before
         assert list((tmp_path / "backups").iterdir()) == backups
 
     asyncio.run(scenario())
@@ -142,7 +142,7 @@ def test_new_account_appends_missing_display_currency_preserving_existing_config
         journal = await seeded(tmp_path)
         await journal.set_operating_currencies("UAH EUR", journal.source)
         original = journal.source + '\n; keep this configuration\noption "title" "Synthetic"\n'
-        (tmp_path / FILENAME).write_text(original)
+        (tmp_path / FILENAME).write_text(original, newline="")
         await journal.load()
         assert journal.source == original
         await journal.create_account("Usd", "Dollar wallet", "USD")
@@ -151,7 +151,7 @@ def test_new_account_appends_missing_display_currency_preserving_existing_config
         await journal.create_account("OtherUsd", "Other dollar wallet", "USD")
         assert journal.source.count('option "operating_currency" "USD"') == 1
         assert journal.source.startswith(original)
-        assert any(p.read_text() == original for p in (tmp_path / "backups").iterdir())
+        assert any(p.read_text(newline="") == original for p in (tmp_path / "backups").iterdir())
 
     asyncio.run(scenario())
 
@@ -168,13 +168,13 @@ def test_failed_new_account_never_saves_currency_separately(tmp_path: Path, fail
             error = StorageError
         elif failure == "conflict":
             expected += "\n; external change\n"
-            (tmp_path / FILENAME).write_text(expected)
+            (tmp_path / FILENAME).write_text(expected, newline="")
             error = ConflictError
         with pytest.raises(error):
             await journal.create_account(
                 "Usd", "Dollar wallet", "USD", "-1" if failure == "validation" else ""
             )
-        assert (tmp_path / FILENAME).read_text() == expected
+        assert (tmp_path / FILENAME).read_text(newline="") == expected
         assert journal.source == original
         assert "USD" not in journal.ledger.operating_currencies
 
@@ -237,7 +237,7 @@ def test_expense_delete_physically_removes_entry_but_keeps_comments(tmp_path: Pa
             f'{transaction.date} * "Synthetic"',
             f'; keep this comment\n{transaction.date} * "Synthetic"',
         ).replace('  txncount-kind: "expense"', '  txncount-kind: "expense" ; keep inline')
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         await journal.delete_expense(transaction.id, journal.source)
         assert transaction.id not in journal.source
@@ -260,7 +260,7 @@ def test_operating_currencies_new_existing_configuration_and_comments(tmp_path: 
         source = journal.source.replace(
             'option "operating_currency" "EUR"', 'option "operating_currency" "EUR" ; keep option'
         )
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         await journal.set_operating_currencies("EUR", journal.source)
         assert "; keep option" in journal.source
@@ -269,7 +269,7 @@ def test_operating_currencies_new_existing_configuration_and_comments(tmp_path: 
         assert journal.ledger.balances()["Assets:Cash"] == Decimal("90")
         # An existing file without options is never silently changed on load.
         source = journal.source.replace('option "operating_currency" "EUR"', "")
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         assert journal.source == source
         assert journal.ledger.operating_currencies == ()
@@ -339,7 +339,7 @@ def test_crud_conflicts_never_overwrite_external_edits(tmp_path: Path, operation
         expected = journal.source
         target = tmp_path / FILENAME
         external = expected + "\n; external synthetic change\n"
-        target.write_text(external)
+        target.write_text(external, newline="")
         identifier = journal.ledger.transactions[-1].id
         with pytest.raises(ConflictError):
             if operation == "expense":
@@ -362,7 +362,7 @@ def test_crud_conflicts_never_overwrite_external_edits(tmp_path: Path, operation
                 await journal.set_operating_currencies("USD", expected)
             else:
                 await journal.delete_expense(identifier, expected)
-        assert target.read_text() == external
+        assert target.read_text(newline="") == external
         assert not journal.ready
 
     asyncio.run(scenario())
@@ -372,7 +372,7 @@ def test_edit_draft_after_poll_reload_is_rejected(tmp_path: Path) -> None:
     async def scenario() -> None:
         journal = await seeded(tmp_path)
         baseline = journal.source
-        (tmp_path / FILENAME).write_text(baseline + "\n; external\n")
+        (tmp_path / FILENAME).write_text(baseline + "\n; external\n", newline="")
         assert await journal.poll()
         with pytest.raises(ConflictError, match="crud_stale"):
             await journal.edit_category("Expenses:Food", "Stale name", True, baseline)
@@ -394,7 +394,7 @@ def test_crud_integration_failures_keep_last_verified_ledger(tmp_path: Path, fai
         with pytest.raises(StorageError):
             await journal.edit_category("Expenses:Food", "Other", True, source)
         assert journal.source == source
-        assert (tmp_path / FILENAME).read_text() == source
+        assert (tmp_path / FILENAME).read_text(newline="") == source
         assert not journal.ready
 
     asyncio.run(scenario())
@@ -405,11 +405,11 @@ def test_referenced_unused_account_cannot_be_deleted(tmp_path: Path) -> None:
         journal = await seeded(tmp_path)
         await journal.create_account("Unused", "Unused", "USD")
         source = journal.source + '\n2026-01-01 note Assets:Unused "keep"\n'
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         with pytest.raises(LedgerError, match="crud_referenced"):
             await journal.delete_account("Assets:Unused", source)
-        assert (tmp_path / FILENAME).read_text() == source
+        assert (tmp_path / FILENAME).read_text(newline="") == source
 
     asyncio.run(scenario())
 
@@ -424,7 +424,7 @@ def test_split_and_opening_entries_are_readonly_in_expense_editor(tmp_path: Path
             "Expenses:Food:Groceries 5 UAH\n    Expenses:Food 5 UAH",
         )
         assert source != journal.source
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         with pytest.raises(LedgerError, match="crud_transaction_readonly"):
             await journal.delete_expense(journal.ledger.transactions[-1].id, source)
@@ -438,7 +438,7 @@ def test_fava_missing_operating_currency_error_is_resolved_in_existing_file(tmp_
         journal = await seeded(tmp_path)
         path = tmp_path / FILENAME
         legacy = journal.source.replace('option "operating_currency" "UAH"', "")
-        path.write_text(legacy)
+        path.write_text(legacy, newline="")
         fava = FavaLedger(str(path), poll_watcher=True)
         assert any("No operating currency specified" in error.message for error in fava.errors)
         await journal.load()
@@ -508,7 +508,7 @@ def test_invalid_operating_currencies_leave_original_untouched(
         with pytest.raises(LedgerError):
             await journal.set_operating_currencies(currencies, source)
         assert journal.source == source
-        assert (tmp_path / FILENAME).read_text() == source
+        assert (tmp_path / FILENAME).read_text(newline="") == source
 
     asyncio.run(scenario())
 
@@ -534,7 +534,7 @@ def test_ui_edit_dialog_preserves_input_after_poll_conflict_and_cancel_does_not_
         assert isinstance(amount, ft.TextField)
         amount.value = "13.50"
         source = view.journal.source + "\n; external edit while dialog open\n"
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         assert await view.journal.poll()
         submit = dialog.actions[-1]
         assert isinstance(submit, ft.TextButton)
@@ -542,7 +542,7 @@ def test_ui_edit_dialog_preserves_input_after_poll_conflict_and_cancel_does_not_
         await submit_handler(MagicMock())
         assert amount.value == "13.50"
         assert not amount.disabled
-        assert (tmp_path / FILENAME).read_text() == source
+        assert (tmp_path / FILENAME).read_text(newline="") == source
         assert page.pop_dialog.call_count == 0
         assert "Data changed" in view.message.value
         assert page.show_dialog.call_count == 2
@@ -592,14 +592,14 @@ def test_currency_draft_survives_poll_and_requires_reopening_after_external_chan
         view.operating_currencies.value = "UAH USD"
         baseline = view.operating_source
         source = view.journal.source + "\n; externally updated\n"
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         assert await view.journal.poll()
         view._refresh()
         assert view.operating_currencies.value == "UAH USD"
         assert view.operating_source == baseline
         await view._save_operating_currencies(MagicMock())
         assert view.operating_currencies.value == "UAH USD"
-        assert (tmp_path / FILENAME).read_text() == source
+        assert (tmp_path / FILENAME).read_text(newline="") == source
         assert "Data changed" in view.message.value
         view._reset_operating_currencies(MagicMock())
         assert view.operating_currencies.value == "UAH"
@@ -625,7 +625,7 @@ def test_partial_crud_write_is_reported_and_preserves_verified_backup(tmp_path: 
         assert not journal.ready
         assert not journal.storage.loaded
         assert journal.source == original
-        assert any(p.read_text() == original for p in (tmp_path / "backups").iterdir())
+        assert any(p.read_text(newline="") == original for p in (tmp_path / "backups").iterdir())
 
     asyncio.run(scenario())
 
@@ -654,7 +654,7 @@ def test_invalid_expense_edits_never_modify_original(tmp_path: Path) -> None:
             with pytest.raises(LedgerError):
                 await journal.edit_expense(identifier, **parameters, expected_source=original)
             assert journal.source == original
-            assert (tmp_path / FILENAME).read_text() == original
+            assert (tmp_path / FILENAME).read_text(newline="") == original
 
     asyncio.run(scenario())
 
@@ -682,7 +682,7 @@ def test_delete_with_history_offers_deactivation_instead_of_destroying_records(
         assert not view.journal.ledger.accounts[0].active
         assert len(view.journal.ledger.transactions) == 2
         assert view.journal.ledger.balances()["Assets:Cash"] == 90
-        assert any(p.read_text() == source for p in (tmp_path / "backups").iterdir())
+        assert any(p.read_text(newline="") == source for p in (tmp_path / "backups").iterdir())
         view._refresh()
         view._transaction_dialog(view.journal)
         dialog = page.show_dialog.call_args.args[0]
@@ -698,7 +698,7 @@ def test_untagged_id_expense_is_readonly_without_inventing_new_identity(tmp_path
         expense = journal.ledger.transactions[-1]
         source = journal.source.replace(f'    id: "{expense.id}"\n', "")
         assert source != journal.source
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         external = journal.ledger.transactions[-1]
         assert not external.persistent_id
@@ -714,7 +714,7 @@ def test_complex_opening_still_allows_safe_rename_and_deactivation(tmp_path: Pat
         journal = await seeded(tmp_path)
         first = journal.ledger.transactions[0]
         source = journal.source + "\n" + transaction_text(replace(first, id="second-opening"))
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         with pytest.raises(LedgerError, match="crud_opening_complex"):
             journal.opening_balance("Assets:Cash")

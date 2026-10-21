@@ -363,6 +363,7 @@ def test_retention_preference_restores_before_attaching_folder(
 ) -> None:
     async def scenario() -> None:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+        monkeypatch.setenv("APPDATA", str(tmp_path / "config"))
         preferences = DesktopPreferences()
         await preferences.set("txncount.folder.v1", str(tmp_path))
         if saved is not None:

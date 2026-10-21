@@ -337,7 +337,8 @@ def test_readonly_transaction_opens_details_instead_of_hiding_its_postings(
         await view.journal.load()
         await view.journal.create_account("Cash", "Wallet", "UAH", "100")
         (tmp_path / FILENAME).write_text(
-            view.journal.source.replace('txncount-kind: "opening"', 'txncount-kind: "external"')
+            view.journal.source.replace('txncount-kind: "opening"', 'txncount-kind: "external"'),
+            newline="",
         )
         await view.journal.load()
         original = view.journal.source
@@ -452,6 +453,7 @@ def test_new_expense_starts_empty_even_with_a_legacy_default_payee_preference(
 ) -> None:
     async def scenario() -> None:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setenv("APPDATA", str(tmp_path))
         await DesktopPreferences().set("txncount.default-payee.v1", "Legacy shop")
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
@@ -531,7 +533,7 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         original = journal.ledger.transactions[-1]
         stamp = "2026-01-02T00:30:00.123456Z"
         source = journal.source.replace(original.timestamp, stamp)
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         event = MagicMock()
         event.control.data = original.id
@@ -563,13 +565,13 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         )
         description.value = "Unsaved\nsecond line"
         external = journal.source + "\n; external change\n"
-        (tmp_path / FILENAME).write_text(external)
+        (tmp_path / FILENAME).write_text(external, newline="")
         await dialog.actions[-1].on_click(MagicMock())
         assert view.error_message
         assert payee.value == "Draft shop"
         assert description.value == "Unsaved\nsecond line"
         assert tile.expanded
-        assert (tmp_path / FILENAME).read_text() == external
+        assert (tmp_path / FILENAME).read_text(newline="") == external
 
     asyncio.run(scenario())
 
@@ -628,7 +630,7 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
         source = journal.source.replace(
             'txncount-kind: "opening"', 'txncount-kind: "opening"\n    receipt: "keep" ; comment'
         )
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         original = next(t for t in journal.ledger.transactions if t.kind == "opening")
         before = journal.source
@@ -648,7 +650,7 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
         expected = before
         if mode in {"conflict", "stale"}:
             expected += "\n; external\n"
-            (tmp_path / FILENAME).write_text(expected)
+            (tmp_path / FILENAME).write_text(expected, newline="")
             if mode == "stale":
                 await journal.poll()
         elif mode == "backup":
@@ -668,10 +670,10 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
             )
             assert view.balance_warning.visible == (mode == "negative")
             assert 'receipt: "keep" ; comment' in journal.source
-            assert any(p.read_text() == before for p in (tmp_path / "backups").iterdir())
+            assert any(p.read_text(newline="") == before for p in (tmp_path / "backups").iterdir())
             assert not loader.load_string(journal.source)[1]
         else:
-            assert (tmp_path / FILENAME).read_text() == expected
+            assert (tmp_path / FILENAME).read_text(newline="") == expected
             assert amount.value == ("5" if mode == "negative" else "120")
             if mode != "cancel":
                 assert view.error_message
@@ -698,7 +700,7 @@ def test_multiple_openings_remain_readonly_with_dates_in_collapsed_details(
             "  Assets:Cash 10 UAH\n"
             "  Equity:Opening-Balances -10 UAH\n"
         )
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()
         event = MagicMock()
         event.control.data = original.id
@@ -710,6 +712,6 @@ def test_multiple_openings_remain_readonly_with_dates_in_collapsed_details(
         details = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
         assert not details.expanded
         assert len(dialog.actions) == 1
-        assert (tmp_path / FILENAME).read_text() == source
+        assert (tmp_path / FILENAME).read_text(newline="") == source
 
     asyncio.run(scenario())

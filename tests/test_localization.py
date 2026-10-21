@@ -107,6 +107,7 @@ def test_navigation_has_consistent_destinations_and_adapts_on_resize(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     view = FinanceView()
+    view.startup_complete = True
     page = MagicMock(spec=ft.Page)
     page.width = 390
     monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
@@ -216,6 +217,7 @@ def test_language_mode_restores_on_startup(
             await DesktopPreferences().set("txncount.language.v1", saved)
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
+        page.width = 390
         page.locale_configuration = ft.LocaleConfiguration(
             current_locale=ft.Locale(language_code="en"),
         )
@@ -259,6 +261,7 @@ def test_legacy_folder_preference_is_migrated_without_overriding_current_choice(
             monkeypatch.setattr(DesktopPreferences, "set", AsyncMock(return_value=False))
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
+        page.width = 390
         page.locale_configuration = ft.LocaleConfiguration()
         page.get_device_info = AsyncMock(
             return_value=DeviceInfo(locales=[ft.Locale(language_code="uk")])
@@ -290,6 +293,7 @@ def test_missing_device_language_info_is_reported_explicitly(
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
+        page.width = 390
         page.get_device_info = AsyncMock(return_value=None)
         monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
         monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
@@ -320,6 +324,7 @@ def test_startup_system_language_uses_client_locale_order_not_app_default(
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
+        page.width = 390
         page.locale_configuration = ft.LocaleConfiguration()
         page.get_device_info = AsyncMock(
             return_value=DeviceInfo(
@@ -353,6 +358,7 @@ def test_page_owned_controls_receive_language_theme_and_transaction_updates(
         monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
         view = FinanceView()
         view.update = MagicMock()
+        view.startup_complete = True
         view._apply_layout(390)
         view.preferences = MagicMock()
         view.preferences.set = AsyncMock(return_value=True)

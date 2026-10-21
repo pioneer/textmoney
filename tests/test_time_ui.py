@@ -451,6 +451,7 @@ def test_new_expense_starts_empty_even_with_a_legacy_default_payee_preference(
         await DesktopPreferences().set("txncount.default-payee.v1", "Legacy shop")
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
+        page.width = 390
         page.get_device_info = AsyncMock(
             return_value=DeviceInfo(locales=[ft.Locale(language_code="en")])
         )
@@ -502,6 +503,7 @@ def test_description_is_prominent_and_currency_settings_are_advanced_in_all_lang
         assert translate(language, "crud_operating_help") in texts(
             ft.Column(view.advanced_settings.controls or [])
         )
+    view.startup_complete = True
     view._apply_layout(390)
     assert page.floating_action_button is view.fab
     view._apply_layout(1366)

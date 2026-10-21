@@ -369,6 +369,7 @@ def test_retention_preference_restores_before_attaching_folder(
             await preferences.set(BACKUP_CLEANUP_KEY, saved)
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
+        page.width = 390
         page.locale_configuration = ft.LocaleConfiguration()
         page.get_device_info = AsyncMock(
             return_value=DeviceInfo(locales=[ft.Locale(language_code="uk")])

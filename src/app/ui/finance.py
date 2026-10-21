@@ -86,6 +86,12 @@ class FinanceView(ft.Row):
         self.message_key = "no_folder"
         self.error_message: str | None = None
         self.diagnostics_visible = False
+        self.startup_complete = False
+        self.startup_spinner = ft.Container(
+            expand=True,
+            alignment=ft.Alignment.CENTER,
+            content=ft.ProgressRing(),
+        )
 
         self.message = ft.Text("", selectable=True)
         self.folder_label = ft.Text("", selectable=True)
@@ -239,7 +245,7 @@ class FinanceView(ft.Row):
                 ),
             ],
         )
-        self.controls.append(self.body)
+        self.controls.append(self.startup_spinner)
         self.forms = [
             self.account_id,
             self.account_root,
@@ -536,6 +542,12 @@ class FinanceView(ft.Row):
 
     def _apply_layout(self, width: float | None) -> None:
         self.screen_class = screen_class(width)
+        if not self.startup_complete:
+            self.controls = [self.startup_spinner]
+            if self.page:
+                self.page.navigation_bar = None
+                self.page.floating_action_button = None
+            return
         if self.screen_class == ScreenClass.COMPACT:
             self.controls = [self.body]
             self.body.width = width
@@ -950,17 +962,17 @@ class FinanceView(ft.Row):
         )
 
     async def _lifecycle(self) -> None:
-        if self.page.platform in {
-            ft.PagePlatform.LINUX,
-            ft.PagePlatform.WINDOWS,
-            ft.PagePlatform.MACOS,
-        }:
-            self.preferences = DesktopPreferences()
-        else:
-            self.preferences = ft.SharedPreferences()
-        if self.page.platform == ft.PagePlatform.ANDROID:
-            self.bridge = FinanceSaf()
         try:
+            if self.page.platform in {
+                ft.PagePlatform.LINUX,
+                ft.PagePlatform.WINDOWS,
+                ft.PagePlatform.MACOS,
+            }:
+                self.preferences = DesktopPreferences()
+            else:
+                self.preferences = ft.SharedPreferences()
+            if self.page.platform == ft.PagePlatform.ANDROID:
+                self.bridge = FinanceSaf()
             device = await self.page.get_device_info()
             if device is None:
                 raise LedgerError("error_system_language")
@@ -1004,6 +1016,8 @@ class FinanceView(ft.Row):
         except Exception as exc:
             self._set_error(exc)
         self._refresh()
+        self.startup_complete = True
+        self._apply_layout(self.page.width or self.page.window.width)
         if self.page:
             self.page.update()
         while True:

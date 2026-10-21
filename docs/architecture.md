@@ -50,6 +50,10 @@ System language is resolved from `await page.get_device_info()` and its ordered
 client `locales`, not `locale_configuration.current_locale` (the app override).
 `on_locale_change` keeps that cached device choice current even while an explicit
 app language is selected. The resolved language also configures Flet's own widgets.
+Startup initially mounts only a language-neutral progress ring. Translated content,
+navigation and the transaction action are revealed together after initial preferences
+and journal restoration finish, avoiding a flash of the default English UI.
+Startup failures exit the loading state and use the existing visible error reporting.
 
 Configuration reads are centralized in `Settings.from_env`. Explicit `APP_DEBUG`
 overrides the temporary packaged debug marker. Invalid values fail early, without

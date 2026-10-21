@@ -2,6 +2,27 @@
 
 ## Scope and format
 
+### Category editor
+
+The category editor has matching **Expenses** / **Income** sections
+(**Витрати** / **Доходи** in Ukrainian), not a mixed list under an expense-only
+heading. Both sections use the same typography, spacing and edit/delete actions.
+Parent categories expand/collapse to show their children; leaves remain compact
+rows. Sections start expanded and category branches start collapsed.
+Expansion choices survive refreshes, navigation, resizing and language changes
+within the current app session; they are not stored in the financial journal.
+Missing intermediate declarations are displayed as structural, non-editable
+nodes. Existing category declarations, inactive labels and lifecycle rules are
+unchanged, as are category selection labels in the transaction form.
+
+Release 0.2.2 (Android build 19): `uv run inv check` passed formatting, Ruff,
+Pyright and 481 tests. Transaction form tests use a fixed clock consistent with
+their journal fixtures, avoiding wall-clock-dependent date failures.
+`uv run inv build-android` produced `build/apk/txncount-0.2.2.apk`, and
+`uv run inv check-beancount-apk` passed. Interactive browser validation remained
+blocked by a blank integrated browser; native Android/Windows/macOS runtime
+checks were not performed.
+
 ### Backup retention
 
 Before every modification, the previous journal is still backed up and verified.

@@ -1,5 +1,5 @@
 import asyncio
-from datetime import date
+from datetime import date, datetime, tzinfo
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -14,6 +14,17 @@ from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import translate
 from app.ui.finance import FinanceView
+
+
+@pytest.fixture(autouse=True)
+def fixed_form_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> "FixedDatetime":
+            value = cls(2026, 10, 20, 12).astimezone()
+            return value if tz is None else value.astimezone(tz)
+
+    monkeypatch.setattr("app.ui.datetime_fields.datetime", FixedDatetime)
 
 
 async def seeded(path: Path) -> Journal:

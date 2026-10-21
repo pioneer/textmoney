@@ -126,6 +126,7 @@ class FinanceView(ft.Row):
         self.operating_journal: Journal | None = None
         self.account_list = ft.Column(spacing=4)
         self.category_list = ft.Column(spacing=4)
+        self.category_expansion: dict[str, bool] = {}
         self.history = ft.Column(spacing=0)
         self.home_balances = ft.Row(wrap=True, spacing=12, run_spacing=12)
         self.home_activity = ft.Column(spacing=0)
@@ -719,9 +720,7 @@ class FinanceView(ft.Row):
         self.account_list.controls = [
             self._entity_card(account, balances[account.id]) for account in ledger.accounts
         ] or [ft.Text(self.tr("accounts_empty"))]
-        self.category_list.controls = [
-            self._entity_card(item) for item in sorted(ledger.categories, key=lambda item: item.id)
-        ] or [ft.Text(self.tr("categories_empty"))]
+        self.category_list.controls = self._category_tree(ledger.categories)
         self._refresh_labels()
         self._build_home_layout()
 
@@ -730,11 +729,83 @@ class FinanceView(ft.Row):
         label = f"{'  ' * depth}{name}"
         return f"{self.tr('kind_income')} · {label}" if identifier.startswith("Income:") else label
 
+    def _category_tree(self, categories: tuple[Category, ...]) -> list[ft.Control]:
+        items = {item.id: item for item in categories}
+        children: dict[str, set[str]] = defaultdict(set)
+        for item in categories:
+            parts = item.id.split(":")
+            for length in range(1, len(parts)):
+                children[":".join(parts[:length])].add(":".join(parts[: length + 1]))
+
+        def changed(event: ft.Event[ft.ExpansionTile]) -> None:
+            self.category_expansion[str(event.control.data)] = event.data is True
+
+        def node(identifier: str) -> ft.Control:
+            item = items.get(identifier)
+            root = identifier in {"Expenses", "Income"}
+            title = (
+                self.tr("categories_expenses" if identifier == "Expenses" else "categories_income")
+                if root
+                else item.name
+                if item
+                else identifier.rsplit(":", 1)[-1]
+            )
+            labels: list[ft.Control] = [
+                ft.Text(title, size=14, weight=ft.FontWeight.W_600 if root else None)
+            ]
+            if item and not item.active:
+                labels.append(ft.Text(self.tr("crud_inactive_label"), size=12))
+            row = ft.Row(
+                [
+                    ft.Column(labels, spacing=0, expand=True),
+                    *(self._entity_actions(item) if item else []),
+                ],
+                spacing=0,
+            )
+            descendants = sorted(children.get(identifier, ()))
+            if descendants or root:
+                return ft.ExpansionTile(
+                    data=identifier,
+                    title=row,
+                    affinity=ft.TileAffinity.LEADING,
+                    dense=True,
+                    min_tile_height=48,
+                    tile_padding=0,
+                    controls_padding=ft.Padding.only(left=16),
+                    expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
+                    expanded=self.category_expansion.get(identifier, root),
+                    on_change=changed,
+                    controls=[node(child) for child in descendants]
+                    or [ft.Text(self.tr("categories_empty"), size=12)],
+                )
+            return ft.Container(
+                data=identifier,
+                padding=ft.Padding.only(left=40),
+                content=row,
+            )
+
+        return [node("Expenses"), ft.Divider(), node("Income")]
+
+    def _entity_actions(self, item: Account | Category) -> list[ft.Control]:
+        kind = "category" if isinstance(item, Category) else "account"
+        return [
+            ft.IconButton(
+                icon=ft.Icons.EDIT_OUTLINED,
+                tooltip=self.tr("crud_edit"),
+                data=(kind, item.id),
+                on_click=self._edit_entity,
+            ),
+            ft.IconButton(
+                icon=ft.Icons.DELETE_OUTLINE,
+                tooltip=self.tr("crud_delete"),
+                data=(kind, item.id),
+                on_click=self._delete_entity,
+            ),
+        ]
+
     def _entity_card(self, item: Account | Category, balance: Decimal | None = None) -> ft.Control:
-        category = isinstance(item, Category)
-        kind = "category" if category else "account"
         lines: list[ft.Control] = [
-            ft.Text(self._category_label(item.id, item.name) if category else item.name, size=14),
+            ft.Text(item.name, size=14),
         ]
         if not item.active:
             lines.append(ft.Text(self.tr("crud_inactive_label")))
@@ -745,18 +816,7 @@ class FinanceView(ft.Row):
             content=ft.Row(
                 [
                     ft.Column(lines, spacing=0, expand=True),
-                    ft.IconButton(
-                        icon=ft.Icons.EDIT_OUTLINED,
-                        tooltip=self.tr("crud_edit"),
-                        data=(kind, item.id),
-                        on_click=self._edit_entity,
-                    ),
-                    ft.IconButton(
-                        icon=ft.Icons.DELETE_OUTLINE,
-                        tooltip=self.tr("crud_delete"),
-                        data=(kind, item.id),
-                        on_click=self._delete_entity,
-                    ),
+                    *self._entity_actions(item),
                 ],
                 spacing=0,
             ),

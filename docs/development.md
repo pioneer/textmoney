@@ -18,13 +18,21 @@ On Linux, `run` and `debug` prepare a branded client under
 `build/linux-dev-client` and register a hidden desktop entry under
 `$XDG_DATA_HOME/applications` (default `~/.local/share/applications`).
 Its GTK identity is `io.txncount.local`, separate from the packaged app and other
-Flet apps. This gives the development window the canonical app icon without
+Flet apps. This gives the development window a generated transparent, tightly
+framed version of the canonical app icon without
 modifying Flet's shared client. The adapter checks the pinned client's binary
 identity before patching the local copy and fails explicitly if it changes.
+The runner supplies `FLET_APP_ID=io.txncount.local` so Wayland's application
+identity matches that desktop entry. It starts Flet from `src` with an absolute
+script path: otherwise Flet prefers an existing `build/linux` executable over
+`FLET_VIEW_PATH`, bypassing the development client after a packaging run.
 The desktop entry references a generated icon filename containing its content
 hash, so GNOME/Wayland switchers do not reuse the previous artwork's cached
 filename. Each launch refreshes this generated copy from the canonical asset.
 Restart an already-running development window after changing the artwork.
+Linux builds stage the same derivative as `src/assets/icon_linux.png`; it is
+generated, not maintained, and other targets retain the original Android-safe
+icon. See [branding](branding.md) for the silhouette and framing policy.
 `.env.example` is documentation, not automatically loaded configuration. Set
 variables in your shell/IDE; keep local `.env` files out of version control.
 

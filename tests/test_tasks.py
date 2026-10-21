@@ -1,5 +1,6 @@
 import json
 import math
+import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -10,6 +11,55 @@ from invoke.context import Context
 from invoke.exceptions import Exit
 
 import tasks
+
+
+def test_linux_icon_is_large_transparent_and_keeps_android_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    source = tasks.ROOT / "assets/icon.png"
+    shutil.copyfile(source, assets / "icon.png")
+    original = source.read_bytes()
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.2.2"\n[tool.flet]\nbuild_number = 19\n'
+    )
+    image = tasks.linux_icon()
+    assert image.mode == "RGBA" and image.size == (1024, 1024)
+    alpha = image.getchannel("A")
+    bounds = alpha.getbbox()
+    assert bounds is not None
+    assert max(bounds[2] - bounds[0], bounds[3] - bounds[1]) >= 940
+    assert min(bounds[0], bounds[1], 1024 - bounds[2], 1024 - bounds[3]) >= 36
+    assert alpha.getpixel((0, 0)) == alpha.getpixel((1023, 1023)) == 0
+    assert alpha.getextrema() == (0, 255)
+    colors = image.getcolors(1024 * 1024)
+    assert colors is not None
+    assert sum(count for count, pixel in colors if pixel == (23, 50, 77, 255)) > 1000
+    tasks.stage_assets(linux=True)
+    staged = tmp_path / "src/assets"
+    with tasks.Image.open(staged / "icon_linux.png") as icon:
+        assert icon.tobytes() == image.tobytes()
+    assert (assets / "icon.png").read_bytes() == original
+    assert (staged / "icon.png").read_bytes() == original
+    tasks.stage_assets()
+    assert not (staged / "icon_linux.png").exists()
+    assert (staged / "icon.png").read_bytes() == original
+
+
+@pytest.mark.parametrize("target", ["linux", "apk", "web", "windows", "macos"])
+def test_only_linux_build_stages_linux_icon(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str
+) -> None:
+    stage = MagicMock()
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "require_host", MagicMock())
+    monkeypatch.setattr(tasks, "stage_assets", stage)
+    monkeypatch.setattr(tasks, "execute", MagicMock(side_effect=Exit("stop after staging")))
+    with pytest.raises(Exit, match="stop after staging"):
+        tasks.build_target(target)
+    stage.assert_called_once_with(linux=target == "linux")
 
 
 def test_app_icon_generates_canonical_currency_artwork(
@@ -68,7 +118,8 @@ def test_linux_development_icon_does_not_modify_shared_client(
         b"prefix" + tasks.LINUX_DEV_APP_ID.encode() + b"\0suffix"
     )
     assert (client / "flet").stat().st_mode & 0o111
-    assert (client / "data/app_icon.png").read_bytes() == (root / "assets/icon.png").read_bytes()
+    with tasks.Image.open(client / "data/app_icon.png") as icon:
+        assert icon.tobytes() == tasks.linux_icon().tobytes()
     assert (client / "lib").resolve() == stock / "lib"
     assert (client / "data/flutter_assets").resolve() == stock / "data/flutter_assets"
     assert (stock / "flet").read_bytes() == binary
@@ -77,16 +128,17 @@ def test_linux_development_icon_does_not_modify_shared_client(
     icon_line = next(line for line in entry.read_text().splitlines() if line.startswith("Icon="))
     registered_icon = Path(icon_line.removeprefix("Icon="))
     assert registered_icon.parent == client / "data"
-    assert registered_icon.read_bytes() == (root / "assets/icon.png").read_bytes()
+    assert registered_icon.read_bytes() == (client / "data/app_icon.png").read_bytes()
     assert f"StartupWMClass={tasks.LINUX_DEV_APP_ID}" in entry.read_text()
 
     tasks.Image.new("RGB", (1024, 1024), "blue").save(root / "assets/icon.png")
     tasks.prepare_linux_dev_client()
-    assert (client / "data/app_icon.png").read_bytes() == (root / "assets/icon.png").read_bytes()
+    with tasks.Image.open(client / "data/app_icon.png") as icon:
+        assert icon.tobytes() == tasks.linux_icon().tobytes()
     updated_line = next(line for line in entry.read_text().splitlines() if line.startswith("Icon="))
     assert updated_line != icon_line
     updated_icon = Path(updated_line.removeprefix("Icon="))
-    assert updated_icon.read_bytes() == (root / "assets/icon.png").read_bytes()
+    assert updated_icon.read_bytes() == (client / "data/app_icon.png").read_bytes()
     tasks.prepare_linux_dev_client()
     assert updated_line in entry.read_text().splitlines()
     (stock / "flet").write_bytes(b"changed upstream binary")
@@ -113,9 +165,44 @@ def test_only_linux_native_run_uses_branded_client(
     if branded:
         prepare.assert_called_once()
         assert execute.call_args.kwargs["env"]["FLET_VIEW_PATH"] == "/synthetic/client"
+        assert execute.call_args.kwargs["env"]["FLET_APP_ID"] == tasks.LINUX_DEV_APP_ID
+        assert execute.call_args.kwargs["cwd"] == tasks.ROOT / "src"
     else:
         prepare.assert_not_called()
         assert "FLET_VIEW_PATH" not in execute.call_args.kwargs["env"]
+
+
+def test_linux_run_selects_development_client_even_after_packaging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "src").mkdir()
+    packaged = tmp_path / "build/linux/txncount"
+    packaged.parent.mkdir(parents=True)
+    packaged.write_bytes(b"packaged app")
+    packaged.chmod(0o755)
+    client = tmp_path / "build/linux-dev-client"
+    client.mkdir()
+    (client / "flet").write_bytes(b"development client")
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "stage_release", lambda: None)
+    monkeypatch.setattr(tasks.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(tasks, "prepare_linux_dev_client", lambda: client)
+
+    def launch(*args: str, env: dict[str, str], cwd: Path = tmp_path) -> None:
+        monkeypatch.chdir(cwd)
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+        locate = getattr(flet_desktop, "__locate_and_unpack_flet_view")
+        command, _, _ = locate("http://127.0.0.1:1", str(tmp_path / "assets"), False)
+        assert command[0] == str(client / "flet")
+        identity_args = getattr(flet_desktop, "__linux_identity_args")
+        command, extra = identity_args(command)
+        assert command[0] == tasks.LINUX_DEV_APP_ID
+        assert extra == {"executable": str(client / "flet")}
+        assert Path(args[2]).is_absolute()
+
+    monkeypatch.setattr(tasks, "execute", launch)
+    tasks.run_app()
 
 
 def test_release_staging_and_versioned_apk_output(
@@ -131,7 +218,7 @@ def test_release_staging_and_versioned_apk_output(
         "version": "0.1.1",
         "build_number": 13,
     }
-    monkeypatch.setattr(tasks, "stage_assets", lambda: None)
+    monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
 
     def build(*args: str, **kwargs: object) -> None:
         assert args == ("flet", "build", "apk", "--yes")
@@ -154,7 +241,7 @@ def test_failed_build_does_not_rename_or_replace_apks(
     (output / "txncount.apk").write_bytes(b"old unversioned APK")
     (output / "txncount-0.1.1.apk").write_bytes(b"old versioned APK")
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
-    monkeypatch.setattr(tasks, "stage_assets", lambda: None)
+    monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
     monkeypatch.setattr(tasks, "execute", MagicMock(side_effect=Exit("build failed", code=1)))
     with pytest.raises(Exit, match="build failed"):
         tasks.build_target("apk")
@@ -244,7 +331,7 @@ def test_mobile_debug_marker_cleanup(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     (tmp_path / "src/app").mkdir(parents=True)
     marker = tmp_path / "src/app/.debug-mode"
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
-    monkeypatch.setattr(tasks, "stage_assets", lambda: None)
+    monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
 
     def fail(*args: str, **kwargs: object) -> None:
         assert marker.is_file()
@@ -271,7 +358,7 @@ def test_release_removes_debug_marker(monkeypatch: pytest.MonkeyPatch, tmp_path:
     marker = tmp_path / "src/app/.debug-mode"
     marker.touch()
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
-    monkeypatch.setattr(tasks, "stage_assets", lambda: None)
+    monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
     monkeypatch.setattr(tasks, "execute", MagicMock())
     tasks.build_target("web")
     assert not marker.exists()
@@ -279,7 +366,7 @@ def test_release_removes_debug_marker(monkeypatch: pytest.MonkeyPatch, tmp_path:
 
 def test_builds_are_non_interactive(monkeypatch: pytest.MonkeyPatch) -> None:
     execute = MagicMock()
-    monkeypatch.setattr(tasks, "stage_assets", lambda: None)
+    monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
     monkeypatch.setattr(tasks, "execute", execute)
     tasks.build_web(Context(), base_url="/apps/demo/")
     assert execute.call_args.args == ("flet", "build", "web", "--yes", "--base-url", "/apps/demo/")
@@ -321,7 +408,7 @@ def test_logs_android_uses_sdk_adb(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_device_discovery(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     (tmp_path / "src/app").mkdir(parents=True)
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
-    monkeypatch.setattr(tasks, "stage_assets", lambda: None)
+    monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
     execute = MagicMock()
     monkeypatch.setattr(tasks, "execute", execute)
     tasks.debug_mobile("android", "", True)

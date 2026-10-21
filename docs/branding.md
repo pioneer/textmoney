@@ -12,10 +12,30 @@ Regenerate it with `uv run inv app-icon`; validate with `uv run inv icon-check`.
 There are no maintained duplicate platform icons. Invoke stages the root assets
 for Flet, which generates launcher/window icons and splash screens.
 
+Linux uses a generated transparent derivative of the canonical PNG, not the
+opaque Android-safe canvas. An artwork silhouette preserves the dark currency
+symbols and pencil outlines while removing only the surrounding background.
+The foreground is cropped, centered and scaled to a 944-pixel maximum extent
+on a transparent 1024-square canvas. If the artwork geometry changes, update
+the silhouette in `tasks.linux_icon` alongside it.
+Linux builds stage this as ignored `src/assets/icon_linux.png`, supported by
+Flet's platform-specific icon lookup; other builds stage only the original.
+The development client uses the same derivative for its window and desktop
+entry. The maintained `assets/icon.png` and Android output are unchanged.
+
 Linux source runs use a generated branded Flet client and hidden desktop entry;
 see [development](development.md). Native X11 smoke testing verified the TxnCount
-window title, development WM_CLASS and app icon pixels. Desktop-shell grouping
-and Wayland presentation still need confirmation in the user's session.
+window title, development WM_CLASS and app icon pixels. After the transparent
+Linux derivative change, a real `uv run inv build-linux` and an isolated X11
+launch verified the packaged window's 256-square `_NET_WM_ICON`: corner alpha
+is zero and visible artwork spans 91.4% of the icon. `uv run inv check` passed
+all 488 tests, including transparent framing, unchanged Android source/staging,
+Linux-only packaging selection, desktop-entry cache invalidation and development
+client selection with a packaged Linux build present. A native Wayland smoke
+test of `uv run inv run` with isolated preferences verified
+`xdg_toplevel.set_app_id("io.txncount.local")`; GNOME's desktop-entry API resolved
+that identity to the existing generated icon. Alt-Tab's final visual presentation
+still needs confirmation in the user's session.
 
 Product name: **TxnCount**. Package/bundle: `com.pioneer.txncount`, starting with
 0.1.1 (13). This intentionally differs from the original experimental Android

@@ -26,10 +26,10 @@ LINUX_DEV_APP_ID = "io.txncount.local"
 STOCK_CLIENT_APP_ID = b"com.appveyor.flet"
 
 
-def execute(*args: str, env: dict[str, str] | None = None) -> None:
+def execute(*args: str, env: dict[str, str] | None = None, cwd: Path | None = None) -> None:
     sys.stdout.flush()
     try:
-        subprocess.run(args, cwd=ROOT, env=os.environ | (env or {}), check=True)
+        subprocess.run(args, cwd=cwd or ROOT, env=os.environ | (env or {}), check=True)
     except FileNotFoundError as exc:
         raise Exit(f"Required command not found: {args[0]}", code=1) from exc
     except subprocess.CalledProcessError as exc:
@@ -52,7 +52,7 @@ def debug_env(debug: bool) -> dict[str, str]:
     }
 
 
-def stage_assets() -> None:
+def stage_assets(*, linux: bool = False) -> None:
     validate_icon()
     # Flet's exclusions match exact paths, so nested development caches can leak.
     for cache in (ROOT / "src").rglob("__pycache__"):
@@ -67,6 +67,44 @@ def stage_assets() -> None:
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(ROOT / "assets", destination)
+    if linux:
+        linux_icon().save(destination / "icon_linux.png")
+
+
+def linux_icon() -> Image.Image:
+    """Remove the Android canvas using an artwork mask, retaining dark outlines."""
+    validate_icon()
+    scale = 3
+    mask = Image.new("L", (1024 * scale, 1024 * scale))
+    draw = ImageDraw.Draw(mask)
+    draw.rounded_rectangle(
+        tuple(value * scale for value in (192, 160, 768, 864)),
+        radius=48 * scale,
+        fill=255,
+    )
+    draw.polygon([(x * scale, y * scale) for x, y in ((616, 160), (768, 160), (768, 312))], fill=0)
+    for points in (
+        ((800, 350), (898, 412), (704, 736), (572, 816), (598, 678)),
+        ((808, 370), (840, 320), (908, 364), (876, 414)),
+    ):
+        draw.polygon([(x * scale, y * scale) for x, y in points], fill=255)
+    alpha = Image.new("L", (1024, 1024))
+    alpha.paste(mask.resize((664, 664), Image.Resampling.LANCZOS), (180, 180))
+    with Image.open(ROOT / "assets/icon.png") as source:
+        artwork = source.convert("RGBA")
+    artwork.putalpha(alpha)
+    bounds = alpha.getbbox()
+    if bounds is None:
+        raise Exit("Linux icon has no visible artwork.", code=1)
+    artwork = artwork.crop(bounds)
+    factor = 944 / max(artwork.size)
+    artwork = artwork.resize(
+        (round(artwork.width * factor), round(artwork.height * factor)),
+        Image.Resampling.LANCZOS,
+    )
+    result = Image.new("RGBA", (1024, 1024))
+    result.paste(artwork, ((1024 - artwork.width) // 2, (1024 - artwork.height) // 2))
+    return result
 
 
 def release_identity() -> tuple[str, int]:
@@ -105,7 +143,7 @@ def find_adb() -> str | None:
 def build_target(target: str, *extra: str) -> None:
     require_host(target)
     (ROOT / "src/app/.debug-mode").unlink(missing_ok=True)
-    stage_assets()
+    stage_assets(linux=target == "linux")
     execute("flet", "build", target, UNATTENDED, *extra, env=debug_env(False))
     if target == "apk":
         version, _ = release_identity()
@@ -136,9 +174,10 @@ def prepare_linux_dev_client() -> Path:
     for item in (stock / "data").iterdir():
         if item.name != "app_icon.png":
             (destination / "data" / item.name).symlink_to(item, target_is_directory=item.is_dir())
-    icon_bytes = (ROOT / "assets/icon.png").read_bytes()
+    icon_image = linux_icon()
+    icon_bytes = icon_image.tobytes()
     icon = destination / "data" / f"app_icon-{hashlib.sha256(icon_bytes).hexdigest()}.png"
-    icon.write_bytes(icon_bytes)
+    icon_image.save(icon)
     (destination / "data/app_icon.png").symlink_to(icon.name)
     executable = destination / "flet"
     executable.write_bytes(binary.replace(original, replacement))
@@ -163,7 +202,7 @@ def run_app(*, web: bool = False, debug: bool = False, port: int = 8550) -> None
     args = [
         "flet",
         "run",
-        "src/main.py",
+        str(ROOT / "src/main.py"),
         "--recursive",
         "--assets",
         str(ROOT / "assets"),
@@ -177,7 +216,11 @@ def run_app(*, web: bool = False, debug: bool = False, port: int = 8550) -> None
     env = debug_env(debug)
     if not web and platform.system() == "Linux":
         env["FLET_VIEW_PATH"] = str(prepare_linux_dev_client())
-    execute(*args, env=env)
+        env["FLET_APP_ID"] = LINUX_DEV_APP_ID
+        # Flet prefers cwd/build/linux over FLET_VIEW_PATH, even during hot reload.
+        execute(*args, env=env, cwd=ROOT / "src")
+    else:
+        execute(*args, env=env)
 
 
 @task

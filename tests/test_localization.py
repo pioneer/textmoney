@@ -77,8 +77,11 @@ def test_locale_sensitive_formatting_does_not_change_decimal_value() -> None:
     assert amount == Decimal("1234.50")
 
 
-def test_ukrainian_accounts_navigation_includes_categories() -> None:
-    assert translate("uk", "nav_accounts") == "Рахунки та категорії"
+@pytest.mark.parametrize(
+    ("language", "label"), [("en", "Accounting"), ("uk", "Облік"), ("ru", "Учёт")]
+)
+def test_accounting_navigation_label(language: str, label: str) -> None:
+    assert translate(language, "nav_accounts") == label
 
 
 def test_known_accounting_errors_are_localized() -> None:
@@ -112,7 +115,7 @@ def test_navigation_has_consistent_destinations_and_adapts_on_resize(
     assert [item.label for item in view.navigation_bar.destinations] == [
         "Home",
         "Transactions",
-        "Accounts",
+        "Accounting",
         "Settings",
     ]
     assert len(view.navigation_bar.destinations) == len(view.nav_rail.destinations) == 4

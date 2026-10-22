@@ -849,6 +849,46 @@ msgid "ui.categories_empty"
 msgstr "Категорій ще немає."
 
 #. Stable TxnCount key: ui.create_account; do not translate this identifier.
+#. Stable TxnCount key: ui.code_suggestion_status; do not translate this identifier.
+msgid "ui.code_suggestion_status"
+msgstr "Запропонований код. Його можна змінити будь-коли."
+
+#. Stable TxnCount key: ui.code_suggestion_manual; do not translate this identifier.
+msgid "ui.code_suggestion_manual"
+msgstr "Власний код. Перед збереженням його буде перевірено."
+
+#. Stable TxnCount key: ui.code_suggestion_collision; do not translate this identifier.
+msgid "ui.code_suggestion_collision"
+msgstr "Цей код уже використовується: {code}"
+
+#. Stable TxnCount key: ui.code_suggestion_invalid; do not translate this identifier.
+msgid "ui.code_suggestion_invalid"
+msgstr "Код не відповідає вибраному типу або батьківській категорії."
+
+#. Stable TxnCount key: ui.code_suggestion_regenerate; do not translate this identifier.
+msgid "ui.code_suggestion_regenerate"
+msgstr "Створити знову"
+
+#. Stable TxnCount key: ui.code_suggestion_alternatives; do not translate this identifier.
+msgid "ui.code_suggestion_alternatives"
+msgstr "Інші варіанти"
+
+#. Stable TxnCount key: ui.code_suggestion_parent; do not translate this identifier.
+msgid "ui.code_suggestion_parent"
+msgstr "Батьківська категорія (необов’язково)"
+
+#. Stable TxnCount key: ui.category_parent_none; do not translate this identifier.
+msgid "ui.category_parent_none"
+msgstr "Без батьківської категорії"
+
+#. Stable TxnCount key: ui.crud_code_collision; do not translate this identifier.
+msgid "ui.crud_code_collision"
+msgstr "Код рахунку або категорії вже існує."
+
+#. Stable TxnCount key: ui.crud_code_invalid; do not translate this identifier.
+msgid "ui.crud_code_invalid"
+msgstr "Введіть коректний код для вибраного типу та батьківської категорії."
+
 msgid "ui.create_account"
 msgstr "Створити рахунок"
 

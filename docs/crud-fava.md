@@ -15,6 +15,23 @@ Missing intermediate declarations are displayed as structural, non-editable
 nodes. Existing category declarations, inactive labels and lifecycle rules are
 unchanged, as are category selection labels in the transaction form.
 
+### Account and category code suggestions
+
+New-account and new-category forms suggest Beancount identifiers from the
+display name, account type/currency, existing account conventions, and optional
+category parent. The offline normalization includes predictable Cyrillic
+transliteration and a small set of unambiguous common terms. Existing entities
+are not renamed when their display names change. Suggested identifiers remain
+editable; after a manual edit, attribute changes do not replace the entered code.
+**Regenerate** explicitly applies the current suggestion again. Invalid codes
+and collisions are shown and checked again at save time; identifiers are never
+silently reused or suffixed.
+
+Inline category creation in the transaction form uses the active operation's
+income/expense type and optional existing parent. On success, it selects the new
+category while retaining the unsaved transaction draft; creating a category
+does not submit that transaction.
+
 Release 0.2.2 (Android build 19): `uv run inv check` passed formatting, Ruff,
 Pyright and 481 tests. Transaction form tests use a fixed clock consistent with
 their journal fixtures, avoiding wall-clock-dependent date failures.
@@ -93,8 +110,8 @@ to its left, accounts, category and date. A short hint below the amount explains
 the selection: debit from an account, credit to an account, or transfer between
 accounts. All dropdowns fill the form width and share aligned edges.
 An adjacent **+** button creates a category without leaving the transaction.
-The compact dialog uses the current operation's category type, the existing
-category path/name conventions and the same journal-backed creation service.
+The compact dialog uses the current operation's category type, the selected
+parent and the same journal-backed creation service to suggest a valid code.
 After a successful create, the new category is selected and the transaction's
 write baseline is advanced to include the category change. With no matching
 categories the selector explains that one can be added. Failed creation keeps

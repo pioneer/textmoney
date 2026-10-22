@@ -11,6 +11,13 @@ from zoneinfo import available_timezones
 import flet as ft
 from finance_saf import FinanceSaf
 
+from app.domain.code_suggestions import (
+    CodeCandidate,
+    suggest_account_code,
+    suggest_category_code,
+    validate_account_code,
+    validate_category_code,
+)
 from app.domain.ledger import (
     ADJUSTMENTS,
     BANK_FEES,
@@ -114,6 +121,34 @@ class FinanceView(ft.Row):
         self.category_id = ft.TextField(width=320)
         self.category_name = ft.TextField(width=320)
         self.category_root = ft.Dropdown(value="Expenses", width=320)
+        self.category_parent = ft.Dropdown(value="", width=320)
+        self.account_suggestion_status = ft.Text(size=12, color=ft.Colors.OUTLINE)
+        self.category_suggestion_status = ft.Text(size=12, color=ft.Colors.OUTLINE)
+        self.account_suggestion_alternatives = ft.Dropdown(
+            width=320,
+            visible=False,
+            on_select=self._account_suggestion_selected,
+        )
+        self.category_suggestion_alternatives = ft.Dropdown(
+            width=320,
+            visible=False,
+            on_select=self._category_suggestion_selected,
+        )
+        self.account_suggestion_regenerate = ft.TextButton(
+            on_click=self._regenerate_account_suggestion
+        )
+        self.category_suggestion_regenerate = ft.TextButton(
+            on_click=self._regenerate_category_suggestion
+        )
+        self.account_code_manual = False
+        self.category_code_manual = False
+        self.account_id.on_change = self._account_code_changed
+        self.account_name.on_change = self._account_attributes_changed
+        self.currency.on_change = self._account_attributes_changed
+        self.category_id.on_change = self._category_code_changed
+        self.category_name.on_change = self._category_attributes_changed
+        self.category_parent.on_select = self._category_attributes_changed
+        self.category_root.on_select = self._category_type_changed
         self.operating_currencies = ft.TextField(width=320)
         self.operating_save = ft.Button(on_click=self._save_operating_currencies)
         self.operating_cancel = ft.TextButton(on_click=self._reset_operating_currencies)
@@ -254,6 +289,7 @@ class FinanceView(ft.Row):
             self.account_name,
             self.currency,
             self.opening,
+            self.category_parent,
             self.category_id,
             self.category_name,
             self.operating_currencies,
@@ -338,6 +374,11 @@ class FinanceView(ft.Row):
         self.category_id.label = self.tr("category_path")
         self.category_id.hint_text = self.tr("category_path_hint")
         self.category_name.label = self.tr("category_name")
+        self.category_parent.label = self.tr("code_suggestion_parent")
+        self.account_suggestion_alternatives.label = self.tr("code_suggestion_alternatives")
+        self.category_suggestion_alternatives.label = self.tr("code_suggestion_alternatives")
+        self.account_suggestion_regenerate.content = self.tr("code_suggestion_regenerate")
+        self.category_suggestion_regenerate.content = self.tr("code_suggestion_regenerate")
         self.operating_currencies.label = self.tr("crud_operating")
         self.advanced_settings.title = self.tr("advanced")
         self.advanced_settings.controls = [
@@ -455,6 +496,7 @@ class FinanceView(ft.Row):
             ft.DropdownOption(key="Expenses", text=self.tr("kind_expense")),
             ft.DropdownOption(key="Income", text=self.tr("kind_income")),
         ]
+        self._refresh_category_parent_options()
         folder_ready = self.journal is not None and self.journal.ready
         self.access.value = self.tr("access_ok") if folder_ready else self.tr("access_unchecked")
         self.folder_label.value = (
@@ -2246,6 +2288,111 @@ class FinanceView(ft.Row):
                 label=self.tr("category_name"),
                 keyboard_type=ft.KeyboardType.NAME,
             )
+            category_parent = ft.Dropdown(
+                data="quick_category_parent",
+                label=self.tr("code_suggestion_parent"),
+                value="",
+                width=320,
+            )
+            category_status = ft.Text(size=12, color=ft.Colors.OUTLINE)
+            category_alternatives = ft.Dropdown(
+                label=self.tr("code_suggestion_alternatives"),
+                width=320,
+                visible=False,
+            )
+            regenerate = ft.TextButton(self.tr("code_suggestion_regenerate"))
+            code_manual = False
+
+            def update_suggestion(*, regenerate_code: bool = False) -> None:
+                nonlocal code_manual
+                if regenerate_code:
+                    code_manual = False
+                root = "Income" if operation() == "income" else "Expenses"
+                if not (category_name.value or "").strip():
+                    if not code_manual:
+                        category_path.value = ""
+                    category_status.value = ""
+                    category_status.visible = False
+                    category_alternatives.options = []
+                    category_alternatives.visible = False
+                    return
+                existing_ids = self._existing_identifiers(journal)
+                parents = [
+                    item
+                    for item in journal.ledger.categories
+                    if item.active and item.id.startswith(f"{root}:")
+                ]
+                parent_options = [
+                    ft.DropdownOption(key="", text=self.tr("category_parent_none")),
+                    *[ft.DropdownOption(key=item.id, text=item.id) for item in parents],
+                ]
+                category_parent.options = parent_options
+                if category_parent.value not in {item.key for item in parent_options}:
+                    category_parent.value = ""
+                suggestions = suggest_category_code(
+                    category_name.value or "",
+                    root,
+                    existing_ids,
+                    parent=category_parent.value or None,
+                )
+                if not code_manual:
+                    category_path.value = suggestions.recommended.code
+                current = (category_path.value or "").strip()
+                candidate = (
+                    validate_category_code(
+                        current,
+                        root,
+                        existing_ids,
+                        parent=category_parent.value or None,
+                    )
+                    if current
+                    else None
+                )
+                self._show_code_candidate(
+                    category_status,
+                    candidate,
+                    manually_edited=code_manual,
+                )
+                category_alternatives.options = [
+                    ft.DropdownOption(key=item.code, text=item.code)
+                    for item in suggestions.alternatives
+                ]
+                category_alternatives.value = None
+                category_alternatives.visible = bool(suggestions.alternatives)
+
+            def name_changed(event: ft.Event[ft.TextField]) -> None:
+                update_suggestion()
+                self.page.update()
+
+            def path_changed(event: ft.Event[ft.TextField]) -> None:
+                nonlocal code_manual
+                code_manual = True
+                update_suggestion()
+                self.page.update()
+
+            def parent_changed(event: ft.Event[ft.Dropdown]) -> None:
+                update_suggestion()
+                self.page.update()
+
+            def alternative_selected(event: ft.Event[ft.Dropdown]) -> None:
+                nonlocal code_manual
+                selected = event.control.value
+                if selected is None:
+                    return
+                category_path.value = selected
+                code_manual = True
+                update_suggestion()
+                self.page.update()
+
+            def regenerate_code(event: ft.Event[ft.TextButton]) -> None:
+                update_suggestion(regenerate_code=True)
+                self.page.update()
+
+            category_name.on_change = name_changed
+            category_path.on_change = path_changed
+            category_parent.on_select = parent_changed
+            category_alternatives.on_select = alternative_selected
+            regenerate.on_click = regenerate_code
             cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)
             create = ft.TextButton(self.tr("create_category"))
 
@@ -2257,15 +2404,23 @@ class FinanceView(ft.Row):
                     if self.journal is not journal or journal.source != source:
                         raise ConflictError("crud_stale")
                     root = "Income" if operation() == "income" else "Expenses"
-                    backup = await journal.create_category(
+                    code = validate_category_code(
                         category_path.value or "",
+                        root,
+                        self._existing_identifiers(journal),
+                        parent=category_parent.value or None,
+                    )
+                    if code.collision:
+                        raise LedgerError("crud_code_collision")
+                    if not code.valid:
+                        raise LedgerError("crud_code_invalid")
+                    backup = await journal.create_category(
+                        code.code,
                         category_name.value or "",
                         root=root,
                     )
                     source = journal.source
-                    identifier = category_path.value or ""
-                    if not identifier.startswith(f"{root}:"):
-                        identifier = f"{root}:{identifier}"
+                    identifier = code.code
                     category.options = [
                         ft.DropdownOption(
                             key=item.id, text=self._category_label(item.id, item.name)
@@ -2287,6 +2442,7 @@ class FinanceView(ft.Row):
                     self.page.update()
 
             create.on_click = save_category
+            update_suggestion()
             self.page.show_dialog(
                 ft.AlertDialog(
                     modal=True,
@@ -2299,8 +2455,12 @@ class FinanceView(ft.Row):
                                     "kind_income" if operation() == "income" else "kind_expense"
                                 )
                             ),
-                            category_path,
+                            category_parent,
                             category_name,
+                            category_path,
+                            category_status,
+                            regenerate,
+                            category_alternatives,
                         ],
                         tight=True,
                         spacing=12,
@@ -2502,6 +2662,191 @@ class FinanceView(ft.Row):
         except Exception as exc:
             self._error(exc, notify=True)
 
+    @staticmethod
+    def _existing_identifiers(journal: Journal) -> tuple[str, ...]:
+        return tuple(item.id for item in (*journal.ledger.accounts, *journal.ledger.categories))
+
+    def _show_code_candidate(
+        self,
+        status: ft.Text,
+        candidate: CodeCandidate | None,
+        *,
+        manually_edited: bool,
+    ) -> None:
+        if candidate is None:
+            status.value = ""
+            status.visible = False
+            return
+        if candidate.collision:
+            status.value = self.tr("code_suggestion_collision", code=candidate.collision)
+            status.color = ft.Colors.ERROR
+        elif not candidate.valid:
+            status.value = self.tr("code_suggestion_invalid")
+            status.color = ft.Colors.ERROR
+        else:
+            status.value = self.tr(
+                "code_suggestion_manual" if manually_edited else "code_suggestion_status"
+            )
+            status.color = ft.Colors.OUTLINE
+        status.visible = True
+
+    def _update_account_suggestion(self, *, regenerate: bool = False) -> None:
+        if regenerate:
+            self.account_code_manual = False
+        journal = self.journal
+        if journal is None or not journal.ready or not (self.account_name.value or "").strip():
+            if not self.account_code_manual:
+                self.account_id.value = ""
+            self.account_suggestion_status.value = ""
+            self.account_suggestion_status.visible = False
+            self.account_suggestion_alternatives.options = []
+            self.account_suggestion_alternatives.visible = False
+            return
+        root = self.account_root.value or "Assets"
+        existing = self._existing_identifiers(journal)
+        suggestions = suggest_account_code(
+            self.account_name.value or "",
+            root,
+            self.currency.value or "",
+            existing,
+        )
+        if not self.account_code_manual:
+            self.account_id.value = suggestions.recommended.code
+        current = (self.account_id.value or "").strip()
+        candidate = validate_account_code(current, root, existing) if current else None
+        self._show_code_candidate(
+            self.account_suggestion_status,
+            candidate,
+            manually_edited=self.account_code_manual,
+        )
+        self.account_suggestion_alternatives.options = [
+            ft.DropdownOption(key=item.code, text=item.code) for item in suggestions.alternatives
+        ]
+        self.account_suggestion_alternatives.value = None
+        self.account_suggestion_alternatives.visible = bool(suggestions.alternatives)
+
+    def _update_category_suggestion(self, *, regenerate: bool = False) -> None:
+        if regenerate:
+            self.category_code_manual = False
+        journal = self.journal
+        if journal is None or not journal.ready:
+            if not self.category_code_manual:
+                self.category_id.value = ""
+            self.category_suggestion_status.value = ""
+            self.category_suggestion_status.visible = False
+            self.category_suggestion_alternatives.options = []
+            self.category_suggestion_alternatives.visible = False
+            return
+        if not (self.category_name.value or "").strip():
+            if not self.category_code_manual:
+                self.category_id.value = ""
+            self.category_suggestion_status.value = ""
+            self.category_suggestion_status.visible = False
+            self.category_suggestion_alternatives.options = []
+            self.category_suggestion_alternatives.visible = False
+            return
+        root = self.category_root.value or "Expenses"
+        existing = self._existing_identifiers(journal)
+        parent = self.category_parent.value or None
+        suggestions = suggest_category_code(
+            self.category_name.value or "",
+            root,
+            existing,
+            parent=parent,
+        )
+        if not self.category_code_manual:
+            self.category_id.value = suggestions.recommended.code
+        current = (self.category_id.value or "").strip()
+        candidate = (
+            validate_category_code(current, root, existing, parent=parent) if current else None
+        )
+        self._show_code_candidate(
+            self.category_suggestion_status,
+            candidate,
+            manually_edited=self.category_code_manual,
+        )
+        self.category_suggestion_alternatives.options = [
+            ft.DropdownOption(key=item.code, text=item.code) for item in suggestions.alternatives
+        ]
+        self.category_suggestion_alternatives.value = None
+        self.category_suggestion_alternatives.visible = bool(suggestions.alternatives)
+
+    def _account_attributes_changed(
+        self, event: ft.Event[ft.TextField] | ft.Event[ft.Dropdown]
+    ) -> None:
+        self._update_account_suggestion()
+        if self.page:
+            self.page.update()
+
+    def _account_code_changed(self, event: ft.Event[ft.TextField]) -> None:
+        self.account_code_manual = True
+        self._update_account_suggestion()
+        if self.page:
+            self.page.update()
+
+    def _category_attributes_changed(
+        self, event: ft.Event[ft.TextField] | ft.Event[ft.Dropdown]
+    ) -> None:
+        self._update_category_suggestion()
+        if self.page:
+            self.page.update()
+
+    def _category_code_changed(self, event: ft.Event[ft.TextField]) -> None:
+        self.category_code_manual = True
+        self._update_category_suggestion()
+        if self.page:
+            self.page.update()
+
+    def _account_suggestion_selected(self, event: ft.Event[ft.Dropdown]) -> None:
+        selected = event.control.value
+        if selected is None:
+            return
+        self.account_id.value = selected
+        self.account_code_manual = True
+        self._update_account_suggestion()
+        if self.page:
+            self.page.update()
+
+    def _category_suggestion_selected(self, event: ft.Event[ft.Dropdown]) -> None:
+        selected = event.control.value
+        if selected is None:
+            return
+        self.category_id.value = selected
+        self.category_code_manual = True
+        self._update_category_suggestion()
+        if self.page:
+            self.page.update()
+
+    def _regenerate_account_suggestion(self, event: ft.Event[ft.TextButton]) -> None:
+        self._update_account_suggestion(regenerate=True)
+        if self.page:
+            self.page.update()
+
+    def _regenerate_category_suggestion(self, event: ft.Event[ft.TextButton]) -> None:
+        self._update_category_suggestion(regenerate=True)
+        if self.page:
+            self.page.update()
+
+    def _refresh_category_parent_options(self) -> None:
+        root = self.category_root.value or "Expenses"
+        categories = (
+            self.journal.ledger.categories
+            if self.journal is not None and self.journal.ready
+            else ()
+        )
+        options = [ft.DropdownOption(key="", text=self.tr("category_parent_none"))]
+        options.extend(
+            ft.DropdownOption(key=item.id, text=item.id)
+            for item in categories
+            if item.active and item.id.startswith(f"{root}:")
+        )
+        self.category_parent.options = options
+        if self.category_parent.value and self.category_parent.value not in {
+            option.key for option in options
+        }:
+            self.category_parent.value = ""
+        self.category_parent.label = self.tr("code_suggestion_parent")
+
     def _create_account(self, event: ft.Event[ft.Button]) -> None:
         journal = self._require_journal()
         source = journal.source
@@ -2509,22 +2854,37 @@ class FinanceView(ft.Row):
         async def save() -> str | None:
             if journal.source != source:
                 raise ConflictError("crud_stale")
-            backup = await journal.create_account(
+            root = self.account_root.value or "Assets"
+            code = validate_account_code(
                 self.account_id.value or "",
+                root,
+                self._existing_identifiers(journal),
+            )
+            if code.collision:
+                raise LedgerError("crud_code_collision")
+            if not code.valid:
+                raise LedgerError("crud_code_invalid")
+            backup = await journal.create_account(
+                code.code,
                 self.account_name.value or "",
                 self.currency.value or "",
                 self.opening.value or "",
-                root=self.account_root.value or "Assets",
+                root=root,
             )
             self.account_id.value = self.account_name.value = self.opening.value = ""
+            self.account_code_manual = False
             return backup
 
+        self._update_account_suggestion()
         self._edit_dialog(
             self.tr("account_form_title"),
             [
                 self.account_root,
-                self.account_id,
                 self.account_name,
+                self.account_id,
+                self.account_suggestion_status,
+                self.account_suggestion_regenerate,
+                self.account_suggestion_alternatives,
                 self.currency,
                 self.opening,
             ],
@@ -2535,6 +2895,7 @@ class FinanceView(ft.Row):
 
     def _account_type_changed(self, event: ft.Event[ft.Dropdown]) -> None:
         self._refresh_labels()
+        self._update_account_suggestion()
         self.page.update()
 
     async def _save_default_fee(self, event: ft.Event[ft.Button]) -> None:
@@ -2557,21 +2918,51 @@ class FinanceView(ft.Row):
         async def save() -> str | None:
             if journal.source != source:
                 raise ConflictError("crud_stale")
-            backup = await journal.create_category(
+            root = self.category_root.value or "Expenses"
+            parent = self.category_parent.value or None
+            code = validate_category_code(
                 self.category_id.value or "",
+                root,
+                self._existing_identifiers(journal),
+                parent=parent,
+            )
+            if code.collision:
+                raise LedgerError("crud_code_collision")
+            if not code.valid:
+                raise LedgerError("crud_code_invalid")
+            backup = await journal.create_category(
+                code.code,
                 self.category_name.value or "",
-                root=self.category_root.value or "Expenses",
+                root=root,
             )
             self.category_id.value = self.category_name.value = ""
+            self.category_parent.value = ""
+            self.category_code_manual = False
             return backup
 
+        self._refresh_category_parent_options()
+        self._update_category_suggestion()
         self._edit_dialog(
             self.tr("category_form_title"),
-            [self.category_root, self.category_id, self.category_name],
+            [
+                self.category_root,
+                self.category_parent,
+                self.category_name,
+                self.category_id,
+                self.category_suggestion_status,
+                self.category_suggestion_regenerate,
+                self.category_suggestion_alternatives,
+            ],
             journal,
             save,
             stretch=True,
         )
+
+    def _category_type_changed(self, event: ft.Event[ft.Dropdown]) -> None:
+        self._refresh_category_parent_options()
+        self._update_category_suggestion()
+        if self.page:
+            self.page.update()
 
     def _accounting_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
         self.accounts_panel.visible = event.control.selected_index == 0

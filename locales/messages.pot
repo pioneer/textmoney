@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TxnCount 0.2.4\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/txncount/issues\n"
-"POT-Creation-Date: 2026-10-22 01:57+0300\n"
-"PO-Revision-Date: 2026-10-22 01:57+0300\n"
+"POT-Creation-Date: 2026-10-22 02:46+0300\n"
+"PO-Revision-Date: 2026-10-22 02:46+0300\n"
 "Last-Translator: TxnCount localization contributors\n"
 "Language-Team: TxnCount language translators\n"
 "MIME-Version: 1.0\n"
@@ -750,6 +750,55 @@ msgid "ui.categories_empty"
 msgstr ""
 
 #. Stable TxnCount key: ui.create_account; do not translate this identifier.
+#. Stable TxnCount key: ui.code_suggestion_status; do not translate this
+#. identifier.
+msgid "ui.code_suggestion_status"
+msgstr ""
+
+#. Stable TxnCount key: ui.code_suggestion_manual; do not translate this
+#. identifier.
+msgid "ui.code_suggestion_manual"
+msgstr ""
+
+#. Stable TxnCount key: ui.code_suggestion_collision; do not translate this
+#. identifier.
+msgid "ui.code_suggestion_collision"
+msgstr ""
+
+#. Stable TxnCount key: ui.code_suggestion_invalid; do not translate this
+#. identifier.
+msgid "ui.code_suggestion_invalid"
+msgstr ""
+
+#. Stable TxnCount key: ui.code_suggestion_regenerate; do not translate this
+#. identifier.
+msgid "ui.code_suggestion_regenerate"
+msgstr ""
+
+#. Stable TxnCount key: ui.code_suggestion_alternatives; do not translate this
+#. identifier.
+msgid "ui.code_suggestion_alternatives"
+msgstr ""
+
+#. Stable TxnCount key: ui.code_suggestion_parent; do not translate this
+#. identifier.
+msgid "ui.code_suggestion_parent"
+msgstr ""
+
+#. Stable TxnCount key: ui.category_parent_none; do not translate this
+#. identifier.
+msgid "ui.category_parent_none"
+msgstr ""
+
+#. Stable TxnCount key: ui.crud_code_collision; do not translate this
+#. identifier.
+msgid "ui.crud_code_collision"
+msgstr ""
+
+#. Stable TxnCount key: ui.crud_code_invalid; do not translate this identifier.
+msgid "ui.crud_code_invalid"
+msgstr ""
+
 msgid "ui.create_account"
 msgstr ""
 

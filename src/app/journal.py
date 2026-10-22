@@ -701,7 +701,9 @@ class Journal:
         account = Account(
             account_path(identifier, root), display_name(name), currency_code(currency)
         )
-        if account.id in {a.id for a in self.ledger.accounts}:
+        declared = {item.id for item in (*self.ledger.accounts, *self.ledger.categories)}
+        declared.update({EQUITY, ADJUSTMENTS})
+        if account.id in declared:
             raise LedgerError("That technical account ID already exists.")
         balance = money(opening.strip() or "0")
         if account.liability:
@@ -740,7 +742,7 @@ class Journal:
             raise LedgerError("incoming_category")
         path = account_path(identifier, root)
         existing = {c.id for c in self.ledger.categories}
-        if path in existing:
+        if path in existing or path in {account.id for account in self.ledger.accounts}:
             raise LedgerError("That category already exists.")
         label = display_name(name)
         parts = path.split(":")

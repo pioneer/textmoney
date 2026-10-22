@@ -48,6 +48,7 @@ def test_all_locales_have_a_nonempty_translation_for_each_ui_key() -> None:
                 currency="UAH",
                 zone="Europe/Kyiv",
                 identifier="synthetic-id",
+                code="synthetic-code",
                 debited="105 USD",
                 credited="4200 UAH",
                 principal="100 USD",

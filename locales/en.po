@@ -844,6 +844,46 @@ msgid "ui.categories_empty"
 msgstr "No categories yet."
 
 #. Stable TxnCount key: ui.create_account; do not translate this identifier.
+#. Stable TxnCount key: ui.code_suggestion_status; do not translate this identifier.
+msgid "ui.code_suggestion_status"
+msgstr "Suggested code. You can edit it anytime."
+
+#. Stable TxnCount key: ui.code_suggestion_manual; do not translate this identifier.
+msgid "ui.code_suggestion_manual"
+msgstr "Custom code. It will be checked before saving."
+
+#. Stable TxnCount key: ui.code_suggestion_collision; do not translate this identifier.
+msgid "ui.code_suggestion_collision"
+msgstr "This code is already used: {code}"
+
+#. Stable TxnCount key: ui.code_suggestion_invalid; do not translate this identifier.
+msgid "ui.code_suggestion_invalid"
+msgstr "This code is invalid for the selected type or parent."
+
+#. Stable TxnCount key: ui.code_suggestion_regenerate; do not translate this identifier.
+msgid "ui.code_suggestion_regenerate"
+msgstr "Regenerate"
+
+#. Stable TxnCount key: ui.code_suggestion_alternatives; do not translate this identifier.
+msgid "ui.code_suggestion_alternatives"
+msgstr "Other suggestions"
+
+#. Stable TxnCount key: ui.code_suggestion_parent; do not translate this identifier.
+msgid "ui.code_suggestion_parent"
+msgstr "Parent category (optional)"
+
+#. Stable TxnCount key: ui.category_parent_none; do not translate this identifier.
+msgid "ui.category_parent_none"
+msgstr "No parent"
+
+#. Stable TxnCount key: ui.crud_code_collision; do not translate this identifier.
+msgid "ui.crud_code_collision"
+msgstr "This account or category code already exists."
+
+#. Stable TxnCount key: ui.crud_code_invalid; do not translate this identifier.
+msgid "ui.crud_code_invalid"
+msgstr "Enter a valid code under the selected type and parent."
+
 msgid "ui.create_account"
 msgstr "Create account"
 

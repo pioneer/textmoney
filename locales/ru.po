@@ -846,6 +846,46 @@ msgid "ui.categories_empty"
 msgstr "Категорий пока нет."
 
 #. Stable TxnCount key: ui.create_account; do not translate this identifier.
+#. Stable TxnCount key: ui.code_suggestion_status; do not translate this identifier.
+msgid "ui.code_suggestion_status"
+msgstr "Предлагаемый код. Его можно изменить в любое время."
+
+#. Stable TxnCount key: ui.code_suggestion_manual; do not translate this identifier.
+msgid "ui.code_suggestion_manual"
+msgstr "Собственный код. Перед сохранением он будет проверен."
+
+#. Stable TxnCount key: ui.code_suggestion_collision; do not translate this identifier.
+msgid "ui.code_suggestion_collision"
+msgstr "Этот код уже используется: {code}"
+
+#. Stable TxnCount key: ui.code_suggestion_invalid; do not translate this identifier.
+msgid "ui.code_suggestion_invalid"
+msgstr "Код не подходит выбранному типу или родительской категории."
+
+#. Stable TxnCount key: ui.code_suggestion_regenerate; do not translate this identifier.
+msgid "ui.code_suggestion_regenerate"
+msgstr "Создать заново"
+
+#. Stable TxnCount key: ui.code_suggestion_alternatives; do not translate this identifier.
+msgid "ui.code_suggestion_alternatives"
+msgstr "Другие варианты"
+
+#. Stable TxnCount key: ui.code_suggestion_parent; do not translate this identifier.
+msgid "ui.code_suggestion_parent"
+msgstr "Родительская категория (необязательно)"
+
+#. Stable TxnCount key: ui.category_parent_none; do not translate this identifier.
+msgid "ui.category_parent_none"
+msgstr "Без родительской категории"
+
+#. Stable TxnCount key: ui.crud_code_collision; do not translate this identifier.
+msgid "ui.crud_code_collision"
+msgstr "Код счёта или категории уже существует."
+
+#. Stable TxnCount key: ui.crud_code_invalid; do not translate this identifier.
+msgid "ui.crud_code_invalid"
+msgstr "Введите корректный код для выбранного типа и родительской категории."
+
 msgid "ui.create_account"
 msgstr "Создать счёт"
 

@@ -136,8 +136,16 @@ def test_create_category_from_transaction_and_select_it(
         category_type = category_dialog.content.controls[0]
         assert isinstance(category_type, ft.Text)
         assert category_type.value == ("Дохід" if mode == "+" else "Витрата")
-        path, name = category_dialog.content.controls[1:]
-        assert isinstance(path, ft.TextField) and isinstance(name, ft.TextField)
+        path = next(
+            control
+            for control in category_dialog.content.controls
+            if isinstance(control, ft.TextField) and control.data == "quick_category_path"
+        )
+        name = next(
+            control
+            for control in category_dialog.content.controls
+            if isinstance(control, ft.TextField) and control.data == "quick_category_name"
+        )
         path.value, name.value = "Daily", "Щоденні покупки"
         create_action = category_dialog.actions[-1]
         assert isinstance(create_action, ft.TextButton)
@@ -159,6 +167,58 @@ def test_create_category_from_transaction_and_select_it(
     asyncio.run(scenario())
 
 
+def test_inline_category_suggestion_uses_parent_and_preserves_transaction_draft(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        view, page = ui(journal, monkeypatch)
+        view._new_transaction(MagicMock())
+        transaction_dialog = page.show_dialog.call_args.args[0]
+        form = transaction_form(transaction_dialog)
+        form.description.value = "Keep this draft"
+        initial_transactions = journal.ledger.transactions
+        click(form.category_create)
+        category_dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(category_dialog, ft.AlertDialog)
+        assert isinstance(category_dialog.content, ft.Column)
+        controls = category_dialog.content.controls or []
+        parent = next(
+            control
+            for control in controls
+            if isinstance(control, ft.Dropdown) and control.data == "quick_category_parent"
+        )
+        name = next(
+            control
+            for control in controls
+            if isinstance(control, ft.TextField) and control.data == "quick_category_name"
+        )
+        path = next(
+            control
+            for control in controls
+            if isinstance(control, ft.TextField) and control.data == "quick_category_path"
+        )
+        parent.value = "Expenses:Food"
+        assert parent.on_select is not None
+        MagicMock(wraps=parent.on_select)(MagicMock(control=parent))
+        name.value = "Кафе"
+        assert name.on_change is not None
+        MagicMock(wraps=name.on_change)(MagicMock(control=name))
+        assert path.value == "Expenses:Food:Cafe"
+
+        actions = category_dialog.actions or []
+        assert actions
+        create = actions[-1]
+        assert isinstance(create, ft.TextButton)
+        await click_async(create)
+        assert form.category.value == "Expenses:Food:Cafe"
+        assert form.description.value == "Keep this draft"
+        assert journal.ledger.transactions == initial_transactions
+
+    asyncio.run(scenario())
+
+
 def test_failed_quick_category_creation_keeps_transaction_and_category_dialog(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -172,8 +232,16 @@ def test_failed_quick_category_creation_keeps_transaction_and_category_dialog(
         form.description.value = "Keep transaction draft"
         click(form.category_create)
         category_dialog = page.show_dialog.call_args.args[0]
-        path, name = category_dialog.content.controls[1:]
-        assert isinstance(path, ft.TextField) and isinstance(name, ft.TextField)
+        path = next(
+            control
+            for control in category_dialog.content.controls
+            if isinstance(control, ft.TextField) and control.data == "quick_category_path"
+        )
+        name = next(
+            control
+            for control in category_dialog.content.controls
+            if isinstance(control, ft.TextField) and control.data == "quick_category_name"
+        )
         path.value, name.value = "Food", "Food"
         monkeypatch.setattr(
             journal,

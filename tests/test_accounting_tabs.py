@@ -137,6 +137,81 @@ def test_creation_dialog_saves_and_clears_only_submitted_fields(
     asyncio.run(scenario())
 
 
+def test_account_suggestion_tracks_attributes_and_respects_manual_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        view, _ = setup_view(monkeypatch)
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_account("Monobank:UAH", "Монобанк гривнева", "UAH")
+        view.journal = journal
+        view._create_account(MagicMock())
+        view.account_name.value = "Монобанк, доларова картка"
+        view.currency.value = "USD"
+        view._account_attributes_changed(MagicMock())
+        assert view.account_id.value == "Assets:Monobank:USD"
+        assert view.account_suggestion_status.value == view.tr("code_suggestion_status")
+
+        view.account_root.value = "Liabilities"
+        view._account_attributes_changed(MagicMock())
+        assert view.account_id.value == "Liabilities:Loans:Monobank:USD"
+        view.account_root.value = "Assets"
+        view._account_attributes_changed(MagicMock())
+
+        view.account_id.value = "Assets:Cash:USD"
+        view._account_code_changed(MagicMock())
+        view.account_name.value = "ПриватБанк картка"
+        view.currency.value = "EUR"
+        view._account_attributes_changed(MagicMock())
+        assert view.account_id.value == "Assets:Cash:USD"
+        assert view.account_suggestion_status.value == view.tr("code_suggestion_manual")
+
+        view._regenerate_account_suggestion(MagicMock())
+        assert view.account_id.value == "Assets:Bank:Privatbank:EUR"
+        assert not view.account_code_manual
+
+    asyncio.run(scenario())
+
+
+def test_category_suggestion_tracks_parent_and_manual_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        view, _ = setup_view(monkeypatch)
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_category("Food", "Food")
+        await journal.create_category("Transport", "Transport")
+        view.journal = journal
+        view._create_category(MagicMock())
+        view.category_parent.value = "Expenses:Food"
+        view.category_name.value = "Кафе"
+        view._category_attributes_changed(MagicMock())
+        assert view.category_id.value == "Expenses:Food:Cafe"
+
+        view.category_root.value = "Income"
+        view._category_type_changed(MagicMock())
+        assert view.category_id.value == "Income:Cafe"
+        view.category_root.value = "Expenses"
+        view._category_type_changed(MagicMock())
+        view.category_parent.value = "Expenses:Food"
+        view._category_attributes_changed(MagicMock())
+
+        view.category_id.value = "Expenses:Food:Dining"
+        view._category_code_changed(MagicMock())
+        view.category_parent.value = "Expenses:Transport"
+        view._category_attributes_changed(MagicMock())
+        assert view.category_id.value == "Expenses:Food:Dining"
+        assert view.category_suggestion_status.value == view.tr("code_suggestion_invalid")
+
+        view._regenerate_category_suggestion(MagicMock())
+        assert view.category_id.value == "Expenses:Transport:Cafe"
+        assert not view.category_code_manual
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("category", [False, True])
 @pytest.mark.parametrize("failure", ["storage", "validation", "source", "journal"])
 def test_creation_failure_keeps_draft_and_does_not_close_dialog(

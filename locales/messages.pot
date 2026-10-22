@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TxnCount 0.2.4\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/txncount/issues\n"
-"POT-Creation-Date: 2026-10-22 02:46+0300\n"
-"PO-Revision-Date: 2026-10-22 02:46+0300\n"
+"POT-Creation-Date: 2026-10-22 19:46+0300\n"
+"PO-Revision-Date: 2026-10-22 19:46+0300\n"
 "Last-Translator: TxnCount localization contributors\n"
 "Language-Team: TxnCount language translators\n"
 "MIME-Version: 1.0\n"
@@ -1393,3 +1393,27 @@ msgid "ui.backups_preview"
 msgid_plural "ui.backups_preview.plural"
 msgstr[0] ""
 msgstr[1] ""
+
+#. Stable TxnCount key; date on which a new account is declared.
+msgid "ui.account_opened_date"
+msgstr ""
+
+#. Stable TxnCount key; date on which a new category becomes available.
+msgid "ui.category_available_date"
+msgstr ""
+
+#. Stable TxnCount key; accounting date for an opening-balance transaction.
+msgid "ui.opening_balance_date"
+msgstr ""
+
+#. Stable TxnCount key; validation error for a newly entered declaration date.
+msgid "ui.crud_record_date"
+msgstr ""
+
+#. Stable TxnCount key; an opening balance cannot predate its account.
+msgid "ui.crud_opening_before_account"
+msgstr ""
+
+#. Stable TxnCount key; a child category cannot predate its parent.
+msgid "ui.crud_category_before_parent"
+msgstr ""

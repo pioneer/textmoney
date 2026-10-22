@@ -13,7 +13,7 @@ from beancount.core import data
 from beancount.ops import summarize
 from form_controls import transaction_form
 
-from app.domain.ledger import LedgerError
+from app.domain.ledger import EPOCH, LedgerError
 from app.domain.storage import ConflictError
 from app.infrastructure.android_storage import AndroidFolder
 from app.infrastructure.beancount_journal import JournalCodec
@@ -27,8 +27,10 @@ from app.ui.finance import FinanceView
 async def seeded(tmp_path: Path) -> Journal:
     journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
     await journal.load()
-    await journal.create_account("Cash", "Готівка", "UAH", "100.00")
-    await journal.create_category("Food:Groceries", "Продукти")
+    await journal.create_account(
+        "Cash", "Готівка", "UAH", "100.00", opened=EPOCH, opening_date=EPOCH
+    )
+    await journal.create_category("Food:Groceries", "Продукти", opened=EPOCH)
     return journal
 
 
@@ -67,9 +69,9 @@ def test_end_to_end_accounts_categories_expense_reload_and_official_engine(tmp_p
         accounts, _ = summarize.balance_by_account(entries)
         assert next(iter(accounts["Assets:Cash"])).units.number == Decimal("87.66")
         assert any(
-            isinstance(e, data.Transaction) and e.meta.get("txncount-kind") == "expense"
-            for e in entries
+            isinstance(e, data.Transaction) and "txncount-kind" not in e.meta for e in entries
         )
+        assert any(transaction.kind == "expense" for transaction in reloaded.ledger.transactions)
         assert not (tmp_path / "storage-test.beancount").exists()
 
     asyncio.run(scenario())

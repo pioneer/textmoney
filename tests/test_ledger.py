@@ -58,8 +58,8 @@ def funded_ledger() -> Ledger:
         "opening",
     )
     return Ledger(
-        (Account("Assets:Cash", "Cash", "UAH"),),
-        (Category("Expenses:Food", "Food"),),
+        (Account("Assets:Cash", "Cash", "UAH", EPOCH),),
+        (Category("Expenses:Food", "Food", EPOCH),),
         (opening,),
         EPOCH,
     )

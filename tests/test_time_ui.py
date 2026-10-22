@@ -13,7 +13,7 @@ from flet.controls.device_info import DeviceInfo
 from form_controls import transaction_form
 from journal_fixtures import review_external_fixture
 
-from app.domain.ledger import Account, LedgerError, Posting, Transaction
+from app.domain.ledger import EPOCH, Account, LedgerError, Posting, Transaction
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.preferences import DesktopPreferences
 from app.journal import FILENAME, Journal
@@ -206,7 +206,9 @@ def test_multicurrency_or_split_rows_do_not_invent_a_combined_amount() -> None:
 
 def test_compact_account_hides_technical_id_but_retains_name_balance_and_state() -> None:
     view = FinanceView()
-    row = view._entity_card(Account("Assets:Cash", "Wallet", "UAH", active=False), Decimal("90"))
+    row = view._entity_card(
+        Account("Assets:Cash", "Wallet", "UAH", EPOCH, active=False), Decimal("90")
+    )
     assert texts(row) == ["Wallet", translate("en", "crud_inactive_label"), "90.00 UAH"]
 
 
@@ -222,7 +224,9 @@ def test_timezone_preference_persists_without_rewriting_journal_and_failure_reta
         view.preferences.set = AsyncMock(return_value=True)
         view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await view.journal.load()
-        await view.journal.create_account("Cash", "Wallet", "UAH", "100")
+        await view.journal.create_account(
+            "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
+        )
         original = view.journal.source
         view._transaction_dialog(view.journal)
         dialog = page.show_dialog.call_args.args[0]
@@ -302,8 +306,10 @@ def test_manual_edit_saves_localized_date_and_named_zone_time_with_stable_id(
         view.timezone_name = "Europe/Kyiv"
         view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await view.journal.load()
-        await view.journal.create_account("Cash", "Wallet", "UAH", "100")
-        await view.journal.create_category("Food", "Food")
+        await view.journal.create_account(
+            "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
+        )
+        await view.journal.create_category("Food", "Food", opened=EPOCH)
         await view.journal.add_expense(
             "Assets:Cash", "Expenses:Food", "10", "Synthetic shop", "2026-10-18"
         )
@@ -336,11 +342,15 @@ def test_readonly_transaction_opens_details_instead_of_hiding_its_postings(
         view = FinanceView()
         view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await view.journal.load()
-        await view.journal.create_account("Cash", "Wallet", "UAH", "100")
-        (tmp_path / FILENAME).write_text(
-            view.journal.source.replace('txncount-kind: "opening"', 'txncount-kind: "external"'),
-            newline="",
+        await view.journal.create_account(
+            "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
         )
+        opening = view.journal.ledger.transactions[0]
+        source = view.journal.source.replace(
+            f'  timestamp: "{opening.timestamp}"',
+            f'  timestamp: "{opening.timestamp}"\n  txncount-kind: "external"',
+        )
+        (tmp_path / FILENAME).write_text(source, newline="")
         await review_external_fixture(view.journal)
         original = view.journal.source
         event = MagicMock()
@@ -366,8 +376,10 @@ def test_optional_payee_is_blank_and_collapsed_after_success_not_after_validatio
         view = FinanceView()
         view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await view.journal.load()
-        await view.journal.create_account("Cash", "Wallet", "UAH", "100")
-        await view.journal.create_category("Food", "Food")
+        await view.journal.create_account(
+            "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
+        )
+        await view.journal.create_category("Food", "Food", opened=EPOCH)
         view._transaction_dialog(view.journal)
         dialog = page.show_dialog.call_args.args[0]
         form = transaction_form(dialog)
@@ -416,8 +428,10 @@ def test_accounting_today_can_come_from_device_zone_instead_of_python_host(tmp_p
     async def scenario() -> None:
         journal = Journal(DesktopFolder(str(tmp_path), FILENAME), today=lambda: date(2100, 1, 1))
         await journal.load()
-        await journal.create_account("Cash", "Wallet", "UAH", "100")
-        await journal.create_category("Food", "Food")
+        await journal.create_account(
+            "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
+        )
+        await journal.create_category("Food", "Food", opened=EPOCH)
         await journal.add_expense(
             "Assets:Cash",
             "Expenses:Food",
@@ -528,8 +542,10 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         view.timezone_name = "Europe/Kyiv"
         journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await journal.load()
-        await journal.create_account("Cash", "Wallet", "UAH", "100")
-        await journal.create_category("Food", "Food")
+        await journal.create_account(
+            "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
+        )
+        await journal.create_category("Food", "Food", opened=EPOCH)
         await journal.add_expense("Assets:Cash", "Expenses:Food", "10", "Saved shop", "2026-01-01")
         original = journal.ledger.transactions[-1]
         stamp = "2026-01-02T00:30:00.123456Z"
@@ -622,14 +638,20 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
         view = FinanceView()
         journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await journal.load()
-        await journal.create_account("Cash", "Wallet", "UAH", "100")
-        await journal.create_category("Food", "Food")
+        await journal.create_account(
+            "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
+        )
+        await journal.create_category("Food", "Food", opened=EPOCH)
         if mode != "zero":
             await journal.add_expense("Assets:Cash", "Expenses:Food", "10", "", "2026-01-01")
         else:
             await journal.edit_account("Assets:Cash", "Wallet", "0", True, journal.source)
+        original = next(t for t in journal.ledger.transactions if t.kind == "opening")
         source = journal.source.replace(
-            'txncount-kind: "opening"', 'txncount-kind: "opening"\n    receipt: "keep" ; comment'
+            f'  timestamp: "{original.timestamp}"',
+            f'  timestamp: "{original.timestamp}"\n'
+            '  txncount-kind: "opening"\n'
+            '  receipt: "keep" ; comment',
         )
         (tmp_path / FILENAME).write_text(source, newline="")
         await review_external_fixture(journal)
@@ -640,7 +662,7 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
         view._edit_transaction(event)
         dialog = page.show_dialog.call_args.args[0]
         assert dialog.title == view.tr("kind_opening")
-        assert not any(isinstance(c, DateTimeFields) for c in dialog.content.controls)
+        assert any(isinstance(c, DateTimeFields) for c in dialog.content.controls)
         details = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
         assert not details.expanded
         assert details.controls
@@ -692,7 +714,9 @@ def test_multiple_openings_remain_readonly_with_dates_in_collapsed_details(
         view = FinanceView()
         journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await journal.load()
-        await journal.create_account("Cash", "Wallet", "UAH", "100")
+        await journal.create_account(
+            "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
+        )
         original = journal.ledger.transactions[0]
         source = journal.source + (
             '\n1970-01-01 * "Additional opening"\n'

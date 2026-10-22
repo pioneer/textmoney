@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Awaitable, Callable
+from datetime import date
 from pathlib import Path
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock
@@ -7,8 +8,11 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import pytest
 
+from app.domain.ledger import EPOCH
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
+from app.localization import date_input
+from app.ui.datetime_fields import DateTimeFields
 from app.ui.finance import FinanceView
 
 
@@ -114,6 +118,18 @@ def test_creation_dialog_saves_and_clears_only_submitted_fields(
         view._refresh()
         assert not view.account_save.disabled and not view.category_save.disabled
         dialog = open_creation(view, page, category)
+        assert isinstance(dialog.content, ft.Column)
+        content = dialog.content
+        date_fields = [
+            control for control in content.controls if isinstance(control, DateTimeFields)
+        ]
+        assert len(date_fields) == (1 if category else 2)
+        chosen_date = date(2026, 1, 10)
+        if category:
+            date_fields[0].occurred.value = date_input(chosen_date, view.language)
+        else:
+            date_fields[0].occurred.value = date_input(EPOCH, view.language)
+            date_fields[1].occurred.value = date_input(chosen_date, view.language)
         if category:
             view.account_name.value = "Other account draft"
         else:
@@ -125,10 +141,16 @@ def test_creation_dialog_saves_and_clears_only_submitted_fields(
         page.pop_dialog.assert_called_once()
         if category:
             assert any(c.id == "Income:Work:Salary" for c in journal.ledger.categories)
+            assert (
+                next(c for c in journal.ledger.categories if c.id == "Income:Work:Salary").opened
+                == chosen_date
+            )
             assert view.category_id.value == view.category_name.value == ""
             assert view.account_name.value == "Other account draft"
         else:
             assert journal.ledger.accounts[0].id == "Liabilities:Credit"
+            assert journal.ledger.accounts[0].opened == EPOCH
+            assert journal.ledger.transactions[0].date == chosen_date
             assert journal.ledger.balances()["Liabilities:Credit"] == -200
             assert view.account_id.value == view.account_name.value == view.opening.value == ""
             assert view.category_name.value == "Other category draft"

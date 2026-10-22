@@ -1712,11 +1712,25 @@ class FinanceView(ft.Row):
             label=self.tr("transfer_owed" if account.liability else "amount"),
             value=str(journal.opening_balance(account.id)),
         )
+        opening_date = DateTimeFields(
+            self.language,
+            self._effective_zone(),
+            transaction.date,
+            device_zone=self._picker_zone(),
+            compact=True,
+            show_accounting_date=True,
+        )
+        opening_date.occurred.label = self.tr("opening_balance_date")
         source = journal.source
 
         async def save() -> str | None:
             return await journal.edit_account(
-                account.id, account.name, amount.value or "0", account.active, source
+                account.id,
+                account.name,
+                amount.value or "0",
+                account.active,
+                source,
+                opening_date=date.fromisoformat(opening_date.values()[0]),
             )
 
         self._edit_dialog(
@@ -1724,6 +1738,7 @@ class FinanceView(ft.Row):
             [
                 ft.Text(f"{account.name} ({account.currency})"),
                 amount,
+                opening_date,
                 ft.Text(self.tr("crud_opening_help"), size=12),
                 self._opening_details(transaction),
             ],
@@ -2270,6 +2285,19 @@ class FinanceView(ft.Row):
                 self._error(exc, notify=True)
 
         def create_category_dialog(event: ft.Event[ft.IconButton]) -> None:
+            try:
+                category_opened_default = date.fromisoformat(when.values()[0])
+            except LedgerError:
+                category_opened_default = self._today()
+            category_opened = DateTimeFields(
+                self.language,
+                self._effective_zone(),
+                category_opened_default,
+                device_zone=self._picker_zone(),
+                compact=True,
+                show_accounting_date=True,
+            )
+            category_opened.occurred.label = self.tr("category_available_date")
             category_path = ft.TextField(
                 data="quick_category_path",
                 label=self.tr("category_path"),
@@ -2411,6 +2439,7 @@ class FinanceView(ft.Row):
                         code.code,
                         category_name.value or "",
                         root=root,
+                        opened=date.fromisoformat(category_opened.values()[0]),
                     )
                     source = journal.source
                     identifier = code.code
@@ -2451,6 +2480,7 @@ class FinanceView(ft.Row):
                             category_parent,
                             category_name,
                             category_path,
+                            category_opened,
                             category_status,
                             regenerate,
                             category_alternatives,
@@ -2594,6 +2624,26 @@ class FinanceView(ft.Row):
                 except LedgerError as exc:
                     if str(exc) != "crud_opening_complex":
                         raise
+            opening_transaction = next(
+                (
+                    transaction
+                    for transaction in journal.ledger.transactions
+                    if transaction.kind == "opening"
+                    and any(posting.account == identifier for posting in transaction.postings)
+                ),
+                None,
+            )
+            opening_date: DateTimeFields | None = None
+            if isinstance(item, Account) and opening is not None:
+                opening_date = DateTimeFields(
+                    self.language,
+                    self._effective_zone(),
+                    opening_transaction.date if opening_transaction else None,
+                    device_zone=self._picker_zone(),
+                    compact=True,
+                    show_accounting_date=opening_transaction is not None,
+                )
+                opening_date.occurred.label = self.tr("opening_balance_date")
             controls: list[ft.Control] = [
                 ft.Text(identifier, selectable=True),
                 ft.Text(self.tr("crud_category_help" if category else "crud_account_help")),
@@ -2605,6 +2655,8 @@ class FinanceView(ft.Row):
                 controls.append(
                     opening if opening is not None else ft.Text(self.tr("crud_opening_complex"))
                 )
+                if opening_date is not None:
+                    controls.append(opening_date)
 
             async def save() -> str | None:
                 if category:
@@ -2617,6 +2669,11 @@ class FinanceView(ft.Row):
                     (opening.value or "0") if opening is not None else None,
                     bool(active.value),
                     source,
+                    opening_date=(
+                        date.fromisoformat(opening_date.values()[0])
+                        if opening_date is not None
+                        else None
+                    ),
                 )
 
             self._edit_dialog(self.tr("crud_edit"), controls, journal, save)
@@ -2843,6 +2900,25 @@ class FinanceView(ft.Row):
     def _create_account(self, event: ft.Event[ft.Button]) -> None:
         journal = self._require_journal()
         source = journal.source
+        today = self._today()
+        account_opened = DateTimeFields(
+            self.language,
+            self._effective_zone(),
+            today,
+            device_zone=self._picker_zone(),
+            compact=True,
+            show_accounting_date=True,
+        )
+        account_opened.occurred.label = self.tr("account_opened_date")
+        opening_effective = DateTimeFields(
+            self.language,
+            self._effective_zone(),
+            today,
+            device_zone=self._picker_zone(),
+            compact=True,
+            show_accounting_date=True,
+        )
+        opening_effective.occurred.label = self.tr("opening_balance_date")
 
         async def save() -> str | None:
             if journal.source != source:
@@ -2863,6 +2939,8 @@ class FinanceView(ft.Row):
                 self.currency.value or "",
                 self.opening.value or "",
                 root=root,
+                opened=date.fromisoformat(account_opened.values()[0]),
+                opening_date=date.fromisoformat(opening_effective.values()[0]),
             )
             self.account_id.value = self.account_name.value = self.opening.value = ""
             self.account_code_manual = False
@@ -2880,6 +2958,8 @@ class FinanceView(ft.Row):
                 self.account_suggestion_alternatives,
                 self.currency,
                 self.opening,
+                account_opened,
+                opening_effective,
             ],
             journal,
             save,
@@ -2907,6 +2987,13 @@ class FinanceView(ft.Row):
     def _create_category(self, event: ft.Event[ft.Button]) -> None:
         journal = self._require_journal()
         source = journal.source
+        category_opened = DateTimeFields(
+            self.language,
+            self._effective_zone(),
+            device_zone=self._picker_zone(),
+            compact=True,
+        )
+        category_opened.occurred.label = self.tr("category_available_date")
 
         async def save() -> str | None:
             if journal.source != source:
@@ -2927,6 +3014,7 @@ class FinanceView(ft.Row):
                 code.code,
                 self.category_name.value or "",
                 root=root,
+                opened=date.fromisoformat(category_opened.values()[0]),
             )
             self.category_id.value = self.category_name.value = ""
             self.category_parent.value = ""
@@ -2945,6 +3033,7 @@ class FinanceView(ft.Row):
                 self.category_suggestion_status,
                 self.category_suggestion_regenerate,
                 self.category_suggestion_alternatives,
+                category_opened,
             ],
             journal,
             save,

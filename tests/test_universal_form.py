@@ -9,7 +9,7 @@ import pytest
 from beancount import loader
 from form_controls import change, click, click_async, transaction_form
 
-from app.domain.ledger import ADJUSTMENTS, BANK_FEES
+from app.domain.ledger import ADJUSTMENTS, BANK_FEES, EPOCH
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import translate
@@ -30,11 +30,13 @@ def fixed_form_clock(monkeypatch: pytest.MonkeyPatch) -> None:
 async def seeded(path: Path) -> Journal:
     journal = Journal(DesktopFolder(str(path), FILENAME), today=lambda: date(2026, 10, 20))
     await journal.load()
-    await journal.create_account("Bank", "Bank", "UAH", "10000")
-    await journal.create_account("Cash", "Cash", "UAH")
-    await journal.create_account("Dollar", "Dollar", "USD", "1000")
-    await journal.create_category("Food", "Food")
-    await journal.create_category("Salary", "Salary", root="Income")
+    await journal.create_account("Bank", "Bank", "UAH", "10000", opened=EPOCH, opening_date=EPOCH)
+    await journal.create_account("Cash", "Cash", "UAH", opened=EPOCH)
+    await journal.create_account(
+        "Dollar", "Dollar", "USD", "1000", opened=EPOCH, opening_date=EPOCH
+    )
+    await journal.create_category("Food", "Food", opened=EPOCH)
+    await journal.create_category("Salary", "Salary", root="Income", opened=EPOCH)
     return journal
 
 

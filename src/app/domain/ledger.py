@@ -95,7 +95,7 @@ class Account:
     id: str
     name: str
     currency: str
-    opened: date = EPOCH
+    opened: date
     active: bool = True
 
     @property
@@ -107,7 +107,7 @@ class Account:
 class Category:
     id: str
     name: str
-    opened: date = EPOCH
+    opened: date
     active: bool = True
 
 

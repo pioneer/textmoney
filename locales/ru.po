@@ -1541,3 +1541,27 @@ msgstr[2] ""
 "Можно удалить: {count} файлов, {size} байт. Последние, ежедневные и "
 "ежемесячные копии останутся. Перед очисткой список будет проверен "
 "повторно."
+
+#. Stable TxnCount key; date on which a new account is declared.
+msgid "ui.account_opened_date"
+msgstr "Дата открытия счёта"
+
+#. Stable TxnCount key; date on which a new category becomes available.
+msgid "ui.category_available_date"
+msgstr "Дата доступности категории"
+
+#. Stable TxnCount key; accounting date for an opening-balance transaction.
+msgid "ui.opening_balance_date"
+msgstr "Дата начального баланса"
+
+#. Stable TxnCount key; validation error for a newly entered declaration date.
+msgid "ui.crud_record_date"
+msgstr "Выберите дату от 1970-01-01 до сегодняшнего дня."
+
+#. Stable TxnCount key; an opening balance cannot predate its account.
+msgid "ui.crud_opening_before_account"
+msgstr "Дата начального баланса не может быть раньше даты открытия счёта."
+
+#. Stable TxnCount key; a child category cannot predate its parent.
+msgid "ui.crud_category_before_parent"
+msgstr "Дата доступности категории не может быть раньше даты родительской категории."

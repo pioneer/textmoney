@@ -11,6 +11,7 @@ import flet as ft
 import pytest
 from form_controls import click_async
 
+from app.domain.ledger import EPOCH
 from app.domain.recovery import SaveRecord
 from app.domain.storage import ConflictError, digest
 from app.infrastructure.android_storage import AndroidFolder
@@ -173,8 +174,8 @@ def books(tmp_path: Path) -> tuple[bytes, bytes, bytes]:
     async def seed() -> tuple[bytes, bytes, bytes]:
         journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await journal.load()
-        await journal.create_account("Cash", "Cash", "USD", "100")
-        await journal.create_category("Food", "Food")
+        await journal.create_account("Cash", "Cash", "USD", "100", opened=EPOCH, opening_date=EPOCH)
+        await journal.create_category("Food", "Food", opened=EPOCH)
         truncated = (tmp_path / FILENAME).read_bytes()
         await journal.add_expense("Assets:Cash", "Expenses:Food", "1", "First", "2026-01-01")
         previous = (tmp_path / FILENAME).read_bytes()

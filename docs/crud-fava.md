@@ -1,5 +1,26 @@
 # CRUD and Fava compatibility
 
+## Journal metadata and declaration dates
+
+TxnCount keeps `txncount.beancount` as the sole financial source of truth.
+New transactions serialize stable IDs and creation timestamps, while transaction
+kind is inferred only for recognized posting shapes; an explicit legacy
+`txncount-kind` still takes precedence. Unknown or ambiguous entries remain
+read-only. Transfer fee mode and reimbursement expense links remain explicit
+because they cannot be reliably reconstructed from postings alone.
+
+Absent `txncount-active` means active. New edits do not add a redundant `TRUE`;
+legacy explicit `TRUE` and `FALSE` values remain supported. Display-name
+metadata and the other user-preference metadata remain unchanged.
+
+New account and category declaration dates default to today and are editable
+for backdating. Account opening date and opening-balance effective date are
+separate; an opening balance cannot predate its account. Category availability
+cannot predate its declared parent. New opening-balance and adjustment equity
+declarations use an effective transaction date, moving earlier only when a new
+backdated posting requires it. Existing historical dates, including 1970
+declarations, are never normalized or rewritten on load.
+
 ## Scope and format
 
 ### Category editor

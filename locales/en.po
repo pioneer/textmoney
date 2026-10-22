@@ -1537,3 +1537,27 @@ msgstr[0] ""
 msgstr[1] ""
 "Eligible for deletion: {count} files, {size} bytes. Recent, daily and "
 "monthly copies stay. The list will be checked again before cleanup."
+
+#. Stable TxnCount key; date on which a new account is declared.
+msgid "ui.account_opened_date"
+msgstr "Account opening date"
+
+#. Stable TxnCount key; date on which a new category becomes available.
+msgid "ui.category_available_date"
+msgstr "Category availability date"
+
+#. Stable TxnCount key; accounting date for an opening-balance transaction.
+msgid "ui.opening_balance_date"
+msgstr "Opening-balance effective date"
+
+#. Stable TxnCount key; validation error for a newly entered declaration date.
+msgid "ui.crud_record_date"
+msgstr "Choose a date between 1970-01-01 and today."
+
+#. Stable TxnCount key; an opening balance cannot predate its account.
+msgid "ui.crud_opening_before_account"
+msgstr "The opening-balance date cannot be before the account opening date."
+
+#. Stable TxnCount key; a child category cannot predate its parent.
+msgid "ui.crud_category_before_parent"
+msgstr "The category availability date cannot be before its parent category."

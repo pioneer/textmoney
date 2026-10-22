@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock
@@ -39,10 +40,10 @@ def test_income_expense_sections_have_equal_layout_and_nested_actions(language: 
     view = FinanceView()
     view.language = language
     categories = (
-        Category("Expenses:Food", "Їжа"),
-        Category("Expenses:Food:Shops", "Магазини"),
-        Category("Income:Work", "Робота"),
-        Category("Income:Work:Salary", "Зарплата"),
+        Category("Expenses:Food", "Їжа", date(1970, 1, 1)),
+        Category("Expenses:Food:Shops", "Магазини", date(1970, 1, 1)),
+        Category("Income:Work", "Робота", date(1970, 1, 1)),
+        Category("Income:Work:Salary", "Зарплата", date(1970, 1, 1)),
     )
     expense, separator, income = view._category_tree(categories)
     assert isinstance(separator, ft.Divider)
@@ -75,7 +76,7 @@ def test_income_expense_sections_have_equal_layout_and_nested_actions(language: 
 def test_missing_parent_nodes_are_visible_but_not_editable_and_inactive_labels_remain() -> None:
     view = FinanceView()
     expense, _, income = view._category_tree(
-        (Category("Income:Work:Remote:Salary", "Salary", active=False),)
+        (Category("Income:Work:Remote:Salary", "Salary", date(1970, 1, 1), active=False),)
     )
     assert isinstance(expense, ft.ExpansionTile)
     assert expense.controls is not None

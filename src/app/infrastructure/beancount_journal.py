@@ -2,6 +2,7 @@
 
 import io
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -63,6 +64,7 @@ class JournalCodec:
         accounts: list[Account] = []
         categories: list[Category] = []
         transactions: list[Transaction] = []
+        infer_kind_indices: list[int] = []
         equity_opened = None
         adjustments_opened = None
         operating_currencies: list[str] = []
@@ -215,6 +217,8 @@ class JournalCodec:
                         fee_mode,
                     )
                 )
+                if "txncount-kind" not in entry.meta:
+                    infer_kind_indices.append(len(transactions) - 1)
             else:
                 raise LedgerError(
                     f"{type(entry).__name__} requires unsupported engine semantics. "
@@ -229,6 +233,13 @@ class JournalCodec:
             adjustments_opened,
             default_fee_category or BANK_FEES,
         )
+        if infer_kind_indices:
+            inferred = list(ledger.transactions)
+            for index in infer_kind_indices:
+                inferred[index] = replace(
+                    inferred[index], kind=_infer_transaction_kind(inferred[index], ledger)
+                )
+            ledger = replace(ledger, transactions=tuple(inferred))
         ledger.balances(today=self.today())
         return ledger
 
@@ -310,7 +321,6 @@ def transaction_text(transaction: Transaction) -> str:
             meta={
                 "id": transaction.id,
                 "timestamp": transaction.timestamp,
-                "txncount-kind": transaction.kind,
                 **(
                     {"txncount-fee-mode": transaction.fee_mode}
                     if transaction.kind == "transfer"
@@ -324,6 +334,35 @@ def transaction_text(transaction: Transaction) -> str:
             },
         )
     )
+
+
+def _infer_transaction_kind(transaction: Transaction, ledger: Ledger) -> str:
+    if len(transaction.postings) == 2:
+        postings = transaction.postings
+        accounts = {account.id for account in ledger.accounts}
+        ordinary = [posting for posting in postings if posting.account in accounts]
+        for equity, kind in ((EQUITY, "opening"), (ADJUSTMENTS, "adjustment")):
+            if (
+                len(ordinary) == 1
+                and {posting.account for posting in postings} == {ordinary[0].account, equity}
+                and sum((posting.amount for posting in postings), Decimal(0)) == 0
+            ):
+                return kind
+        if len(ordinary) == 1:
+            account = ordinary[0]
+            category = next(posting for posting in postings if posting is not account)
+            if category.account.startswith("Expenses:"):
+                if account.amount < 0 < category.amount:
+                    return "expense"
+                if category.amount < 0 < account.amount:
+                    return "reimbursement"
+            if category.account.startswith("Income:") and category.amount < 0 < account.amount:
+                return "income"
+    try:
+        ledger.transfer_details(transaction)
+    except LedgerError:
+        return "external"
+    return "transfer"
 
 
 def equity_declaration(opened: date) -> str:

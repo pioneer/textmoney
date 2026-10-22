@@ -19,6 +19,7 @@ class DateTimeFields(ft.Column):
         *,
         device_zone: str | None = "system",
         compact: bool = False,
+        show_accounting_date: bool = False,
     ) -> None:
         super().__init__(spacing=8, width=320)
         self.language = language
@@ -29,9 +30,10 @@ class DateTimeFields(ft.Column):
         stamp = local_datetime(
             datetime.fromisoformat(timestamp) if timestamp else datetime.now().astimezone(), zone
         )
+        displayed_date = occurred if show_accounting_date and occurred else stamp.date()
         self.original_occurred = occurred or stamp.date()
         self.original_timestamp = timestamp or stamp.isoformat()
-        self.occurred = ft.TextField(value=date_input(stamp.date(), language))
+        self.occurred = ft.TextField(value=date_input(displayed_date, language))
         self.clock = ft.TextField(value=stamp.strftime("%H:%M:%S"))
         self.original_fields = self._field_values()
         self.initial_values = self._field_values()

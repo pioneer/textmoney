@@ -65,32 +65,34 @@ display names and entries share one file, avoiding multi-file write transactions
 An abbreviated example:
 
 ```beancount
-1970-01-01 open Assets:Cash UAH
+2026-10-18 open Assets:Cash UAH
   display-name: "Wallet"
-1970-01-01 open Expenses:Food
+2026-10-18 open Expenses:Food
   display-name: "Food"
-1970-01-01 open Equity:Opening-Balances
 
-1970-01-01 * "Opening balance"
+2026-10-18 open Equity:Opening-Balances
+2026-10-18 * "Opening balance"
   id: "2dde05e8-f594-45a8-8c2e-203fb10c230b"
   timestamp: "2026-10-18T10:00:00+03:00"
-  txncount-kind: "opening"
   Assets:Cash 100.00 UAH
   Equity:Opening-Balances -100.00 UAH
 
 2026-10-18 * "Synthetic shop" "Expense"
   id: "ecb4c169-d344-4251-b8c3-b5221ec7f902"
   timestamp: "2026-10-18T10:01:00+03:00"
-  txncount-kind: "expense"
   Expenses:Food 12.34 UAH
   Assets:Cash -12.34 UAH
 ```
 
-Account/category declarations and opening amounts use 1970-01-01 deliberately,
-so subsequent expenses can be backdated without changing earlier source text.
+New account and category declarations default to today and can be explicitly
+backdated. Account opening and opening-balance effective dates are separate;
+the balance date cannot precede the account declaration. Category availability
+cannot precede an existing parent. Existing historical declarations—including
+1970-01-01 dates—are retained and never rewritten just to normalize the file.
 Timestamp is creation time; transaction date is the user-entered accounting date.
 `Equity:Opening-Balances` is a reserved offset, not an implicitly created spending
-account. Zero opening balance creates no opening transaction.
+account. Its declaration is dated no later than the earliest opening transaction.
+Zero opening balance creates no opening transaction.
 
 Technical paths use uppercase-initial ASCII segments separated by colons.
 Display names/payees support Unicode. Amounts allow up to 12 integer digits and
@@ -102,11 +104,22 @@ including backdated entries; negative ordinary-account balances block saving.
 ### Preservation and restricted profile
 
 Existing bytes are retained as an exact prefix on append, including comments,
-metadata, tags, spacing and LF/CRLF. Existing transactions are **not edited**.
-Unrelated files are never read or changed. Known descriptive directives such as
+metadata, tags, spacing and LF/CRLF. Targeted edits splice only the selected
+directive; unrelated bytes remain untouched. Unrelated files are never read or
+changed. Known descriptive directives such as
 custom/note/event/price/commodity/document are preserved without interpreting them.
 External explicit single-currency balanced transactions can be read; absent app
 IDs use source-line identities for display only, without rewriting their metadata.
+
+New transactions store their stable `id` and creation `timestamp`, but no longer
+serialize the redundant `txncount-kind` field. The reader honors an explicit
+legacy kind first, otherwise infers only supported posting patterns using the
+ordinary account/category roots and reserved equity accounts. Ambiguous or
+unmatched entries stay external/read-only. Transfer fee mode remains explicit
+because postings alone cannot distinguish same-currency added versus deducted
+fees; reimbursement links retain the original expense ID. Missing
+`txncount-active` means active, so edits do not add redundant `TRUE`; explicit
+legacy `TRUE` and `FALSE` remain understood.
 
 This is a **dedicated, single-file journal**, not a general Beancount book importer.
 Includes, plugins, inherited context, pad/balance assertions, close directives,

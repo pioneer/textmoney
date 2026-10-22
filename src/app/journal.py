@@ -335,6 +335,24 @@ class Journal:
             raise LedgerError("crud_missing")
         return matches[0]
 
+    def _new_record_date(self, value: date | None, default: date) -> date:
+        result = value or default
+        if not EPOCH <= result <= self.today():
+            raise LedgerError("crud_record_date")
+        return result
+
+    def _move_open_date(self, source: str, identifier: str, opened: date) -> str:
+        assert self.codec is not None
+        document = self.codec.document(source)
+        entry = self._declaration(document, identifier)
+        if entry.date <= opened:
+            return source
+        return replace_directive(
+            source,
+            entry,
+            lambda: setattr(entry, "date", opened),
+        )
+
     def expense_for_edit(self, identifier: str) -> Transaction:
         transaction = self.transaction_for_edit(identifier)
         if transaction.kind != "expense":
@@ -544,7 +562,14 @@ class Journal:
         return -amount if account.liability else amount
 
     async def edit_account(
-        self, identifier: str, name: str, opening: str | None, active: bool, expected_source: str
+        self,
+        identifier: str,
+        name: str,
+        opening: str | None,
+        active: bool,
+        expected_source: str,
+        *,
+        opening_date: date | None = None,
     ) -> str | None:
         account = next((a for a in self.ledger.accounts if a.id == identifier), None)
         if account is None:
@@ -561,14 +586,13 @@ class Journal:
 
             def update() -> None:
                 entry.meta["display-name"] = label
-                entry.meta["txncount-active"] = active
+                if not active or "txncount-active" in entry.meta:
+                    entry.meta["txncount-active"] = active
 
             source = replace_directive(self.source, entry, update)
-            if balance is None or balance == old_balance:
+            if balance is None:
                 return source
             # Reparse after the first splice; token positions may have changed.
-            assert self.codec is not None
-            document = self.codec.document(source)
             opening_transaction = next(
                 (
                     t
@@ -577,11 +601,34 @@ class Journal:
                 ),
                 None,
             )
+            effective_date = None
+            needs_new_opening = (
+                opening_transaction is None and balance != old_balance and balance != ZERO
+            )
+            if opening_date is not None and (opening_transaction is not None or needs_new_opening):
+                effective_date = self._new_record_date(opening_date, self.today())
+            elif needs_new_opening:
+                effective_date = self._new_record_date(None, self.today())
+            date_changed = (
+                opening_transaction is not None
+                and effective_date is not None
+                and effective_date != opening_transaction.date
+            )
+            if balance == old_balance and not date_changed:
+                return source
+            if effective_date is not None and effective_date < account.opened:
+                raise LedgerError("crud_opening_before_account")
             if opening_transaction is not None:
+                if effective_date is not None and self.ledger.equity_opened is not None:
+                    source = self._move_open_date(source, EQUITY, effective_date)
+                assert self.codec is not None
+                document = self.codec.document(source)
                 transaction = self._transaction(document, opening_transaction.id)
                 opening_amount = balance
 
                 def update_opening() -> None:
+                    if effective_date is not None:
+                        transaction.date = effective_date
                     for posting in transaction.postings:
                         if not isinstance(posting, models.Posting):
                             continue
@@ -590,14 +637,21 @@ class Journal:
                         )
 
                 return replace_directive(source, transaction, update_opening)
+            if balance == old_balance:
+                return source
+            effective_date = self._new_record_date(effective_date, self.today())
+            if effective_date < account.opened:
+                raise LedgerError("crud_opening_before_account")
             if self.ledger.equity_opened is None:
-                source = append(source, equity_declaration(account.opened))
+                source = append(source, equity_declaration(effective_date))
+            else:
+                source = self._move_open_date(source, EQUITY, effective_date)
             return append(
                 source,
                 transaction_text(
                     Transaction(
                         str(uuid4()),
-                        account.opened,
+                        effective_date,
                         datetime.now().astimezone().isoformat(),
                         "",
                         "Opening balance",
@@ -624,7 +678,8 @@ class Journal:
 
             def update() -> None:
                 entry.meta["display-name"] = label
-                entry.meta["txncount-active"] = active
+                if not active or "txncount-active" in entry.meta:
+                    entry.meta["txncount-active"] = active
 
             return replace_directive(self.source, entry, update)
 
@@ -693,13 +748,22 @@ class Journal:
         return await self._change(edit, expected_source)
 
     async def create_account(
-        self, identifier: str, name: str, currency: str, opening: str = "", *, root: str = "Assets"
+        self,
+        identifier: str,
+        name: str,
+        currency: str,
+        opening: str = "",
+        *,
+        root: str = "Assets",
+        opened: date | None = None,
+        opening_date: date | None = None,
     ) -> str | None:
         self._require_ready()
         if root not in {"Assets", "Liabilities"}:
             raise LedgerError("transfer_accounts")
+        opened = self._new_record_date(opened, self.today())
         account = Account(
-            account_path(identifier, root), display_name(name), currency_code(currency)
+            account_path(identifier, root), display_name(name), currency_code(currency), opened
         )
         declared = {item.id for item in (*self.ledger.accounts, *self.ledger.categories)}
         declared.update({EQUITY, ADJUSTMENTS})
@@ -708,51 +772,67 @@ class Journal:
         balance = money(opening.strip() or "0")
         if account.liability:
             balance = -balance
-        text = open_account(account)
+        opening_date = self._new_record_date(opening_date, opened) if balance != ZERO else opened
+        if balance != ZERO and opening_date < opened:
+            raise LedgerError("crud_opening_before_account")
+        additions = [open_account(account)]
+        source = self.source
         if account.currency not in self.ledger.operating_currencies:
-            text = (
-                render(models.Option.from_value("operating_currency", account.currency))
-                + "\n\n"
-                + text
+            additions.insert(
+                0, render(models.Option.from_value("operating_currency", account.currency))
             )
         if balance != ZERO:
             if self.ledger.equity_opened is None:
-                text += "\n" + equity_declaration(EPOCH)
-            text += "\n" + transaction_text(
-                Transaction(
-                    str(uuid4()),
-                    EPOCH,
-                    datetime.now().astimezone().isoformat(),
-                    "",
-                    "Opening balance",
-                    (
-                        Posting(account.id, balance, account.currency),
-                        Posting(EQUITY, -balance, account.currency),
-                    ),
-                    "opening",
+                additions.append(equity_declaration(opening_date))
+            elif self.ledger.equity_opened > opening_date:
+                source = self._move_open_date(self.source, EQUITY, opening_date)
+            additions.append(
+                transaction_text(
+                    Transaction(
+                        str(uuid4()),
+                        opening_date,
+                        datetime.now().astimezone().isoformat(),
+                        "",
+                        "Opening balance",
+                        (
+                            Posting(account.id, balance, account.currency),
+                            Posting(EQUITY, -balance, account.currency),
+                        ),
+                        "opening",
+                    )
                 )
             )
-        return await self._save(text)
+        return await self._commit(append(source, "\n".join(additions)))
 
     async def create_category(
-        self, identifier: str, name: str, *, root: str = "Expenses"
+        self,
+        identifier: str,
+        name: str,
+        *,
+        root: str = "Expenses",
+        opened: date | None = None,
     ) -> str | None:
         self._require_ready()
         if root not in {"Expenses", "Income"}:
             raise LedgerError("incoming_category")
+        opened = self._new_record_date(opened, self.today())
         path = account_path(identifier, root)
-        existing = {c.id for c in self.ledger.categories}
+        categories = {c.id: c for c in self.ledger.categories}
+        existing = set(categories)
         if path in existing or path in {account.id for account in self.ledger.accounts}:
             raise LedgerError("That category already exists.")
         label = display_name(name)
         parts = path.split(":")
         additions = []
+        for parent in categories.values():
+            if path.startswith(parent.id + ":") and opened < parent.opened:
+                raise LedgerError("crud_category_before_parent")
         for length in range(2, len(parts) + 1):
             current = ":".join(parts[:length])
             if current not in existing:
                 additions.append(
                     open_category(
-                        Category(current, label if current == path else parts[length - 1])
+                        Category(current, label if current == path else parts[length - 1], opened)
                     )
                 )
         return await self._save("\n".join(additions))
@@ -799,9 +879,17 @@ class Journal:
                 raise LedgerError("incoming_reference")
         ledger = self.ledger
         addition = ""
+        source = self.source
         if kind == "adjustment" and ledger.adjustments_opened is None:
-            ledger = replace(ledger, adjustments_opened=EPOCH)
-            addition = render(models.Open.from_value(EPOCH, ADJUSTMENTS, [])) + "\n"
+            ledger = replace(ledger, adjustments_opened=day)
+            addition = render(models.Open.from_value(day, ADJUSTMENTS, [])) + "\n"
+        elif (
+            kind == "adjustment"
+            and ledger.adjustments_opened is not None
+            and ledger.adjustments_opened > day
+        ):
+            source = self._move_open_date(source, ADJUSTMENTS, day)
+            ledger = replace(ledger, adjustments_opened=day)
         transaction = ledger.incoming(
             account,
             category,
@@ -816,7 +904,7 @@ class Journal:
         transaction = replace(
             transaction, narration=description_text(description), related_expense=related_expense
         )
-        return await self._save(addition + transaction_text(transaction))
+        return await self._commit(append(source, addition + transaction_text(transaction)))
 
     async def save_transfer(
         self,
@@ -858,7 +946,7 @@ class Journal:
             and fee_category == BANK_FEES
             and not any(c.id == BANK_FEES for c in ledger.categories)
         ):
-            category = Category(BANK_FEES, display_name(default_fee_name))
+            category = Category(BANK_FEES, display_name(default_fee_name), day)
             ledger = replace(ledger, categories=(*ledger.categories, category))
             addition = open_category(category)
         updated = ledger.transfer(

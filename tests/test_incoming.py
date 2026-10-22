@@ -39,11 +39,11 @@ def test_packaging_smoke_script_against_current_source(
 async def seeded(directory: Path) -> Journal:
     journal = Journal(DesktopFolder(str(directory), FILENAME), today=lambda: date(2026, 3, 1))
     await review_external_fixture(journal)
-    await journal.create_account("Bank", "Bank", "UAH", "100")
-    await journal.create_account("Cash", "Cash", "UAH")
-    await journal.create_account("Euro", "Euro", "EUR")
-    await journal.create_category("Food", "Food")
-    await journal.create_category("Work:Salary", "Salary", root="Income")
+    await journal.create_account("Bank", "Bank", "UAH", "100", opened=EPOCH, opening_date=EPOCH)
+    await journal.create_account("Cash", "Cash", "UAH", opened=EPOCH)
+    await journal.create_account("Euro", "Euro", "EUR", opened=EPOCH)
+    await journal.create_category("Food", "Food", opened=EPOCH)
+    await journal.create_category("Work:Salary", "Salary", root="Income", opened=EPOCH)
     await journal.add_expense(
         "Assets:Bank", "Expenses:Food", "30", "", DAY, "Groceries and cola", STAMP
     )
@@ -117,7 +117,7 @@ def test_income_partial_reimbursements_other_account_and_pretracking_adjustment(
             "expenses": {"UAH": Decimal("-60")},
         }
         assert journal.opening_balance("Assets:Cash") == 0
-        assert journal.ledger.adjustments_opened == EPOCH
+        assert journal.ledger.adjustments_opened == date(2026, 2, 1)
         assert journal.source.count(f"open {ADJUSTMENTS}") == 1
         linked = [t for t in journal.ledger.transactions if t.related_expense]
         assert len(linked) == 2 and all(t.related_expense == expense.id for t in linked)

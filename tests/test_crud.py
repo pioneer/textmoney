@@ -13,7 +13,7 @@ from fava.core import FavaLedger
 from form_controls import transaction_form
 from journal_fixtures import review_external_fixture
 
-from app.domain.ledger import LedgerError
+from app.domain.ledger import EPOCH, LedgerError
 from app.domain.storage import ConflictError
 from app.infrastructure.beancount_journal import transaction_text
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -25,8 +25,8 @@ from app.ui.finance import FinanceView
 async def seeded(directory: Path) -> Journal:
     journal = Journal(DesktopFolder(str(directory), FILENAME))
     await journal.load()
-    await journal.create_account("Cash", "Wallet", "UAH", "100")
-    await journal.create_category("Food:Groceries", "Groceries")
+    await journal.create_account("Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH)
+    await journal.create_category("Food:Groceries", "Groceries", opened=EPOCH)
     await journal.add_expense(
         "Assets:Cash", "Expenses:Food:Groceries", "10", "Synthetic", date.today().isoformat()
     )
@@ -189,8 +189,11 @@ def test_expense_edit_preserves_id_metadata_tags_comments_and_unrelated_bytes(
         journal = await seeded(tmp_path)
         transaction = journal.ledger.transactions[-1]
         source = journal.source.replace(
-            '  txncount-kind: "expense"',
-            '  txncount-kind: "expense"\n  receipt: "synthetic"\n  ; private annotation',
+            f'  timestamp: "{transaction.timestamp}"',
+            f'  timestamp: "{transaction.timestamp}"\n'
+            '  txncount-kind: "expense"\n'
+            '  receipt: "synthetic"\n'
+            "  ; private annotation",
         ).replace(' "Expense"\n', ' "Expense" #food ^receipt ; inline\n')
         source += '\n; unrelated tail\n2026-01-01 custom "synthetic" "keep"\n'
         source = source.replace("\n", "\r\n")
@@ -237,7 +240,10 @@ def test_expense_delete_physically_removes_entry_but_keeps_comments(tmp_path: Pa
         source = journal.source.replace(
             f'{transaction.date} * "Synthetic"',
             f'; keep this comment\n{transaction.date} * "Synthetic"',
-        ).replace('  txncount-kind: "expense"', '  txncount-kind: "expense" ; keep inline')
+        ).replace(
+            f'  timestamp: "{transaction.timestamp}"',
+            f'  timestamp: "{transaction.timestamp}"\n  txncount-kind: "expense" ; keep inline',
+        )
         (tmp_path / FILENAME).write_text(source, newline="")
         await review_external_fixture(journal)
         await journal.delete_expense(transaction.id, journal.source)
@@ -302,6 +308,7 @@ def test_account_opening_changes_preserve_id_and_warn_for_negative_running_balan
             await journal.delete_account("Assets:Cash", journal.source)
         await journal.edit_account("Assets:Cash", "Renamed", "120", True, journal.source)
         assert journal.ledger.accounts[0].active
+        assert "txncount-active: TRUE" in journal.source
         assert_official(journal.source)
 
     asyncio.run(scenario())
@@ -322,6 +329,7 @@ def test_category_hierarchy_lifecycle_and_unused_deletion(tmp_path: Path) -> Non
             await journal.delete_category("Expenses:Food:Groceries", journal.source)
         await journal.edit_category("Expenses:Food", "Meals", True, journal.source)
         assert journal.ledger.category_active("Expenses:Food:Groceries")
+        assert "txncount-active: TRUE" in journal.source
         await journal.create_account("Unused", "Unused", "USD")
         await journal.delete_account("Assets:Unused", journal.source)
         await journal.create_category("Unused", "Unused")
@@ -458,7 +466,9 @@ def test_expense_can_change_account_currency_category_and_year_without_conversio
 ) -> None:
     async def scenario() -> None:
         journal = await seeded(tmp_path)
-        await journal.create_account("Usd", "USD wallet", "USD", "20")
+        await journal.create_account(
+            "Usd", "USD wallet", "USD", "20", opened=EPOCH, opening_date=EPOCH
+        )
         original = next(t for t in journal.ledger.transactions if t.kind == "expense")
         await journal.edit_expense(
             original.id,

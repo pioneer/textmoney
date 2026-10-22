@@ -16,7 +16,7 @@ from fava.core import FavaLedger
 from form_controls import change, transaction_form
 from journal_fixtures import review_external_fixture
 
-from app.domain.ledger import BANK_FEES, LedgerError, exchange_values
+from app.domain.ledger import BANK_FEES, EPOCH, LedgerError, exchange_values
 from app.domain.storage import ConflictError
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
@@ -31,12 +31,14 @@ STAMP = "2026-01-10T12:00:00.123456+02:00"
 async def seeded(path: Path) -> Journal:
     journal = Journal(DesktopFolder(str(path), FILENAME), today=lambda: date(2026, 3, 1))
     await journal.load()
-    await journal.create_account("Bank", "Bank", "UAH", "2000")
-    await journal.create_account("Other", "Other bank", "UAH")
-    await journal.create_account("Cash", "Cash", "UAH")
-    await journal.create_account("Euro", "Euro", "EUR")
-    await journal.create_account("Loan", "Loan", "UAH", "1500", root="Liabilities")
-    await journal.create_category("Fees:Other", "Other fees")
+    await journal.create_account("Bank", "Bank", "UAH", "2000", opened=EPOCH, opening_date=EPOCH)
+    await journal.create_account("Other", "Other bank", "UAH", opened=EPOCH)
+    await journal.create_account("Cash", "Cash", "UAH", opened=EPOCH)
+    await journal.create_account("Euro", "Euro", "EUR", opened=EPOCH)
+    await journal.create_account(
+        "Loan", "Loan", "UAH", "1500", root="Liabilities", opened=EPOCH, opening_date=EPOCH
+    )
+    await journal.create_category("Fees:Other", "Other fees", opened=EPOCH)
     return journal
 
 
@@ -159,8 +161,10 @@ def test_transfer_edit_fee_modes_accounts_and_delete_preserve_metadata(tmp_path:
         await transfer(journal, fee="5")
         original = journal.ledger.transactions[-1]
         source = journal.source.replace(
-            'txncount-kind: "transfer"',
-            'txncount-kind: "transfer"\n    receipt: "keep" ; keep comment',
+            f'  timestamp: "{original.timestamp}"',
+            f'  timestamp: "{original.timestamp}"\n'
+            '  txncount-kind: "transfer"\n'
+            '  receipt: "keep" ; keep comment',
         ).replace(
             "Assets:Bank -1005 UAH",
             'Assets:Bank -1005 UAH ; posting comment\n        reference: "keep posting"',
@@ -246,7 +250,7 @@ def test_overdraft_and_backdated_history_warn_but_allow_reload_and_other_operati
         assert journal.ledger.balance_warnings() == {"Assets:Bank"}
         await journal.load()
         assert journal.ready
-        await journal.create_category("Food", "Food")
+        await journal.create_category("Food", "Food", opened=EPOCH)
         await journal.add_expense("Assets:Bank", "Expenses:Food", "2", "", DAY)
         assert journal.ledger.balances()["Assets:Bank"] == -102
         # Later funding removes the current overdraft but not the historical warning.
@@ -476,8 +480,10 @@ def test_liability_opening_row_and_editor_use_account_name_and_amount_owed(
 
 async def exchange_seeded(path: Path) -> Journal:
     journal = await seeded(path)
-    await journal.create_account("Dollar", "Dollar", "USD", "1000")
-    await journal.create_account("Pound", "Pound", "GBP", "500")
+    await journal.create_account(
+        "Dollar", "Dollar", "USD", "1000", opened=EPOCH, opening_date=EPOCH
+    )
+    await journal.create_account("Pound", "Pound", "GBP", "500", opened=EPOCH, opening_date=EPOCH)
     return journal
 
 
@@ -617,8 +623,10 @@ def test_exchange_edit_accounts_fee_sides_same_currency_and_delete(tmp_path: Pat
         )
         original = journal.ledger.transactions[-1]
         text = journal.source.replace(
-            'txncount-kind: "transfer"',
-            'txncount-kind: "transfer"\n    receipt: "keep" ; annotation',
+            f'  timestamp: "{original.timestamp}"',
+            f'  timestamp: "{original.timestamp}"\n'
+            '  txncount-kind: "transfer"\n'
+            '  receipt: "keep" ; annotation',
         )
         text = text.replace(
             "Assets:Dollar -5.00 USD",
@@ -711,7 +719,10 @@ def test_price_validation_does_not_accept_arbitrary_fx_constructs(tmp_path: Path
         ):
             with pytest.raises(LedgerError):
                 journal.codec.parse(text)
-        text = journal.source.replace('txncount-kind: "transfer"', 'txncount-kind: "expense"')
+        text = journal.source.replace(
+            f'  timestamp: "{transaction.timestamp}"',
+            f'  timestamp: "{transaction.timestamp}"\n  txncount-kind: "expense"',
+        )
         (tmp_path / FILENAME).write_text(text)
         await review_external_fixture(journal)
         with pytest.raises(LedgerError, match="crud_transaction_readonly"):

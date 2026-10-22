@@ -4,7 +4,7 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from enum import StrEnum
 from zoneinfo import available_timezones
 
@@ -28,6 +28,7 @@ from app.domain.ledger import (
     exchange_values,
     money,
 )
+from app.domain.reporting import CategoryReport, PeriodReport, period_bounds, period_report
 from app.domain.storage import ConflictError
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -170,6 +171,51 @@ class FinanceView(ft.Row):
         self.category_list = ft.Column(spacing=4)
         self.category_expansion: dict[str, bool] = {}
         self.history = ft.Column(spacing=0)
+        today = self._today()
+        self.report_period = ft.Dropdown(
+            width=320,
+            value="current_month",
+            on_select=self._report_period_changed,
+        )
+        self.report_start = DateTimeFields(
+            self.language,
+            self.system_zone,
+            date(today.year, today.month, 1),
+            compact=True,
+            show_accounting_date=True,
+        )
+        self.report_end = DateTimeFields(
+            self.language,
+            self.system_zone,
+            today,
+            compact=True,
+            show_accounting_date=True,
+        )
+        self.report_start.occurred.on_change = self._report_date_changed
+        self.report_end.occurred.on_change = self._report_date_changed
+        self.report_range = ft.Row(
+            [self.report_start, self.report_end],
+            wrap=True,
+            spacing=12,
+            run_spacing=8,
+            visible=False,
+        )
+        self.report_error = ft.Text(color=ft.Colors.ERROR, visible=False)
+        self.report_summary = ft.Column(spacing=12)
+        self.report_categories = ft.Column(spacing=16)
+        self.reports_screen = ft.Column(
+            spacing=16,
+            controls=[
+                self.report_period,
+                self.report_range,
+                self.report_error,
+                self.report_summary,
+                self.report_categories,
+            ],
+        )
+        self._report_ledger: object | None = None
+        self._report_range: tuple[date, date] | None = None
+        self._report_data: PeriodReport | None = None
         self.home_balances = ft.Row(wrap=True, spacing=12, run_spacing=12)
         self.home_activity = ft.Column(spacing=0)
         self.accounts_panel_content = ft.Column(spacing=16)
@@ -355,6 +401,7 @@ class FinanceView(ft.Row):
                 "home": "nav_home",
                 "transactions": "nav_transactions",
                 "accounts": "nav_accounts",
+                "reports": "nav_reports",
                 "settings": "nav_settings",
             }[self.current_screen]
         )
@@ -406,6 +453,17 @@ class FinanceView(ft.Row):
             ],
         ]
         self.language_choice.value = self.language if self.manual_language else "system"
+        self.report_period.label = self.tr("report_period")
+        self.report_period.options = [
+            ft.DropdownOption(key="current_month", text=self.tr("report_current_month")),
+            ft.DropdownOption(key="previous_month", text=self.tr("report_previous_month")),
+            ft.DropdownOption(key="current_year", text=self.tr("report_current_year")),
+            ft.DropdownOption(key="custom", text=self.tr("report_custom_range")),
+        ]
+        self.report_start.set_language(self.language)
+        self.report_end.set_language(self.language)
+        self.report_start.occurred.label = self.tr("report_start_date")
+        self.report_end.occurred.label = self.tr("report_end_date")
         self.theme_choice.label = self.tr("appearance")
         self.theme_choice.options = [
             ft.DropdownOption(key="system", text=self.tr("theme_system")),
@@ -431,6 +489,7 @@ class FinanceView(ft.Row):
                 ft.Icons.ACCOUNT_BALANCE_WALLET_OUTLINED,
                 ft.Icons.ACCOUNT_BALANCE_WALLET,
             ),
+            ("nav_reports", ft.Icons.INSIGHTS, ft.Icons.INSIGHTS),
             ("nav_settings", ft.Icons.SETTINGS_OUTLINED, ft.Icons.SETTINGS),
         ]
         self.navigation_bar.destinations = [
@@ -588,6 +647,7 @@ class FinanceView(ft.Row):
             "home": self.home_screen,
             "transactions": self.transactions_screen,
             "accounts": self.accounts_screen,
+            "reports": self.reports_screen,
             "settings": self.settings_screen,
         }
         self.screen_host.content = screens[self.current_screen]
@@ -597,7 +657,8 @@ class FinanceView(ft.Row):
             "home": 0,
             "transactions": 1,
             "accounts": 2,
-            "settings": 3,
+            "reports": 3,
+            "settings": 4,
         }[self.current_screen]
 
     def _apply_layout(self, width: float | None) -> None:
@@ -704,6 +765,7 @@ class FinanceView(ft.Row):
             self.home_balances.controls = [ft.Text(self.tr("home_no_accounts"))]
             self.home_activity.controls = [ft.Text(self.tr("home_no_transactions"))]
             self._refresh_labels()
+            self._render_reports()
             return
 
         ledger = self.journal.ledger
@@ -792,6 +854,199 @@ class FinanceView(ft.Row):
         self.category_list.controls = self._category_tree(ledger.categories)
         self._refresh_labels()
         self._build_home_layout()
+        if self.current_screen == "reports":
+            self._render_reports()
+
+    def _report_dates(self) -> tuple[date, date]:
+        preset = self.report_period.value or "current_month"
+        if preset == "custom":
+            start = date.fromisoformat(self.report_start.values()[0])
+            end = date.fromisoformat(self.report_end.values()[0])
+            return start, end
+        return period_bounds(preset, self._today())
+
+    def _render_reports(self) -> None:
+        self.report_range.visible = self.report_period.value == "custom"
+        self.report_error.visible = False
+        self.report_error.value = ""
+        if self.journal is None or not self.journal.ready:
+            self.report_summary.controls = [ft.Text(self.tr("report_unavailable"))]
+            self.report_categories.controls = []
+            return
+        try:
+            start, end = self._report_dates()
+            if end < start:
+                raise LedgerError("report_date_range")
+        except LedgerError as exc:
+            self.report_error.value = localized_error(self.language, str(exc))
+            self.report_error.visible = True
+            self.report_summary.controls = []
+            self.report_categories.controls = []
+            return
+
+        ledger = self.journal.ledger
+        if ledger is not self._report_ledger or (start, end) != self._report_range:
+            self._report_data = period_report(ledger, start, end)
+            self._report_ledger = ledger
+            self._report_range = (start, end)
+        report = self._report_data
+        if report is None:
+            raise RuntimeError("Report cache was not initialized.")
+        if not report.currencies:
+            self.report_summary.controls = [ft.Text(self.tr("report_empty_period"))]
+            self.report_categories.controls = []
+            return
+
+        def metric(label_key: str, value: Decimal, currency: str) -> ft.Control:
+            return ft.Container(
+                width=160,
+                content=ft.Column(
+                    [
+                        ft.Text(self.tr(label_key), size=13),
+                        ft.Text(format_amount(value, self.language, currency), size=18),
+                    ],
+                    spacing=4,
+                ),
+            )
+
+        self.report_summary.controls = [
+            ft.Container(
+                padding=16,
+                border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+                border_radius=12,
+                content=ft.Column(
+                    [
+                        ft.Text(self.tr("currency_group", currency=item.currency), size=18),
+                        ft.Row(
+                            [
+                                metric("report_income", item.income, item.currency),
+                                metric("report_expenses", item.expenses, item.currency),
+                                metric("report_net", item.net, item.currency),
+                            ],
+                            wrap=True,
+                            spacing=12,
+                            run_spacing=8,
+                        ),
+                    ],
+                    spacing=12,
+                ),
+            )
+            for item in report.currencies
+        ]
+
+        def percentage(amount: Decimal, total: Decimal) -> str:
+            if total == 0:
+                return self.tr("report_percentage_unavailable")
+            with localcontext() as context:
+                context.prec = 50
+                value = amount * 100 / total
+            return f"{format_amount(value, self.language)}%"
+
+        def category_controls(
+            categories: tuple[CategoryReport, ...], currency: str, total: Decimal
+        ) -> list[ft.Control]:
+            def node(item: CategoryReport) -> ft.Control | None:
+                children = [child for sub in item.children if (child := node(sub)) is not None]
+                amount = item.amount(currency)
+                if amount == 0 and not children:
+                    return None
+                labels: list[ft.Control] = [
+                    ft.Text(item.name, expand=True),
+                    ft.Text(format_amount(amount, self.language, currency)),
+                    ft.Text(percentage(amount, total), width=72, text_align=ft.TextAlign.RIGHT),
+                ]
+                if not item.active:
+                    labels[0] = ft.Column(
+                        [labels[0], ft.Text(self.tr("crud_inactive_label"), size=12)],
+                        spacing=0,
+                        expand=True,
+                    )
+                title = ft.Row(labels, spacing=8)
+                if children:
+                    return ft.ExpansionTile(
+                        title=title,
+                        controls=children,
+                        expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
+                        controls_padding=ft.Padding.only(left=16),
+                    )
+                return ft.Container(
+                    padding=ft.Padding.only(left=16),
+                    content=title,
+                )
+
+            return [item for category in categories if (item := node(category)) is not None]
+
+        def category_section(
+            title_key: str,
+            categories: tuple[CategoryReport, ...],
+            unassigned: tuple[tuple[str, Decimal], ...],
+            currency: str,
+            total: Decimal,
+        ) -> ft.Control:
+            controls: list[ft.Control] = [
+                ft.Text(self.tr(title_key), size=17, weight=ft.FontWeight.W_600)
+            ]
+            controls.extend(category_controls(categories, currency, total))
+            unassigned_amount = dict(unassigned).get(currency, Decimal("0"))
+            if unassigned_amount != 0:
+                controls.append(
+                    ft.Row(
+                        [
+                            ft.Text(self.tr("report_uncategorized"), expand=True),
+                            ft.Text(format_amount(unassigned_amount, self.language, currency)),
+                            ft.Text(
+                                percentage(unassigned_amount, total),
+                                width=72,
+                                text_align=ft.TextAlign.RIGHT,
+                            ),
+                        ],
+                        spacing=8,
+                    )
+                )
+            if len(controls) == 1:
+                controls.append(ft.Text(self.tr("report_categories_empty")))
+            return ft.Column(controls, spacing=6)
+
+        self.report_categories.controls = [
+            ft.Container(
+                padding=16,
+                border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+                border_radius=12,
+                content=ft.Column(
+                    [
+                        ft.Text(self.tr("currency_group", currency=item.currency), size=18),
+                        category_section(
+                            "report_expense_categories",
+                            report.expense_categories,
+                            report.unassigned_expenses,
+                            item.currency,
+                            item.expenses,
+                        ),
+                        ft.Divider(),
+                        category_section(
+                            "report_income_categories",
+                            report.income_categories,
+                            report.unassigned_income,
+                            item.currency,
+                            item.income,
+                        ),
+                    ],
+                    spacing=12,
+                ),
+            )
+            for item in report.currencies
+        ]
+
+    def _report_period_changed(self, event: ft.Event[ft.Dropdown]) -> None:
+        self._render_reports()
+        if self.page:
+            self.page.update()
+
+    def _report_date_changed(self, event: ft.Event[ft.TextField]) -> None:
+        if self.report_period.value == "custom":
+            self._render_reports()
+            if self.page:
+                self.page.update()
 
     def _category_label(self, identifier: str, name: str) -> str:
         depth = identifier.count(":") - 1
@@ -3054,17 +3309,19 @@ class FinanceView(ft.Row):
     def _navigate(self, screen: str) -> None:
         self.current_screen = screen
         self._refresh_labels()
+        if screen == "reports":
+            self._render_reports()
         self._apply_layout((self.page.width or self.page.window.width) if self.page else 390)
         if self.page:
             self.page.update()
 
     def _bar_changed(self, event: ft.Event[ft.NavigationBar]) -> None:
-        screens = ("home", "transactions", "accounts", "settings")
+        screens = ("home", "transactions", "accounts", "reports", "settings")
         self._navigate(screens[event.control.selected_index])
 
     def _rail_changed(self, event: ft.Event[ft.NavigationRail]) -> None:
         if event.control.selected_index is not None:
-            screens = ("home", "transactions", "accounts", "settings")
+            screens = ("home", "transactions", "accounts", "reports", "settings")
             self._navigate(screens[event.control.selected_index])
 
     def _go_accounts(self, event: ft.Event[ft.TextButton]) -> None:

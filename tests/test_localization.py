@@ -248,9 +248,10 @@ def test_navigation_has_consistent_destinations_and_adapts_on_resize(
         "Home",
         "Transactions",
         "Accounting",
+        "Reports",
         "Settings",
     ]
-    assert len(view.navigation_bar.destinations) == len(view.nav_rail.destinations) == 4
+    assert len(view.navigation_bar.destinations) == len(view.nav_rail.destinations) == 5
     assert view.screen_class == ScreenClass.COMPACT
     assert page.navigation_bar is view.navigation_bar
 

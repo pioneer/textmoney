@@ -194,7 +194,15 @@ def localized_error(language: str, message: str) -> str:
     key = (
         message
         if message.startswith(
-            ("crud_", "incoming_", "transfer_", "exchange_", "recovery_", "sync_")
+            (
+                "crud_",
+                "incoming_",
+                "transfer_",
+                "exchange_",
+                "recovery_",
+                "sync_",
+                "report_",
+            )
         )
         and message in catalog_keys()["en"]
         else _ERROR_KEYS.get(message)

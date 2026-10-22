@@ -161,7 +161,10 @@ or automatic reimbursement allocation is maintained. Optional
 constraint: editing/deleting the original never cascades into a receipt.
 `Ledger.period_totals` uses inclusive accounting dates and separate per-currency
 income/net-expense sums; reimbursements affect their receipt period and equity
-does not enter these totals. There is still no reporting screen.
+does not enter these totals. The Reports screen builds category breakdowns from
+those same validated postings, retaining transfer fees while excluding asset,
+liability and equity movements. Each currency remains separate; no conversion
+rate is inferred. See the [reporting guide](reporting.md).
 
 One **Add transaction** action opens the same scrollable universal form used
 for editing. Description is the first field. A compact **− / + / ↔** selector

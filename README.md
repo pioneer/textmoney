@@ -22,6 +22,9 @@ TxnCount is being developed with substantial AI assistance.
   excluding optional fees in either account's currency.
 - Organize expenses with hierarchical categories.
 - Review balances and transaction history in compact phone and desktop layouts.
+- View income, net expenses and net result in currency-specific period reports,
+  with current/previous month, year-to-date or custom date ranges and category
+  breakdowns.
 - Delete expenses after confirmation; deactivate accounts and categories with
   history rather than losing their records.
 - Use system, light or dark appearance, and system or explicit timezones.
@@ -34,8 +37,8 @@ TxnCount is being developed with substantial AI assistance.
 
 ## Future plans
 
-Planned areas include budgets, reports and split-expense editing. These features are **not implemented
-yet**; priorities and scope may change during alpha, with no release dates promised.
+Planned areas include budgets and split-expense editing. Priorities and scope
+may change during alpha, with no release dates promised.
 
 ## Get the app
 
@@ -104,6 +107,13 @@ Settings lets you choose appearance and timezone. **Advanced → Journal display
 currencies** controls how compatible applications organize amounts; it does not
 exchange currencies or combine balances.
 
+The **Reports** section summarizes recognized income, net expenses and their
+difference for the current month, previous month, year to date or a custom date
+range. Category totals include reimbursements on their recorded dates, and
+transfer fees remain expenses while transfer/loan principal and balance
+adjustments are excluded. Amounts in different currencies are always shown
+separately; reports do not infer exchange rates.
+
 ## Your data and synchronization
 
 Your selected folder contains a single UTF-8 journal, `txncount.beancount`,
@@ -162,6 +172,7 @@ and [editing and data-safety guide](docs/crud-fava.md) for details.
 
 | Version | Highlights |
 | --- | --- |
+| [0.3.0](https://github.com/pioneer/txncount/releases/tag/v0.3.0) | Period reports with income, net expenses and net result, separate currency totals, and hierarchical category breakdowns. Android build 22. |
 | [0.2.4](https://github.com/pioneer/txncount/releases/tag/v0.2.4) | Atomic desktop journal replacement; verified Android save-intent records, interrupted-save detection and explicit recovery review. Existing Android journals require a one-time review; SAF writes remain non-atomic. Consistent rejection of invalid `24:00` times on Python 3.14. |
 | [0.2.3](https://github.com/pioneer/txncount/releases/tag/v0.2.3) | Localized startup without an English-language flash; unified Accounting labels, Accounts/Categories subtabs and creation dialogs; larger transparent Linux icons and corrected Wayland development identity. |
 | [0.2.2](https://github.com/pioneer/txncount/releases/tag/v0.2.2) | Matching income/expense category sections and a compact, collapsible category tree with session-preserved expansion state. |

@@ -628,6 +628,82 @@ msgstr "Учёт"
 msgid "ui.nav_settings"
 msgstr "Настройки"
 
+#. Stable TxnCount key: ui.nav_reports; do not translate this identifier.
+msgid "ui.nav_reports"
+msgstr "Отчёты"
+
+#. Stable TxnCount key: ui.report_period; do not translate this identifier.
+msgid "ui.report_period"
+msgstr "Период"
+
+#. Stable TxnCount key: ui.report_current_month; do not translate this identifier.
+msgid "ui.report_current_month"
+msgstr "Текущий месяц"
+
+#. Stable TxnCount key: ui.report_previous_month; do not translate this identifier.
+msgid "ui.report_previous_month"
+msgstr "Предыдущий месяц"
+
+#. Stable TxnCount key: ui.report_current_year; do not translate this identifier.
+msgid "ui.report_current_year"
+msgstr "Текущий год"
+
+#. Stable TxnCount key: ui.report_custom_range; do not translate this identifier.
+msgid "ui.report_custom_range"
+msgstr "Произвольный период"
+
+#. Stable TxnCount key: ui.report_start_date; do not translate this identifier.
+msgid "ui.report_start_date"
+msgstr "Дата начала"
+
+#. Stable TxnCount key: ui.report_end_date; do not translate this identifier.
+msgid "ui.report_end_date"
+msgstr "Дата окончания"
+
+#. Stable TxnCount key: ui.report_income; do not translate this identifier.
+msgid "ui.report_income"
+msgstr "Доходы"
+
+#. Stable TxnCount key: ui.report_expenses; do not translate this identifier.
+msgid "ui.report_expenses"
+msgstr "Расходы"
+
+#. Stable TxnCount key: ui.report_net; do not translate this identifier.
+msgid "ui.report_net"
+msgstr "Итог"
+
+#. Stable TxnCount key: ui.report_expense_categories; do not translate this identifier.
+msgid "ui.report_expense_categories"
+msgstr "Расходы по категориям"
+
+#. Stable TxnCount key: ui.report_income_categories; do not translate this identifier.
+msgid "ui.report_income_categories"
+msgstr "Доходы по категориям"
+
+#. Stable TxnCount key: ui.report_uncategorized; do not translate this identifier.
+msgid "ui.report_uncategorized"
+msgstr "Без категории"
+
+#. Stable TxnCount key: ui.report_percentage_unavailable; do not translate this identifier.
+msgid "ui.report_percentage_unavailable"
+msgstr "—"
+
+#. Stable TxnCount key: ui.report_categories_empty; do not translate this identifier.
+msgid "ui.report_categories_empty"
+msgstr "За этот период нет движения по категориям."
+
+#. Stable TxnCount key: ui.report_empty_period; do not translate this identifier.
+msgid "ui.report_empty_period"
+msgstr "За этот период не было доходов или расходов."
+
+#. Stable TxnCount key: ui.report_unavailable; do not translate this identifier.
+msgid "ui.report_unavailable"
+msgstr "Выберите и загрузите журнал, чтобы просмотреть отчёты."
+
+#. Stable TxnCount key: ui.report_date_range; do not translate this identifier.
+msgid "ui.report_date_range"
+msgstr "Дата окончания не может быть раньше даты начала."
+
 #. Stable TxnCount key: ui.welcome_title; do not translate this identifier.
 msgid "ui.welcome_title"
 msgstr "Добро пожаловать в TxnCount"

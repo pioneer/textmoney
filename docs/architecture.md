@@ -201,13 +201,17 @@ Standard `Liabilities:` accounts use the existing account model, with credit
 (negative) debt balances and positive repayment postings. Opening amount owed
 is entered as a positive number and stored as a negative liability posting.
 Cross-currency transfers extend the same posting model with an optional exact
-total price and currency. A bounded exchange shape validates Beancount weights:
-one negative priced principal, one positive destination, an optional expense fee
-and, for source-currency fees, a separate unpriced debit from that same account.
-Balances always sum units; only fee expenses enter period reports. Costs, unit
-prices and inferred postings remain unsupported rather than being approximated.
-No booking engine or new runtime dependency is added. Loan schedules remain
-out of scope.
+total price (`@@`) or unit price (`@`) and currency. A bounded exchange shape
+validates Beancount weights: one negative priced principal, one positive
+destination, an optional expense fee and, for source-currency fees, a separate
+unpriced debit from that same account. A fee-free unit-price annotation on the
+positive destination is also supported. Balances sum posting units while
+transaction validation uses the annotation's official Beancount weight. Existing
+`@@` transfer serialization is unchanged. Transactions containing `@` remain
+read-only in TxnCount's transaction editor/deleter, while unrelated lossless
+edits preserve the original source. Costs/lots, inferred postings and other
+unsupported constructs are rejected rather than approximated. No booking engine
+or new runtime dependency is added. Loan schedules remain out of scope.
 
 For exchanges the shared form takes actual total debited and net credited
 amounts plus an optional source/destination-currency fee. These amounts are

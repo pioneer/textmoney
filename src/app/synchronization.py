@@ -117,8 +117,13 @@ class Book:
                 + "\n".join(
                     f"{p.account}: {p.amount} {p.currency}"
                     + (
-                        f" @@ {p.total_price} {p.price_currency}"
-                        if p.total_price is not None
+                        (
+                            f" @ {p.unit_price}"
+                            if p.unit_price is not None
+                            else f" @@ {p.total_price}"
+                        )
+                        + f" {p.price_currency}"
+                        if p.has_price
                         else ""
                     )
                     for p in item.postings

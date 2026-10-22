@@ -1,6 +1,98 @@
-# Beancount 3 compatibility - Stage 2 history
+# Beancount ecosystem compatibility
 
-This report preserves the original experiment and its device-test findings.
+## Current automated baseline
+
+Run the synthetic cross-engine checks with:
+
+```sh
+uv run inv check-compat
+RUSTFAVA_APPIMAGE="$HOME/AppImages/rustfava.appimage" uv run inv check-compat --strict
+```
+
+`check-compat` validates one synthetic, single-file journal only. It compares
+all 35 explicit posting rows and 12 account/currency balances across TxnCount,
+official Beancount, Beanquery and RustLedger. It also checks Fava's public
+annual interval-report API. The fixture covers ordinary income and expenses,
+a partial reimbursement, opening and adjustment equity, inactive categories,
+same-currency transfers, both exchange directions using `@`, an existing `@@`
+exchange, source- and destination-currency transfer fees, and loan principal.
+All amounts remain currency-separated and Decimal-exact in the comparisons.
+
+Verified results:
+
+| Measure | Result |
+| --- | --- |
+| Income for 2026 | 500 UAH |
+| Expenses for 2026 | 84.25 UAH; 1 USD |
+| Closing bank balances | 1382.50 UAH; 219.50 USD |
+| Cash balance | 55 UAH |
+| Loan liability balance | -90 UAH |
+| Category balances | Groceries 80 UAH; inactive category 3 UAH; fees 1.25 UAH and 1 USD |
+
+The suite reports optional engines as `SKIPPED`, never as a pass. Strict mode
+requires Beanquery, Fava, RustLedger and a discoverable rustfava AppImage. It
+checks that the AppImage runtime responds, but **does not test the RustFava GUI**.
+CI installs RustLedger 0.24.0 with Rust 1.96.0 and runs the non-strict suite;
+it does not install GUI applications or require a user AppImage.
+
+### Verified tool provenance and limits
+
+| Engine | Version and executable | Automated result |
+| --- | --- | --- |
+| Official Beancount | 3.2.3; project Python package in `.venv` (the loader module path is printed by the command) | Loader validation, posting rows and unit balances pass |
+| Beanquery | 0.2.0; `.venv/bin/bean-query` | CSV posting rows match official Beancount exactly |
+| Fava | 1.30.16; `.venv/bin/fava` / `FavaLedger` API | No load errors; annual income and expense trees match the golden totals |
+| RustLedger | 0.24.0; `/usr/bin/rledger` | Check, exact BQL posting rows and balances/income report commands pass |
+| rustfava | AppImage at `~/AppImages/rustfava.appimage` | Runtime metadata available; journal loading and GUI reports not automated |
+
+`rledger report --format json` can round fractional display values. The suite
+therefore uses RustLedger's exact BQL query results for numeric comparisons,
+while also checking that its balances and income report commands complete.
+This avoids mistaking report formatting for a ledger discrepancy.
+
+The RustFava AppImage was discovered without reinstalling it. Its
+`--appimage-version` output identifies the AppImage runtime
+(`type2-runtime` commit `75849dc`), not the RustFava application version.
+Neither `--help` nor `--version` provides a headless CLI; both require GTK.
+The current display-less environment could not launch its GUI. The user
+previously reported opening the real journal in RustFava without visible errors;
+that is user-reported evidence of basic loading only and was not independently
+retested here. Do not infer report equivalence from that observation.
+
+Fava GUI pages and RustFava GUI reports have not been visually verified. Manual
+smoke-test checklist:
+
+1. Open only a disposable copy of the synthetic compatibility fixture.
+2. Confirm the account hierarchy and representative entries in Accounts and
+   Journal.
+3. Check the Balance Sheet in UAH and USD separately.
+4. Check the Income Statement for period totals and fee categories.
+5. Inspect both `@` exchange directions, the `@@` exchange, and both fee cases.
+6. Confirm custom TxnCount metadata and inactive historical categories load
+   without visible errors.
+
+The application does not claim support for all valid Beancount books. Its
+production parser supports explicit-unit postings and a bounded form of
+cross-currency exchange: one `@` annotation on the negative source posting,
+including the app's explicit fee representation, or a fee-free `@` annotation
+on the positive destination posting. `Posting.unit_price` keeps `@` distinct
+from `Posting.total_price` (`@@`); valuation uses posting units multiplied by
+the unit price with Decimal arithmetic and the posting sign. Ambiguous
+multi-price exchanges, costs/lots, inferred amounts, plugins, includes and
+other unsupported accounting directives remain blocked. Transactions carrying
+`@` are read-only in TxnCount's transaction editor/deleter so an unrelated edit
+cannot silently rewrite them. The lossless directive-splice/append paths retain
+their original text. New TxnCount exchange serialization remains `@@`; it was
+not changed.
+
+Real-journal regression remains a manual, disposable-copy procedure from the
+prior audit. The private journal is not part of the compatibility command or
+public CI. Never point checks at a live Dropbox/Dropsync journal; see the
+[safe-copy instructions](../README.md#beancount-ecosystem-compatibility-testing).
+
+## Stage 2 history
+
+This section preserves the original experiment and its device-test findings.
 Old package IDs, synthetic filenames, build numbers and checksums below describe
 those historical builds, not the current release. Module/task references and
 links use current diagnostic names. See

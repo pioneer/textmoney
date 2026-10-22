@@ -462,6 +462,17 @@ def test(context: Context) -> None:
     execute("pytest")
 
 
+@task
+def check_compat(context: Context, strict: bool = False, rustfava_appimage: str = "") -> None:
+    """Compare synthetic Beancount behavior across installed engines."""
+    args = ["python", "-m", "tools.check_compat"]
+    if strict:
+        args.append("--strict")
+    if rustfava_appimage:
+        args += ["--rustfava-appimage", rustfava_appimage]
+    execute(*args, env={"PYTHONPATH": str(ROOT / "src")})
+
+
 def compile_translations() -> None:
     execute("python", "tools/locales.py", "compile")
 

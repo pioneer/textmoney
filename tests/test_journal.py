@@ -369,7 +369,7 @@ def test_ui_success_conflict_reload_and_validation_retain_form_inputs(
         '2026-01-01 * "Unbalanced"\n  Assets:Cash -1 UAH\n  Expenses:Food 2 UAH\n',
         '2026-01-01 * "Implicit"\n  Assets:Cash -1 UAH\n  Expenses:Food\n',
         '2026-01-01 * "Cost"\n  Assets:Cash -1 UAH {1 USD}\n  Expenses:Food 1 USD\n',
-        '2026-01-01 * "Price"\n  Assets:Cash -1 UAH @ 1 USD\n  Expenses:Food 1 USD\n',
+        '2026-01-01 * "Price"\n  Assets:Cash -1 UAH @ 1 UAH\n  Expenses:Food 1 UAH\n',
         '2026-01-01 * "Unknown"\n  Assets:Missing -1 UAH\n  Expenses:Food 1 UAH\n',
         '2026-01-01 * "Currency"\n  Assets:Cash -1 USD\n  Expenses:Food 1 USD\n',
         '2026-01-01 * "Expression"\n  Assets:Cash (1 / 0) UAH\n  Expenses:Food 1 UAH\n',

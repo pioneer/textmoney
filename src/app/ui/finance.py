@@ -24,6 +24,7 @@ from app.domain.ledger import (
     Account,
     Category,
     LedgerError,
+    Posting,
     Transaction,
     exchange_values,
     money,
@@ -2025,6 +2026,24 @@ class FinanceView(ft.Row):
                         return
                 names = {a.id: a.name for a in journal.ledger.accounts}
                 names.update({c.id: c.name for c in journal.ledger.categories})
+
+                def posting_details(posting: Posting) -> str:
+                    description = (
+                        f"{names.get(posting.account, posting.account)}: "
+                        f"{format_amount(posting.amount, self.language, posting.currency)}"
+                    )
+                    if posting.unit_price is not None and posting.price_currency is not None:
+                        price = format_amount(
+                            posting.unit_price, self.language, posting.price_currency
+                        )
+                        description += f" @ {price}"
+                    elif posting.total_price is not None and posting.price_currency is not None:
+                        price = format_amount(
+                            posting.total_price, self.language, posting.price_currency
+                        )
+                        description += f" @@ {price}"
+                    return description
+
                 self.page.show_dialog(
                     ft.AlertDialog(
                         title=self.tr("details"),
@@ -2064,11 +2083,8 @@ class FinanceView(ft.Row):
                                     maintain_state=True,
                                 ),
                                 *[
-                                    ft.Text(
-                                        f"{names.get(p.account, p.account)}: "
-                                        f"{format_amount(p.amount, self.language, p.currency)}"
-                                    )
-                                    for p in transaction.postings
+                                    ft.Text(posting_details(posting))
+                                    for posting in transaction.postings
                                 ],
                             ],
                             tight=True,

@@ -206,6 +206,112 @@ uv run inv build-local    # Build for the current desktop OS
 uv run inv --list         # All available tasks
 ```
 
+### Beancount Ecosystem Compatibility Testing
+
+Install the Python tools in a separate Python 3.13 environment; this does not
+modify TxnCount's project environment or the system Python:
+
+```sh
+sudo pacman -S --needed uv
+uv python install 3.13
+COMPAT="$HOME/.local/share/txncount-compat-venv"
+uv venv --python 3.13 "$COMPAT"
+uv pip install --python "$COMPAT/bin/python" \
+  'beancount>=3,<4' beanquery fava
+```
+
+Check versions and command provenance:
+
+```sh
+COMPAT="$HOME/.local/share/txncount-compat-venv"
+"$COMPAT/bin/python" -c \
+  'from importlib.metadata import version; print(*(f"{name} {version(name)}" for name in ("beancount", "beanquery", "fava")), sep="\n")'
+"$COMPAT/bin/bean-check" --version
+"$COMPAT/bin/bean-query" --version
+"$COMPAT/bin/fava" --version
+command -v rledger && rledger --version
+```
+
+The official query executable is named `bean-query` (with a hyphen). Use the
+environment's explicit `bean-check` path: RustLedger can optionally install
+`bean-*` compatibility wrappers, so an unqualified `bean-check` may run a
+different implementation.
+
+On Manjaro, install the prebuilt RustLedger AUR package with an AUR helper such
+as `yay`:
+
+```sh
+yay -S rustledger-bin
+rledger --version
+rledger check /path/to/disposable/journal.beancount
+rledger report --format json /path/to/disposable/journal.beancount balances
+```
+
+To query balances with the official Python tools or open Fava on localhost:
+
+```sh
+COMPAT="$HOME/.local/share/txncount-compat-venv"
+"$COMPAT/bin/bean-check" /path/to/disposable/journal.beancount
+"$COMPAT/bin/bean-query" /path/to/disposable/journal.beancount \
+  'SELECT account, currency, SUM(number) GROUP BY account, currency'
+"$COMPAT/bin/fava" /path/to/disposable/journal.beancount \
+  --host 127.0.0.1 --port 5000
+```
+
+Open `http://127.0.0.1:5000` while Fava is running. Run TxnCount's synthetic
+cross-engine suite with:
+
+```sh
+uv run inv check-compat
+RUSTFAVA_APPIMAGE="$HOME/AppImages/rustfava.appimage" uv run inv check-compat --strict
+```
+
+The suite checks explicit posting rows and currency-specific balances with
+official Beancount, Beanquery and RustLedger, and uses Fava's annual interval
+reports for income and expenses. `--strict` requires Beanquery, Fava, RustLedger
+and a rustfava AppImage to be discoverable. It does not automate desktop GUI
+interaction. RustLedger's report JSON may round fractional display values; exact
+comparisons use its BQL query interface instead.
+
+The rustfava AppImage is searched in `RUSTFAVA_APPIMAGE`, `~/Applications` and
+`~/AppImages`. Its `--appimage-version` flag reports the AppImage runtime, not
+the rustfava application version. It requires GTK for launch; `--help` and
+`--version` are not usable as headless validation commands. The current machine
+has an executable at `~/AppImages/rustfava.appimage`. The user has manually
+opened the real journal with no visible errors, which is evidence of basic
+loading only—not report equivalence. Follow the GUI checklist in
+[the compatibility report](docs/beancount-compatibility.md) before claiming
+Accounts, Journal, Balance Sheet or Income Statement GUI compatibility.
+
+Always validate a **disposable copy**, never a live Dropbox/Dropsync journal.
+For local tests:
+
+```sh
+SOURCE=/path/to/txncount.beancount
+TEST_DIR="$(mktemp -d)"
+cp -- "$SOURCE" "$TEST_DIR/txncount.beancount"
+JOURNAL="$TEST_DIR/txncount.beancount"
+# Run the validation commands above against "$JOURNAL".
+```
+
+Before sharing a test journal, replace payees, narrations, display names and
+institution-specific account path components consistently in the copy.
+Preserve posting relationships, account hierarchy, currencies, amounts,
+precision, transaction dates, IDs and relevant metadata types. Never commit
+real financial data. Remove the temporary test directory when finished.
+
+Passing `bean-check` verifies syntax and Beancount's validations; it does not
+prove that TxnCount can safely edit every valid Beancount feature or that
+another engine presents the same reports. Compare currency-specific balances
+and reports across engines. Fava and rustfava are separate applications:
+verify their GUI views independently; parser/loading success alone does not
+verify the Accounts, Journal, Balance Sheet or Income Statement screens.
+TxnCount supports simple explicit unit-price (`@`) currency exchanges as well
+as its existing total-price (`@@`) transfer format. It preserves their original
+syntax during unrelated edits; transactions containing `@` are read-only in
+the transaction editor. Cost lots, inferred postings and other unsupported
+Beancount constructs remain blocked from editing.
+
 The APK is written to `build/apk/txncount-<version>.apk`. Native builds require
 platform toolchains; see [development and packaging](docs/development.md).
 See also [architecture](docs/architecture.md) and [testing](docs/testing.md).

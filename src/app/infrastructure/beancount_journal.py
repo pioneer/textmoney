@@ -149,29 +149,38 @@ class JournalCodec:
                 for posting in entry.postings:
                     if isinstance(posting, models.BlockComment):
                         continue
+                    posting_currency = posting.currency
                     if (
                         posting.number is None
-                        or posting.currency is None
+                        or posting_currency is None
                         or posting.cost is not None
                         or (
                             posting.price is not None
-                            and not isinstance(posting.price, models.TotalPrice)
+                            and not isinstance(posting.price, (models.TotalPrice, models.UnitPrice))
                         )
                     ):
                         raise LedgerError(
-                            "Inference, costs or unit prices need a full engine. "
+                            "Inference and costs need a full engine. "
                             "Saving blocked; journal preserved."
                         )
                     price = posting.price
-                    if price is not None and (price.number is None or price.currency is None):
+                    price_currency = price.currency if price else None
+                    if price is not None and (price.number is None or price_currency is None):
                         raise LedgerError("exchange_invalid")
+                    total_price = (
+                        price.number if isinstance(price, models.TotalPrice) and price else None
+                    )
+                    unit_price = (
+                        price.number if isinstance(price, models.UnitPrice) and price else None
+                    )
                     postings.append(
                         Posting(
                             posting.account,
                             posting.number,
-                            currency_code(posting.currency),
-                            price.number if price else None,
-                            currency_code(price.currency) if price and price.currency else None,
+                            currency_code(posting_currency),
+                            total_price,
+                            currency_code(price_currency) if price_currency else None,
+                            unit_price,
                         )
                     )
                 identifier = entry.meta.get("id")

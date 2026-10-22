@@ -366,13 +366,15 @@ class Journal:
         categories = {c.id for c in self.ledger.categories}
         if transaction is None or not transaction.persistent_id:
             raise LedgerError("crud_transaction_readonly")
+        if any(p.unit_price is not None for p in transaction.postings):
+            raise LedgerError("crud_transaction_readonly")
         if transaction.kind == "transfer":
             self.transfer_details(transaction)
             return transaction
         if (
             transaction.kind not in {"expense", "income", "reimbursement", "adjustment"}
             or len(transaction.postings) != 2
-            or any(p.total_price is not None for p in transaction.postings)
+            or any(p.has_price for p in transaction.postings)
         ):
             raise LedgerError("crud_transaction_readonly")
         direction = -1 if transaction.kind == "expense" else 1

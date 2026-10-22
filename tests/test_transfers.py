@@ -713,7 +713,7 @@ def test_price_validation_does_not_accept_arbitrary_fx_constructs(tmp_path: Path
                 ledger.balances()
         assert journal.codec is not None
         for text in (
-            journal.source.replace("@@ 4200", "@ 42"),
+            journal.source.replace("@@ 4200", "@ 41"),
             journal.source.replace("-100.00 USD @@", "-100.00 USD {1 UAH} @@"),
             journal.source.replace("@@ 4200", "@@"),
         ):

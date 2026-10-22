@@ -3,8 +3,8 @@
 This report preserves the original experiment and its device-test findings.
 Old package IDs, synthetic filenames, build numbers and checksums below describe
 those historical builds, not the current release. Module/task references and
-links use current diagnostic names. See [current version metadata](development.md#version-metadata)
-and [historical migration notes](branding.md#historical-android-identity-migration).
+links use current diagnostic names. See
+[current version metadata](development.md#version-metadata).
 
 **Verdict: PASS for the bounded fixture profile (user-confirmed Android phone
 test, 2026-10-18).** At the start of Stage 3 the user confirmed both PoCs passed.
@@ -187,14 +187,6 @@ newer builds; use [MVP 0.1](mvp-0.1.md) for the current APK identity and checkli
 - [build/apk/txncount.apk](../build/apk/txncount.apk), approximately 135 MiB.
 - txncount 0.1.0, build **3**, package `com.pioneer.financepoc`, Android 7.0+.
 - SHA-256: `d1dde3d771bc5df82d08e840dfccba5e5f97128110264760f4971761dd1ef8a7`.
-
-Update **without uninstalling**, to retain the working storage grant:
-
-```sh
-adb install -r /home/pioneer/workspace/txncount/build/apk/txncount.apk
-```
-
-On this host adb is `/home/pioneer/Android/sdk/platform-tools/adb` if not on PATH.
 
 1. Open txncount and tap **Run Beancount diagnostics** (under **Technical diagnostics** in MVP).
    No folder selection

@@ -693,9 +693,7 @@ testing. SAF storage behavior is unchanged.
 ### Release identity cleanup: 0.1.1 (13)
 
 - Application ID is now `com.pioneer.txncount`, label `TxnCount`, version
-  0.1.1, Android version code 13. This is a **separate Android installation**,
-  not an upgrade of `com.pioneer.financepoc`; follow the
-  [historical migration notes](branding.md#historical-android-identity-migration).
+  0.1.1, Android version code 13.
 - Project version/build in `pyproject.toml` now drives the About display,
   generated packaged metadata and versioned APK filename.
 - Active parser module/action/task names now use `beancount_diagnostics` /
@@ -704,8 +702,7 @@ testing. SAF storage behavior is unchanged.
   [Beancount compatibility](beancount-compatibility.md), retaining their findings.
 - Storage diagnostics uses `storage-test.beancount`, separate folder preferences
   and a separate backup namespace. Legacy synthetic files, real journals and
-  existing backups are not migrated or rewritten. Desktop's legacy main-folder
-  preference is copied only when the new preference is absent.
+  existing backups are not migrated or rewritten.
 - `uv sync`: succeeded. `uv run inv format check build-android`: **265 tests
   passed**, Ruff/Pyright clean, APK built successfully.
 - The first payload check caught stale renamed-module development bytecode in
@@ -815,13 +812,6 @@ bytes (about 135 MiB). Package remains `com.pioneer.financepoc`, label
 APK SHA-256:
 `8fff603ff4163a39bbb6765461c8cd9a766f0bc3c2701f2f68be6c26fd21796f`.
 
-Update without uninstalling:
-
-```sh
-adb install -r /home/pioneer/workspace/txncount/build/apk/txncount.apk
-```
-
-If adb is not on PATH, use `/home/pioneer/Android/sdk/platform-tools/adb`.
 The signing certificate matches previous builds:
 `49895518fe2c9679d44893a123a51b12a89d8b7c7605ffa6f0940ad551a82700`.
 
@@ -829,11 +819,7 @@ The signing certificate matches previous builds:
 
 Use a separate synthetic folder or a copy, not the only copy of your real data.
 
-1. For 0.1.1 and later, follow the
-   [historical Android identity migration](branding.md#historical-android-identity-migration).
-   Install `build/apk/txncount-0.1.1.apk`, grant folder access again and verify
-   existing accounts/history. This is separate from the old build 12 installation.
-2. Set `UAH USD EUR` in Settings; restart and confirm persistence. Open the same
+1. Set `UAH USD EUR` in Settings; restart and confirm persistence. Open the same
    file in desktop Fava: the missing-operating-currency warning must be absent.
    Find the field under **Advanced → Journal display currencies**. Create an
    account with a missing currency: it must be appended without losing choices.

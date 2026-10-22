@@ -97,9 +97,6 @@ engine, include resolver or generic persistence framework. See the
 Folder/language/theme/timezone preferences use Flet SharedPreferences on Android and a
 local configuration file on desktop; Android's grant is separately retained by
 SAF. Main and diagnostic folder choices use independent preference keys.
-The legacy main-folder key is read only when migrating an existing desktop
-configuration with no current key. Android identity changes cannot migrate
-app-private preferences or grants across installations.
 Operating currencies and active-state metadata are synchronized in the
 Beancount journal. Edit dialogs capture the journal instance and source baseline:
 poll/reload/folder changes cannot silently rebase an old draft. File contents are accessed directly through

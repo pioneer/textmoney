@@ -3,8 +3,8 @@
 This report preserves the original experiment and its device-test findings.
 Old package IDs, synthetic filenames, build numbers and checksums below describe
 those historical builds, not the current release. Module/task references and
-links use current diagnostic names. See [current version metadata](development.md#version-metadata)
-and [historical migration notes](branding.md#historical-android-identity-migration).
+links use current diagnostic names. See
+[current version metadata](development.md#version-metadata).
 
 **Verdict: PASS (user-confirmed physical-device testing, 2026-10-18).**
 At the start of Stage 2 the user confirmed that the Android Storage PoC
@@ -34,9 +34,8 @@ below are historical.
   conflict warning with a **Keep editing** action, and queues a user operation
   behind polling instead of discarding it. A conflict does not misreport folder
   permission failure. Dismissing the warning does not reload or discard the draft.
-- App name is now **txncount**, as requested. The package ID
-  `com.pioneer.financepoc` and preference key remain unchanged to preserve
-  installed app data and SAF grants during `adb install -r`.
+- App name is now **txncount**, as requested. At this stage the package ID
+  `com.pioneer.financepoc` and preference key were retained between PoC builds.
 - `uv run inv test` first reproduced both failures. After the fix, `uv sync`
   and `uv run inv format check` passed: **66 tests**, including the normal and
   polling-overlap conflict dialog/draft regression. Flet MCP verified
@@ -47,8 +46,8 @@ below are historical.
   --print-certs` confirmed the same signing-certificate fingerprint as build 1.
   The build 2 APK checksum is below. Its phone retest subsequently passed
   (user-confirmed at the start of Stage 2).
-- Phone retest: install build 2 **without uninstalling**, open **txncount**, Read,
-  enter a draft, change the test file externally, then tap Write. Expect the
+- Phone retest of build 2: open **txncount**, Read, enter a draft, change the
+  test file externally, then tap Write. Expect the
   modal warning, unchanged external file and retained draft. Dismiss with
   **Keep editing** and confirm the draft is still present.
 
@@ -147,7 +146,6 @@ Enable USB debugging on the phone, connect USB, and approve the computer:
 
 ```sh
 adb devices -l
-adb install -r /home/pioneer/workspace/txncount/build/apk/txncount.apk
 ```
 
 On this host adb is installed at

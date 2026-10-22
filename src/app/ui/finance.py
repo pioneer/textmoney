@@ -51,7 +51,6 @@ from app.version import release_identity
 
 logger = logging.getLogger(__name__)
 FOLDER_KEY = "txncount.folder.v1"
-LEGACY_FOLDER_KEY = "financepoc.folder.v1"
 LANGUAGE_KEY = "txncount.language.v1"
 THEME_KEY = "txncount.theme.v1"
 TIMEZONE_KEY = "txncount.timezone.v1"
@@ -1065,12 +1064,6 @@ class FinanceView(ft.Row):
             self.auto_backup_cleanup = saved_cleanup != "off"
             await self._sync_system_zone()
             saved_folder = await self.preferences.get(FOLDER_KEY)
-            if saved_folder is None:
-                saved_folder = await self.preferences.get(LEGACY_FOLDER_KEY)
-                if isinstance(saved_folder, str) and not await self.preferences.set(
-                    FOLDER_KEY, saved_folder
-                ):
-                    raise LedgerError("The selected folder could not be saved. Select it again.")
             if isinstance(saved_folder, str):
                 async with self.lock:
                     await self._attach(saved_folder)

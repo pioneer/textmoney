@@ -197,14 +197,6 @@ emulator is connected here; host execution of the APK archives is **not**
 Android runtime verification. Physical testing of adaptive navigation,
 localization and theme persistence is still pending.
 
-Update without uninstalling to preserve the tested SAF grant:
-
-```sh
-adb install -r /home/pioneer/workspace/txncount/build/apk/txncount.apk
-```
-
-Host adb, if not on PATH: `/home/pioneer/Android/sdk/platform-tools/adb`.
-
 1. Open **txncount** and select a dedicated synthetic/synchronized test folder.
    Expect the new-journal prompt and retained read/write access. Do not use real
    financial files.

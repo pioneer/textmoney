@@ -449,7 +449,6 @@ def doctor(context: Context) -> None:
     """Report host/tool availability and official Flet diagnostics."""
     print(f"Python: {sys.version.split()[0]} ({sys.executable})")
     print(f"Host: {platform.system()} {platform.machine()}")
-    print(f"aws: {shutil.which('aws') or 'not installed (optional)'}")
     print(f"adb: {find_adb() or 'not installed (optional)'}")
     execute("uv", "--version")
     execute("flet", "--version")
@@ -556,9 +555,7 @@ def normalize_prefix(prefix: str) -> str:
         not re.fullmatch(r"[A-Za-z0-9_./-]+", prefix)
         or any(part in {"", ".", ".."} for part in prefix.split("/"))
     ):
-        raise Exit(
-            "S3_PREFIX must be a simple relative path without dot or empty segments.", code=1
-        )
+        raise Exit("Web base URL must be a relative path without dot or empty segments.", code=1)
     return prefix
 
 
@@ -575,29 +572,6 @@ def serve_web(context: Context, port: int = 8000) -> None:
     if not (ROOT / "build/web/index.html").is_file():
         raise Exit("No static build. Run uv run inv build-web first.", code=1)
     execute("flet", "serve", "build/web", "--port", str(port))
-
-
-@task
-def deploy_web(context: Context) -> None:
-    """Build and sync to S3 with --delete. Destination must contain only this app."""
-    prefix = normalize_prefix(os.environ.get("S3_PREFIX", ""))
-    build_web(context, base_url=prefix)
-    if not shutil.which("aws"):
-        raise Exit(
-            "AWS CLI is missing. Install AWS CLI v2 and authenticate outside the repo.", code=1
-        )
-    bucket = os.environ.get("S3_BUCKET", "")
-    if not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", bucket):
-        raise Exit("Set S3_BUCKET to a bucket name, not an s3:// URL or path.", code=1)
-    output = ROOT / "build/web"
-    if not (output / "index.html").is_file():
-        raise Exit("Build did not produce build/web/index.html.", code=1)
-    destination = f"s3://{bucket}/{prefix + '/' if prefix else ''}"
-    args = ["aws", "s3", "sync", str(output), destination, "--delete"]
-    for variable, option in (("AWS_PROFILE", "--profile"), ("AWS_REGION", "--region")):
-        if value := os.environ.get(variable):
-            args += [option, value]
-    execute(*args)
 
 
 @task

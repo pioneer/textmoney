@@ -303,37 +303,6 @@ def test_check_order_and_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     ]
 
 
-def test_deployment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    output = tmp_path / "build/web"
-    output.mkdir(parents=True)
-    (output / "index.html").touch()
-    build = MagicMock()
-    execute = MagicMock()
-    monkeypatch.setattr(tasks, "ROOT", tmp_path)
-    monkeypatch.setattr(tasks, "build_web", build)
-    monkeypatch.setattr(tasks, "execute", execute)
-    monkeypatch.setattr(tasks.shutil, "which", lambda name: "/usr/bin/aws")
-    monkeypatch.setenv("S3_BUCKET", "example-test-bucket")
-    monkeypatch.setenv("S3_PREFIX", "apps/test")
-    monkeypatch.setenv("AWS_PROFILE", "test-profile")
-    monkeypatch.setenv("AWS_REGION", "eu-west-1")
-    tasks.deploy_web(Context())
-    build.assert_called_once()
-    assert build.call_args.kwargs["base_url"] == "apps/test"
-    assert execute.call_args.args == (
-        "aws",
-        "s3",
-        "sync",
-        str(output),
-        "s3://example-test-bucket/apps/test/",
-        "--delete",
-        "--profile",
-        "test-profile",
-        "--region",
-        "eu-west-1",
-    )
-
-
 @pytest.mark.parametrize("prefix", ["../bad", "a//b", "a/./b", "a b", "a?b"])
 def test_invalid_prefix(prefix: str) -> None:
     with pytest.raises(Exit):
@@ -454,26 +423,6 @@ def test_command_failure_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(Exit) as failure:
         tasks.execute("flet", "build", "web")
     assert failure.value.code == 7
-
-
-@pytest.mark.parametrize("missing", ["aws", "bucket", "index"])
-def test_deployment_preflight_failure(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    missing: str,
-) -> None:
-    monkeypatch.setattr(tasks, "ROOT", tmp_path)
-    build = MagicMock()
-    execute = MagicMock()
-    monkeypatch.setattr(tasks, "build_web", build)
-    monkeypatch.setattr(tasks, "execute", execute)
-    monkeypatch.setattr(tasks.shutil, "which", lambda name: None if missing == "aws" else "aws")
-    monkeypatch.setenv("S3_BUCKET", "" if missing == "bucket" else "example-test-bucket")
-    monkeypatch.delenv("S3_PREFIX", raising=False)
-    with pytest.raises(Exit):
-        tasks.deploy_web(Context())
-    build.assert_called_once()
-    execute.assert_not_called()
 
 
 def test_asset_staging_and_clean_preserve_sources(

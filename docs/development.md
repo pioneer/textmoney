@@ -43,8 +43,7 @@ release debug-marker removal happen consistently. `build-local` maps Linux to
 Linux, Windows to Windows, and Darwin to macOS; it does not emulate another OS.
 Platform-specific tasks reject incompatible hosts before starting a build.
 The [version metadata](#version-metadata) below describes the authoritative
-version/build fields. Historical Android migration details are in
-[branding](branding.md#historical-android-identity-migration).
+version/build fields.
 APK builds produce `build/apk/txncount-<project.version>.apk`; generated packaged
 version metadata is staged alongside assets and removed by `clean`.
 Build staging also clears source-tree `__pycache__` directories: Flet's relative

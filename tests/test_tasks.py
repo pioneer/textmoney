@@ -356,16 +356,23 @@ def test_release_version_requires_matching_tag_and_increasing_code(
     tasks.validate_android_release_version("v0.3.1")
 
 
+@pytest.mark.parametrize("line_wrapped", [False, True])
 def test_previous_release_build_number_reads_published_release_metadata(
     monkeypatch: pytest.MonkeyPatch,
+    line_wrapped: bool,
 ) -> None:
     monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/txncount")
+    content = b64encode(
+        b'[tool.flet]\nbuild_number = 22\nbundle_id = "com.pioneer.txncount"\n'
+    ).decode("ascii")
+    if line_wrapped:
+        content = (
+            "\n".join(content[index : index + 60] for index in range(0, len(content), 60)) + "\n"
+        )
     responses = iter(
         [
             '[{"tagName":"v0.3.0","isDraft":false,"isPrerelease":false}]',
-            b64encode(
-                b'[tool.flet]\nbuild_number = 22\nbundle_id = "com.pioneer.txncount"\n'
-            ).decode("ascii"),
+            content,
         ]
     )
     monkeypatch.setattr(
@@ -374,6 +381,21 @@ def test_previous_release_build_number_reads_published_release_metadata(
         lambda *args: next(responses),
     )
     assert tasks.previous_release_build_number("v0.3.1") == 22
+
+
+def test_previous_release_build_number_rejects_invalid_base64(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/txncount")
+    responses = iter(
+        [
+            '[{"tagName":"v0.3.0","isDraft":false,"isPrerelease":false}]',
+            "invalid!base64",
+        ]
+    )
+    monkeypatch.setattr(tasks, "capture_command", lambda *args: next(responses))
+    with pytest.raises(Exit, match="Could not read the Android version code"):
+        tasks.previous_release_build_number("v0.3.1")
 
 
 def test_previous_release_build_number_refuses_an_already_published_tag(
@@ -392,6 +414,12 @@ def test_previous_release_build_number_refuses_an_already_published_tag(
         tasks.previous_release_build_number("v0.3.1")
 
 
+@pytest.fixture
+def release_apk_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tasks, "release_identity", lambda: ("0.3.0", 22))
+
+
+@pytest.mark.usefixtures("release_apk_identity")
 def test_release_apk_verification_checks_signer_identity_and_version(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -412,6 +440,7 @@ def test_release_apk_verification_checks_signer_identity_and_version(
     tasks.verify_android_release_apk(apk)
 
 
+@pytest.mark.usefixtures("release_apk_identity")
 def test_release_apk_verification_rejects_wrong_signer(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -432,6 +461,7 @@ def test_release_apk_verification_rejects_wrong_signer(
         tasks.verify_android_release_apk(apk)
 
 
+@pytest.mark.usefixtures("release_apk_identity")
 @pytest.mark.parametrize(
     "bad_badging",
     [

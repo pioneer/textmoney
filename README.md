@@ -210,6 +210,11 @@ uv run inv build-local    # Build for the current desktop OS
 uv run inv --list         # All available tasks
 ```
 
+For production signing setup, run `uv run inv setup-android-release`; add
+`--upload-secrets` to configure GitHub signing secrets after private password
+prompts and confirmation. It never installs system packages or publishes a
+release. See [signing setup](docs/development.md#one-time-setup-helper).
+
 ### Beancount Ecosystem Compatibility Testing
 
 Install the Python tools in a separate Python 3.13 environment; this does not

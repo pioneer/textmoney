@@ -125,6 +125,46 @@ Invoke stages these values for the packaged About display and names APKs
 
 ## Signing and CI
 
+### One-time setup helper
+
+Run `uv run inv setup-android-release` in an interactive terminal to check Java
+(17+), keytool, Android Build Tools, GitHub authentication, and the existing
+production keystore. It privately prompts for both passwords, checks the pinned
+certificate and verifies private-key access without modifying the keystore.
+No key is generated. Use `--keystore /path/to/existing.jks` for another location.
+The default is `~/.local/share/pioneer-signing/android-release.jks`.
+
+To upload signing secrets, first create the `android-production` GitHub environment
+and configure its reviewers and release-tag restrictions in repository settings.
+Then run:
+
+```sh
+uv run inv setup-android-release --upload-secrets
+```
+
+The helper checks that the environment exists and asks you to type `UPLOAD`
+before replacing its three signing secrets. Passwords and the encoded keystore
+are passed through stdin/environment, never command arguments or generated files.
+Uploads are not atomic: if a later upload fails, earlier secrets may already
+have changed; rerun the command to complete setup. The helper does not configure
+environment protection, install tools, change system Java, build, or publish.
+
+If tools are missing, install them yourself in a console. On Manjaro:
+
+```sh
+sudo pacman -S --needed jdk17-openjdk github-cli
+archlinux-java status
+sudo archlinux-java set java-17-openjdk
+java -version
+gh auth login
+```
+
+Install missing Android SDK Build Tools using the SDK manager and set
+`ANDROID_HOME` to your SDK directory. Keep an encrypted offline backup of your
+existing key and passwords before configuring release signing.
+
+### Build and release
+
 Android builds without a configured upload key use a debug key and cannot go to
 Google Play. `uv run inv build-android` deliberately ignores configured
 production-signing variables and continues to produce a development APK.

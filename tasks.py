@@ -1,5 +1,6 @@
 """The sole task interface: uv run inv --list."""
 
+import getpass
 import hashlib
 import json
 import math
@@ -10,7 +11,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
-from base64 import b64decode
+from base64 import b64decode, b64encode
 from pathlib import Path
 
 from flet_cli.utils.android_sdk import AndroidSDK
@@ -137,6 +138,143 @@ def android_release_configuration() -> tuple[str, str, str]:
     )
 
 
+def release_setup_command(
+    *args: str, body: bytes | None = None, env: dict[str, str] | None = None
+) -> bytes:
+    """Capture tool output so signing failures cannot expose secret inputs."""
+    try:
+        result = subprocess.run(
+            args,
+            cwd=ROOT,
+            input=body,
+            capture_output=True,
+            env=os.environ | (env or {}),
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        raise Exit(f"Required command not found: {args[0]}.", code=1) from exc
+    if result.returncode:
+        raise Exit(
+            f"{args[0]} {args[1]} failed (exit {result.returncode}); "
+            "check credentials, permissions, and tool configuration. "
+            "Tool output was withheld to protect signing credentials.",
+            code=1,
+        )
+    return result.stdout
+
+
+def check_android_release_tools() -> None:
+    for command in ("java", "keytool", "gh"):
+        if shutil.which(command) is None:
+            raise Exit(
+                f"Missing {command}. On Manjaro, run in your console:\n"
+                "sudo pacman -S --needed jdk17-openjdk github-cli\n"
+                "Then authenticate with: gh auth login",
+                code=1,
+            )
+    result = subprocess.run(["java", "-version"], capture_output=True, text=True, check=False)
+    match = re.search(r'version "(\d+)', result.stdout + result.stderr)
+    if result.returncode or match is None or int(match[1]) < 17:
+        raise Exit(
+            "JDK 17 or newer is required. On Manjaro, run in your console:\n"
+            "sudo pacman -S --needed jdk17-openjdk\n"
+            "archlinux-java status\n"
+            "sudo archlinux-java set java-17-openjdk\n"
+            "java -version",
+            code=1,
+        )
+    for tool in ("apksigner", "aapt"):
+        android_build_tool(tool)
+    release_setup_command("gh", "auth", "status")
+    print("Java, keytool, Android Build Tools, and GitHub authentication checked.")
+
+
+@task
+def setup_android_release(
+    context: Context,
+    keystore: str = "",
+    upload_secrets: bool = False,
+) -> None:
+    """Check the production key; optionally upload signing secrets to GitHub."""
+    check_android_release_tools()
+    key_path = (
+        Path(keystore or "~/.local/share/pioneer-signing/android-release.jks")
+        .expanduser()
+        .resolve()
+    )
+    if not key_path.is_file():
+        raise Exit("Existing production keystore not found; no key was created.", code=1)
+    if platform.system() != "Windows" and key_path.stat().st_mode & 0o077:
+        raise Exit(
+            "Keystore permissions are too broad; restrict it to its owner (chmod 600).",
+            code=1,
+        )
+    if not sys.stdin.isatty():
+        raise Exit("Run setup in an interactive terminal for private password prompts.", code=1)
+    _, alias, fingerprint = android_release_configuration()
+    store_password = getpass.getpass("Keystore password: ")
+    key_password = getpass.getpass("Private-key password: ")
+    if not store_password or not key_password:
+        raise Exit("Both passwords are required; no secrets were uploaded.", code=1)
+    secret_env = {
+        "TXNCOUNT_SETUP_STORE_PASSWORD": store_password,
+        "TXNCOUNT_SETUP_KEY_PASSWORD": key_password,
+    }
+    key_args = (
+        "-keystore",
+        str(key_path),
+        "-alias",
+        alias,
+        "-storepass:env",
+        "TXNCOUNT_SETUP_STORE_PASSWORD",
+    )
+    certificate = release_setup_command("keytool", "-exportcert", *key_args, env=secret_env)
+    if hashlib.sha256(certificate).hexdigest() != fingerprint.replace(":", "").lower():
+        raise Exit("Existing key does not match the pinned production certificate.", code=1)
+    release_setup_command(
+        "keytool",
+        "-certreq",
+        *key_args,
+        "-keypass:env",
+        "TXNCOUNT_SETUP_KEY_PASSWORD",
+        env=secret_env,
+    )
+    print("Production certificate and private-key password verified; keystore unchanged.")
+    if not upload_secrets:
+        print("No secrets uploaded. Use --upload-secrets to configure GitHub signing secrets.")
+        return
+    repository = "pioneer/txncount"
+    environment = "android-production"
+    release_setup_command("gh", "api", f"repos/{repository}/environments/{environment}")
+    print(
+        f"Target: {repository}, environment {environment}.\n"
+        f"Review protection rules first: https://github.com/{repository}/settings/environments\n"
+        "This replaces all three Android signing secrets; it does not change protection rules.\n"
+        "Uploads are not atomic; if one fails, rerun setup to finish all three."
+    )
+    if input("Type UPLOAD to confirm: ").strip() != "UPLOAD":
+        raise Exit("Cancelled; no signing secrets were uploaded.", code=1)
+    secrets = {
+        "ANDROID_KEYSTORE_BASE64": b64encode(key_path.read_bytes()),
+        "ANDROID_KEYSTORE_PASSWORD": store_password.encode(),
+        "ANDROID_KEY_PASSWORD": key_password.encode(),
+    }
+    for name, value in secrets.items():
+        release_setup_command(
+            "gh",
+            "secret",
+            "set",
+            name,
+            "--repo",
+            repository,
+            "--env",
+            environment,
+            body=value,
+        )
+        print(f"Uploaded {name}.")
+    print("Signing secrets configured. No APK built, tag pushed, or release published.")
+
+
 def validate_android_signing_environment() -> dict[str, str]:
     values = {name: os.environ.get(name, "").strip() for name in ANDROID_SIGNING_ENV}
     missing = [name for name, value in values.items() if not value]
@@ -227,7 +365,8 @@ def previous_release_build_number(tag: str) -> int:
         ".content",
     )
     try:
-        previous_project = tomllib.loads(b64decode(content.strip(), validate=True).decode("utf-8"))
+        encoded_content = "".join(content.split())
+        previous_project = tomllib.loads(b64decode(encoded_content, validate=True).decode("utf-8"))
         build_number = previous_project["tool"]["flet"]["build_number"]
         previous_bundle_id = previous_project["tool"]["flet"]["bundle_id"]
     except (KeyError, ValueError, UnicodeDecodeError) as exc:

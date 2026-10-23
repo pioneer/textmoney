@@ -48,8 +48,12 @@ Android 7.0 or newer is required. You can also track this repository with
 
 Android is the currently distributed platform. Linux can run from source;
 Windows support is implemented but has not yet been validated.
-Current APKs use a development signing key; production signing is not yet
-established.
+The currently published APK is development-signed. Future releases use the
+release workflow's maintained production signing certificate after the
+protected environment is configured. Moving an existing installation to that
+certificate requires a one-time reinstall. Back up and verify your journal
+before uninstalling, because uninstalling can remove app-private preferences
+and drafts. Later APKs with the same production certificate can update in place.
 
 ## Getting started
 

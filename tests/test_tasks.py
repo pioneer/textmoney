@@ -3,6 +3,7 @@ import math
 import shutil
 import subprocess
 import sys
+from base64 import b64encode
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -252,6 +253,213 @@ def test_failed_build_does_not_rename_or_replace_apks(
         tasks.build_target("apk")
     assert (output / "txncount.apk").read_bytes() == b"old unversioned APK"
     assert (output / "txncount-0.1.1.apk").read_bytes() == b"old versioned APK"
+
+
+def test_normal_apk_build_clears_production_signing_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    def build(*args: str, **kwargs: object) -> None:
+        output = tmp_path / "build/apk"
+        output.mkdir(parents=True)
+        (output / "txncount.apk").write_bytes(b"debug apk")
+
+    execute = MagicMock(side_effect=build)
+    monkeypatch.setattr(tasks, "require_host", lambda target: None)
+    monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.3.0"\n[tool.flet]\nbuild_number = 22\n'
+    )
+    monkeypatch.setattr(tasks, "execute", execute)
+    tasks.build_target("apk")
+    assert execute.call_args.kwargs["unset_env"] == tasks.ANDROID_SIGNING_ENV
+
+
+def test_release_build_passes_explicit_signing_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    def build(*args: str, **kwargs: object) -> None:
+        output = tmp_path / "build/apk"
+        output.mkdir(parents=True)
+        (output / "txncount.apk").write_bytes(b"release apk")
+
+    signing_env = {
+        "FLET_ANDROID_SIGNING_KEY_STORE": str(tmp_path / "release.jks"),
+        "FLET_ANDROID_SIGNING_KEY_ALIAS": "android-release",
+        "FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD": "synthetic-store-password",
+        "FLET_ANDROID_SIGNING_KEY_PASSWORD": "synthetic-key-password",
+    }
+    execute = MagicMock(side_effect=build)
+    monkeypatch.setattr(tasks, "require_host", lambda target: None)
+    monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.3.0"\n[tool.flet]\nbuild_number = 22\n'
+    )
+    monkeypatch.setattr(tasks, "execute", execute)
+    tasks.build_target("apk", signing=True, env=signing_env)
+    assert execute.call_args.kwargs["env"] == tasks.debug_env(False) | signing_env
+    assert execute.call_args.kwargs["unset_env"] == ()
+
+
+def test_signing_environment_requires_all_values_and_existing_keystore(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in tasks.ANDROID_SIGNING_ENV:
+        monkeypatch.delenv(name, raising=False)
+    with pytest.raises(Exit, match="missing environment variable"):
+        tasks.validate_android_signing_environment()
+
+    key_path = tmp_path / "release.jks"
+    key_path.touch()
+    values = {
+        "FLET_ANDROID_SIGNING_KEY_STORE": str(key_path),
+        "FLET_ANDROID_SIGNING_KEY_ALIAS": "android-release",
+        "FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD": "synthetic-store-password",
+        "FLET_ANDROID_SIGNING_KEY_PASSWORD": "synthetic-key-password",
+    }
+    for name, value in values.items():
+        monkeypatch.setenv(name, value)
+    result = tasks.validate_android_signing_environment()
+    assert result["FLET_ANDROID_SIGNING_KEY_STORE"] == str(key_path)
+    assert result["FLET_ANDROID_SIGNING_KEY_ALIAS"] == "android-release"
+
+    monkeypatch.setenv("FLET_ANDROID_SIGNING_KEY_ALIAS", "wrong-alias")
+    with pytest.raises(Exit, match="signing alias"):
+        tasks.validate_android_signing_environment()
+
+    monkeypatch.setenv("FLET_ANDROID_SIGNING_KEY_ALIAS", "android-release")
+    monkeypatch.setenv("FLET_ANDROID_SIGNING_KEY_STORE", str(tmp_path / "missing.jks"))
+    with pytest.raises(Exit, match="keystore does not exist"):
+        tasks.validate_android_signing_environment()
+
+
+def test_release_version_requires_matching_tag_and_increasing_code(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.3.1"\n[tool.flet]\nbuild_number = 23\n'
+    )
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    with pytest.raises(Exit, match="must match the project version"):
+        tasks.validate_android_release_version("v0.3.0")
+
+    monkeypatch.setattr(tasks, "previous_release_build_number", lambda tag: 23)
+    with pytest.raises(Exit, match="must be greater than the prior release"):
+        tasks.validate_android_release_version("v0.3.1")
+
+    monkeypatch.setattr(tasks, "previous_release_build_number", lambda tag: 22)
+    tasks.validate_android_release_version("v0.3.1")
+
+
+def test_previous_release_build_number_reads_published_release_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/txncount")
+    responses = iter(
+        [
+            '[{"tagName":"v0.3.0","isDraft":false,"isPrerelease":false}]',
+            b64encode(
+                b'[tool.flet]\nbuild_number = 22\nbundle_id = "com.pioneer.txncount"\n'
+            ).decode("ascii"),
+        ]
+    )
+    monkeypatch.setattr(
+        tasks,
+        "capture_command",
+        lambda *args: next(responses),
+    )
+    assert tasks.previous_release_build_number("v0.3.1") == 22
+
+
+def test_previous_release_build_number_refuses_an_already_published_tag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/txncount")
+    monkeypatch.setattr(
+        tasks,
+        "capture_command",
+        lambda *args: (
+            '[{"tagName":"v0.3.1","isDraft":false,"isPrerelease":false},'
+            '{"tagName":"v0.3.0","isDraft":false,"isPrerelease":false}]'
+        ),
+    )
+    with pytest.raises(Exit, match="already published"):
+        tasks.previous_release_build_number("v0.3.1")
+
+
+def test_release_apk_verification_checks_signer_identity_and_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    apk = tmp_path / "txncount-0.3.0.apk"
+    apk.write_bytes(b"synthetic signed apk")
+    monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
+    monkeypatch.setattr(
+        tasks,
+        "capture_command",
+        lambda *args: (
+            "Signer #1 certificate SHA-256 digest: "
+            "0cc03e9537ef041c51eb8ececa1ae9e246c7e5a2c814ff1dd9a7f19ab6c07fa6"
+            if args[1] == "verify"
+            else "package: name='com.pioneer.txncount' versionCode='22' versionName='0.3.0'\n"
+        ),
+    )
+    tasks.verify_android_release_apk(apk)
+
+
+def test_release_apk_verification_rejects_wrong_signer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    apk = tmp_path / "txncount-0.3.0.apk"
+    apk.write_bytes(b"synthetic signed apk")
+    monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
+    monkeypatch.setattr(
+        tasks,
+        "capture_command",
+        lambda *args: (
+            "Signer #1 certificate SHA-256 digest: " + "0" * 64
+            if args[1] == "verify"
+            else "package: name='com.pioneer.txncount' versionCode='22' versionName='0.3.0'\n"
+        ),
+    )
+    with pytest.raises(Exit, match="does not match"):
+        tasks.verify_android_release_apk(apk)
+
+
+@pytest.mark.parametrize(
+    "bad_badging",
+    [
+        "package: name='com.other.app' versionCode='22' versionName='0.3.0'\n",
+        "package: name='com.pioneer.txncount' versionCode='21' versionName='0.3.0'\n",
+        "package: name='com.pioneer.txncount' versionCode='22' versionName='0.2.9'\n",
+    ],
+)
+def test_release_apk_verification_rejects_wrong_package_or_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    bad_badging: str,
+) -> None:
+    apk = tmp_path / "txncount-0.3.0.apk"
+    apk.write_bytes(b"synthetic signed apk")
+    monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
+    monkeypatch.setattr(
+        tasks,
+        "capture_command",
+        lambda *args: (
+            "Signer #1 certificate SHA-256 digest: "
+            "0cc03e9537ef041c51eb8ececa1ae9e246c7e5a2c814ff1dd9a7f19ab6c07fa6"
+            if args[1] == "verify"
+            else bad_badging
+        ),
+    )
+    with pytest.raises(Exit, match="application ID|version metadata"):
+        tasks.verify_android_release_apk(apk)
 
 
 @pytest.mark.parametrize(

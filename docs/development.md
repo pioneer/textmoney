@@ -126,7 +126,71 @@ Invoke stages these values for the packaged About display and names APKs
 ## Signing and CI
 
 Android builds without a configured upload key use a debug key and cannot go to
-Google Play. `build-ios` may produce only an unsigned archive without configured
+Google Play. `uv run inv build-android` deliberately ignores configured
+production-signing variables and continues to produce a development APK.
+`uv run inv build-android-release --tag vX.Y.Z` is the separate, fail-closed
+production task. It requires `FLET_ANDROID_SIGNING_KEY_STORE`,
+`FLET_ANDROID_SIGNING_KEY_ALIAS`, `FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD`,
+and `FLET_ANDROID_SIGNING_KEY_PASSWORD`; the alias must be `android-release`.
+The task checks the tagged project version and requires the Android version code
+to exceed the code in the latest prior stable GitHub Release. It then verifies
+the APK signature, pinned certificate SHA-256, application ID, version name/code,
+filename, and nonzero size. It never falls back to debug signing.
+
+The approved production certificate fingerprint is pinned in
+`[tool.txncount.android_release]` in pyproject.toml. Keep the existing JKS file
+and an encrypted offline backup; never commit it, encode it into logs, or place
+passwords in repository files. In Bash, configure local signing without putting
+passwords in command history:
+
+```sh
+export FLET_ANDROID_SIGNING_KEY_STORE="$HOME/.local/share/pioneer-signing/android-release.jks"
+export FLET_ANDROID_SIGNING_KEY_ALIAS=android-release
+read -r -s -p "Keystore password: " FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD
+printf '\n'
+read -r -s -p "Key password: " FLET_ANDROID_SIGNING_KEY_PASSWORD
+printf '\n'
+export FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD FLET_ANDROID_SIGNING_KEY_PASSWORD
+uv run inv build-android-release --tag vX.Y.Z
+unset FLET_ANDROID_SIGNING_KEY_STORE FLET_ANDROID_SIGNING_KEY_ALIAS
+unset FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD FLET_ANDROID_SIGNING_KEY_PASSWORD
+```
+
+The release task also needs `gh` authenticated to
+`pioneer/txncount` and Android SDK Build Tools (`apksigner` and `aapt`).
+Requires JDK 17.
+
+The `android-release.yml` workflow runs only for pushed `v*` tags, checks the
+project and release version before accessing signing secrets, verifies the APK,
+then publishes it as a GitHub Release asset. Configure the GitHub
+`android-production` environment with required reviewers and restrict its
+deployment branches/tags to release tags. Add environment secrets
+`ANDROID_KEYSTORE_BASE64` (base64-encoded existing JKS),
+`ANDROID_KEYSTORE_PASSWORD`, and `ANDROID_KEY_PASSWORD`. The workflow creates a
+mode-0600 temporary keystore and removes it after the build. The pinned
+certificate check remains the trust anchor even if the secret is replaced.
+
+The latest published release at setup was v0.3.0 with Android version code 22.
+The first production-signed release must use a later project version and a
+version code greater than 22. Existing debug-signed installations cannot update
+in place to the production certificate; export/verify the journal first, then
+uninstall and install the production APK. Later releases signed by the same
+certificate can update in place. A successful build does not substitute for
+install/update testing on a physical Android device.
+
+Physical-device release checklist:
+
+1. Back up and verify the journal; use a disposable journal copy for testing.
+2. Install the first production APK, confirm the app ID/version and reselect the
+  external journal folder if Android asks for its SAF permission again.
+3. Create or edit only disposable test data, then close/reopen and confirm it
+  persists in the selected external folder.
+4. Install the next production APK over it (for example, `adb install -r
+  build/apk/txncount-X.Y.Z.apk`) and confirm Android updates the existing app
+  without uninstalling, the test data remains, and the app reports the new
+  version.
+
+`build-ios` may produce only an unsigned archive without configured
 certificates/profiles; an installable/exportable IPA needs matching signing.
 macOS local builds are ad-hoc signed; public distribution normally needs Developer
 ID signing and notarization. Configure platform metadata in pyproject.toml, but
@@ -136,7 +200,9 @@ Push/PR CI runs format-check, lint, Pyright, and pytest on Linux, Windows, and
 macOS with Python 3.13, plus Linux with Python 3.14. Manual
 workflow dispatch adds web, APK/AAB, Linux, Windows, macOS, and unsigned iOS
 simulator builds on the proper runners. It does not publish or install signing
-secrets. A green simulator job does not certify a physical device or store release.
+secrets. The separate Android release workflow is the only workflow that
+receives production signing secrets. A green simulator job does not certify a
+physical device or store release.
 
 References: [Flet publishing](https://flet.dev/docs/publish/),
 [Android](https://flet.dev/docs/publish/android),

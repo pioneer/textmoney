@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+from base64 import b64decode
 from pathlib import Path
 
 from flet_cli.utils.android_sdk import AndroidSDK
@@ -24,12 +25,26 @@ HOSTS = {"linux": "Linux", "windows": "Windows", "macos": "Darwin"}
 UNATTENDED = "--yes"
 LINUX_DEV_APP_ID = "io.txncount.local"
 STOCK_CLIENT_APP_ID = b"com.appveyor.flet"
+ANDROID_SIGNING_ENV = (
+    "FLET_ANDROID_SIGNING_KEY_STORE",
+    "FLET_ANDROID_SIGNING_KEY_ALIAS",
+    "FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD",
+    "FLET_ANDROID_SIGNING_KEY_PASSWORD",
+)
 
 
-def execute(*args: str, env: dict[str, str] | None = None, cwd: Path | None = None) -> None:
+def execute(
+    *args: str,
+    env: dict[str, str] | None = None,
+    cwd: Path | None = None,
+    unset_env: tuple[str, ...] = (),
+) -> None:
     sys.stdout.flush()
+    process_env = os.environ | (env or {})
+    for name in unset_env:
+        process_env.pop(name, None)
     try:
-        subprocess.run(args, cwd=cwd or ROOT, env=os.environ | (env or {}), check=True)
+        subprocess.run(args, cwd=cwd or ROOT, env=process_env, check=True)
     except FileNotFoundError as exc:
         raise Exit(f"Required command not found: {args[0]}", code=1) from exc
     except subprocess.CalledProcessError as exc:
@@ -113,6 +128,207 @@ def release_identity() -> tuple[str, int]:
     return project["project"]["version"], project["tool"]["flet"]["build_number"]
 
 
+def android_release_configuration() -> tuple[str, str, str]:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    return (
+        project["tool"]["flet"]["bundle_id"],
+        project["tool"]["txncount"]["android_release"]["signing_alias"],
+        project["tool"]["txncount"]["android_release"]["certificate_sha256"],
+    )
+
+
+def validate_android_signing_environment() -> dict[str, str]:
+    values = {name: os.environ.get(name, "").strip() for name in ANDROID_SIGNING_ENV}
+    missing = [name for name, value in values.items() if not value]
+    if missing:
+        raise Exit(
+            "Production signing is not configured; missing environment variable(s): "
+            + ", ".join(missing),
+            code=1,
+        )
+
+    bundle_id, expected_alias, _ = android_release_configuration()
+    if values["FLET_ANDROID_SIGNING_KEY_ALIAS"] != expected_alias:
+        raise Exit(
+            f"Production signing alias must be {expected_alias!r} for {bundle_id}.",
+            code=1,
+        )
+    keystore = Path(values["FLET_ANDROID_SIGNING_KEY_STORE"]).expanduser()
+    if not keystore.is_file():
+        raise Exit(
+            "The configured Android release keystore does not exist or is not a file.", code=1
+        )
+    values["FLET_ANDROID_SIGNING_KEY_STORE"] = str(keystore)
+    return values
+
+
+def capture_command(*args: str) -> str:
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, check=False)
+    except FileNotFoundError as exc:
+        raise Exit(f"Required command not found: {args[0]}", code=1) from exc
+    if result.returncode:
+        raise Exit(f"{args[0]} failed with exit code {result.returncode}.", code=result.returncode)
+    return result.stdout
+
+
+def previous_release_build_number(tag: str) -> int:
+    repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    if not repository:
+        repository = capture_command(
+            "gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"
+        ).strip()
+    try:
+        releases = json.loads(
+            capture_command(
+                "gh",
+                "release",
+                "list",
+                "--limit",
+                "100",
+                "--json",
+                "tagName,isDraft,isPrerelease",
+            )
+        )
+    except json.JSONDecodeError as exc:
+        raise Exit("GitHub returned invalid release metadata.", code=1) from exc
+    if not isinstance(releases, list):
+        raise Exit("GitHub returned an invalid release list.", code=1)
+    if any(
+        isinstance(release, dict)
+        and release.get("tagName") == tag
+        and release.get("isDraft") is False
+        and release.get("isPrerelease") is False
+        for release in releases
+    ):
+        raise Exit(f"Release tag {tag} is already published; refusing to rebuild it.", code=1)
+    previous_tag = next(
+        (
+            release["tagName"]
+            for release in releases
+            if isinstance(release, dict)
+            and isinstance(release.get("tagName"), str)
+            and release["tagName"] != tag
+            and release.get("isDraft") is False
+            and release.get("isPrerelease") is False
+        ),
+        None,
+    )
+    if previous_tag is None:
+        raise Exit("Could not find a prior published stable GitHub Release.", code=1)
+
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+        raise Exit("Could not determine a valid GitHub repository identifier.", code=1)
+    content = capture_command(
+        "gh",
+        "api",
+        f"repos/{repository}/contents/pyproject.toml?ref={previous_tag}",
+        "--jq",
+        ".content",
+    )
+    try:
+        previous_project = tomllib.loads(b64decode(content.strip(), validate=True).decode("utf-8"))
+        build_number = previous_project["tool"]["flet"]["build_number"]
+        previous_bundle_id = previous_project["tool"]["flet"]["bundle_id"]
+    except (KeyError, ValueError, UnicodeDecodeError) as exc:
+        raise Exit(
+            f"Could not read the Android version code from prior release {previous_tag}.", code=1
+        ) from exc
+    if not isinstance(build_number, int) or build_number < 1:
+        raise Exit(f"Prior release {previous_tag} has an invalid Android version code.", code=1)
+    current_bundle_id, _, _ = android_release_configuration()
+    if previous_bundle_id != current_bundle_id:
+        raise Exit(
+            f"Android application ID changed since prior release {previous_tag}; "
+            "in-place updates cannot be verified.",
+            code=1,
+        )
+    return build_number
+
+
+def validate_android_release_version(tag: str) -> None:
+    version, build_number = release_identity()
+    expected_tag = f"v{version}"
+    if tag != expected_tag:
+        raise Exit(
+            f"Release tag {tag!r} must match the project version tag {expected_tag!r}.", code=1
+        )
+    if build_number < 1:
+        raise Exit("Android version code must be a positive integer.", code=1)
+    previous_build_number = previous_release_build_number(tag)
+    if build_number <= previous_build_number:
+        raise Exit(
+            f"Android version code {build_number} must be greater than the prior release "
+            f"version code {previous_build_number}.",
+            code=1,
+        )
+
+
+def android_build_tool(name: str) -> str:
+    executable = name + (".exe" if platform.system() == "Windows" else "")
+    sdk = AndroidSDK.android_home_dir()
+    if sdk is not None:
+        build_tools = sdk / "build-tools"
+        if build_tools.is_dir():
+            for version in sorted(build_tools.iterdir(), reverse=True):
+                candidate = version / executable
+                if candidate.is_file():
+                    return str(candidate)
+    if path := shutil.which(name):
+        return path
+    raise Exit(f"{name} is required; install Android SDK Build Tools or add it to PATH.", code=1)
+
+
+def verify_android_release_apk(apk: Path) -> None:
+    version, build_number = release_identity()
+    bundle_id, _, expected_fingerprint = android_release_configuration()
+    expected_filename = f"txncount-{version}.apk"
+    if apk.name != expected_filename:
+        raise Exit(f"Release APK must be named {expected_filename}.", code=1)
+    if not apk.is_file() or apk.stat().st_size == 0:
+        raise Exit("The release APK is missing or empty.", code=1)
+
+    expected_digest = re.sub(r"[^0-9a-f]", "", expected_fingerprint.lower())
+    if (
+        not re.fullmatch(r"(?:[0-9a-fA-F]{2}:){31}[0-9a-fA-F]{2}", expected_fingerprint)
+        or len(expected_digest) != 64
+    ):
+        raise Exit("The pinned Android release certificate fingerprint is invalid.", code=1)
+
+    signer_output = capture_command(
+        android_build_tool("apksigner"), "verify", "--verbose", "--print-certs", str(apk)
+    )
+    signer_digests = re.findall(
+        r"certificate SHA-256 digest:\s*([0-9a-fA-F:]+)", signer_output, flags=re.IGNORECASE
+    )
+    if not signer_digests or any(
+        re.sub(r"[^0-9a-f]", "", digest.lower()) != expected_digest for digest in signer_digests
+    ):
+        raise Exit("APK signer does not match the pinned production certificate.", code=1)
+
+    badging = capture_command(android_build_tool("aapt"), "dump", "badging", str(apk))
+    package = re.search(
+        r"^package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'",
+        badging,
+        flags=re.MULTILINE,
+    )
+    if package is None:
+        raise Exit("Could not read package identity and version metadata from the APK.", code=1)
+    actual_bundle, actual_build, actual_version = package.groups()
+    if actual_bundle != bundle_id:
+        raise Exit(f"APK application ID is {actual_bundle!r}, expected {bundle_id!r}.", code=1)
+    if int(actual_build) != build_number or actual_version != version:
+        raise Exit(
+            f"APK version metadata is {actual_version}/{actual_build}; "
+            f"expected {version}/{build_number}.",
+            code=1,
+        )
+    print(
+        f"Verified {apk} ({apk.stat().st_size} bytes): {bundle_id} "
+        f"{version} ({build_number}), production signer {expected_fingerprint}."
+    )
+
+
 def stage_release() -> None:
     version, build = release_identity()
     (ROOT / "src/app").mkdir(parents=True, exist_ok=True)
@@ -141,11 +357,26 @@ def find_adb() -> str | None:
     return str(adb) if adb.is_file() else None
 
 
-def build_target(target: str, *extra: str) -> None:
+def build_target(
+    target: str,
+    *extra: str,
+    signing: bool = False,
+    env: dict[str, str] | None = None,
+) -> None:
+    if signing and target != "apk":
+        raise Exit("Production signing is supported only for Android APK builds.", code=1)
     require_host(target)
     (ROOT / "src/app/.debug-mode").unlink(missing_ok=True)
     stage_assets(linux=target == "linux")
-    execute("flet", "build", target, UNATTENDED, *extra, env=debug_env(False))
+    execute(
+        "flet",
+        "build",
+        target,
+        UNATTENDED,
+        *extra,
+        env=debug_env(False) | (env or {}),
+        unset_env=() if signing else ANDROID_SIGNING_ENV,
+    )
     if target == "apk":
         version, _ = release_identity()
         (ROOT / "build/apk/txncount.apk").replace(ROOT / f"build/apk/txncount-{version}.apk")
@@ -589,6 +820,28 @@ def serve_web(context: Context, port: int = 8000) -> None:
 def build_android(context: Context) -> None:
     """Build Android APK on Linux, Windows, or macOS."""
     build_target("apk")
+
+
+@task
+def validate_android_release(context: Context, tag: str = "") -> None:
+    """Check release tag and version code against the latest stable release."""
+    release_tag = tag or os.environ.get("GITHUB_REF_NAME", "")
+    if not release_tag:
+        raise Exit("Supply the release tag with --tag or set GITHUB_REF_NAME.", code=1)
+    validate_android_release_version(release_tag)
+
+
+@task
+def build_android_release(context: Context, tag: str = "") -> None:
+    """Build and verify a production-signed Android APK."""
+    release_tag = tag or os.environ.get("GITHUB_REF_NAME", "")
+    if not release_tag:
+        raise Exit("Supply the release tag with --tag or set GITHUB_REF_NAME.", code=1)
+    validate_android_release_version(release_tag)
+    signing_env = validate_android_signing_environment()
+    build_target("apk", signing=True, env=signing_env)
+    version, _ = release_identity()
+    verify_android_release_apk(ROOT / "build/apk" / f"txncount-{version}.apk")
 
 
 @task

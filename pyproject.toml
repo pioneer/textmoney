@@ -60,6 +60,10 @@ company = "Pioneer"
 build_number = 22
 icon_background = "#ffffff"
 
+[tool.txncount.android_release]
+certificate_sha256 = "0C:C0:3E:95:37:EF:04:1C:51:EB:8E:CE:CA:1A:E9:E2:46:C7:E5:A2:C8:14:FF:1D:D9:A7:F1:9A:B6:C0:7F:A6"
+signing_alias = "android-release"
+
 [tool.flet.dev_packages]
 finance-saf = "extensions/finance-saf"
 

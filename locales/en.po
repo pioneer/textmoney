@@ -525,8 +525,9 @@ msgstr ""
 #. Stable TxnCount key: ui.timezone_help; do not translate this identifier.
 msgid "ui.timezone_help"
 msgstr ""
-"System follows this device. Or enter an IANA name, e.g. Europe/Kyiv. "
-"Existing timestamps and accounting dates are not rewritten."
+"Used only for the default current clock and date-picker transport. System follows this device, "
+"or enter an IANA name such as Europe/Kyiv. Saved transaction dates and local wall times never "
+"convert when this setting changes; no timezone or UTC offset is stored."
 
 #. Stable TxnCount key: ui.timezone_system; do not translate this identifier.
 msgid "ui.timezone_system"
@@ -538,7 +539,7 @@ msgstr "Timezone saved."
 
 #. Stable TxnCount key: ui.timezone_current; do not translate this identifier.
 msgid "ui.timezone_current"
-msgstr "Current timezone: {zone}"
+msgstr "Default clock timezone: {zone} · transaction time is local wall time"
 
 #. Stable TxnCount key: ui.time; do not translate this identifier.
 msgid "ui.time"
@@ -856,8 +857,44 @@ msgstr "Save paused"
 msgid "ui.conflict_body"
 msgstr ""
 "The journal changed outside TxnCount. Nothing was overwritten, and your "
-"form entries are still here. Reload and review the updated balance before"
-" retrying."
+"form entries are still here. Review external changes or reload. This stale form cannot be "
+"saved against a newer journal: keep your draft, then reopen a fresh form and re-enter it."
+
+msgid "ui.external_notice"
+msgstr "The journal changed outside TxnCount. Open drafts are retained, never rebased. Review changes, then reopen a fresh form before saving a stale draft."
+
+msgid "ui.external_details"
+msgstr "Review external changes"
+
+msgid "ui.external_observed"
+msgstr "Observed locally: {observed}. This is not the time the file was edited."
+
+msgid "ui.external_summary"
+msgstr "{kind}: {added} added, {removed} removed, {changed} changed."
+
+msgid "ui.external_summary_unavailable"
+msgstr "A safe summary is unavailable. Review the source differences below."
+
+msgid "ui.external_diff"
+msgstr "Source differences (read only)"
+
+msgid "ui.conflict_copies"
+msgstr "Possible conflict copies (names only). The current journal remains active and saving is not blocked. Inspect these files externally; TxnCount will not read, merge, delete or activate them:"
+
+msgid "ui.conflict_copy_scan_failed"
+msgstr "Could not check sibling filenames for possible conflict copies. The current journal is still usable."
+
+msgid "ui.default_fee_saved"
+msgstr "Default fee category saved on this device only."
+
+msgid "ui.default_fee_save_failed"
+msgstr "Could not save the local default fee category. The previous setting is unchanged."
+
+msgid "ui.default_fee_unavailable"
+msgstr "The locally preferred fee category is unavailable or inactive in this journal. Choose an active expense category; the local preference has not been changed."
+
+msgid "ui.default_fee_invalid"
+msgstr "The local default fee category preference is invalid. Check this device's settings."
 
 #. Stable TxnCount key: ui.keep_editing; do not translate this identifier.
 msgid "ui.keep_editing"

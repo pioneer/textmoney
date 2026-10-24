@@ -41,11 +41,13 @@ class SafProvider:
             else SaveRecord(None, digest(data) or "", None, "complete").encode()
         )
         self.backups: dict[str, bytes] = {}
-        self.sync_files: dict[str, bytes] = {}
+        self.legacy_files: dict[str, bytes] = {}
+        self.siblings: list[str] = []
         self.archives: list[bytes] = []
         self.fault = ""
         self.writes = 0
         self.calls: list[str] = []
+        self.arguments: list[tuple[str, dict[str, object]]] = []
         self.race = False
         self.bridge = MagicMock()
         self.bridge.call = AsyncMock(side_effect=self.call)
@@ -74,20 +76,14 @@ class SafProvider:
 
     async def call(self, method: str, **args: object) -> dict[str, object]:
         self.calls.append(method)
+        self.arguments.append((method, args.copy()))
         return {"ok": True, "value": await self.execute(method, args)}
 
     async def execute(self, method: str, args: dict[str, object]) -> object:
-        if method == "sync_scan":
-            return {name: encoded(data) for name, data in self.sync_files.items()}
-        if method == "sync_put":
-            name, data = args["name"], decoded(args["data"])
-            assert isinstance(name, str) and data is not None
-            key = f".txncount-sync/{name}"
-            assert key not in self.sync_files or self.sync_files[key] == data
-            self.sync_files[key] = data
-            return None
         if method == "status":
             return True
+        if method == "list_siblings":
+            return self.siblings.copy()
         if method == "read":
             return encoded(self.data)
         if method == "recovery":
@@ -115,11 +111,6 @@ class SafProvider:
             self.marker = record
             if self.fault == "prepared":
                 raise StorageError("Synthetic interruption before journal modification")
-            expected = args.get("sync_versions")
-            if expected is not None and expected != {
-                name: encoded(data) for name, data in self.sync_files.items()
-            }:
-                raise ConflictError("sync_changed")
             self.writes += 1
             if self.fault == "partial":
                 self.data = b""
@@ -478,6 +469,33 @@ def test_android_external_conflict_is_refused_without_native_write(
         with pytest.raises(ConflictError):
             await session.write()
         assert provider.writes == 0 and session.draft == candidate.decode()
+
+    asyncio.run(scenario())
+
+
+def test_android_ignores_legacy_sync_files_and_lists_names_only(
+    books: tuple[bytes, bytes, bytes],
+) -> None:
+    async def scenario() -> None:
+        previous, candidate, _ = books
+        provider = SafProvider(previous)
+        provider.legacy_files = {
+            ".txncount-sync": b"damaged legacy metadata",
+            ".txncount-sync/stale-edge.json": b"{damaged",
+            "conflicted-copy.beancount": b"invalid unrelated journal",
+        }
+        provider.siblings = ["conflicted-copy.beancount"]
+        folder = provider.folder()
+
+        assert await folder.list_siblings() == ["conflicted-copy.beancount"]
+        assert provider.calls == ["list_siblings"]
+        await folder.write(candidate, expected_hash=digest(previous))
+
+        assert provider.data == candidate and provider.writes == 1
+        assert provider.legacy_files[".txncount-sync/stale-edge.json"] == b"{damaged"
+        assert "sync_scan" not in provider.calls and "sync_put" not in provider.calls
+        write_arguments = next(args for method, args in provider.arguments if method == "write")
+        assert "sync_versions" not in write_arguments
 
     asyncio.run(scenario())
 

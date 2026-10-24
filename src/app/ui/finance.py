@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future
@@ -46,7 +47,6 @@ from app.localization import (
     translate_plural,
 )
 from app.storage import RecoveryRequired, StorageError
-from app.synchronization import SyncConflict, file_hash
 from app.timekeeping import local_datetime, named_zone
 from app.ui.datetime_fields import DateTimeFields
 from app.version import release_identity
@@ -57,6 +57,7 @@ LANGUAGE_KEY = "txncount.language.v1"
 THEME_KEY = "txncount.theme.v1"
 TIMEZONE_KEY = "txncount.timezone.v1"
 BACKUP_CLEANUP_KEY = "txncount.backup-cleanup.v1"
+DEFAULT_FEE_KEY = "txncount.default-fee-category.v1"
 COMPACT_MAX_WIDTH = 599
 MEDIUM_MAX_WIDTH = 1023
 MAX_CONTENT_WIDTH = 1180
@@ -90,6 +91,9 @@ class FinanceView(ft.Row):
         self.theme_name = "system"
         self.timezone_name = "system"
         self.auto_backup_cleanup = True
+        self.default_fee_category = BANK_FEES
+        self.possible_conflict_copies: list[str] = []
+        self.sibling_scan_failed = False
         self.system_zone = "system"
         self.screen_class = ScreenClass.COMPACT
         self.current_screen = "home"
@@ -107,9 +111,12 @@ class FinanceView(ft.Row):
         self.folder_label = ft.Text("", selectable=True)
         self.access = ft.Text("")
         self.balance_warning = ft.Text("", color=ft.Colors.ERROR, visible=False)
+        self.external_notice = ft.Column(spacing=4, visible=False)
+        self.conflict_copy_notice = ft.Text("", selectable=True, visible=False)
         self.account_root = ft.Dropdown(value="Assets", on_select=self._account_type_changed)
         self.default_fee = ft.Dropdown()
         self.default_fee_save = ft.Button(on_click=self._save_default_fee)
+        self.default_fee_notice = ft.Text("", visible=False)
         self.backup_cleanup = ft.Checkbox(value=True, on_change=self._backup_cleanup_changed)
         self.backup_clean_button = ft.Button(on_click=self._preview_backup_cleanup)
         self.default_fee_source = ""
@@ -320,6 +327,12 @@ class FinanceView(ft.Row):
                 ),
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20), content=self.balance_warning
+                ),
+                ft.Container(
+                    padding=ft.Padding.symmetric(horizontal=20), content=self.external_notice
+                ),
+                ft.Container(
+                    padding=ft.Padding.symmetric(horizontal=20), content=self.conflict_copy_notice
                 ),
                 ft.Container(
                     expand=True,
@@ -585,14 +598,6 @@ class FinanceView(ft.Row):
                             and self.journal.storage.recovery is not None
                             and self.journal.storage.recovery.required,
                         ),
-                        ft.Text(self.tr("sync_status")),
-                        ft.TextButton(
-                            self.tr("sync_review"),
-                            on_click=self._review_sync,
-                            visible=self.journal is not None
-                            and self.journal.sync_state is not None
-                            and bool(self.journal.sync_state.versions),
-                        ),
                         ft.Divider(),
                         ft.Text(self.tr("backups_title"), size=18),
                         self.backup_cleanup,
@@ -619,6 +624,7 @@ class FinanceView(ft.Row):
                         self.timezone_save,
                         self.default_fee,
                         self.default_fee_save,
+                        self.default_fee_notice,
                     ],
                     spacing=12,
                 ),
@@ -752,6 +758,7 @@ class FinanceView(ft.Row):
             ]
 
     def _refresh(self) -> None:
+        self._refresh_external_notices()
         ready = self.journal is not None and self.journal.ready
         for control in (self.account_save, self.category_save):
             control.disabled = not ready
@@ -1318,6 +1325,11 @@ class FinanceView(ft.Row):
             if saved_cleanup not in {None, "on", "off"}:
                 raise PreferencesError(self.tr("backups_invalid_setting"))
             self.auto_backup_cleanup = saved_cleanup != "off"
+            saved_fee = await self.preferences.get(DEFAULT_FEE_KEY)
+            if saved_fee is not None:
+                if not isinstance(saved_fee, str) or not saved_fee.startswith("Expenses:"):
+                    raise PreferencesError("default_fee_invalid")
+                self.default_fee_category = saved_fee
             await self._sync_system_zone()
             saved_folder = await self.preferences.get(FOLDER_KEY)
             if isinstance(saved_folder, str):
@@ -1339,19 +1351,27 @@ class FinanceView(ft.Row):
             except Exception as exc:
                 self._set_error(exc)
                 self.page.update()
-            if self.lock.locked() or self.journal is None or not self.journal.ready:
+            if self.lock.locked() or self.journal is None:
                 continue
             async with self.lock:
                 try:
-                    if await self.journal.poll():
-                        self._set_message("external_reloaded")
-                        self._refresh()
+                    await self._poll_journal()
                 except Exception as exc:
                     self.journal.ready = False
                     self.journal.storage.loaded = False
                     self._set_error(exc)
                     self._refresh()
                 self.page.update()
+
+    async def _poll_journal(self) -> None:
+        journal = self._require_journal()
+        await self._scan_conflict_copies()
+        try:
+            if journal.ready and await journal.poll():
+                await self._apply_default_fee()
+                self._set_message("external_reloaded")
+        finally:
+            self._refresh()
 
     def _effective_zone(self) -> str:
         if self.timezone_name != "system":
@@ -1495,8 +1515,12 @@ class FinanceView(ft.Row):
         )
         await folder.status()
         self.journal = Journal(folder, today=self._today)
+        self.possible_conflict_copies = []
+        self.sibling_scan_failed = False
         self.journal.storage.auto_cleanup = self.auto_backup_cleanup
         await self.journal.load()
+        await self._apply_default_fee()
+        await self._scan_conflict_copies()
         self.folder_label.value = (
             location if isinstance(folder, DesktopFolder) else self.tr("folder_selected")
         )
@@ -1565,6 +1589,8 @@ class FinanceView(ft.Row):
             if self.journal is None:
                 raise LedgerError("Select a folder first.")
             await self.journal.load()
+            await self._apply_default_fee()
+            await self._scan_conflict_copies()
             self._set_message("reloaded")
 
         await self._action(reload)
@@ -1630,175 +1656,99 @@ class FinanceView(ft.Row):
             raise LedgerError("Select a folder first.")
         return self.journal
 
-    async def _review_sync(self, event: ft.Event[ft.TextButton]) -> None:
-        async def review() -> None:
-            journal = self._require_journal()
-            try:
-                await journal.load()
-            except SyncConflict:
-                self._set_message("sync_required")
-            state = journal.sync_state
-            if state is None or not state.versions:
-                self._set_message("reloaded")
-                return
-            selected = ft.Dropdown(
-                label=self.tr("sync_version"),
-                value=next(iter(state.versions)),
-                options=[ft.DropdownOption(key=name, text=name) for name in state.versions],
-            )
+    def _refresh_external_notices(self) -> None:
+        journal = self.journal
+        self.external_notice.visible = bool(journal and journal.external_changes)
+        self.external_notice.controls = (
+            [
+                ft.Text(self.tr("external_notice")),
+                ft.TextButton(self.tr("external_details"), on_click=self._review_external),
+            ]
+            if self.external_notice.visible
+            else []
+        )
+        self.conflict_copy_notice.visible = bool(
+            self.possible_conflict_copies or self.sibling_scan_failed
+        )
+        self.conflict_copy_notice.value = (
+            self.tr("conflict_copies") + "\n" + "\n".join(self.possible_conflict_copies)
+            if self.possible_conflict_copies
+            else self.tr("conflict_copy_scan_failed")
+            if self.sibling_scan_failed
+            else ""
+        )
 
-            async def open_version(event: ft.Event[ft.TextButton]) -> None:
-                async def show() -> None:
-                    name = selected.value
-                    if name is None or self.journal is not journal:
-                        raise SyncConflict("sync_changed")
-                    local = await journal.storage.folder.read() or b""
-                    controls: list[ft.Control] = [
-                        ft.Text(self.tr("sync_help")),
-                        ft.Text(f"{self.tr('sync_version')}: {name}", selectable=True),
-                    ]
-                    choices: dict[str, ft.Dropdown] = {}
-                    whole = ft.Dropdown(
-                        label=self.tr("sync_whole"),
-                        options=[
-                            ft.DropdownOption(key="local", text=self.tr("sync_local")),
-                            ft.DropdownOption(key="remote", text=self.tr("sync_remote")),
-                        ],
-                    )
-                    proposal = None
-                    try:
-                        proposal = await journal.sync_review(name, local=local)
-                    except LedgerError:
-                        controls.append(ft.Text(self.tr("sync_manual")))
-                    if proposal is not None and proposal.compatible:
-                        controls.append(
-                            ft.Text(
-                                self.tr(
-                                    "sync_base_known"
-                                    if proposal.base is not None
-                                    else "sync_no_base"
-                                )
-                            )
-                        )
-                        for item in proposal.differences:
-                            local_description = proposal.local.descriptions.get(
-                                item.identifier, self.tr("sync_absent")
-                            )
-                            remote_description = proposal.remote.descriptions.get(
-                                item.identifier, self.tr("sync_absent")
-                            )
-                            controls.extend(
-                                [
-                                    ft.Divider(),
-                                    ft.Text(f"{self.tr('sync_' + item.kind)} · {item.identifier}"),
-                                    ft.Text(f"{self.tr('sync_local')}:\n{local_description}"),
-                                    ft.Text(f"{self.tr('sync_remote')}:\n{remote_description}"),
-                                    ft.ExpansionTile(
-                                        title=ft.Text(self.tr("sync_details")),
-                                        controls=[
-                                            ft.Text(
-                                                f"{self.tr('sync_local')}:\n{item.local or ''}",
-                                                selectable=True,
-                                            ),
-                                            ft.Text(
-                                                f"{self.tr('sync_remote')}:\n{item.remote or ''}",
-                                                selectable=True,
-                                            ),
-                                        ],
-                                    ),
-                                ]
-                            )
-                            choice = ft.Dropdown(
-                                label=self.tr("sync_choose"),
-                                value=item.automatic,
-                                options=[
-                                    ft.DropdownOption(key="local", text=self.tr("sync_local")),
-                                    ft.DropdownOption(key="remote", text=self.tr("sync_remote")),
-                                ],
-                            )
-                            choices[item.identifier] = choice
-                            controls.append(choice)
-                        if proposal.automatic:
-                            controls.append(ft.Text(self.tr("sync_auto")))
-                    else:
-                        controls.extend([ft.Text(self.tr("sync_manual")), whole])
-                        for label, data in (
-                            ("sync_local", local),
-                            ("sync_remote", state.versions[name]),
-                        ):
-                            controls.append(
-                                ft.ExpansionTile(
-                                    title=ft.Text(self.tr(label)),
-                                    subtitle=ft.Text(file_hash(data)),
-                                    controls=[
-                                        ft.Text(
-                                            data.decode("utf-8", errors="replace"), selectable=True
-                                        )
-                                    ],
-                                )
-                            )
-
-                    async def confirm(event: ft.Event[ft.TextButton]) -> None:
-                        async def commit() -> None:
-                            if self.journal is not journal or journal.sync_state is not state:
-                                raise SyncConflict("sync_changed")
-                            if proposal is not None and proposal.compatible:
-                                candidate = proposal.candidate(
-                                    {
-                                        key: control.value
-                                        for key, control in choices.items()
-                                        if control.value is not None
-                                    }
-                                )
-                            elif whole.value == "local":
-                                candidate = local.decode("utf-8")
-                            elif whole.value == "remote":
-                                candidate = state.versions[name].decode("utf-8")
-                            else:
-                                raise LedgerError("sync_choose")
-                            await journal.resolve_sync(
-                                name, state, candidate, local_hash=file_hash(local)
-                            )
-                            self.page.pop_dialog()
-                            self._set_message(
-                                "sync_remaining"
-                                if journal.sync_state and journal.sync_state.versions
-                                else "reloaded"
-                            )
-
-                        await self._action(commit)
-
-                    self.page.pop_dialog()
-                    self.page.show_dialog(
-                        ft.AlertDialog(
-                            modal=True,
-                            scrollable=True,
-                            title=self.tr("sync_review"),
-                            content=ft.Column(controls, width=360, tight=True),
-                            actions=[
-                                ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss),
-                                ft.TextButton(self.tr("sync_confirm"), on_click=confirm),
-                            ],
-                        )
-                    )
-
-                await self._action(show)
-
-            self.page.show_dialog(
-                ft.AlertDialog(
-                    modal=True,
-                    title=self.tr("sync_review"),
-                    content=ft.Column(
-                        [ft.Text(self.tr("sync_help")), selected], tight=True, width=360
-                    ),
-                    actions=[
-                        ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss),
-                        ft.TextButton(self.tr("sync_review"), on_click=open_version),
-                    ],
+    def _review_external(self, event: ft.Event[ft.TextButton]) -> None:
+        journal = self._require_journal()
+        controls: list[ft.Control] = [ft.Text(self.tr("external_notice"))]
+        if journal.external_observed_at is not None:
+            observed = journal.external_observed_at
+            controls.append(
+                ft.Text(
+                    self.tr("external_observed", observed=observed.strftime("%Y-%m-%d %H:%M:%S %Z"))
                 )
             )
+        summary = journal.external_summary
+        if summary:
+            for kind in ("accounts", "categories", "transactions"):
+                controls.append(
+                    ft.Text(
+                        self.tr(
+                            "external_summary",
+                            kind=self.tr(
+                                {
+                                    "accounts": "accounts_title",
+                                    "categories": "categories_title",
+                                    "transactions": "nav_transactions",
+                                }[kind]
+                            ),
+                            added=summary.get(f"{kind}_added", 0),
+                            removed=summary.get(f"{kind}_removed", 0),
+                            changed=summary.get(f"{kind}_changed", 0),
+                        )
+                    )
+                )
+        else:
+            controls.append(ft.Text(self.tr("external_summary_unavailable")))
+        controls.extend(
+            [
+                ft.Text(self.tr("external_diff")),
+                ft.Text(journal.external_changes, selectable=True),
+            ]
+        )
+        self.page.show_dialog(
+            ft.AlertDialog(
+                scrollable=True,
+                title=self.tr("external_details"),
+                content=ft.Column(controls, tight=True, width=560),
+                actions=[ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)],
+            )
+        )
 
-        await self._action(review)
+    async def _scan_conflict_copies(self) -> None:
+        journal = self._require_journal()
+        folder = journal.storage.folder
+        listing = getattr(folder, "list_siblings", None)
+        if listing is None:
+            self.possible_conflict_copies = []
+            self.sibling_scan_failed = False
+            return
+        filename = getattr(folder, "filename", FILENAME)
+        stem, suffix = filename.rsplit(".", 1)
+        pattern = re.compile(
+            rf"{re.escape(stem)}(?: \([^/\\]*conflicted copy[^/\\]*\)|"
+            rf" \([1-9]\d*\)|[ -][1-9]\d*)\.{re.escape(suffix)}",
+            re.IGNORECASE,
+        )
+        try:
+            names = await listing()
+            self.possible_conflict_copies = sorted(
+                {name for name in names if isinstance(name, str) and pattern.fullmatch(name)}
+            )
+            self.sibling_scan_failed = False
+        except (StorageError, OSError, TimeoutError) as exc:
+            self.sibling_scan_failed = True
+            logger.warning("Optional journal sibling-name scan failed (%s)", type(exc).__name__)
 
     def _saved(self, backup: str | None) -> None:
         self._set_message(
@@ -2391,9 +2341,14 @@ class FinanceView(ft.Row):
             source_amount, target_amount = amount.value, received.value
             primary_label = self.tr("exchange_debited")
             second_label = self.tr("exchange_credited")
+            transfer_label = self.tr(
+                "exchange_credited" if fee_mode.value == "added" else "exchange_debited"
+            )
             amount.label = (
                 f"{primary_label} ({primary_currency})"
                 if exchange
+                else f"{transfer_label} ({primary_currency})"
+                if transferring and fee_enabled.value and primary_currency
                 else f"{self.tr('amount')} ({primary_currency})"
                 if primary_currency
                 else self.tr("amount")
@@ -2784,7 +2739,6 @@ class FinanceView(ft.Row):
         fee_mode.on_select = recalculate
 
         async def save() -> str | None:
-            self._effective_zone()
             occurred, timestamp = when.values()
             kind = operation()
             if transaction and kind != transaction.kind:
@@ -3247,13 +3201,38 @@ class FinanceView(ft.Row):
             journal = self._require_journal()
             if journal is not self.default_fee_journal:
                 raise ConflictError("crud_stale")
-            backup = await journal.set_default_fee_category(
-                self.default_fee.value or "", self.default_fee_source
-            )
+            previous = journal.default_fee_category
+            selected = self.default_fee.value or ""
+            await journal.set_default_fee_category(selected, self.default_fee_source)
+            try:
+                if self.preferences is None or not await self.preferences.set(
+                    DEFAULT_FEE_KEY, selected
+                ):
+                    raise PreferencesError("default_fee_save_failed")
+            except Exception as exc:
+                await journal.set_default_fee_category(previous, journal.source)
+                self.default_fee.value = previous
+                if isinstance(exc, PreferencesError):
+                    raise
+                raise PreferencesError("default_fee_save_failed") from exc
+            self.default_fee_category = selected
             self.default_fee_original = self.default_fee.value
-            self._saved(backup)
+            self.default_fee_notice.visible = False
+            self._set_message("default_fee_saved")
 
         await self._action(save)
+
+    async def _apply_default_fee(self) -> None:
+        journal = self._require_journal()
+        try:
+            await journal.set_default_fee_category(self.default_fee_category, journal.source)
+        except LedgerError as exc:
+            if str(exc) != "incoming_category":
+                raise
+            self.default_fee_notice.value = self.tr("default_fee_unavailable")
+            self.default_fee_notice.visible = True
+        else:
+            self.default_fee_notice.visible = False
 
     def _create_category(self, event: ft.Event[ft.Button]) -> None:
         journal = self._require_journal()

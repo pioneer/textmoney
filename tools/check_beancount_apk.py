@@ -20,11 +20,12 @@ from zoneinfo import reset_tzpath
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.domain.ledger import LedgerError
-from app.timekeeping import wall_timestamp
+from app.timekeeping import picker_timestamp, wall_timestamp
 
 reset_tzpath(())  # Force the bundled tzdata fallback, not the host's timezone database.
-assert wall_timestamp(date(2026, 1, 15), "12:00", "Europe/Kyiv").endswith("+02:00")
-assert wall_timestamp(date(2026, 7, 15), "12:00", "Europe/Kyiv").endswith("+03:00")
+assert picker_timestamp(date(2026, 1, 15), "12:00", "Europe/Kyiv").endswith("+02:00")
+assert picker_timestamp(date(2026, 7, 15), "12:00", "Europe/Kyiv").endswith("+03:00")
+assert wall_timestamp(date(2026, 7, 15), "12:00", "Europe/Kyiv") == "2026-07-15T12:00:00"
 for invalid_clock in ("24:00", "24:00:00", "24:00:00.000000"):
     try:
         wall_timestamp(date(2026, 1, 15), invalid_clock, "UTC")
@@ -49,13 +50,12 @@ async def smoke():
     assert journal.ledger.balances()["Assets:Cash"] == Decimal("87.66")
     print("MVP APK Python payload: account/category/expense/backup/reload PASS")
     expense = next(t for t in journal.ledger.transactions if t.kind == "expense")
-    opening_id = next(t.id for t in journal.ledger.transactions if t.kind == "opening")
     await journal.edit_expense(
         expense.id, "Assets:Cash", "Expenses:Food:Groceries", "7", "",
         date.today().isoformat(), expense.timestamp, "Synthetic\\nsecond line", journal.source,
     )
     await journal.load()
-    assert any(t.id == expense.id and not t.payee and t.narration == "Synthetic\\nsecond line"
+    assert any(t.kind == "expense" and not t.payee and t.narration == "Synthetic\\nsecond line"
                for t in journal.ledger.transactions)
     await journal.create_account("Eur", "Euro wallet", "EUR")
     assert journal.ledger.operating_currencies == ("UAH", "EUR")
@@ -63,6 +63,7 @@ async def smoke():
     await journal.edit_account("Assets:Cash", "Renamed", "120", False, journal.source)
     await journal.edit_category("Expenses:Food:Groceries", "Renamed", False, journal.source)
     await journal.set_operating_currencies("UAH USD EUR", journal.source)
+    expense = next(t for t in journal.ledger.transactions if t.kind == "expense")
     await journal.delete_expense(expense.id, journal.source)
     await journal.create_account("Unused", "Unused", "USD")
     await journal.delete_account("Assets:Unused", journal.source)
@@ -70,7 +71,10 @@ async def smoke():
     await journal.delete_category("Expenses:Unused", journal.source)
     await journal.load()
     assert journal.ledger.balances()["Assets:Cash"] == Decimal("120")
-    assert journal.ledger.transactions[0].id == opening_id
+    assert journal.ledger.transactions[0].kind == "opening"
+    assert not any(line.lstrip().startswith("id:") for line in journal.source.splitlines())
+    assert "timestamp:" not in journal.source
+    assert 'name: "Renamed"' in journal.source and "time:" in journal.source
     assert journal.ledger.operating_currencies == ("UAH", "USD", "EUR")
     print("CRUD APK Python payload: edits/deletion/lifecycle/operating currencies PASS")
     await journal.edit_account("Assets:Cash", "Renamed", "120", True, journal.source)
@@ -92,6 +96,7 @@ async def smoke():
         receipt.id, "Assets:Cash", "Equity:Balance-Adjustments", "4", "",
         receipt.date.isoformat(), receipt.timestamp, "Adjusted", journal.source
     )
+    receipt = next(t for t in journal.ledger.transactions if t.narration == "Adjusted")
     await journal.delete_transaction(receipt.id, journal.source)
     assert journal.ledger.balances()["Assets:Cash"] == Decimal("132")
     print("Incoming APK Python payload: income/reimbursement/equity/totals/edit/delete PASS")
@@ -113,6 +118,7 @@ async def smoke():
     assert journal.ledger.balances()["Assets:Cash"] == Decimal("-68")
     assert journal.ledger.balance_warnings() == {"Assets:Cash"}
     await journal.load()
+    transfer = next(t for t in journal.ledger.transactions if t.narration == "Edited")
     await journal.delete_transaction(transfer.id, journal.source)
     assert journal.ledger.balances()["Assets:Cash"] == Decimal("132")
     print("Transfer APK Python payload: fees/liabilities/overdraft/edit/delete PASS")
@@ -132,9 +138,28 @@ async def smoke():
     )
     assert journal.ledger.balances()["Assets:Eur"] == Decimal("-100")
     assert journal.ledger.balances()["Assets:Cash"] == Decimal("4327")
+    exchange = next(t for t in journal.ledger.transactions if t.narration == "Edited exchange")
     await journal.delete_transaction(exchange.id, journal.source)
     assert journal.ledger.balances()["Assets:Cash"] == Decimal("132")
     print("Exchange APK Python payload: total prices/both fee currencies/edit/delete PASS")
+    await journal.add_expense(
+        "Assets:Cash", "Expenses:Food:Groceries", "1", "",
+        date.today().isoformat(), description="Linked expense"
+    )
+    expense = next(t for t in journal.ledger.transactions if t.narration == "Linked expense")
+    await journal.add_incoming(
+        "Assets:Cash", "Expenses:Food:Groceries", "1", "",
+        date.today().isoformat(), "reimbursement", related_expense=expense.id,
+        expected_source=journal.source
+    )
+    expense = next(t for t in journal.ledger.transactions if t.narration == "Linked expense")
+    refund = journal.ledger.transactions[-1]
+    assert refund.related_expense == expense.id
+    assert refund.links == expense.links and refund.links[0].startswith("txncount-")
+    assert journal.source.count("^txncount-") == 2
+    assert "txncount-expense-id:" not in journal.source
+    assert not any(line.lstrip().startswith("id:") for line in journal.source.splitlines())
+    print("Native APK journal payload: name/time/source positions/reimbursement links PASS")
 
 asyncio.run(smoke())
 """

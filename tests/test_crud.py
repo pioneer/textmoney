@@ -11,11 +11,11 @@ from beancount import loader
 from beancount.core.data import Transaction as OfficialTransaction
 from fava.core import FavaLedger
 from form_controls import transaction_form
-from journal_fixtures import review_external_fixture
+from journal_fixtures import decorate_transaction, review_external_fixture
 
 from app.domain.ledger import EPOCH, LedgerError
 from app.domain.storage import ConflictError
-from app.infrastructure.beancount_journal import transaction_text
+from app.infrastructure.beancount_journal import transaction_text, transaction_time
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.storage import StorageError
@@ -62,7 +62,11 @@ def test_empty_payee_and_multiline_description_roundtrip_without_directive_injec
         assert "Assets:Injected" not in {a.id for a in journal.ledger.accounts}
         assert_official(journal.source)
         entries, _, _ = loader.load_string(journal.source)
-        official = next(e for e in entries if e.meta.get("id") == identifier)
+        official = next(
+            e
+            for e in entries
+            if isinstance(e, OfficialTransaction) and e.narration == transaction.narration
+        )
         assert isinstance(official, OfficialTransaction)
         assert official.narration == transaction.narration
         assert not official.payee
@@ -188,18 +192,24 @@ def test_expense_edit_preserves_id_metadata_tags_comments_and_unrelated_bytes(
     async def scenario() -> None:
         journal = await seeded(tmp_path)
         transaction = journal.ledger.transactions[-1]
-        source = journal.source.replace(
-            f'  timestamp: "{transaction.timestamp}"',
-            f'  timestamp: "{transaction.timestamp}"\n'
-            '  txncount-kind: "expense"\n'
-            '  receipt: "synthetic"\n'
-            "  ; private annotation",
-        ).replace(' "Expense"\n', ' "Expense" #food ^receipt ; inline\n')
+        source = decorate_transaction(
+            journal,
+            transaction.id,
+            lambda text: text.replace(
+                f'  time: "{transaction_time(transaction.timestamp)}"',
+                f'  time: "{transaction_time(transaction.timestamp)}"\n'
+                '  id: "user-owned-id"\n'
+                '  txncount-kind: "expense"\n'
+                '  receipt: "synthetic"\n'
+                "  ; private annotation",
+            ).replace(' "Expense"\n', ' "Expense" #food ^receipt ; inline\n'),
+        )
         source += '\n; unrelated tail\n2026-01-01 custom "synthetic" "keep"\n'
         source = source.replace("\n", "\r\n")
         target = tmp_path / FILENAME
         target.write_bytes(source.encode())
         await review_external_fixture(journal)
+        transaction = journal.ledger.transactions[-1]
         await journal.edit_expense(
             transaction.id,
             "Assets:Cash",
@@ -213,7 +223,8 @@ def test_expense_edit_preserves_id_metadata_tags_comments_and_unrelated_bytes(
         )
         current = journal.ledger.transactions[-1]
         assert current.id == transaction.id
-        assert current.timestamp == "2026-01-02T14:15:16+02:00"
+        assert current.timestamp == "2026-01-02T14:15:16"
+        assert 'id: "user-owned-id"' in journal.source
         assert current.narration == "Description"
         assert journal.ledger.balances()["Assets:Cash"] == Decimal("87.66")
         assert 'receipt: "synthetic"' in journal.source
@@ -241,11 +252,13 @@ def test_expense_delete_physically_removes_entry_but_keeps_comments(tmp_path: Pa
             f'{transaction.date} * "Synthetic"',
             f'; keep this comment\n{transaction.date} * "Synthetic"',
         ).replace(
-            f'  timestamp: "{transaction.timestamp}"',
-            f'  timestamp: "{transaction.timestamp}"\n  txncount-kind: "expense" ; keep inline',
+            f'  time: "{transaction_time(transaction.timestamp)}"',
+            f'  time: "{transaction_time(transaction.timestamp)}"\n'
+            '  txncount-kind: "expense" ; keep inline',
         )
         (tmp_path / FILENAME).write_text(source, newline="")
         await review_external_fixture(journal)
+        transaction = journal.ledger.transactions[-1]
         await journal.delete_expense(transaction.id, journal.source)
         assert transaction.id not in journal.source
         assert "; keep this comment" in journal.source
@@ -286,17 +299,18 @@ def test_operating_currencies_new_existing_configuration_and_comments(tmp_path: 
     asyncio.run(scenario())
 
 
-def test_account_opening_changes_preserve_id_and_warn_for_negative_running_balances(
+def test_account_opening_changes_keep_economics_and_warn_for_negative_running_balances(
     tmp_path: Path,
 ) -> None:
     async def scenario() -> None:
         journal = await seeded(tmp_path)
-        opening_id = journal.ledger.transactions[0].id
+        opening = journal.ledger.transactions[0]
         source = journal.source
         await journal.edit_account("Assets:Cash", "Wallet", "5", True, source)
         assert journal.ledger.balance_warnings() == {"Assets:Cash"}
         await journal.edit_account("Assets:Cash", "Renamed", "120", False, journal.source)
-        assert journal.ledger.transactions[0].id == opening_id
+        assert journal.ledger.transactions[0].kind == opening.kind
+        assert journal.ledger.transactions[0].timestamp == opening.timestamp
         assert journal.ledger.accounts[0].name == "Renamed"
         assert not journal.ledger.accounts[0].active
         assert journal.ledger.balances()["Assets:Cash"] == Decimal("110")
@@ -647,7 +661,7 @@ def test_invalid_expense_edits_never_modify_original(tmp_path: Path) -> None:
         original = journal.source
         identifier = journal.ledger.transactions[-1].id
         for field, value in [
-            ("timestamp", "2026-01-01T12:00:00"),
+            ("timestamp", "2026-01-01T25:00:00"),
             ("occurred", "not-a-date"),
             ("amount", "0"),
             ("description", "a" * 501),
@@ -703,19 +717,28 @@ def test_delete_with_history_offers_deactivation_instead_of_destroying_records(
     asyncio.run(scenario())
 
 
-def test_untagged_id_expense_is_readonly_without_inventing_new_identity(tmp_path: Path) -> None:
+def test_handwritten_expense_can_be_edited_without_serialized_identity(tmp_path: Path) -> None:
     async def scenario() -> None:
         journal = await seeded(tmp_path)
-        expense = journal.ledger.transactions[-1]
-        source = journal.source.replace(f'    id: "{expense.id}"\n', "")
-        assert source != journal.source
+        source = journal.source
         (tmp_path / FILENAME).write_text(source, newline="")
         await review_external_fixture(journal)
         external = journal.ledger.transactions[-1]
-        assert not external.persistent_id
-        with pytest.raises(LedgerError, match="crud_transaction_readonly"):
-            journal.expense_for_edit(external.id)
+        assert journal.expense_for_edit(external.id) == external
         assert journal.source == source
+        await journal.edit_expense(
+            external.id,
+            "Assets:Cash",
+            "Expenses:Food",
+            "11",
+            "",
+            external.date.isoformat(),
+            external.timestamp,
+            "Edited handwritten",
+            source,
+        )
+        assert journal.ledger.transactions[-1].narration == "Edited handwritten"
+        assert "\n  id:" not in journal.source
 
     asyncio.run(scenario())
 

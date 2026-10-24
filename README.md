@@ -30,8 +30,8 @@ TxnCount is being developed with substantial AI assistance.
 - Use system, light or dark appearance, and system or explicit timezones.
 - Available translations: **English, Ukrainian and Russian**.
 - Keep verified backups and detect conflicting external changes before saving.
-- Preserve synchronization conflict copies and review UUID-based transaction
-  differences; propose a lossless merge only with verified common ancestry.
+- Review external changes without merging or rewriting synchronization copies.
+  Stale edits retain their input and require explicit review before resubmission.
 - Use standard journal display currencies for compatible Beancount viewers,
   without converting or combining different currencies.
 
@@ -39,6 +39,24 @@ TxnCount is being developed with substantial AI assistance.
 
 Planned areas include budgets and split-expense editing. Priorities and scope
 may change during alpha, with no release dates promised.
+
+### Editing and synchronization
+
+Use one writer at a time. Finish editing and let Dropbox/Dropsync (or your
+chosen tool) finish synchronizing before editing on another device. TxnCount
+does not synchronize files or resolve cloud conflicts. A possible-conflict
+filename notice is advisory, not proof that synchronization has completed.
+Review external differences in the app or compare versions in your editor.
+Hash checks, backups and Android interrupted-save review still protect local
+saves, but cannot prevent every race with another writer.
+
+Account/category labels use `name:` metadata. Transaction time uses local
+`time: "HH:MM:SS"` metadata, without a timezone or stored creation instant;
+timezone selection only affects the default clock, not saved transactions.
+Reimbursements can share native Beancount links with expenses. New entries do
+not need app-generated `id:` metadata. Fee-category defaults are local settings;
+`txncount-active` remains the visibility/reactivation preference.
+See the [file and synchronization contract](docs/synchronization.md).
 
 ## Get the app
 
@@ -141,26 +159,22 @@ separately; reports do not infer exchange rates.
 ## Your data and synchronization
 
 Your selected folder contains a single UTF-8 journal, `txncount.beancount`,
-a `backups/` directory, and protected `.txncount-sync/` recovery evidence.
-TxnCount accesses these files directly; it does not upload
-them or maintain a separate database. Edits preserve transaction IDs and unrelated
-comments and metadata.
+and a `backups/` directory. Android additionally keeps interrupted-save recovery
+records. TxnCount accesses these files directly; it does not upload
+them or maintain a separate database. Edits preserve unrelated comments,
+metadata, tags and links.
 
 Dropbox, Dropsync or another folder synchronization tool can synchronize the
 folder separately, **including hidden recovery files**. Cloud synchronization is
 not built into TxnCount. Let it finish before editing on another device, and avoid
 simultaneous edits. Local checks cannot establish that uploading/downloading is finished.
 
-Detected conflict copies, divergent preserved versions, and external edits/deletions
-block saving. **Settings → Review synchronization conflicts** shows both versions
-and added/changed/deleted transactions. Proven independent UUID changes have
-preselected merge choices; different edits to the same UUID and deletion-versus-edit
-need an explicit choice. Without a verified common ancestor, all differing
-transactions require review. Declaration, option, comment and unsupported-syntax
-changes use conservative whole-version selection or external manual comparison.
-Complete candidates are validated before saving. Cancel postpones resolution
-without discarding either version; conflict files are never automatically deleted.
-See [detection, ancestry and recovery limits](docs/synchronization.md).
+External changes invalidate stale saves, not the whole folder. Review differences
+and reload before explicitly reopening/reviewing a stale edit; unsaved form input
+remains visible. Possible conflicted-copy names produce a nonblocking notice.
+There is no cross-device merge, ancestry tracking or `.txncount-sync/` evidence
+requirement. Sibling files are never automatically activated, rewritten or deleted.
+See [sequential editing and recovery limits](docs/synchronization.md).
 
 On Linux and Windows, saves stage the complete journal in an exclusively created
 file in the same directory, flush and synchronize it, recheck the original hash,
@@ -196,6 +210,8 @@ and [editing and data-safety guide](docs/crud-fava.md) for details.
 
 | Version | Highlights |
 | --- | --- |
+| [0.3.2](https://github.com/pioneer/txncount/releases/tag/v0.3.2) | Sequential journal editing without distributed merge evidence; retained conflict guards, backups and Android recovery; Beancount-friendly `name`, local `time` and native reimbursement links. Android build 24. |
+| [0.3.1](https://github.com/pioneer/txncount/releases/tag/v0.3.1) | Production-signed Android releases and a Linux x86_64 AppImage distribution. Android build 23. |
 | [0.3.0](https://github.com/pioneer/txncount/releases/tag/v0.3.0) | Period reports with income, net expenses and net result, separate currency totals, and hierarchical category breakdowns. Android build 22. |
 | [0.2.4](https://github.com/pioneer/txncount/releases/tag/v0.2.4) | Atomic desktop journal replacement; verified Android save-intent records, interrupted-save detection and explicit recovery review. Existing Android journals require a one-time review; SAF writes remain non-atomic. Consistent rejection of invalid `24:00` times on Python 3.14. |
 | [0.2.3](https://github.com/pioneer/txncount/releases/tag/v0.2.3) | Localized startup without an English-language flash; unified Accounting labels, Accounts/Categories subtabs and creation dialogs; larger transparent Linux icons and corrected Wayland development identity. |

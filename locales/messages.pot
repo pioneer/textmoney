@@ -14,6 +14,42 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 #. Stable TxnCount key: ui.sync_required; do not translate this identifier.
+msgid "ui.external_notice"
+msgstr ""
+
+msgid "ui.external_details"
+msgstr ""
+
+msgid "ui.external_observed"
+msgstr ""
+
+msgid "ui.external_summary"
+msgstr ""
+
+msgid "ui.external_summary_unavailable"
+msgstr ""
+
+msgid "ui.external_diff"
+msgstr ""
+
+msgid "ui.conflict_copies"
+msgstr ""
+
+msgid "ui.conflict_copy_scan_failed"
+msgstr ""
+
+msgid "ui.default_fee_saved"
+msgstr ""
+
+msgid "ui.default_fee_save_failed"
+msgstr ""
+
+msgid "ui.default_fee_unavailable"
+msgstr ""
+
+msgid "ui.default_fee_invalid"
+msgstr ""
+
 msgid "ui.sync_required"
 msgstr ""
 

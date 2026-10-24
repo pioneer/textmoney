@@ -18,6 +18,7 @@ from journal_fixtures import review_external_fixture
 
 from app.domain.ledger import BANK_FEES, EPOCH, LedgerError, exchange_values
 from app.domain.storage import ConflictError
+from app.infrastructure.beancount_journal import transaction_time
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import translate
@@ -85,7 +86,9 @@ def test_same_currency_transfer_balances_reports_roundtrip(
         transaction = journal.ledger.transactions[-1]
         assert transaction.kind == "transfer"
         assert len(transaction.postings) == (3 if fee != "0" else 2)
-        assert transaction.fee_mode == mode
+        assert transaction.fee_mode == "added"
+        assert journal.transfer_details(transaction).mode == "added"
+        assert journal.transfer_details(transaction).target.amount == Decimal(destination_change)
         after = journal.ledger.balances()
         assert after["Assets:Bank"] == balances["Assets:Bank"] + Decimal(source_change)
         assert after[target] == balances[target] + Decimal(destination_change)
@@ -161,8 +164,8 @@ def test_transfer_edit_fee_modes_accounts_and_delete_preserve_metadata(tmp_path:
         await transfer(journal, fee="5")
         original = journal.ledger.transactions[-1]
         source = journal.source.replace(
-            f'  timestamp: "{original.timestamp}"',
-            f'  timestamp: "{original.timestamp}"\n'
+            f'  time: "{transaction_time(original.timestamp)}"',
+            f'  time: "{transaction_time(original.timestamp)}"\n'
             '  txncount-kind: "transfer"\n'
             '  receipt: "keep" ; keep comment',
         ).replace(
@@ -182,7 +185,7 @@ def test_transfer_edit_fee_modes_accounts_and_delete_preserve_metadata(tmp_path:
             occurred="2026-01-11",
         )
         updated = journal.transaction_for_edit(original.id)
-        assert updated.id == original.id and updated.timestamp == original.timestamp
+        assert updated.id == original.id and updated.timestamp == "2026-01-11T12:00:00"
         assert updated.date == date(2026, 1, 11)
         assert [p.amount for p in updated.postings] == [-100, 97, 3]
         assert "keep comment" in journal.source and "keep posting" in journal.source
@@ -219,7 +222,7 @@ def test_transfer_edit_fee_modes_accounts_and_delete_preserve_metadata(tmp_path:
         {"destination": "Assets:Euro"},
         {"fee": "1", "fee_category": "Expenses:Missing"},
         {"amount": "999999999999.99", "fee": "1"},
-        {"timestamp": "2026-01-10T00:00:00"},
+        {"timestamp": "2026-01-10T25:00:00"},
         {"occurred": "2026-04-01"},
         {"occurred": "bad"},
     ],
@@ -374,7 +377,9 @@ def test_unified_transfer_form_fee_edit_and_complete_deletion(
         assert isinstance(deduction, ft.Dropdown)
         assert isinstance(fee_category, ft.Dropdown)
         assert destination.value == "Liabilities:Loan" and fee.value == "5"
-        assert deduction.value == "deducted" and fee_category.value == BANK_FEES
+        assert deduction.value == "added" and fee_category.value == BANK_FEES
+        assert form.amount.value == "2095"
+        assert journal.transfer_details(transaction).source.amount == Decimal("-2100")
         form.amount.value = "1000"
         deduction.value = "added"
         fee.value = "2"
@@ -419,6 +424,8 @@ def test_transfer_settings_draft_is_not_silently_rebased(
         journal = await seeded(tmp_path)
         view = FinanceView()
         view.journal = journal
+        view.preferences = MagicMock()
+        view.preferences.set = AsyncMock(return_value=True)
         page = MagicMock(spec=ft.Page)
         monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
         view._refresh()
@@ -623,8 +630,8 @@ def test_exchange_edit_accounts_fee_sides_same_currency_and_delete(tmp_path: Pat
         )
         original = journal.ledger.transactions[-1]
         text = journal.source.replace(
-            f'  timestamp: "{original.timestamp}"',
-            f'  timestamp: "{original.timestamp}"\n'
+            f'  time: "{transaction_time(original.timestamp)}"',
+            f'  time: "{transaction_time(original.timestamp)}"\n'
             '  txncount-kind: "transfer"\n'
             '  receipt: "keep" ; annotation',
         )
@@ -653,7 +660,7 @@ def test_exchange_edit_accounts_fee_sides_same_currency_and_delete(tmp_path: Pat
         updated = journal.transaction_for_edit(original.id)
         details = journal.transfer_details(updated)
         assert details.debited == 100 and details.received_principal == 81
-        assert updated.timestamp == original.timestamp and updated.date == date(2026, 1, 11)
+        assert updated.timestamp == "2026-01-11T12:00:00" and updated.date == date(2026, 1, 11)
         assert all(
             word in journal.source
             for word in ("annotation", "debit note", "fee note", "fee debit", "expense")
@@ -720,13 +727,12 @@ def test_price_validation_does_not_accept_arbitrary_fx_constructs(tmp_path: Path
             with pytest.raises(LedgerError):
                 journal.codec.parse(text)
         text = journal.source.replace(
-            f'  timestamp: "{transaction.timestamp}"',
-            f'  timestamp: "{transaction.timestamp}"\n  txncount-kind: "expense"',
+            f'  time: "{transaction_time(transaction.timestamp)}"',
+            f'  time: "{transaction_time(transaction.timestamp)}"\n  txncount-kind: "expense"',
         )
         (tmp_path / FILENAME).write_text(text)
         await review_external_fixture(journal)
-        with pytest.raises(LedgerError, match="crud_transaction_readonly"):
-            journal.transaction_for_edit(transaction.id)
+        assert journal.transaction_for_edit(transaction.id).kind == "transfer"
 
     asyncio.run(scenario())
 

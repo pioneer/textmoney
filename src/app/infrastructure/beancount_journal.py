@@ -3,7 +3,7 @@
 import io
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from autobean_refactor import models, printer
@@ -12,7 +12,6 @@ from lark.exceptions import UnexpectedInput
 
 from app.domain.ledger import (
     ADJUSTMENTS,
-    BANK_FEES,
     EQUITY,
     Account,
     Category,
@@ -48,27 +47,29 @@ class JournalCodec:
     def parse(self, text: str) -> Ledger:
         try:
             return self._parse(text)
-        except ArithmeticError as exc:
+        except ArithmeticError:
             raise LedgerError(
                 "Invalid monetary expression. Saving blocked; journal preserved."
-            ) from exc
+            ) from None
 
     def _parse(self, text: str) -> Ledger:
         try:
             file = self.parser.parse(text, models.File)
         except (UnexpectedInput, ValueError) as exc:
+            line = getattr(exc, "line", 1)
+            column = getattr(exc, "column", 1)
             raise LedgerError(
-                "Journal has unsupported or invalid syntax. "
+                f"Line {line}, column {column}: unsupported or invalid Beancount syntax. "
+                "Check the directive and its indentation. "
                 "Original bytes preserved; saving blocked."
-            ) from exc
+            ) from None
         accounts: list[Account] = []
         categories: list[Category] = []
         transactions: list[Transaction] = []
-        infer_kind_indices: list[int] = []
+        transaction_entries: list[models.Transaction] = []
         equity_opened = None
         adjustments_opened = None
         operating_currencies: list[str] = []
-        default_fee_category = None
         names: set[str] = set()
         safe = (
             models.Note,
@@ -80,34 +81,38 @@ class JournalCodec:
             models.IgnoredLine,
         )
         for entry in file.raw_directives:
+            try:
+                self._validate_entry(entry)
+            except LedgerError as exc:
+                raise self._entry_error(entry, str(exc)) from None
+            except ArithmeticError:
+                raise self._entry_error(entry, "Invalid monetary expression.") from None
             if isinstance(entry, safe):
                 continue
             if isinstance(entry, models.Option):
                 if entry.key not in {"title", "operating_currency"}:
-                    raise LedgerError(
-                        "Unsupported accounting option. Saving blocked; journal preserved."
-                    )
+                    raise self._entry_error(entry, "Unsupported accounting option.")
                 if entry.key == "operating_currency":
                     operating_currencies.append(currency_code(entry.value))
             elif isinstance(entry, models.Open):
                 if entry.account in names:
-                    raise LedgerError("Duplicate account declaration. Journal unchanged.")
+                    raise self._entry_error(entry, "Duplicate account declaration.")
                 names.add(entry.account)
                 if entry.booking is not None:
-                    raise LedgerError("Lot booking is not supported in MVP 0.1.")
-                name = entry.meta.get("display-name", entry.account)
+                    raise self._entry_error(entry, "Lot booking requires the official engine.")
+                name = entry.meta.get("name", entry.account)
                 if not isinstance(name, str):
-                    raise LedgerError("Account display-name metadata must be a string.")
+                    raise self._entry_error(entry, "Account name metadata must be a string.")
                 name = display_name(name)
                 active = entry.meta.get("txncount-active", True)
                 if not isinstance(active, bool):
-                    raise LedgerError("crud_active_invalid")
+                    raise self._entry_error(entry, "txncount-active metadata must be boolean.")
                 currencies = list(entry.currencies)
                 if entry.account.startswith(("Assets:", "Liabilities:")):
                     account_path(entry.account, entry.account.split(":")[0])
                     if len(currencies) != 1:
-                        raise LedgerError(
-                            "Each ordinary account needs exactly one declared currency."
+                        raise self._entry_error(
+                            entry, "Each ordinary account needs exactly one declared currency."
                         )
                     accounts.append(
                         Account(
@@ -117,32 +122,22 @@ class JournalCodec:
                 elif entry.account.startswith(("Expenses:", "Income:")):
                     account_path(entry.account, entry.account.split(":")[0])
                     if currencies:
-                        raise LedgerError(
-                            "MVP expense category declarations must not restrict currencies."
+                        raise self._entry_error(
+                            entry, "Expense category declarations must not restrict currencies."
                         )
                     categories.append(Category(entry.account, name, entry.date, active))
-                    default_fee = entry.meta.get("txncount-default-transfer-fee", False)
-                    if not isinstance(default_fee, bool):
-                        raise LedgerError("transfer_category")
-                    if default_fee:
-                        if (
-                            not entry.account.startswith("Expenses:")
-                            or default_fee_category is not None
-                        ):
-                            raise LedgerError("transfer_category")
-                        default_fee_category = entry.account
                 elif entry.account in {EQUITY, ADJUSTMENTS}:
                     if currencies:
-                        raise LedgerError(
-                            "Opening-balance equity must not restrict currencies in MVP 0.1."
+                        raise self._entry_error(
+                            entry, "Opening-balance equity must not restrict currencies."
                         )
                     if entry.account == EQUITY:
                         equity_opened = entry.date
                     else:
                         adjustments_opened = entry.date
                 else:
-                    raise LedgerError(
-                        "This journal contains account types outside MVP 0.1. Saving blocked."
+                    raise self._entry_error(
+                        entry, "This account type requires unsupported accounting semantics."
                     )
             elif isinstance(entry, models.Transaction):
                 postings: list[Posting] = []
@@ -159,14 +154,15 @@ class JournalCodec:
                             and not isinstance(posting.price, (models.TotalPrice, models.UnitPrice))
                         )
                     ):
-                        raise LedgerError(
-                            "Inference and costs need a full engine. "
-                            "Saving blocked; journal preserved."
+                        raise self._entry_error(
+                            entry, "Posting inference and costs require the official engine."
                         )
                     price = posting.price
                     price_currency = price.currency if price else None
                     if price is not None and (price.number is None or price_currency is None):
-                        raise LedgerError("exchange_invalid")
+                        raise self._entry_error(
+                            entry, "Exchange prices need explicit amounts and currencies."
+                        )
                     total_price = (
                         price.number if isinstance(price, models.TotalPrice) and price else None
                     )
@@ -183,55 +179,40 @@ class JournalCodec:
                             unit_price,
                         )
                     )
-                identifier = entry.meta.get("id")
-                persistent_id = identifier is not None
-                if identifier is None:
-                    # Stable source identity for external transactions without application metadata.
-                    identifier = (
-                        f"external-line-{entry.token_store.get_position(entry.first_token).line}"
+                clock = entry.meta.get("time", "00:00")
+                if (
+                    not isinstance(clock, str)
+                    or len(clock) not in {5, 8}
+                    or clock[2] != ":"
+                    or (len(clock) == 8 and clock[5] != ":")
+                ):
+                    raise self._entry_error(
+                        entry, 'Transaction time must be a quoted "HH:MM" or "HH:MM:SS".'
                     )
-                if not isinstance(identifier, str) or not identifier:
-                    raise LedgerError("Transaction IDs must be nonempty strings.")
-                stamp = entry.meta.get("timestamp", f"{entry.date.isoformat()}T00:00:00+00:00")
-                if not isinstance(stamp, str):
-                    raise LedgerError("Timestamp metadata must be an ISO string with a timezone.")
                 try:
-                    parsed = datetime.fromisoformat(stamp)
-                    if parsed.utcoffset() is None:
-                        raise ValueError("timezone missing")
-                except ValueError as exc:
-                    raise LedgerError(
-                        "Timestamp metadata must be an ISO string with a timezone."
-                    ) from exc
-                kind = entry.meta.get("txncount-kind", "external")
-                if not isinstance(kind, str):
-                    raise LedgerError("Transaction txncount-kind metadata must be a string.")
-                related = entry.meta.get("txncount-expense-id")
-                if related is not None and (not isinstance(related, str) or not related):
-                    raise LedgerError("incoming_reference")
-                fee_mode = entry.meta.get("txncount-fee-mode", "added")
-                if not isinstance(fee_mode, str):
-                    raise LedgerError("transfer_mode")
+                    parsed = time.fromisoformat(clock)
+                    if parsed.tzinfo is not None:
+                        raise ValueError("offset not allowed")
+                except ValueError:
+                    raise self._entry_error(
+                        entry, 'Transaction time must be a valid local "HH:MM" or "HH:MM:SS".'
+                    ) from None
                 transactions.append(
                     Transaction(
-                        identifier,
+                        transaction_identity(entry, len(transactions)),
                         entry.date,
-                        stamp,
+                        datetime.combine(entry.date, parsed).isoformat(),
                         entry.payee or "",
                         entry.narration or "",
                         tuple(postings),
-                        kind,
-                        persistent_id,
-                        related,
-                        fee_mode,
+                        "external",
+                        links=tuple(entry.links),
                     )
                 )
-                if "txncount-kind" not in entry.meta:
-                    infer_kind_indices.append(len(transactions) - 1)
+                transaction_entries.append(entry)
             else:
-                raise LedgerError(
-                    f"{type(entry).__name__} requires unsupported engine semantics. "
-                    "Journal preserved; saving blocked."
+                raise self._entry_error(
+                    entry, "This directive requires unsupported accounting semantics."
                 )
         ledger = Ledger(
             tuple(accounts),
@@ -240,17 +221,102 @@ class JournalCodec:
             equity_opened,
             tuple(dict.fromkeys(operating_currencies)),
             adjustments_opened,
-            default_fee_category or BANK_FEES,
         )
-        if infer_kind_indices:
-            inferred = list(ledger.transactions)
-            for index in infer_kind_indices:
-                inferred[index] = replace(
-                    inferred[index], kind=_infer_transaction_kind(inferred[index], ledger)
-                )
-            ledger = replace(ledger, transactions=tuple(inferred))
-        ledger.balances(today=self.today())
+        inferred = tuple(
+            replace(transaction, kind=_infer_transaction_kind(transaction, ledger))
+            for transaction in ledger.transactions
+        )
+        linked_expenses: dict[str, list[Transaction]] = {}
+        for transaction in inferred:
+            if transaction.kind == "expense":
+                for link in transaction.links:
+                    linked_expenses.setdefault(link, []).append(transaction)
+        resolved = []
+        for transaction in inferred:
+            if transaction.kind == "reimbursement":
+                candidates = {
+                    expense.id
+                    for link in transaction.links
+                    for expense in linked_expenses.get(link, [])
+                    if expense.date <= transaction.date
+                    and any(
+                        debit.account == credit.account and debit.currency == credit.currency
+                        for debit in expense.postings
+                        for credit in transaction.postings
+                        if debit.account.startswith("Expenses:")
+                    )
+                }
+                if len(candidates) == 1:
+                    transaction = replace(transaction, related_expense=candidates.pop())
+            resolved.append(transaction)
+        ledger = replace(ledger, transactions=tuple(resolved))
+        try:
+            ledger.balances(today=self.today())
+        except LedgerError as exc:
+            # Validate prefixes to locate the first unsupported economic movement.
+            for index, entry in enumerate(transaction_entries):
+                try:
+                    replace(ledger, transactions=ledger.transactions[: index + 1]).balances(
+                        today=self.today()
+                    )
+                except LedgerError:
+                    raise self._entry_error(entry, str(exc)) from None
+            raise
         return ledger
+
+    @staticmethod
+    def _entry_error(entry: models.RawTreeModel, reason: str) -> LedgerError:
+        reason = {
+            "exchange_invalid": (
+                "Invalid exchange postings. Use one explicit positive conversion price "
+                "and matching source, destination and optional fee amounts."
+            ),
+            "crud_transaction_readonly": (
+                "Unsupported posting structure. Use explicit balanced movements between "
+                "declared accounts; complex booking requires the official engine."
+            ),
+        }.get(reason, reason)
+        line = entry.token_store.get_position(entry.first_token).line + 1
+        return LedgerError(
+            f"Line {line} ({type(entry).__name__} directive): {reason} "
+            "Original bytes preserved; saving blocked."
+        )
+
+    @staticmethod
+    def _validate_entry(entry: models.RawTreeModel) -> None:
+        if isinstance(entry, models.Option):
+            if entry.key not in {"title", "operating_currency"}:
+                raise LedgerError("Unsupported accounting option; use the official engine.")
+            if entry.key == "operating_currency":
+                currency_code(entry.value)
+        if isinstance(entry, models.Open):
+            if entry.booking is not None:
+                raise LedgerError("Lot booking requires the official engine.")
+            name = entry.meta.get("name", entry.account)
+            if not isinstance(name, str):
+                raise LedgerError("Account name metadata must be a string.")
+            display_name(name)
+            for currency in entry.currencies:
+                currency_code(currency)
+            if entry.account.startswith(("Assets:", "Liabilities:", "Expenses:", "Income:")):
+                account_path(entry.account, entry.account.split(":")[0])
+        if isinstance(entry, models.Transaction):
+            for posting in entry.postings:
+                if isinstance(posting, models.BlockComment):
+                    continue
+                if posting.number is None or posting.currency is None or posting.cost is not None:
+                    raise LedgerError(
+                        "Posting inference and cost lots require the official engine."
+                    )
+                currency_code(posting.currency)
+                if posting.price is not None:
+                    if posting.price.number is None or posting.price.currency is None:
+                        raise LedgerError("Exchange prices need explicit amounts and currencies.")
+                    currency_code(posting.price.currency)
+        if isinstance(
+            entry, (models.Include, models.Close, models.Balance, models.Pad, models.Plugin)
+        ):
+            raise LedgerError("Unsupported accounting semantics; use the official engine.")
 
     def document(self, source: str) -> models.File:
         self.parse(source)
@@ -285,13 +351,24 @@ def replace_directive(
     return source[:start] + after + source[start + len(before) :]
 
 
+def transaction_identity(entry: models.Transaction, index: int) -> str:
+    """Source position, meaningful only with the unchanged draft baseline."""
+    line = entry.token_store.get_position(entry.first_token).line + 1
+    return f"source-{index}-line-{line}"
+
+
+def transaction_time(timestamp: str) -> str:
+    clock = datetime.fromisoformat(timestamp).time()
+    return clock.isoformat(timespec="seconds" if clock.second else "minutes")
+
+
 def open_account(account: Account) -> str:
     return render(
         models.Open.from_value(
             account.opened,
             account.id,
             [account.currency],
-            meta={"display-name": account.name},
+            meta={"name": account.name},
         )
     )
 
@@ -302,7 +379,7 @@ def open_category(category: Category) -> str:
             category.opened,
             category.id,
             [],
-            meta={"display-name": category.name},
+            meta={"name": category.name},
         )
     )
 
@@ -327,20 +404,8 @@ def transaction_text(transaction: Transaction) -> str:
                 )
                 for p in transaction.postings
             ],
-            meta={
-                "id": transaction.id,
-                "timestamp": transaction.timestamp,
-                **(
-                    {"txncount-fee-mode": transaction.fee_mode}
-                    if transaction.kind == "transfer"
-                    else {}
-                ),
-                **(
-                    {"txncount-expense-id": transaction.related_expense}
-                    if transaction.related_expense
-                    else {}
-                ),
-            },
+            meta={"time": transaction_time(transaction.timestamp)},
+            links=transaction.links,
         )
     )
 

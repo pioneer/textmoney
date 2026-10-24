@@ -82,92 +82,6 @@ class DesktopFolder:
             raise StorageError("Unsupported journal filename.")
         self.filename = filename
         self.backup_prefix = "storage-test" if filename == TARGET else "txncount"
-        self._sync_versions: dict[str, str] | None = None
-
-    def _sync_scan(self) -> dict[str, bytes]:
-        from app.synchronization import DIRECTORY, auxiliary_name
-
-        self._target()
-        result = {}
-        try:
-            directory = self.root / DIRECTORY
-            if directory.is_symlink():
-                raise StorageError("sync_metadata")
-            paths = [
-                path for path in self.root.iterdir() if path.name.lower().endswith(".beancount")
-            ]
-            if directory.exists():
-                if not directory.is_dir():
-                    raise StorageError("sync_metadata")
-                paths.extend(directory.iterdir())
-            for path in paths:
-                if path.name == self.filename and path.parent == self.root:
-                    continue
-                if path.is_symlink() or not path.is_file():
-                    raise StorageError("sync_metadata")
-                name = path.relative_to(self.root).as_posix()
-                if path.parent == directory and not auxiliary_name(path.name):
-                    raise StorageError("sync_metadata")
-                result[name] = path.read_bytes()
-            return result
-        except OSError as exc:
-            raise StorageError("Could not inspect synchronization files. Saving blocked.") from exc
-
-    async def sync_scan(self) -> dict[str, bytes]:
-        return await asyncio.to_thread(self._sync_scan)
-
-    def _sync_put(self, name: str, data: bytes) -> None:
-        from app.synchronization import DIRECTORY, auxiliary_name
-
-        if not auxiliary_name(name):
-            raise StorageError("sync_metadata")
-        self._target()
-        directory = self.root / DIRECTORY
-        if directory.is_symlink():
-            raise StorageError("sync_metadata")
-        temporary: Path | None = None
-        try:
-            directory.mkdir(mode=0o700, exist_ok=True)
-            path = directory / name
-            if path.is_symlink():
-                raise StorageError("sync_metadata")
-            if not path.exists():
-                descriptor, staging = tempfile.mkstemp(
-                    prefix=".txncount-evidence-", suffix=".tmp", dir=self.root
-                )
-                temporary = Path(staging)
-                with os.fdopen(descriptor, "wb") as stream:
-                    stream.write(data)
-                    stream.flush()
-                    os.fsync(stream.fileno())
-                # Names identify immutable content. Concurrent app writers of the
-                # same name author the same bytes, never a mutable history file.
-                os.replace(temporary, path)
-                temporary = None
-            if path.read_bytes() != data:
-                raise StorageError("sync_metadata")
-            _sync_directory(directory)
-            _sync_directory(self.root)
-        except OSError as exc:
-            raise StorageError(
-                "Could not preserve synchronization evidence. Saving blocked."
-            ) from exc
-        finally:
-            if temporary is not None:
-                temporary.unlink(missing_ok=True)
-
-    async def sync_put(self, name: str, data: bytes) -> None:
-        await asyncio.to_thread(self._sync_put, name, data)
-
-    async def sync_expect(self, versions: dict[str, str]) -> None:
-        self._sync_versions = versions.copy()
-
-    def _check_sync_versions(self) -> None:
-        if self._sync_versions is not None:
-            files = self._sync_scan()
-            versions = {name: digest(data) for name, data in files.items()}
-            if versions != self._sync_versions:
-                raise ConflictError("sync_changed")
 
     def _target(self) -> Path:
         if not self.root.is_dir():
@@ -195,6 +109,23 @@ class DesktopFolder:
 
     async def read(self) -> bytes | None:
         return await asyncio.to_thread(self._read)
+
+    def _list_siblings(self) -> list[str]:
+        if not self.root.is_dir():
+            raise StorageError("Selected folder is unavailable. Select Folder again.")
+        try:
+            return sorted(
+                path.name
+                for path in self.root.iterdir()
+                if path.name != self.filename
+                and path.name.lower().endswith(".beancount")
+                and path.is_file()
+            )
+        except OSError as exc:
+            raise StorageError("Could not list sibling journals. Check folder access.") from exc
+
+    async def list_siblings(self) -> list[str]:
+        return await asyncio.to_thread(self._list_siblings)
 
     def _backup(self, data: bytes) -> str:
         try:
@@ -309,7 +240,6 @@ class DesktopFolder:
                     "Conflict: file changed externally. Draft retained. Read to reload."
                 )
             path = self._target()
-            self._check_sync_versions()
             phase = "replacing"
             os.replace(temporary, path)
             phase = "replaced"

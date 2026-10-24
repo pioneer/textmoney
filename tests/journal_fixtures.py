@@ -1,23 +1,20 @@
-"""Explicitly review intentional source edits used by lossless-edit fixtures."""
+"""Reload intentional source edits used by lossless-edit fixtures."""
 
+from collections.abc import Callable
+
+from app.infrastructure.beancount_journal import render
 from app.journal import Journal
-from app.synchronization import SyncConflict, file_hash
+
+
+def decorate_transaction(journal: Journal, identifier: str, transform: Callable[[str], str]) -> str:
+    assert journal.codec is not None
+    entry = journal._transaction(journal.codec.document(journal.source), identifier)
+    before = render(entry)
+    position = entry.token_store.get_position(entry.first_token)
+    start = sum(len(line) for line in journal.source.splitlines(keepends=True)[: position.line])
+    start += position.column
+    return journal.source[:start] + transform(before) + journal.source[start + len(before) :]
 
 
 async def review_external_fixture(journal: Journal) -> None:
-    try:
-        await journal.load()
-    except SyncConflict:
-        state = journal.sync_state
-        assert state is not None
-        for _ in range(len(state.versions)):
-            state = journal.sync_state
-            assert state is not None
-            if not state.versions:
-                break
-            current = await journal.storage.folder.read()
-            assert current is not None
-            await journal.resolve_sync(
-                next(iter(state.versions)), state, current.decode(), local_hash=file_hash(current)
-            )
-    assert journal.ready
+    await journal.load()

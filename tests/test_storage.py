@@ -63,7 +63,7 @@ def test_create_modify_and_verified_unique_backups(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
-def test_atomic_replacement_orders_sync_check_replace_and_directory_sync(
+def test_atomic_replacement_orders_baseline_check_replace_and_directory_sync(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     async def scenario() -> None:
@@ -106,6 +106,37 @@ def test_atomic_replacement_orders_sync_check_replace_and_directory_sync(
         assert not list(tmp_path.glob(f".{TARGET}.*.tmp"))
         if sys.platform != "win32":
             assert events[events.index("replace") + 1] == "directory-sync"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("metadata_shape", ["file", "directory"])
+def test_unrelated_journals_and_sync_metadata_do_not_block_writes(
+    tmp_path: Path, metadata_shape: str
+) -> None:
+    async def scenario() -> None:
+        sibling = tmp_path / "conflicted-copy.beancount"
+        sibling.write_bytes(b"invalid unrelated journal")
+        metadata = tmp_path / ".txncount-sync"
+        if metadata_shape == "file":
+            metadata.write_bytes(b"damaged legacy metadata")
+        else:
+            metadata.mkdir()
+            (metadata / "stale-edge.json").write_bytes(b"{damaged")
+
+        folder = DesktopFolder(str(tmp_path))
+        assert await folder.list_siblings() == ["conflicted-copy.beancount"]
+        session = StorageSession(folder)
+        await session.read()
+        session.draft = "normal journal write\n"
+        await session.write()
+
+        assert (tmp_path / TARGET).read_text() == "normal journal write\n"
+        assert sibling.read_bytes() == b"invalid unrelated journal"
+        if metadata_shape == "file":
+            assert metadata.read_bytes() == b"damaged legacy metadata"
+        else:
+            assert (metadata / "stale-edge.json").read_bytes() == b"{damaged"
 
     asyncio.run(scenario())
 
@@ -633,6 +664,17 @@ def test_android_bridge_rejects_missing_grant_and_invalid_response() -> None:
         unwrap(None)
     with pytest.raises(StorageError, match="content URI"):
         AndroidFolder(MagicMock(), "/not/a/saf/uri")
+
+
+def test_android_sibling_listing_rejects_invalid_bridge_data() -> None:
+    async def scenario() -> None:
+        bridge = MagicMock()
+        bridge.call = AsyncMock(return_value={"ok": True, "value": ["copy.beancount", 3]})
+        folder = AndroidFolder(bridge, "content://synthetic/tree/test")
+        with pytest.raises(StorageError, match="Invalid SAF sibling listing"):
+            await folder.list_siblings()
+
+    asyncio.run(scenario())
 
 
 def test_android_transport_roundtrip_and_permission_status() -> None:

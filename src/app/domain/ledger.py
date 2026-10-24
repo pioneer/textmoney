@@ -14,7 +14,7 @@ MAX_AMOUNT = Decimal("999999999999.99")
 
 
 class LedgerError(Exception):
-    """Safe, actionable validation message without private journal excerpts."""
+    """Actionable validation message for the user, never for journal-content logging."""
 
 
 def money(text: str) -> Decimal:
@@ -169,9 +169,9 @@ class Transaction:
     narration: str
     postings: tuple[Posting, ...]
     kind: str
-    persistent_id: bool = True
     related_expense: str | None = None
     fee_mode: str = "added"
+    links: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -230,7 +230,7 @@ class Ledger:
             context.prec = 50
             for transaction in sorted(
                 self.transactions,
-                key=lambda t: (t.date, datetime.fromisoformat(t.timestamp), t.id),
+                key=lambda t: (t.date, datetime.fromisoformat(t.timestamp).time()),
             ):
                 if transaction.date > (today or date.today()):
                     raise LedgerError("Future-dated transactions are not supported in MVP 0.1.")
@@ -403,7 +403,6 @@ class Ledger:
             )
             or source.currency != target.currency
             or fee_currency != source.currency
-            or transaction.fee_mode not in {"added", "deducted"}
         ):
             raise LedgerError("crud_transaction_readonly")
         return TransferDetails(
@@ -412,7 +411,7 @@ class Ledger:
             fee,
             fees[0].account if fees else BANK_FEES,
             fee_currency,
-            transaction.fee_mode,
+            "added",
             -source.amount + (fee if prices and fee_currency == source.currency else ZERO),
         )
 
@@ -454,8 +453,6 @@ class Ledger:
             raise LedgerError("incoming_category")
         if not EPOCH <= occurred <= (today or date.today()):
             raise LedgerError("incoming_date")
-        if timestamp.utcoffset() is None:
-            raise LedgerError("crud_datetime")
         if exchange:
             assert destination_amount is not None
             if fee_currency is None and not fee:
@@ -495,12 +492,13 @@ class Ledger:
         transaction = Transaction(
             transaction_id,
             occurred,
-            timestamp.isoformat(),
+            datetime.combine(
+                occurred, timestamp.time().replace(tzinfo=None, microsecond=0)
+            ).isoformat(),
             "",
             "",
             postings,
             "transfer",
-            fee_mode=fee_mode,
         )
         replace(self, transactions=(*self.transactions, transaction)).balances(today=today)
         return transaction
@@ -529,12 +527,12 @@ class Ledger:
             raise LedgerError("Expense amount must be greater than zero.")
         if not EPOCH <= occurred <= (today or date.today()):
             raise LedgerError("Expense date must be between 1970-01-01 and today.")
-        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
-            raise LedgerError("Timestamp must include a timezone.")
         transaction = Transaction(
             transaction_id,
             occurred,
-            timestamp.isoformat(),
+            datetime.combine(
+                occurred, timestamp.time().replace(tzinfo=None, microsecond=0)
+            ).isoformat(),
             display_name(payee) if payee.strip() else "",
             "Expense",
             (
@@ -579,12 +577,12 @@ class Ledger:
             raise LedgerError("incoming_amount")
         if not EPOCH <= occurred <= (today or date.today()):
             raise LedgerError("incoming_date")
-        if timestamp.utcoffset() is None:
-            raise LedgerError("crud_datetime")
         transaction = Transaction(
             transaction_id,
             occurred,
-            timestamp.isoformat(),
+            datetime.combine(
+                occurred, timestamp.time().replace(tzinfo=None, microsecond=0)
+            ).isoformat(),
             display_name(payee) if payee.strip() else "",
             "",
             (

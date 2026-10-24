@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from datetime import date, datetime
 from decimal import Decimal
+from difflib import SequenceMatcher, unified_diff
 from uuid import uuid4
 
 from autobean_refactor import models
@@ -38,6 +39,7 @@ from app.infrastructure.beancount_journal import (
     render,
     replace_directive,
     transaction_text,
+    transaction_time,
 )
 from app.storage import (
     Folder,
@@ -45,19 +47,6 @@ from app.storage import (
     RecoveryRequired,
     StorageError,
     StorageSession,
-    WriteError,
-)
-from app.synchronization import (
-    MergeReview,
-    SyncConflict,
-    SyncFolder,
-    SyncState,
-    file_hash,
-    json_bytes,
-    preserve,
-    record_head,
-    record_revision,
-    review_versions,
 )
 
 FILENAME = "txncount.beancount"
@@ -75,12 +64,19 @@ class Journal:
         self.recovery_valid = False
         self.recovery_backup_valid = False
         self.recovery_transactions = 0
-        self.sync_state: SyncState | None = None
+        self.default_fee_category = BANK_FEES
+        self.external_changes = ""
+        self.external_summary: dict[str, int] = {}
+        self.loaded_at: datetime | None = None
+        self.external_previous_observed_at: datetime | None = None
+        self.external_observed_at: datetime | None = None
+        self.external_before = ""
+        self.external_current = ""
 
     def _parse(self, source: str) -> Ledger:
         if self.codec is None:
             self.codec = JournalCodec(today=self.today)
-        return self.codec.parse(source)
+        return replace(self.codec.parse(source), default_fee_category=self.default_fee_category)
 
     async def load(self) -> None:
         self.ready = False
@@ -90,114 +86,71 @@ class Journal:
             await self._validate_recovery()
             raise
         if self.existed and not exists:
+            self._compare_external("")
             self.storage.loaded = False
             raise StorageError(
                 "The journal disappeared. Restore it before reloading; forms retained."
             )
-        await self.check_sync()
         try:
             ledger = await asyncio.to_thread(self._parse, self.storage.draft)
         except LedgerError:
+            self._compare_external(self.storage.draft)
             self.storage.loaded = False
             raise
+        if self.loaded_at is not None and self.source != self.storage.draft:
+            self._compare_external(self.storage.draft, ledger)
         self.source = self.storage.draft
         self.ledger = ledger
         self.existed = exists
+        self.loaded_at = datetime.now().astimezone()
         self.ready = True
 
-    async def check_sync(self) -> None:
-        folder = self.storage.folder
-        if not isinstance(folder, SyncFolder):
-            return
-        try:
-            data = await folder.read()
-            if data is None and self.existed:
-                raise StorageError(
-                    "The journal disappeared. Restore it before reloading; forms retained."
-                )
-            current = data or b""
-            state = await asyncio.to_thread(SyncState.read, await folder.sync_scan(), current)
-            if state.versions:
-                await preserve(folder, current)
-                for data in state.versions.values():
-                    await preserve(folder, data)
-                state = await asyncio.to_thread(SyncState.read, await folder.sync_scan(), current)
-        except (StorageError, TimeoutError, asyncio.CancelledError):
-            self.ready = self.storage.loaded = False
-            raise
-        if self.sync_state != state:
-            self.sync_state = state
-        if state.versions:
-            self.ready = False
-            raise SyncConflict("sync_required")
-
-    async def sync_review(self, name: str, *, local: bytes) -> MergeReview:
-        state = self.sync_state
-        if state is None or name not in state.versions:
-            raise SyncConflict("sync_changed")
-        remote = state.versions[name]
-        try:
-            return await asyncio.to_thread(
-                review_versions,
-                local.decode("utf-8"),
-                remote.decode("utf-8"),
-                state.common_base(local, remote),
+    def _compare_external(self, current: str, ledger: Ledger | None = None) -> None:
+        self.external_before = self.source
+        self.external_current = current
+        self.external_previous_observed_at = self.loaded_at
+        self.external_observed_at = datetime.now().astimezone()
+        self.external_changes = "".join(
+            unified_diff(
+                self.source.splitlines(keepends=True),
+                current.splitlines(keepends=True),
+                fromfile="Previously loaded journal",
+                tofile="Current journal",
             )
-        except UnicodeDecodeError as exc:
-            raise LedgerError("sync_manual") from exc
-
-    async def resolve_sync(
-        self, name: str, expected: SyncState, candidate: str, *, local_hash: str
-    ) -> None:
-        folder = self.storage.folder
-        if not isinstance(folder, SyncFolder):
-            raise StorageError("sync_manual")
-        self.ready = False
-        self.storage.loaded = False
-        current = await folder.read() or b""
-        fresh = SyncState.read(await folder.sync_scan(), current)
-        if (
-            file_hash(current) != local_hash
-            or name not in expected.versions
-            or fresh.versions != expected.versions
-            or fresh.files != expected.files
-        ):
-            raise SyncConflict("sync_changed")
-        await asyncio.to_thread(self._parse, candidate)
-        # Preserve both originals before the same guarded platform save used by CRUD.
-        await preserve(folder, current)
-        remote = expected.versions[name]
-        await preserve(folder, remote)
-        await self.storage.read()  # Android recovery is never bypassed.
-        if self.storage.last_hash != file_hash(current):
-            raise SyncConflict("sync_changed")
-        evidence = await record_revision(folder, current, candidate.encode())
-        evidence.update(await record_revision(folder, remote, candidate.encode()))
-        await folder.sync_expect(
-            {key: file_hash(value) for key, value in (fresh.files | evidence).items()}
         )
-        self.storage.draft = candidate
-        try:
-            await self.storage.write()
-        except (StorageError, ConflictError, TimeoutError, asyncio.CancelledError):
-            self.storage.loaded = False
-            raise
-        acknowledgment = json_bytes(
-            {"name": name, "hash": file_hash(remote), "result": file_hash(candidate.encode())}
+        self.external_summary = {}
+        if ledger is None:
+            return
+        for label in ("accounts", "categories"):
+            before = {item.id: item for item in getattr(self.ledger, label)}
+            after = {item.id: item for item in getattr(ledger, label)}
+            self.external_summary[f"{label}_added"] = len(after.keys() - before.keys())
+            self.external_summary[f"{label}_removed"] = len(before.keys() - after.keys())
+            self.external_summary[f"{label}_changed"] = sum(
+                before[key] != after[key] for key in before.keys() & after.keys()
+            )
+        before_transactions = [
+            replace(item, id="", related_expense=None) for item in self.ledger.transactions
+        ]
+        after_transactions = [
+            replace(item, id="", related_expense=None) for item in ledger.transactions
+        ]
+        counts = {"added": 0, "removed": 0, "changed": 0}
+        for operation, start, end, new_start, new_end in SequenceMatcher(
+            a=before_transactions, b=after_transactions, autojunk=False
+        ).get_opcodes():
+            removed, added = end - start, new_end - new_start
+            if operation == "replace":
+                counts["changed"] += min(removed, added)
+                counts["removed"] += max(0, removed - added)
+                counts["added"] += max(0, added - removed)
+            elif operation == "delete":
+                counts["removed"] += removed
+            elif operation == "insert":
+                counts["added"] += added
+        self.external_summary.update(
+            {f"transactions_{key}": value for key, value in counts.items()}
         )
-        try:
-            await record_head(folder, candidate.encode())
-            await folder.sync_put(f"ack-{file_hash(acknowledgment)}.json", acknowledgment)
-            await self.load()
-        except SyncConflict:
-            return  # The selected version is resolved; other versions still block editing.
-        except (StorageError, TimeoutError) as exc:
-            self.storage.loaded = False
-            raise WriteError(
-                "Journal may already be saved; conflict acknowledgment failed. "
-                "Reload before retrying.",
-                committed=True,
-            ) from exc
 
     async def _validate_recovery(self) -> None:
         self.recovery_valid = self.recovery_backup_valid = False
@@ -233,28 +186,13 @@ class Journal:
     async def poll(self) -> bool:
         if not self.storage.loaded:
             return False
-        await self.check_sync()
-        if await self.storage.poll():
-            folder = self.storage.folder
-            if isinstance(folder, SyncFolder):
-                await preserve(folder, self.source.encode())
-                current = await folder.read() or b""
-                await preserve(folder, current)
-                try:
-                    before = await asyncio.to_thread(self._parse, self.source)
-                    after = await asyncio.to_thread(self._parse, current.decode("utf-8"))
-                    newer = {item.id: item for item in after.transactions}
-                    lost_or_edited = any(newer.get(item.id) != item for item in before.transactions)
-                except (UnicodeDecodeError, LedgerError):
-                    lost_or_edited = True
-                if lost_or_edited:
-                    parent, child = file_hash(self.source.encode()), file_hash(current)
-                    await folder.sync_put(
-                        f"conflict-{parent}-{child}.json",
-                        json_bytes({"parent": parent, "child": child}),
-                    )
-            await self.load()
-            return True
+        try:
+            if await self.storage.poll():
+                await self.load()
+                return True
+        except (StorageError, TimeoutError, asyncio.CancelledError):
+            self.ready = self.storage.loaded = False
+            raise
         return False
 
     def _require_ready(self) -> None:
@@ -271,25 +209,7 @@ class Journal:
         ledger = await asyncio.to_thread(self._parse, candidate)
         self.storage.draft = candidate
         try:
-            await self.check_sync()
-            folder = self.storage.folder
-            if isinstance(folder, SyncFolder):
-                state = self.sync_state
-                assert state is not None
-                evidence = await record_revision(folder, self.source.encode(), candidate.encode())
-                await folder.sync_expect(
-                    {name: file_hash(data) for name, data in (state.files | evidence).items()}
-                )
             backup = await self.storage.write()
-            if isinstance(folder, SyncFolder):
-                try:
-                    await record_head(folder, candidate.encode())
-                except (StorageError, TimeoutError) as exc:
-                    raise WriteError(
-                        "Journal saved; synchronization evidence finalization failed. "
-                        "Reload before retrying.",
-                        committed=True,
-                    ) from exc
         except (StorageError, ConflictError, TimeoutError, asyncio.CancelledError):
             self.ready = False
             self.storage.loaded = False
@@ -297,6 +217,7 @@ class Journal:
         self.source = candidate
         self.ledger = ledger
         self.existed = True
+        self.loaded_at = datetime.now().astimezone()
         return backup
 
     async def _change(
@@ -315,14 +236,16 @@ class Journal:
 
     @staticmethod
     def _transaction(document: models.File, identifier: str) -> models.Transaction:
-        matches = [
-            entry
-            for entry in document.raw_directives
-            if isinstance(entry, models.Transaction) and entry.meta.get("id") == identifier
+        entries = [
+            entry for entry in document.raw_directives if isinstance(entry, models.Transaction)
         ]
-        if len(matches) != 1:
-            raise LedgerError("crud_transaction_readonly")
-        return matches[0]
+        try:
+            index = int(identifier.split("-")[1])
+            if not identifier.startswith("source-") or index < 0:
+                raise ValueError("invalid source position")
+            return entries[index]
+        except (ValueError, IndexError) as exc:
+            raise LedgerError("crud_transaction_readonly") from exc
 
     @staticmethod
     def _declaration(document: models.File, identifier: str) -> models.Open:
@@ -364,7 +287,7 @@ class Journal:
         transaction = next((t for t in self.ledger.transactions if t.id == identifier), None)
         accounts = {a.id for a in self.ledger.accounts}
         categories = {c.id for c in self.ledger.categories}
-        if transaction is None or not transaction.persistent_id:
+        if transaction is None:
             raise LedgerError("crud_transaction_readonly")
         if any(p.unit_price is not None for p in transaction.postings):
             raise LedgerError("crud_transaction_readonly")
@@ -411,6 +334,8 @@ class Journal:
         description: str,
         expected_source: str,
     ) -> str | None:
+        if expected_source != self.source:
+            raise ConflictError("crud_stale")
         self.expense_for_edit(identifier)
         return await self.edit_transaction(
             identifier,
@@ -436,14 +361,14 @@ class Journal:
         description: str,
         expected_source: str,
     ) -> str | None:
+        if expected_source != self.source:
+            raise ConflictError("crud_stale")
         original = self.transaction_for_edit(identifier)
         try:
             day = date.fromisoformat(occurred)
             stamp = datetime.fromisoformat(timestamp)
         except ValueError as exc:
             raise LedgerError("crud_datetime") from exc
-        if stamp.utcoffset() is None:
-            raise LedgerError("crud_datetime")
         description = description_text(description)
         ledger = replace(
             self.ledger,
@@ -479,8 +404,8 @@ class Journal:
                 entry.date = updated.date
                 entry.payee = updated.payee or None
                 entry.narration = description
-                if timestamp != original.timestamp:
-                    entry.meta["timestamp"] = updated.timestamp
+                if updated.timestamp != original.timestamp or updated.date != original.date:
+                    entry.meta["time"] = transaction_time(updated.timestamp)
                 for posting in entry.postings:
                     if not isinstance(posting, models.Posting):
                         continue
@@ -495,10 +420,14 @@ class Journal:
         return await self._change(edit, expected_source)
 
     async def delete_expense(self, identifier: str, expected_source: str) -> str | None:
+        if expected_source != self.source:
+            raise ConflictError("crud_stale")
         self.expense_for_edit(identifier)
         return await self.delete_transaction(identifier, expected_source)
 
     async def delete_transaction(self, identifier: str, expected_source: str) -> str | None:
+        if expected_source != self.source:
+            raise ConflictError("crud_stale")
         self.transaction_for_edit(identifier)
         return await self._change(
             lambda document: replace_directive(
@@ -549,15 +478,10 @@ class Journal:
         if not openings:
             return ZERO
         transaction = openings[0]
-        if (
-            not transaction.persistent_id
-            or len(transaction.postings) != 2
-            or {p.account for p in transaction.postings}
-            != {
-                identifier,
-                EQUITY,
-            }
-        ):
+        if len(transaction.postings) != 2 or {p.account for p in transaction.postings} != {
+            identifier,
+            EQUITY,
+        }:
             raise LedgerError("crud_opening_complex")
         amount = next(p.amount for p in transaction.postings if p.account == identifier)
         account = next(a for a in self.ledger.accounts if a.id == identifier)
@@ -587,7 +511,7 @@ class Journal:
             entry = self._declaration(document, identifier)
 
             def update() -> None:
-                entry.meta["display-name"] = label
+                entry.meta["name"] = label
                 if not active or "txncount-active" in entry.meta:
                     entry.meta["txncount-active"] = active
 
@@ -679,7 +603,7 @@ class Journal:
                 raise LedgerError("crud_missing")
 
             def update() -> None:
-                entry.meta["display-name"] = label
+                entry.meta["name"] = label
                 if not active or "txncount-active" in entry.meta:
                     entry.meta["txncount-active"] = active
 
@@ -690,7 +614,10 @@ class Journal:
     async def delete_account(self, identifier: str, expected_source: str) -> str | None:
         return await self._delete_declaration(identifier, expected_source, category=False)
 
-    async def set_default_fee_category(self, identifier: str, expected_source: str) -> str | None:
+    async def set_default_fee_category(self, identifier: str, expected_source: str) -> None:
+        self._require_ready()
+        if expected_source != self.source:
+            raise ConflictError("crud_stale")
         implicit = identifier == BANK_FEES and not any(
             c.id == BANK_FEES for c in self.ledger.categories
         )
@@ -699,27 +626,8 @@ class Journal:
         ):
             raise LedgerError("incoming_category")
 
-        def edit(document: models.File) -> str:
-            source = self.source
-            previous = [
-                c.id
-                for c in self.ledger.categories
-                if self._declaration(document, c.id).meta.get(
-                    "txncount-default-transfer-fee", False
-                )
-            ]
-            paths: list[str] = previous + ([identifier] if not implicit else [])
-            for path in dict.fromkeys(paths):
-                assert self.codec is not None
-                entry = self._declaration(self.codec.document(source), path)
-
-                def update(entry: models.Open = entry, path: str = path) -> None:
-                    entry.meta["txncount-default-transfer-fee"] = path == identifier
-
-                source = replace_directive(source, entry, update)
-            return source
-
-        return await self._change(edit, expected_source)
+        self.default_fee_category = identifier
+        self.ledger = replace(self.ledger, default_fee_category=identifier)
 
     async def delete_category(self, identifier: str, expected_source: str) -> str | None:
         return await self._delete_declaration(identifier, expected_source, category=True)
@@ -906,6 +814,28 @@ class Journal:
         transaction = replace(
             transaction, narration=description_text(description), related_expense=related_expense
         )
+        if related_expense is not None:
+            assert self.codec is not None
+            entry = self._transaction(self.codec.document(source), related_expense)
+            link = (
+                next(
+                    (
+                        link
+                        for link in entry.links
+                        if not any(
+                            other.id != related_expense
+                            and other.kind == "expense"
+                            and link in other.links
+                            for other in self.ledger.transactions
+                        )
+                    ),
+                    None,
+                )
+                or f"txncount-{uuid4()}"
+            )
+            if link not in entry.links:
+                source = replace_directive(source, entry, lambda: entry.links.append(link))
+            transaction = replace(transaction, links=(link,))
         return await self._commit(append(source, addition + transaction_text(transaction)))
 
     async def save_transfer(
@@ -1003,9 +933,8 @@ class Journal:
                 entry.date = updated.date
                 entry.payee = updated.payee or None
                 entry.narration = updated.narration
-                if timestamp != original.timestamp:
-                    entry.meta["timestamp"] = updated.timestamp
-                entry.meta["txncount-fee-mode"] = fee_mode
+                if updated.timestamp != original.timestamp or updated.date != original.date:
+                    entry.meta["time"] = transaction_time(updated.timestamp)
                 exchange = any(p.total_price is not None for p in updated.postings)
                 for index, posting in enumerate(updated.postings):
                     number = posting.amount.quantize(Decimal(".01")) if exchange else posting.amount

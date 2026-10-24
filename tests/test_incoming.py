@@ -10,10 +10,11 @@ import pytest
 from beancount import loader
 from fava.core import FavaLedger
 from form_controls import change, transaction_form
-from journal_fixtures import review_external_fixture
+from journal_fixtures import decorate_transaction, review_external_fixture
 
 from app.domain.ledger import ADJUSTMENTS, EPOCH, LedgerError
 from app.domain.storage import ConflictError
+from app.infrastructure.beancount_journal import transaction_time
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import translate
@@ -161,21 +162,19 @@ def test_incoming_edit_delete_preserves_ids_metadata_comments_and_backup(
         original = journal.ledger.transactions[-1]
         path = tmp_path / FILENAME
         # Target one directive, retaining unrelated source and unsupported safe directives.
-        decorated = journal.source.replace(
-            f'  id: "{original.id}"',
-            f'  id: "{original.id}"\n  receipt: "Synthetic"\n  ; keep transaction comment',
+        decorated = decorate_transaction(
+            journal,
+            original.id,
+            lambda text: text.replace(
+                f'  time: "{transaction_time(original.timestamp)}"',
+                f'  time: "{transaction_time(original.timestamp)}"\n'
+                '  receipt: "Synthetic"\n  ; keep transaction comment',
+            ),
         )
         decorated += '\n2026-01-01 event "test" "Preserve me"\n; unrelated tail\n'
         path.write_text(decorated, newline="")
-        from app.synchronization import SyncConflict, file_hash
-
-        with pytest.raises(SyncConflict):
-            await journal.load()
-        state = journal.sync_state
-        assert state is not None
-        await journal.resolve_sync(
-            next(iter(state.versions)), state, decorated, local_hash=file_hash(decorated.encode())
-        )
+        await journal.load()
+        original = journal.ledger.transactions[-1]
         before = journal.source
         await journal.edit_transaction(
             original.id,
@@ -189,7 +188,7 @@ def test_incoming_edit_delete_preserves_ids_metadata_comments_and_backup(
             before,
         )
         updated = journal.transaction_for_edit(original.id)
-        assert updated.timestamp == STAMP
+        assert updated.timestamp == "2026-02-01T12:00:00"
         assert updated.related_expense == original.related_expense
         assert updated.narration == 'Updated\n"detail"'
         assert 'receipt: "Synthetic"' in journal.source
@@ -355,7 +354,7 @@ def test_invalid_incoming_preserves_source_and_backups(
     asyncio.run(scenario())
 
 
-def test_reference_is_not_a_receivable_and_survives_original_expense_deletion(
+def test_native_link_survives_deletion_without_fabricating_missing_expense(
     tmp_path: Path,
 ) -> None:
     async def scenario() -> None:
@@ -373,10 +372,12 @@ def test_reference_is_not_a_receivable_and_survives_original_expense_deletion(
         )
         incoming = journal.ledger.transactions[-1]
         await journal.delete_expense(original.id, journal.source)
-        assert journal.transaction_for_edit(incoming.id).related_expense == original.id
+        remaining = journal.ledger.transactions[-1]
+        assert remaining.links == incoming.links and remaining.links
+        assert remaining.related_expense is None
         assert totals(journal)["income"] == {}
         assert totals(journal)["expenses"] == {"UAH": Decimal("-40")}
-        await journal.delete_transaction(incoming.id, journal.source)
+        await journal.delete_transaction(remaining.id, journal.source)
         assert journal.ledger.balances()["Assets:Cash"] == 0
 
     asyncio.run(scenario())
@@ -635,8 +636,8 @@ def test_switching_modes_preserves_common_draft_and_each_category(
         ),
         (
             "external",
-            "  Assets:Bank -8 UAH\n  Assets:Cash 8 UAH\n",
-            ["Bank: −8.00 UAH", "Cash: 8.00 UAH"],
+            "  Assets:Bank -8 UAH\n  Assets:Cash 5 UAH\n  Assets:Bank 3 UAH\n",
+            ["Bank: −8.00 UAH", "Cash: 5.00 UAH", "Bank: 3.00 UAH"],
         ),
     ],
 )
@@ -661,7 +662,7 @@ def test_unified_editor_keeps_complex_and_external_movements_readonly(
         page = MagicMock(spec=ft.Page)
         monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
         event = MagicMock()
-        event.control.data = "protected"
+        event.control.data = journal.ledger.transactions[-1].id
         view._edit_transaction(event)
         dialog = page.show_dialog.call_args.args[0]
         assert dialog.title == "Details"

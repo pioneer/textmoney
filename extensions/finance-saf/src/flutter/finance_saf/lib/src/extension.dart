@@ -48,8 +48,12 @@ class FinanceSafService extends FletService {
       return {'ok': true, 'value': await _execute(method, args)};
     } on PlatformException catch (error) {
       // Provider messages can contain document URIs. Return only a stable code.
-      return {'ok': false, 'error': 'Android provider error (${error.code}). '
-          'Check folder access, free space, and reselect the folder.'};
+      return {
+        'ok': false,
+        'error':
+            'Android provider error (${error.code}). '
+            'Check folder access, free space, and reselect the folder.',
+      };
     } on FormatException {
       return {'ok': false, 'error': 'Invalid data received by SAF bridge.'};
     } on StateError catch (error) {
@@ -58,8 +62,9 @@ class FinanceSafService extends FletService {
   }
 
   Future<String?> _readDocument(String directory, String name) async {
-    final matches =
-        (await _util.list(directory)).where((file) => file.name == name).toList();
+    final matches = (await _util.list(
+      directory,
+    )).where((file) => file.name == name).toList();
     if (matches.isEmpty) return null;
     if (matches.length != 1 || matches.single.isDir) {
       throw StateError('Ambiguous storage document. Saving is blocked.');
@@ -72,31 +77,46 @@ class FinanceSafService extends FletService {
     final existing = await _util.child(uri, [name]);
     if (existing == null) {
       final saved = await _stream.writeFileBytes(
-          uri, name, 'application/json', bytes,
-          overwrite: false, append: false);
+        uri,
+        name,
+        'application/json',
+        bytes,
+        overwrite: false,
+        append: false,
+      );
       if (saved.fileName != name) {
-        throw StateError('Provider changed the recovery filename. Saving is blocked.');
+        throw StateError(
+          'Provider changed the recovery filename. Saving is blocked.',
+        );
       }
     } else {
       if (existing.isDir) throw StateError('Recovery record is a directory.');
       await _stream.writeFileUriBytes(existing.uri, bytes, append: false);
     }
     if (await _readDocument(uri, name) != encoded) {
-      throw StateError('Recovery record verification failed. Saving is blocked.');
+      throw StateError(
+        'Recovery record verification failed. Saving is blocked.',
+      );
     }
   }
 
   Future<Map<String, dynamic>> _snapshot(
-      String uri, String target, String prefix, RegExp pendingName) async {
+    String uri,
+    String target,
+    String prefix,
+    RegExp pendingName,
+  ) async {
     final marker = await _readDocument(uri, '.$target.recovery.json');
     final directory = await _util.child(uri, ['backups']);
     final pending = <String>[];
     String? backup;
     if (directory != null) {
       if (!directory.isDir) throw StateError('Backups is not a directory.');
-      pending.addAll((await _util.list(directory.uri))
-          .where((file) => !file.isDir && pendingName.hasMatch(file.name))
-          .map((file) => file.name));
+      pending.addAll(
+        (await _util.list(directory.uri))
+            .where((file) => !file.isDir && pendingName.hasMatch(file.name))
+            .map((file) => file.name),
+      );
       pending.sort();
       if (marker != null) {
         dynamic record;
@@ -108,13 +128,16 @@ class FinanceSafService extends FletService {
         }
         final path = record is Map ? record['backup'] : null;
         final valid = RegExp(
-            '^backups/$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-(pending|committed)\\.beancount\$');
+          '^backups/$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-(pending|committed)\\.beancount\$',
+        );
         if (path is String && valid.hasMatch(path)) {
           final name = path.substring('backups/'.length);
           backup = await _readDocument(directory.uri, name);
           if (backup == null && name.contains('-pending.')) {
             backup = await _readDocument(
-                directory.uri, name.replaceFirst('-pending.', '-committed.'));
+              directory.uri,
+              name.replaceFirst('-pending.', '-committed.'),
+            );
           }
         }
       }
@@ -127,87 +150,55 @@ class FinanceSafService extends FletService {
     };
   }
 
-  bool _syncName(String name) => RegExp(
-      r'^([a-f0-9]{64}\.beancount|(edge|conflict)-[a-f0-9]{64}-[a-f0-9]{64}\.json|(ack|head)-[a-f0-9]{64}\.json)$')
-      .hasMatch(name);
-
-  Future<Map<String, String>> _syncScan(String uri, String target) async {
-    final result = <String, String>{};
-    final children = await _util.list(uri);
-    for (final child in children) {
-      if (child.name == target || !child.name.toLowerCase().endsWith('.beancount')) continue;
-      if (child.isDir || result.containsKey(child.name)) {
-        throw StateError('sync_metadata');
-      }
-      result[child.name] = base64Encode(await _stream.readFileBytes(child.uri));
-    }
-    final directory = await _util.child(uri, ['.txncount-sync']);
-    if (directory != null) {
-      if (!directory.isDir) throw StateError('sync_metadata');
-      for (final child in await _util.list(directory.uri)) {
-        final name = '.txncount-sync/${child.name}';
-        if (child.isDir || !_syncName(child.name) || result.containsKey(name)) {
-          throw StateError('sync_metadata');
-        }
-        result[name] = base64Encode(await _stream.readFileBytes(child.uri));
-      }
-    }
-    return result;
-  }
-
-  Future<void> _checkSync(String uri, String target, dynamic expected) async {
-    if (expected == null) return;
-    final files = await _syncScan(uri, target);
-    final wanted = Map<String, dynamic>.from(expected as Map);
-    if (files.length != wanted.length ||
-        files.entries.any((entry) => wanted[entry.key] != entry.value)) {
-      throw StateError('sync_changed');
-    }
-  }
-
   Future<dynamic> _execute(String method, dynamic args) async {
     if (method == 'timezone') {
       return (await FlutterTimezone.getLocalTimezone()).identifier;
     }
     if (method == 'select') {
       final folder = await _util.pickDirectory(
-          writePermission: true, persistablePermission: true);
+        writePermission: true,
+        persistablePermission: true,
+      );
       return folder?.uri;
     }
     final uri = args['uri'] as String;
     final permitted = await _util.hasPersistedPermission(
-        uri, checkRead: true, checkWrite: true);
+      uri,
+      checkRead: true,
+      checkWrite: true,
+    );
     if (method == 'status') return permitted;
     if (!permitted) {
-      throw StateError('Persistent read/write grant missing. Select Folder again.');
+      throw StateError(
+        'Persistent read/write grant missing. Select Folder again.',
+      );
     }
     final target = (args['filename'] as String?) ?? 'storage-test.beancount';
     if (target != 'storage-test.beancount' && target != 'txncount.beancount') {
       throw StateError('Unsupported journal filename.');
     }
-    final prefix = target == 'storage-test.beancount' ? 'storage-test' : 'txncount';
-    final pendingName =
-        RegExp('^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-pending\\.beancount\$');
-    final committedName =
-        RegExp('^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-committed\\.beancount\$');
-    if (method == 'sync_scan') return _syncScan(uri, target);
-    if (method == 'sync_put') {
-      final name = args['name'] as String;
-      if (!_syncName(name)) throw StateError('sync_metadata');
-      final directory = await _util.mkdirp(uri, ['.txncount-sync']);
-      final existing = await _readDocument(directory.uri, name);
-      if (existing != null) {
-        if (existing != args['data']) throw StateError('sync_metadata');
-        return null;
-      }
-      final saved = await _stream.writeFileBytes(
-          directory.uri, name, 'application/octet-stream', base64Decode(args['data'] as String),
-          overwrite: false, append: false);
-      if (saved.fileName != name ||
-          await _readDocument(directory.uri, name) != args['data']) {
-        throw StateError('sync_metadata');
-      }
-      return null;
+    final prefix = target == 'storage-test.beancount'
+        ? 'storage-test'
+        : 'txncount';
+    final pendingName = RegExp(
+      '^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-pending\\.beancount\$',
+    );
+    final committedName = RegExp(
+      '^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-committed\\.beancount\$',
+    );
+    if (method == 'list_siblings') {
+      final names =
+          (await _util.list(uri))
+              .where(
+                (file) =>
+                    !file.isDir &&
+                    file.name != target &&
+                    file.name.toLowerCase().endsWith('.beancount'),
+              )
+              .map((file) => file.name)
+              .toList()
+            ..sort();
+      return names;
     }
     if (method == 'recovery') {
       return _snapshot(uri, target, prefix, pendingName);
@@ -215,21 +206,32 @@ class FinanceSafService extends FletService {
     if (method == 'finish_write' || method == 'accept_recovery') {
       final snapshot = await _snapshot(uri, target, prefix, pendingName);
       final encoded = args['record'] as String;
-      final record = jsonDecode(utf8.decode(base64Decode(encoded))) as Map<String, dynamic>;
+      final record =
+          jsonDecode(utf8.decode(base64Decode(encoded)))
+              as Map<String, dynamic>;
       if (method == 'finish_write') {
-        if (snapshot['marker'] != encoded || snapshot['current'] != args['data']) {
-          throw StateError('Journal or recovery record changed. Save outcome is uncertain.');
+        if (snapshot['marker'] != encoded ||
+            snapshot['current'] != args['data']) {
+          throw StateError(
+            'Journal or recovery record changed. Save outcome is uncertain.',
+          );
         }
-        final completed = jsonDecode(
-            utf8.decode(base64Decode(args['completed'] as String))) as Map<String, dynamic>;
+        final completed =
+            jsonDecode(utf8.decode(base64Decode(args['completed'] as String)))
+                as Map<String, dynamic>;
         if (completed['phase'] != 'complete' ||
-            jsonEncode(completed['pending']) != jsonEncode(snapshot['pending'])) {
-          throw StateError('Pending recovery copies changed. Saving is blocked.');
+            jsonEncode(completed['pending']) !=
+                jsonEncode(snapshot['pending'])) {
+          throw StateError(
+            'Pending recovery copies changed. Saving is blocked.',
+          );
         }
       } else {
         if (snapshot['marker'] != args['marker'] ||
             snapshot['current'] != args['current']) {
-          throw StateError('Journal changed during recovery. Reload and review again.');
+          throw StateError(
+            'Journal changed during recovery. Reload and review again.',
+          );
         }
         final backup = record['backup'] as String;
         final name = backup.startsWith('backups/') ? backup.substring(8) : '';
@@ -244,27 +246,38 @@ class FinanceSafService extends FletService {
         final pending = List<String>.from(snapshot['pending'] as List)
           ..remove(name);
         if (jsonEncode(pending) != jsonEncode(args['pending'])) {
-          throw StateError('Recovery backups changed. Reload and review again.');
+          throw StateError(
+            'Recovery backups changed. Reload and review again.',
+          );
         }
         if (jsonEncode(record['pending']) != jsonEncode(snapshot['pending'])) {
-          throw StateError('Recovery acknowledgment does not match pending copies.');
+          throw StateError(
+            'Recovery acknowledgment does not match pending copies.',
+          );
         }
         if (snapshot['marker'] != null) {
           final archive = args['archive'] as String;
-          if (!RegExp('^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-pending-recovery\\.json\$')
-              .hasMatch(archive) ||
+          if (!RegExp(
+                '^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-pending-recovery\\.json\$',
+              ).hasMatch(archive) ||
               await _util.child(directory.uri, [archive]) != null) {
             throw StateError('Invalid recovery archive name.');
           }
           await _record(directory.uri, archive, snapshot['marker'] as String);
         }
         if (await _readDocument(uri, target) != args['current'] ||
-            await _readDocument(uri, '.$target.recovery.json') != args['marker']) {
-          throw StateError('Journal changed during recovery. No journal was overwritten.');
+            await _readDocument(uri, '.$target.recovery.json') !=
+                args['marker']) {
+          throw StateError(
+            'Journal changed during recovery. No journal was overwritten.',
+          );
         }
       }
-      await _record(uri, '.$target.recovery.json',
-          method == 'finish_write' ? args['completed'] as String : encoded);
+      await _record(
+        uri,
+        '.$target.recovery.json',
+        method == 'finish_write' ? args['completed'] as String : encoded,
+      );
       return null;
     }
     if (method == 'read') {
@@ -284,12 +297,19 @@ class FinanceSafService extends FletService {
       }
       final bytes = base64Decode(args['data'] as String);
       final saved = await _stream.writeFileBytes(
-          directory.uri, name, 'application/octet-stream', bytes,
-          overwrite: false, append: false);
+        directory.uri,
+        name,
+        'application/octet-stream',
+        bytes,
+        overwrite: false,
+        append: false,
+      );
       if (saved.fileName != name ||
           base64Encode(await _stream.readFileBytes(saved.uri.toString())) !=
               base64Encode(bytes)) {
-        throw StateError('Backup verification failed; original was not written.');
+        throw StateError(
+          'Backup verification failed; original was not written.',
+        );
       }
       return 'backups/$name';
     }
@@ -321,47 +341,61 @@ class FinanceSafService extends FletService {
       if (method == 'commit_backup') {
         final newName = name.replaceFirst('-pending.', '-committed.');
         if (await _util.child(directory.uri, [newName]) != null) {
-          throw StateError('Finalized backup already exists. Recovery copy retained.');
+          throw StateError(
+            'Finalized backup already exists. Recovery copy retained.',
+          );
         }
         final renamed = await _util.rename(file.uri, false, newName);
         if (renamed.name != newName) {
-          throw StateError('Provider changed the backup filename. Inspect recovery copies.');
+          throw StateError(
+            'Provider changed the backup filename. Inspect recovery copies.',
+          );
         }
         return 'backups/$newName';
       }
       if (file.length < 0 || file.length != args['size']) {
-        throw StateError('Backup size changed during cleanup. Review and retry.');
+        throw StateError(
+          'Backup size changed during cleanup. Review and retry.',
+        );
       }
       await _util.delete(file.uri, false);
       if (await _util.child(directory.uri, [name]) != null) {
-        throw StateError('Provider did not remove the old backup. Review and retry.');
+        throw StateError(
+          'Provider did not remove the old backup. Review and retry.',
+        );
       }
       return true;
     }
     if (method == 'write') {
       final snapshot = await _snapshot(uri, target, prefix, pendingName);
-      if (snapshot['marker'] != args['marker'] || snapshot['current'] != args['previous']) {
+      if (snapshot['marker'] != args['marker'] ||
+          snapshot['current'] != args['previous']) {
         throw StateError('Journal changed before saving. Reload and review.');
       }
       final encoded = args['record'] as String;
-      final record = jsonDecode(utf8.decode(base64Decode(encoded))) as Map<String, dynamic>;
+      final record =
+          jsonDecode(utf8.decode(base64Decode(encoded)))
+              as Map<String, dynamic>;
       if (record['phase'] != 'prepared' || record['version'] != 1) {
         throw StateError('Invalid prepared save record.');
       }
       if (args['previous'] != null) {
         final backup = record['backup'];
         final name = backup is String && backup.startsWith('backups/')
-            ? backup.substring(8) : '';
+            ? backup.substring(8)
+            : '';
         final directory = await _util.child(uri, ['backups']);
-        if (!pendingName.hasMatch(name) || directory == null ||
+        if (!pendingName.hasMatch(name) ||
+            directory == null ||
             await _readDocument(directory.uri, name) != args['previous']) {
           throw StateError('Pre-write recovery backup is missing or corrupt.');
         }
       }
       await _record(uri, '.$target.recovery.json', encoded);
-      await _checkSync(uri, target, args['sync_versions']);
       if (await _readDocument(uri, target) != args['previous']) {
-        throw StateError('Journal changed after recovery preparation. Saving is blocked.');
+        throw StateError(
+          'Journal changed after recovery preparation. Saving is blocked.',
+        );
       }
       final bytes = base64Decode(args['data'] as String);
       final file = await _util.child(uri, [target]);
@@ -370,14 +404,23 @@ class FinanceSafService extends FletService {
         await _stream.writeFileUriBytes(file.uri, bytes, append: false);
       } else {
         final saved = await _stream.writeFileBytes(
-            uri, target, 'application/octet-stream', bytes,
-            overwrite: false, append: false);
+          uri,
+          target,
+          'application/octet-stream',
+          bytes,
+          overwrite: false,
+          append: false,
+        );
         if (saved.fileName != target) {
-          throw StateError('Provider changed the filename. Inspect the test folder.');
+          throw StateError(
+            'Provider changed the filename. Inspect the test folder.',
+          );
         }
       }
       if (await _readDocument(uri, target) != args['data']) {
-        throw StateError('Journal read-back differs. Save outcome is uncertain.');
+        throw StateError(
+          'Journal read-back differs. Save outcome is uncertain.',
+        );
       }
       return null;
     }

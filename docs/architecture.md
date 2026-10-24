@@ -13,7 +13,7 @@ src/app/application.py     page lifecycle and event boundary
 src/app/ui/finance.py      MVP screens, forms, polling and lifecycle
 src/app/ui/home.py         home composition and preserved storage diagnostics
 src/app/localization.py    gettext catalog loading, runtime language discovery and locale formatting
-src/app/timekeeping.py     named/system timezone conversion and DST validation
+src/app/timekeeping.py     default clock and native date-picker timezone transport
 src/app/ui/datetime_fields.py shared manual/date-picker/time-picker controls
 src/app/ui/beancount.py    separate bundled-fixture action; lazy parser import
 src/app/beancount_diagnostics.py   pure-Python syntax/editing/quantity experiment, not a full engine
@@ -23,7 +23,6 @@ src/app/domain/backups.py  timestamped backup identities and tiered retention
 src/app/domain/recovery.py checksummed, hash-only Android save records and classification
 src/app/domain/ledger.py   explicit accounts, Decimal postings and running-balance checks
 src/app/journal.py         one-journal load/append/save coordination, no Flet
-src/app/synchronization.py verified local lineage, conflict evidence and lossless UUID merge
 src/app/infrastructure/beancount_journal.py lossless reading, directive splices and generation
 src/app/storage.py         shared read/backup/conflict/write policy and draft
 src/app/infrastructure/    desktop I/O and Android bridge transport
@@ -81,6 +80,25 @@ Run one build/mobile-debug task at a time in a checkout because they share stagi
 output to `txncount-<version>.apk`. Source runs read the project configuration;
 no second maintained version constant is needed.
 
+The journal format is standard Beancount wherever possible. Format extensions
+(app-specific metadata, `custom` directives, reserved account conventions) need
+explicit maintainer approval before they are introduced or changed. Approved:
+`name` on `open` for display names (as read by the refried Fava extension and
+used on commodities in Beancount's example; it is to replace `display-name`),
+transaction `time` (quoted local `"HH:MM"` or
+`"HH:MM:SS"`, as written by beangulp and sorted by autobean-format; it is to
+replace `timestamp`), and Fava `custom "budget"` directives. `txncount-active`
+remains an approved visibility preference: it does not mean accounting closure.
+New transactions have no persistent ID metadata. A source position identifies
+an entry only within its captured source baseline. Native shared links connect
+an expense and its reimbursements. Legacy/user metadata is preserved, not
+globally stripped or treated as an authoritative transaction identity.
+Transfer edit forms reconstruct economic amounts from postings, not stored
+fee-presentation metadata. The default fee category is a local device preference.
+Budget directives are permitted, but budget/envelope calculation is not implemented.
+Transaction times are wall-clock values, not instants: no offset is persisted
+and changing display/default timezone must not convert saved transaction times.
+
 Stage 2's retained fixture parser action runs off the UI loop, imports its
 dependencies lazily so failures do not prevent storage diagnostics startup, and returns
 explicit PASS/FAIL diagnostics. The official Beancount engine is development-only:
@@ -106,22 +124,20 @@ and backup identifiers for crash review, never a second ledger. See the [report]
 backup safety, provider limitations, and device verification status. The same
 adapters allow only `storage-test.beancount` and `txncount.beancount`, with separate
 backup namespaces. Cloud transport still belongs to the user's external folder
-tool; local synchronization conflict detection/review is described below. No
+tool; external-change notices are described below. No
 analytics or authentication is included.
 
-`SyncFolder` adds checked sibling listing, immutable evidence storage and a final
-source-inventory guard to the existing adapters. `synchronization.py` validates
-hash-addressed exact snapshots and explicit parent/child records. Only verified
-recorded derivation can establish a three-way base, never an arbitrary backup or
-timestamp. Authored candidates are preserved before saving; separate head records
-identify verified saves. Divergent surviving heads can expose main-file replacement
-while the app was closed. Missing/damaged referenced evidence blocks writes.
-The journal service preserves both versions, gates readiness, validates complete
-resolution candidates, then reuses `StorageSession.write` and Android recovery.
-Acknowledgments suppress only reviewed filename/hash pairs on the resolved lineage;
-the original conflict documents remain untouched. UI owns localized choices,
-not merge decisions. No cloud client, global lock or general version-control
-system is introduced. See [synchronization guarantees](synchronization.md).
+External synchronization is deliberately sequential: finish editing and let the
+external tool finish syncing before opening another device. TxnCount does not
+know whether synchronization is complete. Polling observes the main journal
+and lists sibling names for a nonblocking possible-conflict notice; it never
+reads sibling contents automatically or scans `.txncount-sync/`. No ancestry,
+merge, acknowledgement, or auxiliary evidence inventory gates a save.
+Stale form baselines still refuse saving, retain input, and require explicit
+review/reload rather than automatic rebasing. Read-only source differences help
+explain external changes but are never logged. Neither this model nor the final
+hash comparison eliminates the race with an external writer after that check.
+See [synchronization guarantees](synchronization.md).
 
 Backup retention keeps 20 recent snapshots plus daily/monthly tiers. The
 storage session finalizes a timestamped `pending` backup only after verified
@@ -157,7 +173,7 @@ transaction edit/delete pipeline. Income credits user-managed `Income:`
 categories; reimbursements credit `Expenses:` categories; balance-only receipts
 credit `Equity:Balance-Adjustments`, separate from opening balances. No receivable
 or automatic reimbursement allocation is maintained. Optional
-`txncount-expense-id` metadata is an informational reference, not a foreign-key
+native shared links are informational references, not foreign-key
 constraint: editing/deleting the original never cascades into a receipt.
 `Ledger.period_totals` uses inclusive accounting dates and separate per-currency
 income/net-expense sums; reimbursements affect their receipt period and equity
@@ -186,7 +202,7 @@ do not enter unrelated saves. Category selections and common draft fields
 survive sign/account/special-receipt changes. Advanced also holds fee settings,
 payee and time, with saved-value summaries when editing. `DateTimeFields` offers
 a compact date row and a separate time-control group using the same state,
-pickers and exact timestamp-preservation logic.
+pickers and wall-clock preservation logic.
 
 Failed saves retain the form. Each dialog captures its journal and source
 baseline, including new expenses. As explicitly approved, editing keeps the
@@ -194,7 +210,7 @@ accounting kind fixed: the mode selector is disabled, and saved-kind checks also
 protect submission. Transfers can change both accounts and amounts to reverse
 direction; this does not turn them into another kind.
 Opening balances still use their guarded account-opening editor. Split and
-externally authored entries retain full read-only posting details; no new
+unrecognized externally authored entries retain full read-only posting details; no new
 two-posting restriction is imposed on loading. Same-currency transfers extend
 this form and use two account postings plus an optional expense-fee posting.
 Standard `Liabilities:` accounts use the existing account model, with credit
@@ -225,26 +241,25 @@ See [the accounting examples and precision policy](crud-fava.md#cross-currency-t
 Negative asset balances, including historical ones, now produce visible warnings
 instead of blocking loading or saving, as explicitly approved for overdrafts and
 backdated operations. This applies consistently to all operations; financial
-validation (balanced explicit amounts, declarations, currency, dates and IDs)
+validation (balanced explicit amounts, declarations, currency and dates)
 remains strict. Liability credit balances are normal and do not produce an
 insufficient-funds warning.
 
-The default transfer fee category is standard boolean metadata
-`txncount-default-transfer-fee` on an expense category's `open` directive.
+The default transfer fee category is a local device preference.
 Without it, `Expenses:Bank-Fees` is the default and is declared only when first
-used with a nonzero fee, within the same validated save. Transfer metadata
-`txncount-fee-mode` distinguishes added/deducted fees; editing derives amounts
-from postings, preserving IDs and unrelated annotations. A removed fee posting
+used with a nonzero fee, within the same validated save. Editing derives amounts
+from postings with canonical added-fee presentation, preserving unrelated
+annotations rather than persisting a fee-presentation mode. A removed fee posting
 with metadata or an inline comment is retained at zero to preserve annotations.
 
 The compact UI keeps one movement amount in ordinary transaction rows and
 opens details/editors through icon actions. The shared date/time control
 shows one date/time group. It retains the original accounting date and exact
-timestamp until the date or time is edited; an edit synchronizes both from the
+wall-clock time until the date or time is edited; an edit synchronizes both from the
 visible date/time. Display dates use explicit
 English/Ukrainian/Russian month names, never the Python host's process locale.
-Manual formats and picker locales follow app language. Unchanged timestamps
-retain their original offset and subsecond precision.
+Manual formats and picker locales follow app language. Transaction times have
+no UTC offset; a timezone preference cannot move existing transactions.
 Optional payee fields are collapsed and blank for new expenses; saved payees
 survive unrelated edits. Description validation allows line breaks within
 parser-generated quoted journal strings.

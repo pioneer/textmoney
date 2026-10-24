@@ -4,7 +4,6 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
-from uuid import UUID
 
 import flet as ft
 import pytest
@@ -20,7 +19,6 @@ from app.infrastructure.beancount_journal import JournalCodec
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.storage import StorageError, WriteError
-from app.synchronization import SyncConflict, file_hash
 from app.ui.finance import FinanceView
 
 
@@ -58,8 +56,11 @@ def test_end_to_end_accounts_categories_expense_reload_and_official_engine(tmp_p
             "Expenses:Food:Groceries",
         }
         for transaction in journal.ledger.transactions:
-            UUID(transaction.id)
-            assert datetime.fromisoformat(transaction.timestamp).utcoffset() is not None
+            assert transaction.id.startswith("source-")
+            assert datetime.fromisoformat(transaction.timestamp).utcoffset() is None
+        assert not any(line.lstrip().startswith("id:") for line in journal.source.splitlines())
+        assert "timestamp:" not in journal.source
+        assert 'name: "Готівка"' in journal.source and "time:" in journal.source
         reloaded = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await reloaded.load()
         assert reloaded.ledger == journal.ledger
@@ -163,13 +164,7 @@ def test_append_preserves_comments_metadata_custom_directives_and_other_files(
         (tmp_path / FILENAME).write_bytes(original.encode())
         other = tmp_path / "unrelated.beancount"
         other.write_bytes(b"unsupported and private; do not modify")
-        with pytest.raises(SyncConflict):
-            await journal.load()
-        state = journal.sync_state
-        assert state is not None
-        await journal.resolve_sync(
-            next(iter(state.versions)), state, original, local_hash=file_hash(original.encode())
-        )
+        await journal.load()
         await journal.add_expense("Assets:Cash", "Expenses:Food", "1", "Shop", "2026-10-01")
         result = (tmp_path / FILENAME).read_bytes()
         assert result.startswith(original.encode())
@@ -197,7 +192,7 @@ def test_unsupported_content_blocks_writes_and_preserves_original(
         with (tmp_path / FILENAME).open("ab") as stream:
             stream.write(suffix.encode())
         original = (tmp_path / FILENAME).read_bytes()
-        with pytest.raises((LedgerError, SyncConflict)):
+        with pytest.raises(LedgerError, match="Line"):
             await journal.load()
         assert not journal.ready
         with pytest.raises(LedgerError, match="Reload"):
@@ -373,7 +368,7 @@ def test_ui_success_conflict_reload_and_validation_retain_form_inputs(
         '2026-01-01 * "Unknown"\n  Assets:Missing -1 UAH\n  Expenses:Food 1 UAH\n',
         '2026-01-01 * "Currency"\n  Assets:Cash -1 USD\n  Expenses:Food 1 USD\n',
         '2026-01-01 * "Expression"\n  Assets:Cash (1 / 0) UAH\n  Expenses:Food 1 UAH\n',
-        '2026-01-01 * "Timezone"\n  timestamp: "2026-01-01T12:00:00"\n'
+        '2026-01-01 * "Timezone"\n  time: "12:00:00+02:00"\n'
         "  Assets:Cash -1 UAH\n  Expenses:Food 1 UAH\n",
         '9999-01-01 * "Future"\n  Assets:Cash -1 UAH\n  Expenses:Food 1 UAH\n',
     ],

@@ -1,4 +1,4 @@
-"""Timezone conversion at the UI boundary; journal dates remain accounting dates."""
+"""Local journal wall times and timezone-aware client picker transport."""
 
 import re
 from datetime import UTC, date, datetime
@@ -27,6 +27,11 @@ def wall_timestamp(day: date, clock: str, zone: str = "system") -> str:
             raise ValueError
     except ValueError as exc:
         raise LedgerError("crud_time_invalid") from exc
+    return wall.isoformat(timespec="seconds")
+
+
+def picker_timestamp(day: date, clock: str, zone: str = "system") -> str:
+    wall = datetime.fromisoformat(wall_timestamp(day, clock))
     candidates: dict[datetime, datetime] = {}
     for fold in (0, 1):
         naive = wall.replace(fold=fold)

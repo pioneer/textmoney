@@ -6,7 +6,7 @@ import flet as ft
 
 from app.domain.ledger import LedgerError
 from app.localization import date_input, parse_date_input, translate
-from app.timekeeping import local_datetime, wall_timestamp
+from app.timekeeping import local_datetime, picker_timestamp, wall_timestamp
 
 
 class DateTimeFields(ft.Column):
@@ -27,12 +27,14 @@ class DateTimeFields(ft.Column):
         self.device_zone = device_zone
         self.compact = compact
         self.time_controls = ft.Column(spacing=8)
-        stamp = local_datetime(
-            datetime.fromisoformat(timestamp) if timestamp else datetime.now().astimezone(), zone
+        stamp = (
+            datetime.fromisoformat(timestamp).replace(tzinfo=None)
+            if timestamp
+            else local_datetime(datetime.now().astimezone(), zone).replace(tzinfo=None)
         )
         displayed_date = occurred if show_accounting_date and occurred else stamp.date()
         self.original_occurred = occurred or stamp.date()
-        self.original_timestamp = timestamp or stamp.isoformat()
+        self.original_timestamp = stamp.isoformat(timespec="seconds")
         self.occurred = ft.TextField(value=date_input(displayed_date, language))
         self.clock = ft.TextField(value=stamp.strftime("%H:%M:%S"))
         self.original_fields = self._field_values()
@@ -53,17 +55,7 @@ class DateTimeFields(ft.Column):
     def set_zone(self, zone: str) -> None:
         if zone == self.zone:
             return
-        pristine = self.pristine
-        occurred, timestamp = self.values()
-        stamp = local_datetime(datetime.fromisoformat(timestamp), zone)
-        self.occurred.value = date_input(stamp.date(), self.language)
-        self.clock.value = stamp.strftime("%H:%M:%S")
-        self.original_occurred = date.fromisoformat(occurred)
-        self.original_timestamp = timestamp
-        self.original_fields = self._field_values()
         self.zone = zone
-        if pristine:
-            self.initial_values = self._field_values()
         self._labels()
 
     def tr(self, key: str, **values: object) -> str:
@@ -150,12 +142,12 @@ class DateTimeFields(ft.Column):
                 raise LedgerError("crud_timezone_unavailable")
             picker = ft.DatePicker(
                 # Flet transports dates as instants; use client-local noon to avoid day shifts.
-                value=datetime.fromisoformat(wall_timestamp(value, "12:00", self.device_zone)),
+                value=datetime.fromisoformat(picker_timestamp(value, "12:00", self.device_zone)),
                 first_date=datetime.fromisoformat(
-                    wall_timestamp(date(1970, 1, 1), "12:00", self.device_zone)
+                    picker_timestamp(date(1970, 1, 1), "12:00", self.device_zone)
                 ),
                 last_date=datetime.fromisoformat(
-                    wall_timestamp(date(2100, 12, 31), "12:00", self.device_zone)
+                    picker_timestamp(date(2100, 12, 31), "12:00", self.device_zone)
                 ),
                 locale=ft.Locale(language_code=self.language),
                 on_change=selected,

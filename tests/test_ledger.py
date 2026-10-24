@@ -147,8 +147,7 @@ def test_expense_invalid_amounts_never_change_ledger(amount: str) -> None:
     assert ledger.balances()["Assets:Cash"] == Decimal("10")
 
 
-def test_same_day_order_compares_instants_not_timezone_strings() -> None:
-    # 10:00+03 occurs before 08:00Z; lexical timestamp order is wrong.
+def test_same_day_order_uses_local_wall_time_without_offset_conversion() -> None:
     funding = Transaction(
         "fund",
         EPOCH,
@@ -176,3 +175,24 @@ def test_same_day_order_compares_instants_not_timezone_strings() -> None:
     original = funded_ledger()
     ledger = Ledger(original.accounts, original.categories, (spending, funding), EPOCH)
     assert ledger.balances()["Assets:Cash"] == Decimal("0")
+    assert ledger.balance_warnings() == {"Assets:Cash"}
+
+
+def test_same_day_equal_times_keep_source_order_not_identifier_order() -> None:
+    original = funded_ledger()
+    funding = replace(original.transactions[0], id="a-funding", timestamp="1970-01-01T00:00:00")
+    spending = Transaction(
+        "z-spending",
+        EPOCH,
+        funding.timestamp,
+        "",
+        "",
+        (
+            Posting("Assets:Cash", Decimal("-10"), "UAH"),
+            Posting("Expenses:Food", Decimal("10"), "UAH"),
+        ),
+        "expense",
+    )
+    ledger = replace(original, transactions=(spending, funding))
+    assert ledger.balance_warnings() == {"Assets:Cash"}
+    assert not replace(ledger, transactions=(funding, spending)).balance_warnings()

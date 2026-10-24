@@ -525,8 +525,9 @@ msgstr ""
 #. Stable TxnCount key: ui.timezone_help; do not translate this identifier.
 msgid "ui.timezone_help"
 msgstr ""
-"Системный пояс этого устройства или имя IANA, например Europe/Kyiv. "
-"Существующие временные метки и учётные даты не изменяются."
+"Только для начального текущего времени и передачи даты календарю. Системный пояс этого устройства "
+"или имя IANA, например Europe/Kyiv. Сохранённые даты и местное время операций не преобразуются "
+"при изменении настройки; часовой пояс и смещение UTC не сохраняются."
 
 #. Stable TxnCount key: ui.timezone_system; do not translate this identifier.
 msgid "ui.timezone_system"
@@ -538,7 +539,7 @@ msgstr "Часовой пояс сохранён."
 
 #. Stable TxnCount key: ui.timezone_current; do not translate this identifier.
 msgid "ui.timezone_current"
-msgstr "Текущий часовой пояс: {zone}"
+msgstr "Пояс начального времени: {zone} · время операции является местным"
 
 #. Stable TxnCount key: ui.time; do not translate this identifier.
 msgid "ui.time"
@@ -859,7 +860,44 @@ msgstr "Сохранение приостановлено"
 msgid "ui.conflict_body"
 msgstr ""
 "Журнал изменился вне TxnCount. Данные не перезаписаны, введённые значения"
-" сохранены. Обновите данные и проверьте баланс перед повторной попыткой."
+" сохранены. Просмотрите внешние изменения или обновите данные. Устаревшую форму нельзя сохранить "
+"поверх нового журнала: оставьте черновик, откройте новую форму и перенесите данные."
+
+msgid "ui.external_notice"
+msgstr "Журнал изменён вне TxnCount. Открытые черновики сохранены без автоматического переноса на новую версию. Просмотрите изменения и откройте новую форму перед сохранением устаревшего черновика."
+
+msgid "ui.external_details"
+msgstr "Просмотреть внешние изменения"
+
+msgid "ui.external_observed"
+msgstr "Замечено локально: {observed}. Это не время редактирования файла."
+
+msgid "ui.external_summary"
+msgstr "{kind}: добавлено {added}, удалено {removed}, изменено {changed}."
+
+msgid "ui.external_summary_unavailable"
+msgstr "Безопасная сводка недоступна. Просмотрите различия текста ниже."
+
+msgid "ui.external_diff"
+msgstr "Различия текста (только чтение)"
+
+msgid "ui.conflict_copies"
+msgstr "Возможные конфликтные копии (только имена). Текущий журнал остаётся активным, сохранение не заблокировано. Проверьте эти файлы снаружи; TxnCount не будет читать, объединять, удалять или активировать их:"
+
+msgid "ui.conflict_copy_scan_failed"
+msgstr "Не удалось проверить имена соседних файлов на возможные конфликтные копии. Текущий журнал остаётся доступным."
+
+msgid "ui.default_fee_saved"
+msgstr "Категория комиссии по умолчанию сохранена только на этом устройстве."
+
+msgid "ui.default_fee_save_failed"
+msgstr "Не удалось сохранить локальную категорию комиссии по умолчанию. Предыдущая настройка не изменена."
+
+msgid "ui.default_fee_unavailable"
+msgstr "Локально выбранная категория комиссии отсутствует или неактивна в этом журнале. Выберите активную категорию расходов; локальная настройка не изменена."
+
+msgid "ui.default_fee_invalid"
+msgstr "Локальная настройка категории комиссии по умолчанию некорректна. Проверьте настройки этого устройства."
 
 #. Stable TxnCount key: ui.keep_editing; do not translate this identifier.
 msgid "ui.keep_editing"

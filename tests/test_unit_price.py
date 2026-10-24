@@ -36,16 +36,21 @@ def test_unit_price_exchanges_preserve_units_and_balance_with_official_engines(
         "income": {"UAH": Decimal("500")},
         "expenses": {"USD": Decimal("1"), "UAH": Decimal("84.25")},
     }
-    transactions = {transaction.id: transaction for transaction in ledger.transactions}
-    forward = ledger.transfer_details(transactions["unit-forward"])
-    reverse = ledger.transfer_details(transactions["unit-reverse"])
+    transactions = {transaction.narration: transaction for transaction in ledger.transactions}
+    forward = ledger.transfer_details(transactions["USD to UAH using unit price"])
+    reverse = ledger.transfer_details(transactions["UAH to USD using unit price"])
     assert forward.rate == Decimal("42.125")
     assert reverse.rate == Decimal("0.0425")
-    positive = ledger.transfer_details(transactions["unit-positive"])
+    positive = ledger.transfer_details(transactions["UAH to USD with positive unit price"])
     assert positive.received_principal == Decimal("100")
     assert positive.converted == Decimal("4212.50")
-    assert ledger.transfer_details(transactions["source-fee"]).fee_currency == "USD"
-    assert ledger.transfer_details(transactions["destination-fee"]).fee_currency == "UAH"
+    assert (
+        ledger.transfer_details(transactions["Source-currency transfer fee"]).fee_currency == "USD"
+    )
+    assert (
+        ledger.transfer_details(transactions["Destination-currency transfer fee"]).fee_currency
+        == "UAH"
+    )
 
     entries, errors, _ = loader.load_string(source)
     assert not errors, [error.message for error in errors]
@@ -64,10 +69,13 @@ def test_unit_price_source_round_trips_exactly_and_is_read_only(tmp_path: Path) 
         journal = Journal(DesktopFolder(str(tmp_path), FILENAME), today=lambda: TODAY)
         await journal.load()
         assert journal.source == source
+        transaction = next(
+            t for t in journal.ledger.transactions if t.narration == "USD to UAH using unit price"
+        )
         with pytest.raises(LedgerError, match="crud_transaction_readonly"):
-            journal.transaction_for_edit("exchange-forward")
+            journal.transaction_for_edit(transaction.id)
         with pytest.raises(LedgerError, match="crud_transaction_readonly"):
-            await journal.delete_transaction("exchange-forward", source)
+            await journal.delete_transaction(transaction.id, source)
         await journal.create_category("Unrelated", "Unrelated", opened=date(2026, 1, 1))
         saved = path.read_text(encoding="utf-8")
         assert saved.startswith(source)

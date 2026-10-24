@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Final
 
 from app.domain.ledger import LedgerError
-from app.timekeeping import local_datetime
 
 LOCALE_DIR: Final = Path(__file__).with_name("locale")
 DOMAIN: Final = "txncount"
@@ -191,22 +190,9 @@ def system_language(locales: tuple[str, ...] | list[str]) -> str:
 
 
 def localized_error(language: str, message: str) -> str:
-    key = (
-        message
-        if message.startswith(
-            (
-                "crud_",
-                "incoming_",
-                "transfer_",
-                "exchange_",
-                "recovery_",
-                "sync_",
-                "report_",
-            )
-        )
-        and message in catalog_keys()["en"]
-        else _ERROR_KEYS.get(message)
-    )
+    if message.startswith("Line "):
+        return f"{translate(language, 'error_unsupported')}\n\n{message}"
+    key = message if message in catalog_keys()["en"] else _ERROR_KEYS.get(message)
     if key is None:
         if message.startswith(
             ("Write failed or uncertain.", "SAF save outcome is uncertain.", "Journal may already")
@@ -246,8 +232,8 @@ def format_date(value: date, language: str) -> str:
 
 
 def format_timestamp(value: str, language: str, zone: str = "system") -> str:
-    parsed = local_datetime(datetime.fromisoformat(value), zone)
-    return f"{format_date(parsed.date(), language)} · {parsed:%H:%M:%S} {parsed:%Z}"
+    parsed = datetime.fromisoformat(value)
+    return f"{format_date(parsed.date(), language)} · {parsed:%H:%M:%S}"
 
 
 def date_input(value: date, language: str) -> str:

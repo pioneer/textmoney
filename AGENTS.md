@@ -12,6 +12,21 @@
 - Keep domain code Flet-free. UI calls domain/services; integrations belong behind
   service/infrastructure boundaries introduced only when needed. Avoid import
   side effects and hidden global mutable state.
+- Journals must follow standard Beancount syntax and semantics as strictly as
+  possible; prefer native constructs (`open`/`close`, links, tags, options).
+  Any extension (app-specific metadata keys, `custom` directives, reserved
+  account conventions, or other nonstandard data written to the journal) must
+  be explicitly discussed with and approved by the maintainer first. Approved:
+  `name` on `open` for display names (refried's Fava convention, matching
+  Beancount's commodity `name`; replaces `display-name`), transaction `time`
+  as a quoted local `"HH:MM"`/`"HH:MM:SS"` string (beangulp/autobean-format
+  convention; replaces `timestamp`), and Fava `custom "budget"` directives.
+  `txncount-active` on `open` is approved for visibility/reactivation (not
+  accounting closure). Reimbursements may use native shared links; opening
+  balances and adjustments use the existing reserved equity accounts.
+  Do not generate transaction `id`, `timestamp`, `txncount-kind`,
+  `txncount-expense-id`, or `txncount-fee-mode` metadata. Store fee-category
+  defaults locally, not in the journal. Preserve unrelated user metadata.
 - Never swallow integration failures. Use explicit error semantics and useful
   traceback-preserving logging. Never log credentials, raw headers, private
   payloads, or sensitive URLs; defensive redaction is not permission to log them.

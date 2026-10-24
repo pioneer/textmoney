@@ -1,5 +1,11 @@
 # TxnCount MVP 0.1
 
+This report retains historical milestone examples. The current
+[journal and synchronization contract](synchronization.md) supersedes its
+`id`, `timestamp`, `display-name` and distributed-conflict behavior: current
+output uses `name`, local `time`, optional native reimbursement links and
+sequential editing. Local backup and Android recovery protection remain.
+
 This report records the original MVP and adaptive-UI builds through build 6.
 The newer [CRUD/Fava milestone](crud-fava.md) adds guarded editing/deletion,
 account/category lifecycle and operating currency settings; its verification

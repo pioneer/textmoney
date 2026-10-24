@@ -19,9 +19,9 @@ from app.infrastructure.preferences import DesktopPreferences
 from app.journal import FILENAME, Journal
 from app.localization import date_input, format_timestamp, parse_date_input, translate
 from app.storage import StorageError
-from app.timekeeping import local_datetime, named_zone, wall_timestamp
+from app.timekeeping import local_datetime, named_zone, picker_timestamp, wall_timestamp
 from app.ui.datetime_fields import DateTimeFields
-from app.ui.finance import TIMEZONE_KEY, FinanceView
+from app.ui.finance import DEFAULT_FEE_KEY, TIMEZONE_KEY, FinanceView
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
@@ -38,7 +38,8 @@ def test_localized_manual_date_roundtrip(language: str) -> None:
     ("day", "offset"), [(date(2026, 1, 15), "+02:00"), (date(2026, 7, 15), "+03:00")]
 )
 def test_named_timezone_uses_date_specific_dst_rules(day: date, offset: str) -> None:
-    assert wall_timestamp(day, "12:34:56", "Europe/Kyiv") == f"{day}T12:34:56{offset}"
+    assert picker_timestamp(day, "12:34:56", "Europe/Kyiv") == f"{day}T12:34:56{offset}"
+    assert wall_timestamp(day, "12:34:56", "Europe/Kyiv") == f"{day}T12:34:56"
 
 
 @pytest.mark.parametrize(
@@ -47,7 +48,8 @@ def test_named_timezone_uses_date_specific_dst_rules(day: date, offset: str) -> 
 )
 def test_dst_gaps_and_folds_are_not_silently_guessed(day: date, error: str) -> None:
     with pytest.raises(LedgerError, match=error):
-        wall_timestamp(day, "03:30", "Europe/Kyiv")
+        picker_timestamp(day, "03:30", "Europe/Kyiv")
+    assert wall_timestamp(day, "03:30", "Europe/Kyiv") == f"{day}T03:30:00"
 
 
 @pytest.mark.parametrize(
@@ -59,34 +61,41 @@ def test_invalid_time_is_actionable(clock: str) -> None:
         wall_timestamp(date(2026, 1, 1), clock, "UTC")
 
 
-def test_unknown_zone_is_rejected_and_timestamp_display_converts_without_changing_date() -> None:
+def test_unknown_zone_is_rejected_and_timestamp_display_preserves_wall_time() -> None:
     with pytest.raises(LedgerError, match="crud_timezone_invalid"):
         named_zone("not/a-zone")
     original = "2026-10-18T23:30:00+00:00"
-    assert format_timestamp(original, "en", "Europe/Kyiv") == "Oct 19, 2026 · 02:30:00 EEST"
+    assert format_timestamp(original, "en", "Europe/Kyiv") == "Oct 18, 2026 · 23:30:00"
+    assert format_timestamp("2026-10-18T23:30:00", "en", "Asia/Tokyo") == (
+        "Oct 18, 2026 · 23:30:00"
+    )
     assert local_datetime(datetime.fromisoformat(original), "UTC").day == 18
 
 
-def test_unchanged_edit_retains_exact_timestamp_offset_precision_and_dst_fold() -> None:
+def test_unchanged_edit_uses_local_wall_time_and_accepts_dst_fold() -> None:
     stamp = "2026-10-25T03:30:00.123456+02:00"
     editor = DateTimeFields("uk", "Europe/Kyiv", date(2026, 10, 24), stamp)
-    assert editor.values() == ("2026-10-24", stamp)
+    assert editor.values() == ("2026-10-24", "2026-10-25T03:30:00")
     editor.set_language("en")
     assert editor.occurred.value == "10/25/2026"
-    assert editor.values()[1] == stamp
+    assert editor.values()[1] == "2026-10-25T03:30:00"
     editor.clock.value = "03:31"
-    with pytest.raises(LedgerError, match="crud_time_ambiguous"):
-        editor.values()
+    assert editor.values() == ("2026-10-25", "2026-10-25T03:31:00")
     editor.occurred.value = "10/23/2026"
-    assert editor.values() == ("2026-10-23", "2026-10-23T03:31:00+03:00")
+    assert editor.values() == ("2026-10-23", "2026-10-23T03:31:00")
 
 
-def test_explicit_zone_change_preserves_draft_instant_and_accounting_date() -> None:
+def test_explicit_zone_change_preserves_wall_time_and_accounting_date() -> None:
     editor = DateTimeFields("en", "UTC", date(2026, 1, 1), "2026-01-02T23:30:00+00:00")
     editor.set_zone("Europe/Kyiv")
-    assert editor.occurred.value == "01/03/2026"
-    assert editor.clock.value == "01:30:00"
-    assert editor.values() == ("2026-01-01", "2026-01-02T23:30:00+00:00")
+    assert editor.occurred.value == "01/02/2026"
+    assert editor.clock.value == "23:30:00"
+    assert editor.values() == ("2026-01-01", "2026-01-02T23:30:00")
+    editor.occurred.value = "01/"
+    editor.clock.value = "17:"
+    editor.set_zone("Asia/Tokyo")
+    assert editor.occurred.value == "01/"
+    assert editor.clock.value == "17:"
 
 
 def test_partial_date_is_preserved_when_language_changes() -> None:
@@ -284,12 +293,12 @@ def test_system_timezone_uses_os_rules_for_selected_date(monkeypatch: pytest.Mon
         with monkeypatch.context() as context:
             context.setenv("TZ", "Europe/Kyiv")
             tzset()
-            assert wall_timestamp(date(2026, 1, 15), "12:00").endswith("+02:00")
-            assert wall_timestamp(date(2026, 7, 15), "12:00").endswith("+03:00")
+            assert picker_timestamp(date(2026, 1, 15), "12:00").endswith("+02:00")
+            assert picker_timestamp(date(2026, 7, 15), "12:00").endswith("+03:00")
             with pytest.raises(LedgerError, match="crud_time_missing"):
-                wall_timestamp(date(2026, 3, 29), "03:30")
+                picker_timestamp(date(2026, 3, 29), "03:30")
             with pytest.raises(LedgerError, match="crud_time_ambiguous"):
-                wall_timestamp(date(2026, 10, 25), "03:30")
+                picker_timestamp(date(2026, 10, 25), "03:30")
     finally:
         tzset()
 
@@ -323,9 +332,8 @@ def test_manual_edit_saves_localized_date_and_named_zone_time_with_stable_id(
         editor.clock.value = "14:15"
         await dialog.actions[-1].on_click(MagicMock())
         edited = view.journal.ledger.transactions[-1]
-        assert edited.id == transaction.id
         assert edited.date == date(2026, 10, 17)
-        assert edited.timestamp == "2026-10-17T14:15:00+03:00"
+        assert edited.timestamp == "2026-10-17T14:15:00"
         assert list((tmp_path / "backups").iterdir())
         assert view.journal.ledger.balances()["Assets:Cash"] == Decimal("90")
 
@@ -345,20 +353,22 @@ def test_readonly_transaction_opens_details_instead_of_hiding_its_postings(
         await view.journal.create_account(
             "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
         )
-        opening = view.journal.ledger.transactions[0]
-        source = view.journal.source.replace(
-            f'  timestamp: "{opening.timestamp}"',
-            f'  timestamp: "{opening.timestamp}"\n  txncount-kind: "external"',
+        source = view.journal.source + (
+            "\n1970-01-01 open Expenses:Odd\n"
+            '\n2026-10-18 * "Split entry"\n'
+            "  Assets:Cash -10 UAH\n"
+            "  Equity:Opening-Balances 5 UAH\n"
+            "  Expenses:Odd 5 UAH\n"
         )
         (tmp_path / FILENAME).write_text(source, newline="")
         await review_external_fixture(view.journal)
         original = view.journal.source
         event = MagicMock()
-        event.control.data = view.journal.ledger.transactions[0].id
+        event.control.data = view.journal.ledger.transactions[-1].id
         view._edit_transaction(event)
         dialog = page.show_dialog.call_args.args[0]
         assert dialog.title == "Details"
-        assert "Wallet: 100.00 UAH" in texts(dialog.content)
+        assert "Wallet: −10.00 UAH" in texts(dialog.content)
         assert any("Equity:Opening-Balances" in text for text in texts(dialog.content))
         assert len(dialog.actions) == 1
         assert view.journal.source == original
@@ -456,10 +466,10 @@ def test_accounting_today_can_come_from_device_zone_instead_of_python_host(tmp_p
 def test_new_datetime_group_has_one_date_and_both_stored_dates_follow_manual_changes() -> None:
     editor = DateTimeFields("uk", "Europe/Kyiv", timestamp="2026-10-18T12:34:56+03:00")
     assert len(editor.controls) == 3
-    assert editor.values() == ("2026-10-18", "2026-10-18T12:34:56+03:00")
+    assert editor.values() == ("2026-10-18", "2026-10-18T12:34:56")
     editor.occurred.value = "17.10.2026"
     editor.clock.value = "14:15"
-    assert editor.values() == ("2026-10-17", "2026-10-17T14:15:00+03:00")
+    assert editor.values() == ("2026-10-17", "2026-10-17T14:15:00")
 
 
 def test_new_expense_starts_empty_even_with_a_legacy_default_payee_preference(
@@ -548,12 +558,15 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         await journal.create_category("Food", "Food", opened=EPOCH)
         await journal.add_expense("Assets:Cash", "Expenses:Food", "10", "Saved shop", "2026-01-01")
         original = journal.ledger.transactions[-1]
-        stamp = "2026-01-02T00:30:00.123456Z"
-        source = journal.source.replace(original.timestamp, stamp)
+        stamp = "2026-01-01T00:30:00"
+        source = journal.source.replace(
+            f'  time: "{datetime.fromisoformat(original.timestamp):%H:%M:%S}"',
+            '  time: "00:30:00"',
+        )
         (tmp_path / FILENAME).write_text(source, newline="")
         await review_external_fixture(journal)
         event = MagicMock()
-        event.control.data = original.id
+        event.control.data = journal.ledger.transactions[-1].id
         view._edit_transaction(event)
         dialog = page.show_dialog.call_args.args[0]
         tile = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
@@ -562,14 +575,15 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         payee = next(c for c in tile.controls if isinstance(c, ft.TextField))
         assert payee.value == "Saved shop"
         when = next(c for c in dialog.content.controls if isinstance(c, DateTimeFields))
-        assert when.occurred.value == "01/02/2026"
+        assert when.occurred.value == "01/01/2026"
         transaction_form(dialog).amount.value = "12"
         await dialog.actions[-1].on_click(MagicMock())
-        saved = next(t for t in journal.ledger.transactions if t.id == original.id)
+        saved = journal.ledger.transactions[-1]
         assert saved.payee == "Saved shop"
         assert saved.date == date(2026, 1, 1)
         assert saved.timestamp == stamp
 
+        event.control.data = saved.id
         view._edit_transaction(event)
         dialog = page.show_dialog.call_args.args[0]
         tile = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
@@ -648,9 +662,8 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
             await journal.edit_account("Assets:Cash", "Wallet", "0", True, journal.source)
         original = next(t for t in journal.ledger.transactions if t.kind == "opening")
         source = journal.source.replace(
-            f'  timestamp: "{original.timestamp}"',
-            f'  timestamp: "{original.timestamp}"\n'
-            '  txncount-kind: "opening"\n'
+            f'  time: "{datetime.fromisoformat(original.timestamp):%H:%M:%S}"',
+            f'  time: "{datetime.fromisoformat(original.timestamp):%H:%M:%S}"\n'
             '  receipt: "keep" ; comment',
         )
         (tmp_path / FILENAME).write_text(source, newline="")
@@ -683,7 +696,7 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
         else:
             await dialog.actions[-1].on_click(MagicMock())
         if mode in {"save", "zero", "negative"}:
-            saved = next(t for t in journal.ledger.transactions if t.id == original.id)
+            saved = next(t for t in journal.ledger.transactions if t.kind == "opening")
             assert saved.date == original.date and saved.timestamp == original.timestamp
             assert journal.opening_balance("Assets:Cash") == Decimal(
                 "5" if mode == "negative" else "120"
@@ -720,8 +733,7 @@ def test_multiple_openings_remain_readonly_with_dates_in_collapsed_details(
         original = journal.ledger.transactions[0]
         source = journal.source + (
             '\n1970-01-01 * "Additional opening"\n'
-            '  id: "second-opening"\n'
-            '  txncount-kind: "opening"\n'
+            '  time: "00:00:00"\n'
             "  Assets:Cash 10 UAH\n"
             "  Equity:Opening-Balances -10 UAH\n"
         )
@@ -740,3 +752,206 @@ def test_multiple_openings_remain_readonly_with_dates_in_collapsed_details(
         assert (tmp_path / FILENAME).read_text(newline="") == source
 
     asyncio.run(scenario())
+
+
+def test_external_poll_retains_draft_and_requires_fresh_form_after_reload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view = FinanceView()
+        journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_account(
+            "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
+        )
+        await journal.create_category("Food", "Food", opened=EPOCH)
+        view._new_transaction(MagicMock())
+        dialog = page.show_dialog.call_args.args[0]
+        form = transaction_form(dialog)
+        form.account.value, form.category.value = "Assets:Cash", "Expenses:Food"
+        form.amount.value, form.description.value = "10", "Private retained draft"
+        baseline = journal.source
+        external = baseline + "\n; External update\n"
+        (tmp_path / FILENAME).write_text(external, newline="")
+        await view._poll_journal()
+        assert journal.source == external
+        assert view.external_notice.visible
+        assert form.description.value == "Private retained draft"
+        assert form.amount.value == "10"
+        view._review_external(MagicMock())
+        review = page.show_dialog.call_args.args[0]
+        rendered = "\n".join(texts(review.content))
+        assert "External update" in rendered
+        assert "Observed locally:" in rendered
+        assert "not the time the file was edited" in rendered
+        assert not any(isinstance(c, ft.TextField) for c in review.content.controls)
+        await view._reload(MagicMock())
+        await dialog.actions[-1].on_click(MagicMock())
+        assert view.error_message == "crud_stale"
+        assert form.description.value == "Private retained draft"
+        assert not any(t.kind == "expense" for t in journal.ledger.transactions)
+        assert (tmp_path / FILENAME).read_text(newline="") == external
+        assert not hasattr(view, "_review_sync")
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failure", [None, "false", "exception", "invalid"])
+def test_default_fee_is_local_and_persistence_failure_restores_previous_setting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str | None
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view = FinanceView()
+        journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_category("Food", "Food", opened=EPOCH)
+        view.preferences = MagicMock()
+        view.preferences.set = AsyncMock(
+            return_value=failure != "false",
+            side_effect=OSError("private preference data") if failure == "exception" else None,
+        )
+        view._refresh()
+        previous = journal.ledger.default_fee_category
+        original = journal.source
+        view.default_fee.value = "Income:Missing" if failure == "invalid" else "Expenses:Food"
+        await view._save_default_fee(MagicMock())
+        assert journal.source == original
+        assert not (tmp_path / "backups").exists() or not list((tmp_path / "backups").iterdir())
+        if failure:
+            assert journal.ledger.default_fee_category == previous
+            assert view.default_fee_category == previous
+            assert view.error_message
+            if failure == "invalid":
+                view.preferences.set.assert_not_awaited()
+            else:
+                assert view.default_fee.value == previous
+        else:
+            assert journal.ledger.default_fee_category == "Expenses:Food"
+            view.preferences.set.assert_awaited_once_with(DEFAULT_FEE_KEY, "Expenses:Food")
+            assert view.message_key == "default_fee_saved"
+            (tmp_path / FILENAME).write_text(original + "\n; changed\n", newline="")
+            await view._poll_journal()
+            assert journal.ledger.default_fee_category == "Expenses:Food"
+            await view._reload(MagicMock())
+            assert journal.ledger.default_fee_category == "Expenses:Food"
+
+    asyncio.run(scenario())
+
+
+def test_startup_restores_local_fee_preference_and_new_attachment_uses_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+        monkeypatch.setenv("APPDATA", str(tmp_path / "config"))
+        folder = tmp_path / "journal"
+        folder.mkdir()
+        journal = Journal(DesktopFolder(str(folder), FILENAME))
+        await journal.load()
+        await journal.create_category("Fees", "Fees", opened=EPOCH)
+        prefs = DesktopPreferences()
+        await prefs.set(DEFAULT_FEE_KEY, "Expenses:Fees")
+        await prefs.set("txncount.folder.v1", str(folder))
+        page = MagicMock(spec=ft.Page)
+        page.platform, page.width = ft.PagePlatform.LINUX, 390
+        page.get_device_info = AsyncMock(
+            return_value=DeviceInfo(locales=[ft.Locale(language_code="en")])
+        )
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
+        view = FinanceView()
+        with pytest.raises(asyncio.CancelledError):
+            await view._lifecycle()
+        assert view.journal is not None and view.journal.ready
+        assert view.journal.ledger.default_fee_category == "Expenses:Fees"
+        await view._attach(str(folder))
+        assert view.journal.ledger.default_fee_category == "Expenses:Fees"
+        another = tmp_path / "another"
+        another.mkdir()
+        await view._attach(str(another))
+        assert view.default_fee_notice.visible
+        assert await prefs.get(DEFAULT_FEE_KEY) == "Expenses:Fees"
+
+    asyncio.run(scenario())
+
+
+def test_possible_conflict_copy_poll_is_names_only_and_does_not_block_saving(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view = FinanceView()
+        folder = DesktopFolder(str(tmp_path), FILENAME)
+        journal = view.journal = Journal(folder)
+        await journal.load()
+        await journal.create_account(
+            "Cash", "Wallet", "UAH", "100", opened=EPOCH, opening_date=EPOCH
+        )
+        await journal.create_category("Food", "Food", opened=EPOCH)
+        names = [
+            "txncount (device's conflicted copy 2026-10-24).beancount",
+            "txncount (1).beancount",
+            "txncount 2.beancount",
+            "txncount-3.beancount",
+            "other (1).beancount",
+            "txncount-notes.beancount",
+            "../txncount (1).beancount",
+            "txncount (draft).beancount",
+        ]
+        monkeypatch.setattr(folder, "list_siblings", AsyncMock(return_value=names))
+        await view._poll_journal()
+        assert view.possible_conflict_copies == sorted(names[:4])
+        assert view.conflict_copy_notice.visible
+        assert journal.ready
+        assert not hasattr(journal, "sync_state")
+        await journal.add_expense("Assets:Cash", "Expenses:Food", "10", "", "2026-10-18")
+        assert journal.ledger.transactions[-1].kind == "expense"
+        folder.list_siblings = AsyncMock(side_effect=OSError("secret filename and source"))
+        await view._poll_journal()
+        assert journal.ready and view.sibling_scan_failed
+        assert "secret filename and source" not in caplog.text
+        assert view.possible_conflict_copies == sorted(names[:4])
+
+    asyncio.run(scenario())
+
+
+def test_expected_parse_failure_is_ui_only_and_does_not_log_private_cause(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+    view = FinanceView()
+    try:
+        try:
+            raise ValueError('private source line: "Secret merchant"')
+        except ValueError as exc:
+            raise LedgerError("Invalid journal syntax.") from exc
+    except LedgerError as error:
+        view._error(error, notify=True)
+    assert "Secret merchant" not in caplog.text
+    assert "private source" not in caplog.text
+    assert "Traceback" not in caplog.text
+    assert view.error_message == "Invalid journal syntax."
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_parser_line_and_reason_remain_visible_in_localized_error(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, language: str
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+    view = FinanceView()
+    view.language = language
+    detail = (
+        "Line 12 (Balance): Unsupported accounting semantics; use the official engine. "
+        "Original bytes preserved; saving blocked."
+    )
+    view._error(LedgerError(detail), notify=True)
+    assert detail in view.message.value
+    assert detail not in caplog.text
+    assert "Line 12" in page.show_dialog.call_args.args[0].content.value

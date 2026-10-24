@@ -3,15 +3,21 @@
 ## Journal metadata and declaration dates
 
 TxnCount keeps `txncount.beancount` as the sole financial source of truth.
-New transactions serialize stable IDs and creation timestamps, while transaction
-kind is inferred only for recognized posting shapes; an explicit legacy
-`txncount-kind` still takes precedence. Unknown or ambiguous entries remain
-read-only. Transfer fee mode and reimbursement expense links remain explicit
-because they cannot be reliably reconstructed from postings alone.
+New transactions serialize local wall-clock `time` strings, not IDs, creation
+instants or offsets. Supported transaction kind is inferred from postings.
+Baseline-bound source positions support editing hand-written transactions.
+Native shared links associate reimbursements with expenses. Transfer fee
+presentation is reconstructed canonically from the economic postings.
 
 Absent `txncount-active` means active. New edits do not add a redundant `TRUE`;
-legacy explicit `TRUE` and `FALSE` values remain supported. Display-name
-metadata and the other user-preference metadata remain unchanged.
+explicit `TRUE` and `FALSE` values remain supported; this is visibility, not
+an accounting `close`. Account/category labels use `name`. Fee-category defaults
+are local device preferences, not journal metadata.
+
+The sections below retain historical milestone details (including superseded
+metadata/UI examples). The current format and synchronization contract is
+[documented separately](synchronization.md); no global migration or stripping
+of arbitrary existing metadata is performed.
 
 New account and category declaration dates default to today and are editable
 for backdating. Account opening date and opening-balance effective date are
@@ -489,7 +495,7 @@ unsupported accounting semantics rather than pretending to be a full engine.
 Before an edit, the lossless parser must round-trip the original source exactly.
 Only selected directive spans are replaced; other bytes, including LF/CRLF and
 unrelated descriptive directives, are untouched. Candidate syntax, declarations,
-balanced single-currency postings, unique IDs and every chronological balance
+balanced supported postings and chronological balances
 are validated before storage is modified. The existing policy checks hashes,
 creates and verifies a unique backup, rechecks hashes and compares read-back
 bytes to the already validated candidate before updating the in-memory ledger.
@@ -532,7 +538,7 @@ Linux and Windows share the following save sequence:
 4. Preserve existing permissions, write all candidate bytes, flush the stream,
    apply existing mode bits and fsync the temporary file; then close it.
 5. Read and check the original SHA-256 baseline again, enforce target/folder
-   restrictions, recheck the captured synchronization-source inventory and
+   restrictions, and
    call `os.replace(temporary, journal)`. Replacement is the
    commit point.
 6. Fsync the parent directory on supported POSIX filesystems. Windows skips
@@ -587,8 +593,8 @@ I/O thread, so cancellation may also require inspecting and reloading the journa
 only narrows the TOCTOU window; two TxnCount instances, Dropbox, Dropsync or any
 other writer can still overwrite changes made after that check. Do not edit
 simultaneously. Android's SAF/provider behavior is unchanged by desktop staging.
-Local conflict preservation and reviewed merges narrow a different risk: divergent
-versions left by external synchronization. They do not eliminate that race.
+Conflicted-copy filename notices are advisory only. TxnCount performs no
+distributed merge or hidden revision tracking.
 See [synchronization](synchronization.md).
 
 ## Compact lists and simpler expense entry (build 9)

@@ -34,3 +34,34 @@ prove native plugin availability, platform permissions, icon appearance, signing
 or browser/Pyodide compatibility. Check desktop/mobile viewport sizes and inspect
 the packaged output, not just a development server. Manual CI build artifacts are
 build smoke tests, not store certification.
+
+## Sequential-file workflow regression checklist
+
+Use only a disposable synthetic journal:
+
+1. Create accounts/categories; confirm `name` labels and local `time` metadata,
+   no new `id`/`timestamp`/`txncount-kind` fields, and no `.txncount-sync/`.
+2. Add a hand-written supported transaction without an ID. Edit/delete it from
+   the UI, checking unrelated comments, tags and metadata remain unchanged.
+3. Open a transaction form, change the file externally, then save. Saving must
+   refuse the stale baseline and retain every field; reload must not silently
+   turn that form into an edit of a different transaction.
+4. Review a valid external edit and the read-only diff. Try malformed syntax
+   and a valid but unsupported directive; check line/reason diagnostics and
+   that stale balances are not presented as current.
+5. Add a recognizable conflicted-copy filename, then damaged legacy evidence.
+   The filename notice must be nonblocking; legacy evidence must not gate saves.
+   Neither sibling nor evidence contents should be read or mutated.
+6. Link a partial reimbursement; inspect native shared links on both entries.
+   Recheck period totals, transfer fees, FX and loan repayments.
+7. Change the default timezone. Saved transaction times must remain unchanged;
+   only the default clock for new entries changes. Check native date pickers
+   on Android for timezone-induced date shifts.
+8. Restart after changing the default fee category. Verify the local preference
+   survives without adding journal metadata.
+9. On Android, exercise interrupted-save review, retained provider grants and
+   permission failures. Confirm backup/read-back failures still block unsafe
+   retries. This requires physical-device testing, not just an APK build.
+
+The two-device operating rule remains manual: wait for the external sync tool
+before editing elsewhere. Unit tests cannot certify that tool's completion.

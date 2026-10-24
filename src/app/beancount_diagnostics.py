@@ -74,7 +74,7 @@ def parse_book(sources: Mapping[str, str], entry: str = "main.beancount") -> dic
         except UnexpectedInput as exc:
             raise DiagnosticsError(
                 f"Unsupported syntax in {name}, line {exc.line}; no text rewritten."
-            ) from exc
+            ) from None
         parsed[name] = model
         active.add(name)
         for directive in model.raw_directives:
@@ -140,7 +140,7 @@ def edit_narration(text: str, transaction_id: str, narration: str) -> str:
     except UnexpectedInput as exc:
         raise DiagnosticsError(
             f"Unsupported syntax at line {exc.line}; no text rewritten."
-        ) from exc
+        ) from None
     matches = [
         directive
         for directive in model.raw_directives
@@ -164,7 +164,7 @@ def append_transaction(text: str) -> str:
             models.Posting.from_value("Expenses:Food", Decimal("12.34"), "UAH"),
             models.Posting.from_value("Assets:Bank", Decimal("-12.34"), "UAH"),
         ],
-        meta={"id": "diagnostics-appended-001"},
+        links=["diagnostics-appended-001"],
         tags=["diagnostics"],
     )
     return text + ("\n" if text.endswith("\n") else "\n\n") + render(transaction) + "\n"

@@ -164,7 +164,7 @@ def test_safe_edit_and_append_written_to_synthetic_files_match_official(tmp_path
     appended = next(
         e
         for e in official
-        if isinstance(e, data.Transaction) and e.meta.get("id") == "diagnostics-appended-001"
+        if isinstance(e, data.Transaction) and "diagnostics-appended-001" in e.links
     )
     assert appended.tags == {"diagnostics"}
 

@@ -23,36 +23,6 @@ class AndroidFolder:
         self.backup_prefix = "storage-test" if filename == "storage-test.beancount" else "txncount"
         self._record: bytes | None = None
         self._candidate: bytes | None = None
-        self._sync_versions: dict[str, str] | None = None
-
-    async def sync_scan(self) -> dict[str, bytes]:
-        result = await self._call("sync_scan")
-        if not isinstance(result, dict):
-            raise StorageError("sync_metadata")
-        files = {}
-        for name, value in result.items():
-            if not isinstance(name, str):
-                raise StorageError("sync_metadata")
-            data = _decode(value)
-            if data is None:
-                raise StorageError("sync_metadata")
-            files[name] = data
-        return files
-
-    async def sync_put(self, name: str, data: bytes) -> None:
-        from app.synchronization import auxiliary_name
-
-        if not auxiliary_name(name):
-            raise StorageError("sync_metadata")
-        await self._call("sync_put", name=name, data=_encode(data))
-
-    async def sync_expect(self, versions: dict[str, str]) -> None:
-        files = await self.sync_scan()
-        if {name: digest(data) for name, data in files.items()} != versions:
-            raise ConflictError("sync_changed")
-        self._sync_versions = {
-            name: base64.b64encode(data).decode("ascii") for name, data in files.items()
-        }
 
     async def _call(self, method: str, **arguments: object) -> object:
         result = await self.bridge.call(method, uri=self.uri, filename=self.filename, **arguments)
@@ -73,6 +43,14 @@ class AndroidFolder:
             return base64.b64decode(result, validate=True)
         except ValueError as exc:
             raise StorageError("Invalid SAF file data.") from exc
+
+    async def list_siblings(self) -> list[str]:
+        result = await self._call("list_siblings")
+        if not isinstance(result, list) or not all(isinstance(name, str) for name in result):
+            raise StorageError("Invalid SAF sibling listing.")
+        return sorted(
+            name for name in result if name != self.filename and name.lower().endswith(".beancount")
+        )
 
     async def backup(self, data: bytes) -> str:
         result = await self._call(
@@ -180,7 +158,6 @@ class AndroidFolder:
                 previous=_encode(state.current),
                 marker=_encode(state.marker),
                 record=_encode(record.encode()),
-                sync_versions=self._sync_versions,
             )
         except (StorageError, TimeoutError) as exc:
             raise WriteError(

@@ -299,6 +299,8 @@ class FinanceView(ft.Row):
         self.screen_host = ft.Container(expand=True, content=self.home_screen)
 
         self.page_title = ft.Text(size=25, weight=ft.FontWeight.W_600)
+        version, build = release_identity()
+        self.release_label = ft.Text(f"v{version} ({build})", size=12, color=ft.Colors.OUTLINE)
         self.nav_rail = ft.NavigationRail(
             min_width=78,
             min_extended_width=224,
@@ -319,7 +321,11 @@ class FinanceView(ft.Row):
             controls=[
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20, vertical=16),
-                    content=self.page_title,
+                    content=ft.Row(
+                        [self.page_title, self.release_label],
+                        wrap=True,
+                        run_spacing=4,
+                    ),
                 ),
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20, vertical=8),

@@ -210,7 +210,7 @@ and [editing and data-safety guide](docs/crud-fava.md) for details.
 
 | Version | Highlights |
 | --- | --- |
-| [0.3.2](https://github.com/pioneer/txncount/releases/tag/v0.3.2) | Sequential journal editing without distributed merge evidence; retained conflict guards, backups and Android recovery; Beancount-friendly `name`, local `time` and native reimbursement links. Android build 24. |
+| [0.3.2](https://github.com/pioneer/txncount/releases/tag/v0.3.2) | Sequential journal editing without distributed merge evidence; retained conflict guards, backups and Android recovery; Beancount-friendly `name`, local `time` and native reimbursement links. Version/build visible in every screen header. Replacement Android build 25. |
 | [0.3.1](https://github.com/pioneer/txncount/releases/tag/v0.3.1) | Production-signed Android releases and a Linux x86_64 AppImage distribution. Android build 23. |
 | [0.3.0](https://github.com/pioneer/txncount/releases/tag/v0.3.0) | Period reports with income, net expenses and net result, separate currency totals, and hierarchical category breakdowns. Android build 22. |
 | [0.2.4](https://github.com/pioneer/txncount/releases/tag/v0.2.4) | Atomic desktop journal replacement; verified Android save-intent records, interrupted-save detection and explicit recovery review. Existing Android journals require a one-time review; SAF writes remain non-atomic. Consistent rejection of invalid `24:00` times on Python 3.14. |

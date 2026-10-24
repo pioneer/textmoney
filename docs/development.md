@@ -163,6 +163,9 @@ virtual environment, or local Flet user data.
 `[tool.flet].build_number` is the independent Android version code.
 Invoke stages these values for the packaged About display and names APKs
 `txncount-<version>.apk`. The Android app ID is `com.pioneer.txncount`.
+Every main screen also shows `v<version> (<build_number>)` beside its title,
+using the same source or packaged metadata as Settings → About. The header wraps
+on narrow screens.
 
 ## Signing and CI
 

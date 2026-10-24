@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import flet as ft
 import pytest
@@ -22,6 +23,32 @@ def test_source_version_matches_build_and_about() -> None:
     )
 
 
+@pytest.mark.parametrize("width", [390, 800, 1366])
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_version_visible_in_every_screen_header(
+    monkeypatch: pytest.MonkeyPatch, width: int, language: str
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    page.width = width
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+    view = FinanceView()
+    view.language = language
+    view.startup_complete = True
+    view._apply_layout(width)
+    release, build = tasks.release_identity()
+    for screen in ("home", "transactions", "accounts", "reports", "settings"):
+        view._navigate(screen)
+        assert view.body in view.controls
+        header = view.body.controls[0]
+        assert isinstance(header, ft.Container)
+        assert isinstance(header.content, ft.Row)
+        assert header.content.controls == [view.page_title, view.release_label]
+        assert header.content.wrap
+        assert view.page_title.value == view.tr(f"nav_{screen}")
+        assert view.release_label.value == f"v{release} ({build})"
+        assert view.release_label.visible
+
+
 def test_packaged_version_does_not_need_project_or_distribution_metadata(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -33,6 +60,7 @@ def test_packaged_version_does_not_need_project_or_distribution_metadata(
     metadata = app / ".release.json"
     metadata.write_text(json.dumps({"version": "0.1.1", "build_number": 13}))
     assert version.release_identity() == ("0.1.1", 13)
+    assert FinanceView().release_label.value == "v0.1.1 (13)"
     metadata.write_text(json.dumps({"version": "0.1.1", "build_number": 0}))
     with pytest.raises(ValueError, match="version metadata"):
         version.release_identity()

@@ -46,7 +46,8 @@ Download the Android APK from **[GitHub Releases](https://github.com/pioneer/txn
 Android 7.0 or newer is required. You can also track this repository with
 [Obtainium](https://github.com/ImranR98/Obtainium) for updates.
 
-Android is the currently distributed platform. Linux can run from source;
+Android is currently distributed. Linux x86_64 AppImage packaging is being
+added; check GitHub Releases for an AppImage attached to the release you use.
 Windows support is implemented but has not yet been validated.
 The currently published APK is development-signed. Future releases use the
 release workflow's maintained production signing certificate after the
@@ -54,6 +55,25 @@ protected environment is configured. Moving an existing installation to that
 certificate requires a one-time reinstall. Back up and verify your journal
 before uninstalling, because uninstalling can remove app-private preferences
 and drafts. Later APKs with the same production certificate can update in place.
+
+### Linux AppImage
+
+For x86_64 Linux releases that include an AppImage, download
+`TxnCount-<version>-x86_64.AppImage` from [GitHub Releases](https://github.com/pioneer/txncount/releases).
+On Ubuntu 24.04 or newer, or Manjaro, run it without installing:
+
+```sh
+chmod +x TxnCount-*-x86_64.AppImage
+./TxnCount-*-x86_64.AppImage
+```
+
+To update, download the newer AppImage and run it instead; remove the old file
+when convenient. Your journal remains in the folder you selected, and Linux
+preferences stay under `${XDG_CONFIG_HOME:-~/.config}/txncount`. No `uv` or
+separate Python installation is needed. AppImage launch may require FUSE
+compatibility; if unavailable, try `APPIMAGE_EXTRACT_AND_RUN=1 ./TxnCount-*.AppImage`
+or install the distribution's FUSE 2 compatibility package. The AppImage does
+not include the host graphics driver, display server, or glibc.
 
 ## Getting started
 
@@ -206,6 +226,7 @@ Other useful commands:
 uv run inv run-web        # Run in a local browser
 uv run inv check          # Format check, lint, Pyright and tests
 uv run inv build-android  # Build an Android APK
+uv run inv build-linux    # Build the Linux x86_64 AppImage
 uv run inv build-local    # Build for the current desktop OS
 uv run inv --list         # All available tasks
 ```

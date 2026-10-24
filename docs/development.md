@@ -46,6 +46,8 @@ The [version metadata](#version-metadata) below describes the authoritative
 version/build fields.
 APK builds produce `build/apk/txncount-<project.version>.apk`; generated packaged
 version metadata is staged alongside assets and removed by `clean`.
+Linux AppImage builds reuse Flet's bundled Linux output and produce
+`dist/linux/TxnCount-<project.version>-x86_64.AppImage`.
 Build staging also clears source-tree `__pycache__` directories: Flet's relative
 path exclusions do not recursively match nested caches, which could otherwise
 ship obsolete renamed-module bytecode. Source files are preserved.
@@ -58,7 +60,7 @@ ship obsolete renamed-module bytecode. Source files are preserved.
 | `build-ios-simulator` | macOS; Xcode and CocoaPods, no signing required | `build/ios-simulator` |
 | `build-macos` | macOS; Xcode and CocoaPods | `build/macos` |
 | `build-windows` | Windows; Visual Studio Desktop development with C++ | `build/windows` |
-| `build-linux` | Linux; Flet-reported toolchain, GTK, and media packages | `build/linux` |
+| `build-linux`, `build-linux-appimage` | Linux x86_64; Flet toolchain, GTK, media and AppImage build tools | `dist/linux/TxnCount-<version>-x86_64.AppImage` |
 
 Flet installs its required Flutter version when unavailable, and JDK/Android SDK
 components for Android targets. Build and mobile-debug tasks pass `--yes`, so
@@ -70,6 +72,45 @@ Plugins may add native
 requirements. A WSL Linux environment builds Linux, not Windows; GUI use needs
 WSLg or an appropriate display. On Apple Silicon some tools require Rosetta.
 Run `uv run inv doctor` to inspect the actual host.
+
+### Linux AppImage
+
+`uv run inv build-linux-appimage` builds Flet's Linux bundle and packages it as
+a relocatable AppImage. `uv run inv build-linux` is an alias for the same
+distribution build. The commands are Linux x86_64 only. Run
+`uv run inv validate-linux-appimage` to extract the artifact and check its
+architecture, launcher, desktop entry, icon, Python runtime and localization
+resources. `uv run inv smoke-linux-appimage` launches it under Xvfb for a short
+startup check. These checks do not exercise journal selection or real user data.
+
+The packager obtains the official linuxdeploy and appimagetool AppImages and
+the GTK bundling plugin into ignored `build/linux-appimage-tools/`. Each
+download is pinned to a SHA-256 digest in `tools/linux_appimage.py` and checked
+before execution. The verified appimagetool's embedded runtime is reused, so
+AppImage generation does not need an unverified runtime download. The Flet
+bundle and dependencies are staged under a temporary AppDir in `build/`; the
+final AppImage alone is placed in `dist/linux/`. `uv run inv clean` removes
+these outputs and cached tools.
+
+The release workflow builds on Ubuntu 24.04, runs `uv run inv check`, validates
+and smoke-tests the AppImage, uploads it as a workflow artifact, and attaches
+it to the already-created Android GitHub Release without replacing existing
+assets. It runs after a successful Android release workflow for the same tag;
+maintainers can also dispatch it manually for an existing release tag.
+
+The Ubuntu 24.04 build target requires the packages reported by
+`uv run flet --version --json`, plus `desktop-file-utils`, `file`,
+`libgirepository1.0-dev`, `librsvg2-dev`, `squashfs-tools`, and `xvfb`.
+Manjaro developers need the corresponding Flet GTK/GStreamer build
+dependencies, `desktop-file-utils`, `squashfs-tools`, `file`, `curl`,
+`gobject-introspection`, and `librsvg`; install them with the distribution
+package manager. No Arch package or AUR helper is used for TxnCount packaging.
+Running the AppImage on Manjaro needs a compatible x86_64 userspace and may
+need the `fuse2` compatibility package; `APPIMAGE_EXTRACT_AND_RUN=1` is a
+fallback when FUSE mounting is unavailable. The host still supplies glibc,
+display-server integration, and graphics drivers. Ubuntu 24.04+ and Manjaro
+are intended targets, but the runtime compatibility matrix has not been
+exhaustively tested.
 
 Flet selects the highest bundled Python satisfying `requires-python` (currently
 3.14.7 for this range), not necessarily the local 3.13 interpreter. Web uses the

@@ -20,6 +20,8 @@ from invoke.exceptions import Exit
 from invoke.tasks import task
 from PIL import Image, ImageDraw
 
+from tools import linux_appimage
+
 ROOT = Path(__file__).resolve().parent
 HOSTS = {"linux": "Linux", "windows": "Windows", "macos": "Darwin"}
 # Flet otherwise prompts before installing Flutter/Android SDKs, which fails without a TTY.
@@ -1009,8 +1011,47 @@ def build_windows(context: Context) -> None:
 
 @task
 def build_linux(context: Context) -> None:
-    """Build Linux desktop on Linux (including a Linux environment in WSL)."""
+    """Build the portable Linux x86_64 AppImage."""
+    build_linux_appimage(context)
+
+
+@task
+def build_linux_appimage(context: Context) -> None:
+    """Build a portable Linux x86_64 AppImage."""
+    require_host("linux")
     build_target("linux")
+    version, _ = release_identity()
+    try:
+        artifact = linux_appimage.build_appimage(
+            build_dir=ROOT / "build/linux",
+            project_root=ROOT,
+            version=version,
+        )
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
+    print(f"Built Linux AppImage: {artifact}")
+
+
+@task
+def validate_linux_appimage(context: Context) -> None:
+    """Extract and structurally validate the versioned Linux AppImage."""
+    version, _ = release_identity()
+    artifact = ROOT / "dist/linux" / f"TxnCount-{version}-x86_64.AppImage"
+    try:
+        linux_appimage.validate_appimage(artifact, version=version, project_root=ROOT)
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
+
+
+@task
+def smoke_linux_appimage(context: Context, timeout: int = 20) -> None:
+    """Launch the Linux AppImage under Xvfb and verify startup."""
+    version, _ = release_identity()
+    artifact = ROOT / "dist/linux" / f"TxnCount-{version}-x86_64.AppImage"
+    try:
+        linux_appimage.smoke_test_appimage(artifact, timeout_seconds=timeout)
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
 
 
 @task

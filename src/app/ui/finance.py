@@ -739,6 +739,12 @@ class FinanceView(ft.Row):
         self._build_navigation()
         self._build_home_layout()
         self._update_transaction_separators()
+        self.screen_host.padding = (
+            ft.Padding.only(bottom=96)
+            if self.current_screen == "accounts"
+            or (self.current_screen == "settings" and self.screen_class != ScreenClass.COMPACT)
+            else None
+        )
         if self.page:
             self.fab.content = self.tr("add_transaction")
             self.fab.disabled = not (self.journal and self.journal.ready)

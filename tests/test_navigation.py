@@ -146,3 +146,63 @@ def test_rail_settings_resizes_into_mobile_settings_with_back_navigation(
     assert view.current_screen == "accounts"
     assert view.accounting_tabs.selected_index == 1
     assert view.navigation_bar.selected_index == 2
+
+
+@pytest.mark.parametrize("width", [390, 599, 600, 800, 1366])
+@pytest.mark.parametrize("tab", [0, 1])
+def test_accounting_keeps_scroll_clearance_for_both_tabs(
+    navigation: tuple[FinanceView, MagicMock], width: int, tab: int
+) -> None:
+    view, page = navigation
+    page.width = width
+    view._navigate("accounts")
+    view.accounting_tabs.selected_index = tab
+    view._accounting_tab_changed(MagicMock(control=view.accounting_tabs))
+    assert view.screen_host.content is view.accounts_screen
+    assert view.screen_host.padding == ft.Padding.only(bottom=96)
+    assert view.body.scroll == ft.ScrollMode.AUTO
+    assert page.floating_action_button is view.fab
+    assert view.accounts_panel.visible == (tab == 0)
+    assert view.categories_panel.visible == (tab == 1)
+    view._open_settings(MagicMock())
+    view._back_from_settings(MagicMock())
+    assert view.accounting_tabs.selected_index == tab
+    assert view.screen_host.padding == ft.Padding.only(bottom=96)
+
+
+@pytest.mark.parametrize("width", [390, 599, 600, 800, 1366])
+@pytest.mark.parametrize("diagnostics", [False, True])
+def test_settings_clearance_follows_floating_action_visibility(
+    navigation: tuple[FinanceView, MagicMock], width: int, diagnostics: bool
+) -> None:
+    view, page = navigation
+    page.width = width
+    view.diagnostics.controls = [ft.Text("Synthetic diagnostics")]
+    view._open_settings(MagicMock())
+    if diagnostics:
+        view._diagnostics(MagicMock())
+    assert view.screen_host.content is view.settings_screen
+    assert view.diagnostics.visible == diagnostics
+    assert view.screen_host.padding == (ft.Padding.only(bottom=96) if width >= 600 else None)
+    assert view.body.scroll == ft.ScrollMode.AUTO
+    assert page.floating_action_button is (view.fab if width >= 600 else None)
+
+
+def test_screen_clearance_updates_on_resize_and_does_not_accumulate(
+    navigation: tuple[FinanceView, MagicMock],
+) -> None:
+    view, page = navigation
+    for width in (1366, 390, 599, 600, 800, 390):
+        page.width = width
+        for screen in ("accounts", "settings", "reports", "transactions", "home"):
+            view._navigate(screen)
+            view._apply_layout(width)
+            view._refresh_labels()
+            expected = (
+                ft.Padding.only(bottom=96)
+                if screen == "accounts" or (screen == "settings" and width >= 600)
+                else None
+            )
+            assert view.screen_host.padding == expected
+            view._refresh()
+            assert view.screen_host.padding == expected

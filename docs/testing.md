@@ -71,6 +71,15 @@ and desktop widths and confirm the last category and amount sit above the
 floating Add button. Recheck after changing the period and navigating away and
 back; empty reports retain their normal message.
 
+## Accounting and Settings scrolling clearance
+
+Accounting reserves 96px of scrollable space after either the Accounts or
+Categories tab. Settings reserves the same space on medium and expanded layouts,
+where the floating Add button is present, including with diagnostics expanded.
+Compact Settings has no Add button and needs no extra clearance. Check the final
+controls at maximum scroll, then resize across 599/600px and navigate between
+screens; padding must update without accumulating or resetting the selected tab.
+
 ## Adaptive Settings navigation
 
 At compact widths (up to 599px), verify the bottom bar has Home, Transactions,

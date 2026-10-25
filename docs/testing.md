@@ -35,6 +35,17 @@ or browser/Pyodide compatibility. Check desktop/mobile viewport sizes and inspec
 the packaged output, not just a development server. Manual CI build artifacts are
 build smoke tests, not store certification.
 
+## Transaction list density
+
+Home recent activity and the Transactions screen share compact rows: 13px
+movement/amount text, a 12px single-line description and date, 1px line spacing,
+and 2px top/bottom padding. Action icons are 20px; their default touch targets
+are unchanged. Check both lists at phone and desktop widths, including long
+account/category names, large amounts, blank descriptions, split postings and
+exchange fees. Amounts must remain readable; descriptions may use an ellipsis.
+Each row has a thin, theme-aware bottom separator spanning the details, amount
+and action buttons, helping the eye follow wide rows. Check light and dark themes.
+
 ## Sequential-file workflow regression checklist
 
 Use only a disposable synthetic journal:

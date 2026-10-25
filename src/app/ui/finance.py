@@ -1225,13 +1225,13 @@ class FinanceView(ft.Row):
                 else f"{source} → {target}"
             )
         heading: list[ft.Control] = [
-            ft.Text(title, size=14, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
+            ft.Text(title, size=13, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
         ]
         if simple:
             heading.append(
                 ft.Text(
                     format_amount(incoming[0].amount, self.language, incoming[0].currency),
-                    size=14,
+                    size=13,
                 )
             )
         else:
@@ -1258,7 +1258,7 @@ class FinanceView(ft.Row):
             lines.append(
                 ft.Text(
                     " ".join(transaction.narration.split()),
-                    size=14,
+                    size=12,
                     max_lines=1,
                     overflow=ft.TextOverflow.ELLIPSIS,
                 )
@@ -1268,6 +1268,7 @@ class FinanceView(ft.Row):
         actions: list[ft.Control] = [
             ft.IconButton(
                 icon=ft.Icons.EDIT_OUTLINED,
+                icon_size=20,
                 tooltip=self.tr("crud_edit"),
                 data=transaction.id,
                 on_click=self._edit_transaction,
@@ -1277,15 +1278,17 @@ class FinanceView(ft.Row):
             actions.append(
                 ft.IconButton(
                     icon=ft.Icons.DELETE_OUTLINE,
+                    icon_size=20,
                     tooltip=self.tr("crud_delete"),
                     data=transaction.id,
                     on_click=self._delete_transaction,
                 )
             )
         return ft.Container(
-            padding=ft.Padding.symmetric(vertical=4),
+            padding=ft.Padding.symmetric(vertical=2),
+            border=ft.Border(bottom=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT)),
             content=ft.Row(
-                [ft.Column(lines, spacing=2, expand=True), *actions],
+                [ft.Column(lines, spacing=1, expand=True), *actions],
                 spacing=0,
             ),
         )

@@ -172,6 +172,53 @@ def test_compact_transaction_has_one_amount_movement_and_icon_actions() -> None:
 
 
 @pytest.mark.parametrize("compact", [False, True])
+def test_transaction_separator_spans_details_amount_and_actions(compact: bool) -> None:
+    row = FinanceView()._transaction_card(expense(), {}, compact)
+    assert isinstance(row, ft.Container)
+    assert row.border == ft.Border(bottom=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT))
+    assert row.bgcolor is None
+    assert row.width is None
+    assert isinstance(row.content, ft.Row)
+    assert len(row.content.controls) == (2 if compact else 3)
+    assert isinstance(row.content.controls[0], ft.Column)
+    assert row.content.controls[0].expand
+    assert all(isinstance(action, ft.IconButton) for action in row.content.controls[1:])
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_transaction_rows_use_tighter_typography_without_smaller_touch_targets(
+    compact: bool,
+) -> None:
+    view = FinanceView()
+    row = view._transaction_card(expense(), {"Assets:Cash": "Wallet"}, compact)
+    assert isinstance(row, ft.Container) and isinstance(row.content, ft.Row)
+    assert row.padding == ft.Padding.symmetric(vertical=2)
+    column = row.content.controls[0]
+    assert isinstance(column, ft.Column) and column.spacing == 1
+    heading, description, day = column.controls
+    assert isinstance(heading, ft.Row)
+    movement, amount = heading.controls
+    assert isinstance(movement, ft.Text) and movement.size == 13
+    assert movement.max_lines == 1 and movement.overflow == ft.TextOverflow.ELLIPSIS
+    assert isinstance(amount, ft.Text) and amount.size == 13
+    assert amount.value == "10.00 UAH" and amount.max_lines is None
+    assert isinstance(description, ft.Text) and description.size == 12
+    assert isinstance(day, ft.Text) and day.size == 12
+    actions = row.content.controls[1:]
+    assert len(actions) == (1 if compact else 2)
+    for action in actions:
+        assert isinstance(action, ft.IconButton) and action.icon_size == 20
+        assert action.size_constraints is None
+        assert action.width is None and action.height is None
+        assert action.data == "stable-id"
+        assert action.on_click == (
+            view._edit_transaction
+            if action.icon == ft.Icons.EDIT_OUTLINED
+            else view._delete_transaction
+        )
+
+
+@pytest.mark.parametrize("compact", [False, True])
 @pytest.mark.parametrize("kind", ["expense", "income", "reimbursement", "adjustment", "external"])
 def test_transaction_description_preview_is_bounded_without_changing_saved_text(
     compact: bool, kind: str

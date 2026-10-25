@@ -210,6 +210,7 @@ and [editing and data-safety guide](docs/crud-fava.md) for details.
 
 | Version | Highlights |
 | --- | --- |
+| [0.3.5](https://github.com/pioneer/txncount/releases/tag/v0.3.5) | Summaries above smaller account movements, centered date headings and an Initial placeholder; separators only in wide transaction history; final transactions stay clear of the Add button. Home balances follow configured currency order. Android build 28. |
 | [0.3.4](https://github.com/pioneer/txncount/releases/tag/v0.3.4) | Mobile Settings moves to a top-right gear with Back navigation; wider layouts retain Settings in the rail. Home/Transactions group entries by date and emphasize summaries over account movements. Android build 27. |
 | [0.3.3](https://github.com/pioneer/txncount/releases/tag/v0.3.3) | More compact Home/Transactions rows with smaller typography and tighter spacing; full-width, theme-aware separators make wide rows easier to follow. Action touch targets remain unchanged. Android build 26. |
 | [0.3.2](https://github.com/pioneer/txncount/releases/tag/v0.3.2) | Sequential journal editing without distributed merge evidence; retained conflict guards, backups and Android recovery; Beancount-friendly `name`, local `time` and native reimbursement links. Version/build visible in every screen header. Replacement Android build 25. |

@@ -162,7 +162,7 @@ def expense() -> Transaction:
 def test_compact_transaction_has_one_amount_movement_and_icon_actions() -> None:
     view = FinanceView()
     row = view._transaction_card(expense(), {"Assets:Cash": "Wallet", "Expenses:Food": "Food"})
-    assert texts(row) == ["Wallet → Food", "10.00 UAH", "Private long description"]
+    assert texts(row) == ["Private long description", "10.00 UAH", "Wallet → Food"]
     assert isinstance(row, ft.Container)
     assert isinstance(row.content, ft.Row)
     actions = row.content.controls[1:]
@@ -172,10 +172,10 @@ def test_compact_transaction_has_one_amount_movement_and_icon_actions() -> None:
 
 
 @pytest.mark.parametrize("compact", [False, True])
-def test_transaction_separator_spans_details_amount_and_actions(compact: bool) -> None:
+def test_transaction_row_keeps_details_amount_and_actions_together(compact: bool) -> None:
     row = FinanceView()._transaction_card(expense(), {}, compact)
     assert isinstance(row, ft.Container)
-    assert row.border == ft.Border(bottom=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT))
+    assert row.border is None
     assert row.bgcolor is None
     assert row.width is None
     assert isinstance(row.content, ft.Row)
@@ -195,14 +195,14 @@ def test_transaction_rows_use_tighter_typography_without_smaller_touch_targets(
     assert row.padding == ft.Padding.symmetric(vertical=2)
     column = row.content.controls[0]
     assert isinstance(column, ft.Column) and column.spacing == 1
-    heading, description = column.controls
+    heading, movement = column.controls
     assert isinstance(heading, ft.Row)
-    movement, amount = heading.controls
-    assert isinstance(movement, ft.Text) and movement.size == 12
+    description, amount = heading.controls
+    assert isinstance(movement, ft.Text) and movement.size == 10
     assert movement.max_lines == 1 and movement.overflow == ft.TextOverflow.ELLIPSIS
     assert isinstance(amount, ft.Text) and amount.size == 13
     assert amount.value == "10.00 UAH" and amount.max_lines is None
-    assert isinstance(description, ft.Text) and description.size == 13
+    assert isinstance(description, ft.Text) and description.size == 14
     actions = row.content.controls[1:]
     assert len(actions) == (1 if compact else 2)
     for action in actions:
@@ -228,7 +228,9 @@ def test_transaction_description_preview_is_bounded_without_changing_saved_text(
     assert isinstance(row, ft.Container) and isinstance(row.content, ft.Row)
     column = row.content.controls[0]
     assert isinstance(column, ft.Column)
-    preview = column.controls[1]
+    heading = column.controls[0]
+    assert isinstance(heading, ft.Row)
+    preview = heading.controls[0]
     assert isinstance(preview, ft.Text)
     assert preview.value == " ".join(narration.split())
     assert preview.max_lines == 1 and preview.overflow == ft.TextOverflow.ELLIPSIS
@@ -245,10 +247,16 @@ def test_blank_transaction_description_does_not_add_an_empty_preview(narration: 
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
+@pytest.mark.parametrize("width", [390, 599, 600, 1023, 1024, 1366])
 def test_both_transaction_lists_group_localized_dates_without_changing_order_or_home_limit(
-    tmp_path: Path, language: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str, width: int
 ) -> None:
+    page = MagicMock(spec=ft.Page)
+    page.width = width
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
     view = FinanceView()
+    view.startup_complete = True
+    view._apply_layout(width)
     view.language = language
     view.timezone_name = "Asia/Tokyo"
     journal = view.journal = Journal(
@@ -286,10 +294,18 @@ def test_both_transaction_lists_group_localized_dates_without_changing_order_or_
             if isinstance(control.content, ft.Text):
                 current_heading = control.content.value or ""
                 headings.append(current_heading)
-                assert control.content.size == 12
+                assert control.content.size == 14
                 assert control.content.weight == ft.FontWeight.W_600
+                assert control.alignment == ft.Alignment.CENTER
+                assert control.border is None
             else:
                 assert isinstance(control.content, ft.Row)
+                expected_border = (
+                    ft.Border(bottom=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT))
+                    if listing is view.history and width >= 1024
+                    else None
+                )
+                assert control.border == expected_border
                 actions = control.content.controls[1:]
                 assert len(actions) == action_count
                 assert all(isinstance(action, ft.IconButton) for action in actions)
@@ -302,6 +318,89 @@ def test_both_transaction_lists_group_localized_dates_without_changing_order_or_
         assert headings == [format_date(date(2026, 10, day), language) for day in expected_days]
         assert row_ids == [transactions[index].id for index in expected_order]
     assert journal.ledger.transactions == transactions
+
+
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize(
+    ("language", "initial"),
+    [("en", "Initial"), ("uk", "Початок"), ("ru", "Начало")],
+)
+def test_epoch_group_uses_placeholder_without_changing_dates(
+    language: str, initial: str, compact: bool
+) -> None:
+    view = FinanceView()
+    view.language = language
+    transactions = [
+        replace(expense(), date=date(1970, 1, 2)),
+        replace(expense(), date=EPOCH, kind="opening"),
+    ]
+    controls = view._transaction_groups(transactions, {}, compact)
+    dated, _, placeholder, _ = controls
+    assert isinstance(dated, ft.Container) and isinstance(dated.content, ft.Text)
+    assert dated.content.value == format_date(date(1970, 1, 2), language)
+    assert dated.content.color is None
+    assert isinstance(placeholder, ft.Container) and isinstance(placeholder.content, ft.Text)
+    assert placeholder.content.value == initial
+    assert placeholder.content.color == ft.Colors.OUTLINE
+    assert placeholder.content.size == 14
+    assert placeholder.alignment == ft.Alignment.CENTER
+    assert transactions[1].date == EPOCH
+    assert format_date(EPOCH, language) not in texts(placeholder)
+
+
+@pytest.mark.parametrize("width", [390, 800, 1366])
+def test_transactions_keep_scroll_clearance_for_floating_action(
+    monkeypatch: pytest.MonkeyPatch, width: int
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    page.width = width
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+    view = FinanceView()
+    view.startup_complete = True
+    for screen in ("transactions", "home", "settings", "transactions"):
+        view._navigate(screen)
+    listing = view.transactions_screen.controls[-1]
+    assert isinstance(listing, ft.Container)
+    assert listing.content is view.history
+    assert listing.padding == ft.Padding.only(bottom=96)
+    assert view.body.scroll == ft.ScrollMode.AUTO
+    assert page.floating_action_button is view.fab
+
+
+def test_transaction_separators_follow_resizing_without_rebuilding_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+    view = FinanceView()
+    view.startup_complete = True
+    view.history.controls = view._transaction_groups([expense()], {})
+    view.home_activity.controls = view._transaction_groups([expense()], {}, compact=True)
+    rows = list(view.history.controls)
+    home_rows = list(view.home_activity.controls)
+    view.operating_currencies.value = "Unsaved settings"
+    for width in (1366, 390, 1023, 1024, 599, 600, 1280):
+        page.width = width
+        for screen in ("transactions", "home", "transactions"):
+            view._navigate(screen)
+            assert all(
+                actual is original
+                for actual, original in zip(view.history.controls, rows, strict=True)
+            )
+            assert all(
+                actual is original
+                for actual, original in zip(view.home_activity.controls, home_rows, strict=True)
+            )
+            for listing in (view.history, view.home_activity):
+                header, row = listing.controls
+                assert isinstance(header, ft.Container) and header.border is None
+                assert isinstance(row, ft.Container)
+                assert row.border == (
+                    ft.Border(bottom=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT))
+                    if listing is view.history and width >= 1024
+                    else None
+                )
+            assert view.operating_currencies.value == "Unsaved settings"
 
 
 @pytest.mark.parametrize("ready", [False, True])
@@ -330,6 +429,14 @@ def test_multicurrency_or_split_rows_do_not_invent_a_combined_amount() -> None:
     assert "Multiple postings" in content
     assert content.count(transaction.narration) == 1
     assert not any("USD" in text or "EUR" in text for text in content)
+    row = FinanceView()._transaction_card(transaction, {})
+    assert isinstance(row, ft.Container) and isinstance(row.content, ft.Row)
+    column = row.content.controls[0]
+    assert isinstance(column, ft.Column)
+    heading = column.controls[0]
+    assert isinstance(heading, ft.Row)
+    summary = heading.controls[0]
+    assert isinstance(summary, ft.Text) and summary.size == 14
 
 
 def test_compact_account_hides_technical_id_but_retains_name_balance_and_state() -> None:

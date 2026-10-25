@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TxnCount 0.3.3\n"
+"Project-Id-Version: TxnCount 0.3.4\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/txncount/issues\n"
-"POT-Creation-Date: 2026-10-25 06:36+0200\n"
-"PO-Revision-Date: 2026-10-25 06:36+0200\n"
+"POT-Creation-Date: 2026-10-25 20:02+0200\n"
+"PO-Revision-Date: 2026-10-25 20:02+0200\n"
 "Last-Translator: TxnCount localization contributors\n"
 "Language-Team: TxnCount language translators\n"
 "MIME-Version: 1.0\n"
@@ -997,6 +997,10 @@ msgstr ""
 
 #. Stable TxnCount key: ui.date; do not translate this identifier.
 msgid "ui.date"
+msgstr ""
+
+#. Stable TxnCount key: ui.initial_date; do not translate this identifier.
+msgid "ui.initial_date"
 msgstr ""
 
 #. Stable TxnCount key: ui.kind_opening; do not translate this identifier.

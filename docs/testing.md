@@ -40,15 +40,28 @@ build smoke tests, not store certification.
 Home recent activity and the Transactions screen group transactions under one
 localized accounting-date heading per day, newest first. Dates are not repeated
 inside rows. Home still shows only the five most recent transactions, even if
-that cuts through a date group. Check same-day ordering and language changes.
-Both lists share compact rows: a 13px single-line summary, 12px account movement,
+that cuts through a date group. Date headings are centered above their list and
+use 14px text. The 1970-01-01 group uses a muted, localized "Initial" placeholder;
+other dates retain their normal labels. This is display-only: journal dates and
+edit-form dates are unchanged. Check same-day ordering and language changes.
+Both lists share compact rows: a 14px single-line summary above 10px account movement,
 13px amount, 1px line spacing, and 2px top/bottom padding. Split-posting summaries
-remain 13px when there is no account movement. Action icons are 20px; their default touch targets
+remain 14px when there is no account movement. Action icons are 20px; their default touch targets
 are unchanged. Check both lists at phone and desktop widths, including long
 account/category names, large amounts, blank descriptions, split postings and
 exchange fees. Amounts must remain readable; descriptions may use an ellipsis.
-Each row has a thin, theme-aware bottom separator spanning the details, amount
-and action buttons, helping the eye follow wide rows. Check light and dark themes.
+Only the dedicated Transactions list in the expanded layout (window width at
+least 1024px) has thin, theme-aware bottom separators spanning the details, amount
+and action buttons. Home recent activity never has separators, even on desktop.
+Narrower layouts have no separators. Resize across 1023/1024px in both directions
+and switch between Home and Transactions; date headings must never be underlined.
+Check light and dark themes.
+The dedicated Transactions view reserves 96px of scrollable space after its
+list for the floating Add button. With a long list, scroll fully to the bottom
+at phone and desktop widths and check that the final amount and Edit/Delete
+actions sit above the button and remain clickable. Empty lists still show their
+normal message. Transfers retain exchange/fee details above their account movement;
+blank descriptions do not add an empty summary line.
 
 ## Adaptive Settings navigation
 

@@ -1074,6 +1074,10 @@ msgstr "Shop / recipient (optional)"
 msgid "ui.date"
 msgstr "Date"
 
+#. Stable TxnCount key: ui.initial_date; do not translate this identifier.
+msgid "ui.initial_date"
+msgstr "Initial"
+
 #. Stable TxnCount key: ui.kind_opening; do not translate this identifier.
 msgid "ui.kind_opening"
 msgstr "Opening balance"

@@ -23,6 +23,7 @@ from app.domain.code_suggestions import (
 from app.domain.ledger import (
     ADJUSTMENTS,
     BANK_FEES,
+    EPOCH,
     Account,
     Category,
     LedgerError,
@@ -579,7 +580,7 @@ class FinanceView(ft.Row):
         self.fab.disabled = not ready
         self.transactions_screen.controls = [
             ft.Text(self.tr("transactions_title"), size=21, weight=ft.FontWeight.W_600),
-            self.history,
+            ft.Container(content=self.history, padding=ft.Padding.only(bottom=96)),
         ]
         self.accounts_panel_content.controls = [
             ft.Row([self.account_save], alignment=ft.MainAxisAlignment.END, wrap=True),
@@ -737,6 +738,7 @@ class FinanceView(ft.Row):
         )
         self._build_navigation()
         self._build_home_layout()
+        self._update_transaction_separators()
         if self.page:
             self.fab.content = self.tr("add_transaction")
             self.fab.disabled = not (self.journal and self.journal.ready)
@@ -893,6 +895,7 @@ class FinanceView(ft.Row):
         self.home_activity.controls = self._transaction_groups(
             transactions[:5], names, compact=True
         ) or [ft.Text(self.tr("home_no_transactions"))]
+        self._update_transaction_separators()
         self.account_list.controls = [
             self._entity_card(account, balances[account.id]) for account in ledger.accounts
         ] or [ft.Text(self.tr("accounts_empty"))]
@@ -1191,6 +1194,16 @@ class FinanceView(ft.Row):
             ),
         )
 
+    def _update_transaction_separators(self) -> None:
+        border = (
+            ft.Border(bottom=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT))
+            if self.screen_class == ScreenClass.EXPANDED
+            else None
+        )
+        for control in self.history.controls:
+            if isinstance(control, ft.Container) and isinstance(control.content, ft.Row):
+                control.border = border
+
     def _transaction_groups(
         self,
         transactions: list[Transaction],
@@ -1202,8 +1215,14 @@ class FinanceView(ft.Row):
             controls.append(
                 ft.Container(
                     padding=ft.Padding.only(top=8, bottom=4),
+                    alignment=ft.Alignment.CENTER,
                     content=ft.Text(
-                        format_date(day, self.language), size=12, weight=ft.FontWeight.W_600
+                        self.tr("initial_date")
+                        if day == EPOCH
+                        else format_date(day, self.language),
+                        size=14,
+                        weight=ft.FontWeight.W_600,
+                        color=ft.Colors.OUTLINE if day == EPOCH else None,
                     ),
                 )
             )
@@ -1223,10 +1242,9 @@ class FinanceView(ft.Row):
             "reimbursement": "kind_reimbursement",
             "adjustment": "kind_adjustment",
         }.get(transaction.kind, "kind_external")
+        summary = " ".join(transaction.narration.split())
         display = (
-            self.tr(kind_key)
-            if transaction.kind == "opening"
-            else transaction.narration or self.tr(kind_key)
+            self.tr(kind_key) if transaction.kind == "opening" else summary or self.tr(kind_key)
         )
         outgoing = [p for p in transaction.postings if p.amount < 0]
         incoming = [p for p in transaction.postings if p.amount > 0]
@@ -1274,10 +1292,11 @@ class FinanceView(ft.Row):
                 if transaction.kind == "opening"
                 else f"{source} → {target}"
             )
+        has_summary = simple and transaction.kind != "opening" and bool(summary)
         heading: list[ft.Control] = [
             ft.Text(
-                title,
-                size=12 if simple else 13,
+                summary if has_summary else title,
+                size=14 if has_summary or not simple else 10,
                 expand=True,
                 max_lines=1,
                 overflow=ft.TextOverflow.ELLIPSIS,
@@ -1310,11 +1329,11 @@ class FinanceView(ft.Row):
                     size=12,
                 )
             )
-        if simple and transaction.kind != "opening" and transaction.narration.strip():
+        if has_summary:
             lines.append(
                 ft.Text(
-                    " ".join(transaction.narration.split()),
-                    size=13,
+                    title,
+                    size=10,
                     max_lines=1,
                     overflow=ft.TextOverflow.ELLIPSIS,
                 )
@@ -1340,7 +1359,6 @@ class FinanceView(ft.Row):
             )
         return ft.Container(
             padding=ft.Padding.symmetric(vertical=2),
-            border=ft.Border(bottom=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT)),
             content=ft.Row(
                 [ft.Column(lines, spacing=1, expand=True), *actions],
                 spacing=0,

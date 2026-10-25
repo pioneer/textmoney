@@ -494,6 +494,52 @@ async def exchange_seeded(path: Path) -> Journal:
     return journal
 
 
+@pytest.mark.parametrize("exchange", [False, True])
+@pytest.mark.parametrize("compact", [False, True])
+def test_transfer_summary_is_above_details_and_accounts(
+    tmp_path: Path, exchange: bool, compact: bool
+) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        options = (
+            {
+                "source_account": "Assets:Dollar",
+                "destination_amount": "4200",
+                "fee_currency": "USD",
+            }
+            if exchange
+            else {}
+        )
+        await transfer(journal, amount="100", fee="5", **options)
+        transaction = journal.ledger.transactions[-1]
+        view = FinanceView()
+        view.journal = journal
+        names = {account.id: account.name for account in journal.ledger.accounts}
+        row = view._transaction_card(transaction, names, compact)
+        assert isinstance(row, ft.Container) and isinstance(row.content, ft.Row)
+        column = row.content.controls[0]
+        assert isinstance(column, ft.Column)
+        heading = column.controls[0]
+        assert isinstance(heading, ft.Row)
+        summary, amount = heading.controls
+        assert isinstance(summary, ft.Text)
+        assert summary.value == "Synthetic transfer" and summary.size == 14
+        assert isinstance(amount, ft.Text)
+        assert amount.value == ("4,200.00 UAH" if exchange else "100.00 UAH")
+        movement = column.controls[-1]
+        assert isinstance(movement, ft.Text)
+        assert movement.value == ("Dollar → Other bank" if exchange else "Bank → Other bank")
+        assert movement.size == 10
+        details = column.controls[1:-1]
+        assert len(details) == (2 if exchange else 1)
+        fee = details[-1]
+        assert isinstance(fee, ft.Text)
+        assert fee.value == ("Fee: 5.00 USD" if exchange else "Fee: 5.00 UAH")
+        assert len(row.content.controls[1:]) == (1 if compact else 2)
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize(
     ("source", "target", "debit", "credit"),
     [

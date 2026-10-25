@@ -1080,6 +1080,10 @@ msgstr "Магазин / отримувач (необов'язково)"
 msgid "ui.date"
 msgstr "Дата"
 
+#. Stable TxnCount key: ui.initial_date; do not translate this identifier.
+msgid "ui.initial_date"
+msgstr "Початок"
+
 #. Stable TxnCount key: ui.kind_opening; do not translate this identifier.
 msgid "ui.kind_opening"
 msgstr "Початковий баланс"

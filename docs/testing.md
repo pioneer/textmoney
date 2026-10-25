@@ -37,9 +37,13 @@ build smoke tests, not store certification.
 
 ## Transaction list density
 
-Home recent activity and the Transactions screen share compact rows: 13px
-movement/amount text, a 12px single-line description and date, 1px line spacing,
-and 2px top/bottom padding. Action icons are 20px; their default touch targets
+Home recent activity and the Transactions screen group transactions under one
+localized accounting-date heading per day, newest first. Dates are not repeated
+inside rows. Home still shows only the five most recent transactions, even if
+that cuts through a date group. Check same-day ordering and language changes.
+Both lists share compact rows: a 13px single-line summary, 12px account movement,
+13px amount, 1px line spacing, and 2px top/bottom padding. Split-posting summaries
+remain 13px when there is no account movement. Action icons are 20px; their default touch targets
 are unchanged. Check both lists at phone and desktop widths, including long
 account/category names, large amounts, blank descriptions, split postings and
 exchange fees. Amounts must remain readable; descriptions may use an ellipsis.

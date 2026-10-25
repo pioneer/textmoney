@@ -13,11 +13,11 @@ from flet.controls.device_info import DeviceInfo
 from form_controls import transaction_form
 from journal_fixtures import review_external_fixture
 
-from app.domain.ledger import EPOCH, Account, LedgerError, Posting, Transaction
+from app.domain.ledger import EPOCH, Account, Category, LedgerError, Posting, Transaction
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.preferences import DesktopPreferences
 from app.journal import FILENAME, Journal
-from app.localization import date_input, format_timestamp, parse_date_input, translate
+from app.localization import date_input, format_date, format_timestamp, parse_date_input, translate
 from app.storage import StorageError
 from app.timekeeping import local_datetime, named_zone, picker_timestamp, wall_timestamp
 from app.ui.datetime_fields import DateTimeFields
@@ -162,7 +162,7 @@ def expense() -> Transaction:
 def test_compact_transaction_has_one_amount_movement_and_icon_actions() -> None:
     view = FinanceView()
     row = view._transaction_card(expense(), {"Assets:Cash": "Wallet", "Expenses:Food": "Food"})
-    assert texts(row) == ["Wallet → Food", "10.00 UAH", "Private long description", "Oct 18, 2026"]
+    assert texts(row) == ["Wallet → Food", "10.00 UAH", "Private long description"]
     assert isinstance(row, ft.Container)
     assert isinstance(row.content, ft.Row)
     actions = row.content.controls[1:]
@@ -195,15 +195,14 @@ def test_transaction_rows_use_tighter_typography_without_smaller_touch_targets(
     assert row.padding == ft.Padding.symmetric(vertical=2)
     column = row.content.controls[0]
     assert isinstance(column, ft.Column) and column.spacing == 1
-    heading, description, day = column.controls
+    heading, description = column.controls
     assert isinstance(heading, ft.Row)
     movement, amount = heading.controls
-    assert isinstance(movement, ft.Text) and movement.size == 13
+    assert isinstance(movement, ft.Text) and movement.size == 12
     assert movement.max_lines == 1 and movement.overflow == ft.TextOverflow.ELLIPSIS
     assert isinstance(amount, ft.Text) and amount.size == 13
     assert amount.value == "10.00 UAH" and amount.max_lines is None
-    assert isinstance(description, ft.Text) and description.size == 12
-    assert isinstance(day, ft.Text) and day.size == 12
+    assert isinstance(description, ft.Text) and description.size == 13
     actions = row.content.controls[1:]
     assert len(actions) == (1 if compact else 2)
     for action in actions:
@@ -242,7 +241,80 @@ def test_blank_transaction_description_does_not_add_an_empty_preview(narration: 
     assert isinstance(row, ft.Container) and isinstance(row.content, ft.Row)
     column = row.content.controls[0]
     assert isinstance(column, ft.Column)
-    assert len(column.controls) == 2
+    assert len(column.controls) == 1
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_both_transaction_lists_group_localized_dates_without_changing_order_or_home_limit(
+    tmp_path: Path, language: str
+) -> None:
+    view = FinanceView()
+    view.language = language
+    view.timezone_name = "Asia/Tokyo"
+    journal = view.journal = Journal(
+        DesktopFolder(str(tmp_path), FILENAME), today=lambda: date(2026, 10, 25)
+    )
+    transactions = tuple(
+        replace(
+            expense(),
+            id=f"transaction-{index}",
+            date=date(2026, 10, day),
+            timestamp=f"2026-10-{day}T{hour}:00:00",
+            narration=f"Synthetic purchase {index}",
+        )
+        for index, (day, hour) in enumerate(
+            [(16, "12"), (18, "10"), (17, "09"), (18, "22"), (18, "14"), (17, "20"), (17, "14")]
+        )
+    )
+    journal.ledger = replace(
+        journal.ledger,
+        accounts=(Account("Assets:Cash", "Wallet", "UAH", EPOCH),),
+        categories=(Category("Expenses:Food", "Food", EPOCH),),
+        transactions=transactions,
+    )
+    journal.ready = True
+    view._refresh()
+    for listing, expected_order, expected_days, action_count in (
+        (view.history, [3, 4, 1, 5, 6, 2, 0], [18, 17, 16], 2),
+        (view.home_activity, [3, 4, 1, 5, 6], [18, 17], 1),
+    ):
+        headings: list[str] = []
+        row_ids: list[str] = []
+        current_heading = ""
+        for control in listing.controls:
+            assert isinstance(control, ft.Container)
+            if isinstance(control.content, ft.Text):
+                current_heading = control.content.value or ""
+                headings.append(current_heading)
+                assert control.content.size == 12
+                assert control.content.weight == ft.FontWeight.W_600
+            else:
+                assert isinstance(control.content, ft.Row)
+                actions = control.content.controls[1:]
+                assert len(actions) == action_count
+                assert all(isinstance(action, ft.IconButton) for action in actions)
+                edit = actions[0]
+                assert isinstance(edit, ft.IconButton) and isinstance(edit.data, str)
+                row_ids.append(edit.data)
+                transaction = next(item for item in transactions if item.id == edit.data)
+                assert current_heading == format_date(transaction.date, language)
+                assert current_heading not in texts(control)
+        assert headings == [format_date(date(2026, 10, day), language) for day in expected_days]
+        assert row_ids == [transactions[index].id for index in expected_order]
+    assert journal.ledger.transactions == transactions
+
+
+@pytest.mark.parametrize("ready", [False, True])
+def test_empty_transaction_lists_have_no_date_headings(tmp_path: Path, ready: bool) -> None:
+    view = FinanceView()
+    view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+    view.journal.ready = ready
+    view._refresh()
+    assert len(view.history.controls) == len(view.home_activity.controls) == 1
+    assert isinstance(view.history.controls[0], ft.Text)
+    assert isinstance(view.home_activity.controls[0], ft.Text)
+    assert texts(view.history) == [view.tr("transactions_empty")]
+    assert texts(view.home_activity) == [view.tr("home_no_transactions")]
 
 
 def test_multicurrency_or_split_rows_do_not_invent_a_combined_amount() -> None:

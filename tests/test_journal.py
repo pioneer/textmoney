@@ -353,7 +353,13 @@ def test_ui_success_conflict_reload_and_validation_retain_form_inputs(
         assert view.journal.ledger.balances()["Assets:Cash"] == -1
         view._navigate("transactions")
         assert view.screen_host.content is view.transactions_screen
-        assert len(view.history.controls) == 4
+        assert (
+            sum(
+                isinstance(control, ft.Container) and isinstance(control.content, ft.Row)
+                for control in view.history.controls
+            )
+            == 4
+        )
 
     asyncio.run(scenario())
 

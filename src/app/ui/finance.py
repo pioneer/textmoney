@@ -7,6 +7,7 @@ from concurrent.futures import Future
 from datetime import date, datetime
 from decimal import Decimal, localcontext
 from enum import StrEnum
+from itertools import groupby
 from zoneinfo import available_timezones
 
 import flet as ft
@@ -886,12 +887,12 @@ class FinanceView(ft.Row):
             ),
             reverse=True,
         )
-        self.history.controls = [self._transaction_card(item, names) for item in transactions] or [
+        self.history.controls = self._transaction_groups(transactions, names) or [
             ft.Text(self.tr("transactions_empty"))
         ]
-        self.home_activity.controls = [
-            self._transaction_card(item, names, compact=True) for item in transactions[:5]
-        ] or [ft.Text(self.tr("home_no_transactions"))]
+        self.home_activity.controls = self._transaction_groups(
+            transactions[:5], names, compact=True
+        ) or [ft.Text(self.tr("home_no_transactions"))]
         self.account_list.controls = [
             self._entity_card(account, balances[account.id]) for account in ledger.accounts
         ] or [ft.Text(self.tr("accounts_empty"))]
@@ -1190,6 +1191,25 @@ class FinanceView(ft.Row):
             ),
         )
 
+    def _transaction_groups(
+        self,
+        transactions: list[Transaction],
+        names: dict[str, str],
+        compact: bool = False,
+    ) -> list[ft.Control]:
+        controls: list[ft.Control] = []
+        for day, entries in groupby(transactions, key=lambda item: item.date):
+            controls.append(
+                ft.Container(
+                    padding=ft.Padding.only(top=8, bottom=4),
+                    content=ft.Text(
+                        format_date(day, self.language), size=12, weight=ft.FontWeight.W_600
+                    ),
+                )
+            )
+            controls.extend(self._transaction_card(item, names, compact) for item in entries)
+        return controls
+
     def _transaction_card(
         self,
         transaction: Transaction,
@@ -1255,7 +1275,13 @@ class FinanceView(ft.Row):
                 else f"{source} → {target}"
             )
         heading: list[ft.Control] = [
-            ft.Text(title, size=13, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
+            ft.Text(
+                title,
+                size=12 if simple else 13,
+                expand=True,
+                max_lines=1,
+                overflow=ft.TextOverflow.ELLIPSIS,
+            )
         ]
         if simple:
             heading.append(
@@ -1288,13 +1314,11 @@ class FinanceView(ft.Row):
             lines.append(
                 ft.Text(
                     " ".join(transaction.narration.split()),
-                    size=12,
+                    size=13,
                     max_lines=1,
                     overflow=ft.TextOverflow.ELLIPSIS,
                 )
             )
-        if transaction.kind != "opening":
-            lines.append(ft.Text(format_date(transaction.date, self.language), size=12))
         actions: list[ft.Control] = [
             ft.IconButton(
                 icon=ft.Icons.EDIT_OUTLINED,

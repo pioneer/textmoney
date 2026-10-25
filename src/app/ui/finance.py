@@ -853,6 +853,9 @@ class FinanceView(ft.Row):
         grouped: dict[str, list[tuple[str, Decimal]]] = defaultdict(list)
         for account in ledger.accounts:
             grouped[account.currency].append((account.name, balances[account.id]))
+        currency_order = {
+            currency: index for index, currency in enumerate(ledger.operating_currencies)
+        }
         self.home_balances.controls = [
             ft.Container(
                 width=250,
@@ -876,7 +879,10 @@ class FinanceView(ft.Row):
                     spacing=10,
                 ),
             )
-            for currency, accounts in sorted(grouped.items())
+            for currency, accounts in sorted(
+                grouped.items(),
+                key=lambda item: (currency_order.get(item[0], len(currency_order)), item[0]),
+            )
         ] or [ft.Text(self.tr("home_no_accounts"))]
         names = {account.id: account.name for account in ledger.accounts}
         names.update({category.id: category.name for category in ledger.categories})

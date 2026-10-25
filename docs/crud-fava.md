@@ -480,6 +480,10 @@ and account declaration use one validated, backed-up save, never separate writes
 Loading older journals alone never adds options. Existing options are not
 removed when an unused account is deleted.
 These options do not convert or combine currencies.
+Home balance sections follow the saved currency order. Account currencies not
+listed in these settings appear afterward in alphabetical order; configured
+currencies without accounts do not create empty sections. Unsaved settings do
+not change the displayed order.
 
 Fava **1.30.16** was added as a desktop development-only test oracle alongside
 official Beancount **3.2.3**. A regression reproduces Fava's exact

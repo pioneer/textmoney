@@ -299,6 +299,100 @@ def test_operating_currencies_new_existing_configuration_and_comments(tmp_path: 
     asyncio.run(scenario())
 
 
+def home_balance_titles(view: FinanceView) -> list[str]:
+    titles = []
+    for group in view.home_balances.controls:
+        assert isinstance(group, ft.Container)
+        assert isinstance(group.content, ft.Column)
+        heading = group.content.controls[0]
+        assert isinstance(heading, ft.Text)
+        titles.append(heading.value)
+    return titles
+
+
+@pytest.mark.parametrize("width", [390, 800, 1366])
+@pytest.mark.parametrize(
+    ("currencies", "expected"),
+    [
+        ("UAH USD EUR", ["UAH", "USD", "EUR"]),
+        ("USD UAH", ["USD", "UAH", "EUR"]),
+        ("JPY UAH", ["UAH", "EUR", "USD"]),
+        ("", ["EUR", "UAH", "USD"]),
+    ],
+)
+def test_home_balances_follow_saved_currency_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    width: int,
+    currencies: str,
+    expected: list[str],
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        page.width = width
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        journal = await seeded(tmp_path)
+        await journal.create_account("Usd", "Dollar wallet", "USD", "25", opened=EPOCH)
+        await journal.create_account("Eur", "Euro wallet", "EUR", "50", opened=EPOCH)
+        if currencies:
+            await journal.set_operating_currencies(currencies, journal.source)
+        else:
+            source = "".join(
+                line
+                for line in journal.source.splitlines(keepends=True)
+                if not line.startswith('option "operating_currency"')
+            )
+            (tmp_path / FILENAME).write_text(source, newline="")
+            await journal.load()
+        source = journal.source
+        balances = journal.ledger.balances()
+        view = FinanceView()
+        view.journal = journal
+        view._apply_layout(width)
+        view._refresh()
+        assert home_balance_titles(view) == [
+            view.tr("currency_group", currency=currency) for currency in expected
+        ]
+        assert view.journal.ledger.balances() == balances
+        assert (tmp_path / FILENAME).read_text(newline="") == source
+
+    asyncio.run(scenario())
+
+
+def test_home_currency_order_changes_only_after_save_and_survives_reload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
+        view = FinanceView()
+        view.journal = await seeded(tmp_path)
+        await view.journal.create_account("Usd", "Dollar wallet", "USD", opened=EPOCH)
+        view._refresh()
+        initial = [view.tr("currency_group", currency=currency) for currency in ("UAH", "USD")]
+        assert home_balance_titles(view) == initial
+        view.operating_currencies.value = "USD UAH"
+        view._refresh()
+        assert home_balance_titles(view) == initial
+        await view._save_operating_currencies(MagicMock())
+        reordered = list(reversed(initial))
+        assert view.journal.ledger.operating_currencies == ("USD", "UAH")
+        assert home_balance_titles(view) == reordered
+        view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await view.journal.load()
+        view._refresh()
+        assert home_balance_titles(view) == reordered
+        source = view.journal.source
+        view.operating_currencies.value = "UAH invalid"
+        await view._save_operating_currencies(MagicMock())
+        assert view.operating_currencies.value == "UAH invalid"
+        assert home_balance_titles(view) == reordered
+        assert (tmp_path / FILENAME).read_text(newline="") == source
+
+    asyncio.run(scenario())
+
+
 def test_account_opening_changes_keep_economics_and_warn_for_negative_running_balances(
     tmp_path: Path,
 ) -> None:

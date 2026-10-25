@@ -254,9 +254,10 @@ def test_navigation_has_consistent_destinations_and_adapts_on_resize(
         "Transactions",
         "Accounting",
         "Reports",
-        "Settings",
     ]
-    assert len(view.navigation_bar.destinations) == len(view.nav_rail.destinations) == 5
+    assert len(view.navigation_bar.destinations) == 4
+    assert len(view.nav_rail.destinations) == 5
+    assert view.settings_button.visible
     assert view.screen_class == ScreenClass.COMPACT
     assert page.navigation_bar is view.navigation_bar
 
@@ -266,10 +267,13 @@ def test_navigation_has_consistent_destinations_and_adapts_on_resize(
     assert isinstance(view.controls[0], ft.Container)
     assert view.controls[0].content is view.nav_rail
     assert page.navigation_bar is None
+    assert not view.settings_button.visible
+    assert view.nav_rail.destinations[-1].label == "Settings"
 
     view._apply_layout(1366)
     assert view.screen_class == ScreenClass.EXPANDED
     assert view.nav_rail.extended
+    assert not view.settings_button.visible
 
 
 def test_manual_language_switch_is_immediate_and_persisted(

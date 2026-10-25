@@ -42,8 +42,13 @@ def test_version_visible_in_every_screen_header(
         header = view.body.controls[0]
         assert isinstance(header, ft.Container)
         assert isinstance(header.content, ft.Row)
-        assert header.content.controls == [view.page_title, view.release_label]
-        assert header.content.wrap
+        assert header.content.controls == [
+            view.settings_back,
+            view.header_titles,
+            view.settings_button,
+        ]
+        assert view.header_titles.controls == [view.page_title, view.release_label]
+        assert view.header_titles.wrap
         assert view.page_title.value == view.tr(f"nav_{screen}")
         assert view.release_label.value == f"v{release} ({build})"
         assert view.release_label.visible

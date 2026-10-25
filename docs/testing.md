@@ -46,6 +46,16 @@ exchange fees. Amounts must remain readable; descriptions may use an ellipsis.
 Each row has a thin, theme-aware bottom separator spanning the details, amount
 and action buttons, helping the eye follow wide rows. Check light and dark themes.
 
+## Adaptive Settings navigation
+
+At compact widths (up to 599px), verify the bottom bar has Home, Transactions,
+Accounting and Reports only. The top-right gear opens Settings; its back arrow
+returns to the previous screen, preserving in-memory form/filter state. Settings
+hides the bottom bar and transaction action on compact screens. At 600px and
+wider, Settings remains in the left rail and the header gear/back arrow is hidden.
+Resize while Settings is open in both directions and check selection, return
+navigation and localized tooltips without reloading the journal.
+
 ## Sequential-file workflow regression checklist
 
 Use only a disposable synthetic journal:

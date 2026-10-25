@@ -97,6 +97,7 @@ class FinanceView(ft.Row):
         self.system_zone = "system"
         self.screen_class = ScreenClass.COMPACT
         self.current_screen = "home"
+        self.settings_return_screen = "home"
         self.message_key = "no_folder"
         self.error_message: str | None = None
         self.diagnostics_visible = False
@@ -301,6 +302,22 @@ class FinanceView(ft.Row):
         self.page_title = ft.Text(size=25, weight=ft.FontWeight.W_600)
         version, build = release_identity()
         self.release_label = ft.Text(f"v{version} ({build})", size=12, color=ft.Colors.OUTLINE)
+        self.settings_button = ft.IconButton(
+            icon=ft.Icons.SETTINGS_OUTLINED,
+            icon_size=20,
+            on_click=self._open_settings,
+        )
+        self.settings_back = ft.IconButton(
+            icon=ft.Icons.ARROW_BACK,
+            on_click=self._back_from_settings,
+            visible=False,
+        )
+        self.header_titles = ft.Row(
+            [self.page_title, self.release_label],
+            expand=True,
+            wrap=True,
+            run_spacing=4,
+        )
         self.nav_rail = ft.NavigationRail(
             min_width=78,
             min_extended_width=224,
@@ -322,9 +339,7 @@ class FinanceView(ft.Row):
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20, vertical=16),
                     content=ft.Row(
-                        [self.page_title, self.release_label],
-                        wrap=True,
-                        run_spacing=4,
+                        [self.settings_back, self.header_titles, self.settings_button],
                     ),
                 ),
                 ft.Container(
@@ -516,9 +531,13 @@ class FinanceView(ft.Row):
             ft.NavigationBarDestination(
                 label=self.tr(label), icon=icon, selected_icon=selected_icon
             )
-            for label, icon, selected_icon in destinations
+            for label, icon, selected_icon in destinations[:-1]
         ]
-        self.navigation_bar.selected_index = self._selected_index()
+        self.navigation_bar.selected_index = (
+            ("home", "transactions", "accounts", "reports").index(self.settings_return_screen)
+            if self.current_screen == "settings"
+            else self._selected_index()
+        )
         self.nav_rail.destinations = [
             ft.NavigationRailDestination(
                 label=self.tr(label), icon=icon, selected_icon=selected_icon
@@ -526,6 +545,11 @@ class FinanceView(ft.Row):
             for label, icon, selected_icon in destinations
         ]
         self.nav_rail.selected_index = self._selected_index()
+        compact = self.screen_class == ScreenClass.COMPACT
+        self.settings_button.visible = compact and self.current_screen != "settings"
+        self.settings_button.tooltip = self.tr("nav_settings")
+        self.settings_back.visible = compact and self.current_screen == "settings"
+        self.settings_back.tooltip = self.tr("nav_back")
 
     def _build_screens(self) -> None:
         version, build = release_identity()
@@ -685,7 +709,10 @@ class FinanceView(ft.Row):
         if self.screen_class == ScreenClass.COMPACT:
             self.controls = [self.body]
             self.body.width = width
-            self.page.navigation_bar = self.navigation_bar if self.page else None
+            if self.page:
+                self.page.navigation_bar = (
+                    None if self.current_screen == "settings" else self.navigation_bar
+                )
             rail_width = 0
         else:
             expanded = self.screen_class == ScreenClass.EXPANDED
@@ -712,8 +739,11 @@ class FinanceView(ft.Row):
         if self.page:
             self.fab.content = self.tr("add_transaction")
             self.fab.disabled = not (self.journal and self.journal.ready)
-            if self.page:
-                self.page.floating_action_button = self.fab
+            self.page.floating_action_button = (
+                None
+                if self.screen_class == ScreenClass.COMPACT and self.current_screen == "settings"
+                else self.fab
+            )
 
     def _build_home_layout(self) -> None:
         if self.screen_class == ScreenClass.EXPANDED:
@@ -3311,6 +3341,8 @@ class FinanceView(ft.Row):
         self.page.update()
 
     def _navigate(self, screen: str) -> None:
+        if screen == "settings" and self.current_screen != "settings":
+            self.settings_return_screen = self.current_screen
         self.current_screen = screen
         self._refresh_labels()
         if screen == "reports":
@@ -3320,8 +3352,14 @@ class FinanceView(ft.Row):
             self.page.update()
 
     def _bar_changed(self, event: ft.Event[ft.NavigationBar]) -> None:
-        screens = ("home", "transactions", "accounts", "reports", "settings")
+        screens = ("home", "transactions", "accounts", "reports")
         self._navigate(screens[event.control.selected_index])
+
+    def _open_settings(self, event: ft.Event[ft.IconButton]) -> None:
+        self._navigate("settings")
+
+    def _back_from_settings(self, event: ft.Event[ft.IconButton]) -> None:
+        self._navigate(self.settings_return_screen)
 
     def _rail_changed(self, event: ft.Event[ft.NavigationRail]) -> None:
         if event.control.selected_index is not None:

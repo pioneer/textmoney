@@ -45,7 +45,12 @@ Invoke compiles them to packaged MO catalogs in `src/app/locale/`. Runtime
 language choices are discovered from those compiled catalogs, with English as
 the required fallback. See the [localization guide](localization.md) for
 validation, compilation and Weblate setup. One width classifier selects bottom navigation for compact displays and
-a navigation rail for medium/expanded displays. The same screens and form state
+a navigation rail for medium/expanded displays. Compact layouts have four bottom
+destinations and a top-right Settings gear. Settings opens separately with a back
+arrow and no bottom bar or transaction action; Back restores the previous screen.
+Medium/expanded layouts retain Settings as the fifth rail destination without
+the header gear. This follows available width, not the operating system.
+The same screens and form state
 are retained through resizing. Translation resources are separate from controls;
 language/theme choices are saved locally. Domain functions use Python types and return results or raise meaningful
 exceptions. Services decide retry, timeout, cancellation, and user-facing failure

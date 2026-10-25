@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TxnCount 0.2.4\n"
+"Project-Id-Version: TxnCount 0.3.3\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/txncount/issues\n"
-"POT-Creation-Date: 2026-10-22 22:20+0300\n"
-"PO-Revision-Date: 2026-10-22 22:20+0300\n"
+"POT-Creation-Date: 2026-10-25 06:36+0200\n"
+"PO-Revision-Date: 2026-10-25 06:36+0200\n"
 "Last-Translator: TxnCount localization contributors\n"
 "Language-Team: TxnCount language translators\n"
 "MIME-Version: 1.0\n"
@@ -14,42 +14,6 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 #. Stable TxnCount key: ui.sync_required; do not translate this identifier.
-msgid "ui.external_notice"
-msgstr ""
-
-msgid "ui.external_details"
-msgstr ""
-
-msgid "ui.external_observed"
-msgstr ""
-
-msgid "ui.external_summary"
-msgstr ""
-
-msgid "ui.external_summary_unavailable"
-msgstr ""
-
-msgid "ui.external_diff"
-msgstr ""
-
-msgid "ui.conflict_copies"
-msgstr ""
-
-msgid "ui.conflict_copy_scan_failed"
-msgstr ""
-
-msgid "ui.default_fee_saved"
-msgstr ""
-
-msgid "ui.default_fee_save_failed"
-msgstr ""
-
-msgid "ui.default_fee_unavailable"
-msgstr ""
-
-msgid "ui.default_fee_invalid"
-msgstr ""
-
 msgid "ui.sync_required"
 msgstr ""
 
@@ -581,6 +545,10 @@ msgstr ""
 msgid "ui.nav_settings"
 msgstr ""
 
+#. Stable TxnCount key: ui.nav_back; do not translate this identifier.
+msgid "ui.nav_back"
+msgstr ""
+
 #. Stable TxnCount key: ui.nav_reports; do not translate this identifier.
 msgid "ui.nav_reports"
 msgstr ""
@@ -810,6 +778,42 @@ msgstr ""
 
 #. Stable TxnCount key: ui.conflict_body; do not translate this identifier.
 msgid "ui.conflict_body"
+msgstr ""
+
+msgid "ui.external_notice"
+msgstr ""
+
+msgid "ui.external_details"
+msgstr ""
+
+msgid "ui.external_observed"
+msgstr ""
+
+msgid "ui.external_summary"
+msgstr ""
+
+msgid "ui.external_summary_unavailable"
+msgstr ""
+
+msgid "ui.external_diff"
+msgstr ""
+
+msgid "ui.conflict_copies"
+msgstr ""
+
+msgid "ui.conflict_copy_scan_failed"
+msgstr ""
+
+msgid "ui.default_fee_saved"
+msgstr ""
+
+msgid "ui.default_fee_save_failed"
+msgstr ""
+
+msgid "ui.default_fee_unavailable"
+msgstr ""
+
+msgid "ui.default_fee_invalid"
 msgstr ""
 
 #. Stable TxnCount key: ui.keep_editing; do not translate this identifier.

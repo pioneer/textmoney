@@ -677,7 +677,8 @@ def test_opening_rows_hide_dates_and_page_headings_are_not_repeated(language: st
     header = view.body.controls[0]
     assert isinstance(header, ft.Container)
     assert isinstance(header.content, ft.Row)
-    assert header.content.controls == [view.page_title, view.release_label]
+    assert view.header_titles in header.content.controls
+    assert view.header_titles.controls == [view.page_title, view.release_label]
     for screen in ("home", "transactions", "accounts", "settings"):
         view.current_screen = screen
         view._refresh_labels()

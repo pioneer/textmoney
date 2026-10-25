@@ -627,6 +627,10 @@ msgstr "Accounting"
 msgid "ui.nav_settings"
 msgstr "Settings"
 
+#. Stable TxnCount key: ui.nav_back; do not translate this identifier.
+msgid "ui.nav_back"
+msgstr "Back"
+
 #. Stable TxnCount key: ui.nav_reports; do not translate this identifier.
 msgid "ui.nav_reports"
 msgstr "Reports"

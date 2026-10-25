@@ -221,7 +221,7 @@ class FinanceView(ft.Row):
                 self.report_range,
                 self.report_error,
                 self.report_summary,
-                self.report_categories,
+                ft.Container(content=self.report_categories, padding=ft.Padding.only(bottom=96)),
             ],
         )
         self._report_ledger: object | None = None

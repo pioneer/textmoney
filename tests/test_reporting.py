@@ -290,3 +290,44 @@ def test_reports_navigation_and_custom_range_validation(
         assert view.report_summary.controls == []
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("width", [390, 800, 1366])
+@pytest.mark.parametrize("state", ["unavailable", "empty", "populated"])
+def test_reports_keep_scroll_clearance_for_floating_action(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    width: int,
+    state: str,
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        page.width = width
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        monkeypatch.setattr(FinanceView, "_today", lambda _: date(2026, 1, 31))
+        view = FinanceView()
+        view.startup_complete = True
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME), today=lambda: date(2026, 1, 31))
+        if state != "unavailable":
+            await journal.load()
+        if state == "populated":
+            await journal.create_account("Cash", "Cash", "UAH", "100", opened=EPOCH)
+            await journal.create_category("Food", "Food", opened=EPOCH)
+            await journal.add_expense("Assets:Cash", "Expenses:Food", "10", "", "2026-01-15")
+        view.journal = journal
+        view._refresh()
+        for screen in ("reports", "home", "reports"):
+            view._navigate(screen)
+            if screen != "reports":
+                continue
+            assert view.screen_host.content is view.reports_screen
+            listing = view.reports_screen.controls[-1]
+            assert isinstance(listing, ft.Container)
+            assert listing.content is view.report_categories
+            assert listing.padding == ft.Padding.only(bottom=96)
+            assert view.body.scroll == ft.ScrollMode.AUTO
+            assert page.floating_action_button is view.fab
+            assert view.fab.disabled == (state == "unavailable")
+            assert bool(view.report_categories.controls) == (state == "populated")
+
+    asyncio.run(scenario())

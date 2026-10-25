@@ -63,6 +63,14 @@ actions sit above the button and remain clickable. Empty lists still show their
 normal message. Transfers retain exchange/fee details above their account movement;
 blank descriptions do not add an empty summary line.
 
+## Reports scrolling clearance
+
+Reports also reserves 96px of scrollable space after the category breakdowns,
+matching Transactions. With a long report, scroll fully to the bottom at phone
+and desktop widths and confirm the last category and amount sit above the
+floating Add button. Recheck after changing the period and navigating away and
+back; empty reports retain their normal message.
+
 ## Adaptive Settings navigation
 
 At compact widths (up to 599px), verify the bottom bar has Home, Transactions,

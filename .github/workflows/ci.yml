@@ -70,7 +70,7 @@ jobs:
             task: build-linux-appimage
           - target: windows
             os: windows-latest
-            task: build-windows
+            task: build-windows-installer
           - target: macos
             os: macos-latest
             task: build-macos
@@ -96,8 +96,11 @@ jobs:
           sudo apt-get install -y --no-install-recommends "${packages[@]}"
       - name: Build
         run: uv run inv ${{ matrix.task }}
+      - name: Smoke test Windows installer
+        if: matrix.target == 'windows'
+        run: uv run inv smoke-windows-installer
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}
-          path: ${{ matrix.target == 'linux' && 'dist/linux/' || format('build/{0}/', matrix.target) }}
+          path: ${{ matrix.target == 'linux' && 'dist/linux/' || matrix.target == 'windows' && 'dist/windows/' || format('build/{0}/', matrix.target) }}
           if-no-files-found: error

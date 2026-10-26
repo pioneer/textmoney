@@ -1,0 +1,191 @@
+import os
+import subprocess
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+from PIL import Image
+
+from tools import linux_appimage, windows_installer
+
+
+@pytest.fixture
+def bundle(tmp_path: Path) -> Path:
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.3.7"\n[tool.flet]\nproduct = "TxnCount"\n'
+        'company = "Pioneer"\nbundle_id = "com.pioneer.txncount"\n'
+    )
+    source = tmp_path / "build/windows"
+    (source / "data/flutter_assets").mkdir(parents=True)
+    for name in ("txncount.exe", "flutter_windows.dll"):
+        (source / name).write_bytes(b"synthetic")
+    (tmp_path / "assets").mkdir()
+    Image.new("RGB", (1024, 1024), "green").save(tmp_path / "assets/icon.png")
+    return tmp_path
+
+
+def test_installer_packages_entire_bundle_app_local_runtime_and_generated_icon(
+    bundle: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = bundle / "runtime"
+    runtime.mkdir()
+    for name in ("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll", "concrt140.dll"):
+        (runtime / name).write_bytes(name.encode())
+    monkeypatch.setattr(windows_installer, "runtime_directory", lambda: runtime)
+    monkeypatch.setattr(windows_installer, "compiler_path", lambda: Path("ISCC.exe"))
+
+    def run(*args: str, capture: bool = True) -> str:
+        assert not capture
+        defines = dict(arg[2:].split("=", 1) for arg in args if arg.startswith("/D"))
+        assert defines["AppId"] == "com.pioneer.txncount"
+        assert defines["AppVersion"] == "0.3.7"
+        source = Path(defines["SourceDir"])
+        assert (source / "data/flutter_assets").is_dir()
+        assert (source / "concrt140.dll").read_bytes() == b"concrt140.dll"
+        assert (source / "txncount.exe").read_bytes() == b"synthetic"
+        with Image.open(defines["SetupIcon"]) as icon:
+            assert icon.format == "ICO"
+        output = Path(defines["OutputDir"]) / f"{defines['OutputName']}.exe"
+        output.write_bytes(b"synthetic installer")
+        return ""
+
+    monkeypatch.setattr(windows_installer, "run", run)
+    result = windows_installer.build_installer(bundle)
+    assert result == bundle / "dist/windows/TxnCount-0.3.7-windows-x64-setup.exe"
+    assert result.read_bytes() == b"synthetic installer"
+    assert list((bundle / "build/windows-installer").iterdir()) == []
+
+
+def test_missing_bundle_prevents_compilation(bundle: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (bundle / "build/windows/flutter_windows.dll").unlink()
+    run = MagicMock()
+    monkeypatch.setattr(windows_installer, "run", run)
+    with pytest.raises(RuntimeError, match="bundle is incomplete"):
+        windows_installer.build_installer(bundle)
+    run.assert_not_called()
+
+
+def test_missing_compiler_is_an_explicit_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(windows_installer.shutil, "which", lambda name: None)
+    monkeypatch.setenv("PROGRAMFILES(X86)", "/missing-synthetic-program-files")
+    with pytest.raises(RuntimeError, match="Inno Setup 6"):
+        windows_installer.compiler_path()
+
+
+def test_missing_runtime_prevents_installer_compilation(
+    bundle: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = bundle / "runtime"
+    runtime.mkdir()
+    monkeypatch.setattr(windows_installer, "runtime_directory", lambda: runtime)
+    command = MagicMock()
+    monkeypatch.setattr(windows_installer, "run", command)
+    with pytest.raises(RuntimeError, match="runtime is incomplete"):
+        windows_installer.build_installer(bundle)
+    command.assert_not_called()
+
+
+def test_successful_compiler_without_installer_output_fails_explicitly(
+    bundle: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = bundle / "runtime"
+    runtime.mkdir()
+    for name in ("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll"):
+        (runtime / name).write_bytes(b"synthetic runtime")
+    monkeypatch.setattr(windows_installer, "runtime_directory", lambda: runtime)
+    monkeypatch.setattr(windows_installer, "compiler_path", lambda: Path("ISCC.exe"))
+    monkeypatch.setattr(windows_installer, "run", MagicMock(return_value=""))
+    with pytest.raises(RuntimeError, match="nonempty installer"):
+        windows_installer.build_installer(bundle)
+
+
+def test_compiler_output_is_streamed_for_build_diagnostics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = MagicMock(return_value=subprocess.CompletedProcess([], 0, stdout=None))
+    monkeypatch.setattr(windows_installer.subprocess, "run", command)
+    assert windows_installer.run("ISCC.exe", capture=False) == ""
+    assert command.call_args.kwargs["stdout"] is None
+
+
+def test_installer_smoke_is_restricted_to_disposable_ci(
+    bundle: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    with pytest.raises(RuntimeError, match="disposable GitHub runners"):
+        windows_installer.smoke_installer(bundle)
+
+
+def test_installer_smoke_installs_twice_and_preserves_disposable_data(
+    bundle: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    artifact = bundle / "dist/windows/TxnCount-0.3.7-windows-x64-setup.exe"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_bytes(b"installer")
+    installed: Path | None = None
+    calls: list[tuple[str, ...]] = []
+
+    def run(*args: str) -> str:
+        nonlocal installed
+        calls.append(args)
+        if args[0] == str(artifact):
+            installed = Path(next(arg[5:] for arg in args if arg.startswith("/DIR=")))
+            installed.mkdir(exist_ok=True)
+            (installed / "txncount.exe").write_bytes(b"exe")
+            (installed / "unins000.exe").write_bytes(b"uninstaller")
+        elif args[0].endswith("unins000.exe"):
+            assert installed is not None
+            (installed / "txncount.exe").unlink()
+        elif args[0] == "powershell":
+            return "ready"
+        return ""
+
+    process = MagicMock()
+    process.pid = 123
+    process.poll.return_value = None
+    popen = MagicMock()
+    popen.return_value.__enter__.return_value = process
+    monkeypatch.setattr(windows_installer, "run", run)
+    monkeypatch.setattr(windows_installer.subprocess, "Popen", popen)
+    monkeypatch.setattr(windows_installer.time, "sleep", lambda seconds: None)
+    windows_installer.smoke_installer(bundle)
+    assert len([call for call in calls if call[0] == str(artifact)]) == 2
+    assert any(call[0].endswith("unins000.exe") for call in calls)
+    assert popen.call_args.kwargs["env"]["APPDATA"] != os.environ.get("APPDATA")
+    process.terminate.assert_called_once()
+
+
+def test_packaging_command_failure_is_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        windows_installer.subprocess,
+        "run",
+        MagicMock(side_effect=subprocess.CalledProcessError(1, ["ISCC.exe"])),
+    )
+    with pytest.raises(RuntimeError, match="Windows packaging command failed") as error:
+        windows_installer.run("ISCC.exe")
+    assert isinstance(error.value.__cause__, subprocess.CalledProcessError)
+
+
+def test_installer_is_per_user_and_never_deletes_data() -> None:
+    script = (Path(__file__).resolve().parents[1] / "tools/windows-installer.iss").read_text()
+    assert "AppId={#AppId}" in script
+    assert "PrivilegesRequired=lowest" in script
+    assert "DefaultDirName={localappdata}\\Programs\\{#AppName}" in script
+    assert "ArchitecturesAllowed=x64compatible" in script
+    assert "recursesubdirs createallsubdirs" in script
+    assert "[UninstallDelete]" not in script and "[InstallDelete]" not in script
+    assert "preferences.json" not in script and ".beancount" not in script
+    assert "desktopicon" in script and "uninsdeletekey" not in script
+
+
+def test_appimage_architecture_does_not_use_posix_only_uname(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(linux_appimage.platform, "machine", lambda: "x86_64")
+    assert linux_appimage.platform_architecture() == "x86_64"

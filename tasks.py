@@ -20,7 +20,8 @@ from invoke.exceptions import Exit
 from invoke.tasks import task
 from PIL import Image, ImageDraw
 
-from tools import linux_appimage
+from tools import linux_appimage, windows_installer
+from tools import release as release_tools
 
 ROOT = Path(__file__).resolve().parent
 HOSTS = {"linux": "Linux", "windows": "Windows", "macos": "Darwin"}
@@ -892,9 +893,11 @@ def format_check(context: Context) -> None:
 
 
 @task
-def typecheck(context: Context) -> None:
+def typecheck(context: Context, platform: str = "") -> None:
     """Run Pyright."""
-    execute("pyright")
+    if platform and platform not in {"Windows", "Linux", "Darwin", "All"}:
+        raise Exit("Pyright platform must be Windows, Linux, Darwin, or All.", code=1)
+    execute("pyright", *(["--pythonplatform", platform] if platform else []))
 
 
 @task
@@ -904,6 +907,48 @@ def check(context: Context) -> None:
     compile_translations()
     for operation in (format_check, lint, typecheck, test):
         operation(context)
+
+
+@task
+def release(context: Context, version: str, resume: bool = False) -> None:
+    """Commit/tag/push a new version and wait for all-platform CI publication."""
+    try:
+        release_tools.start_release(
+            ROOT,
+            version,
+            resume=resume,
+            check=lambda: check(context),
+            previous_build=previous_release_build_number,
+        )
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
+
+
+@task
+def validate_release(context: Context, tag: str) -> None:
+    """Validate an exact release tag/commit; emit metadata for CI jobs."""
+    try:
+        release_tools.version_numbers(tag.removeprefix("v"))
+        validate_android_release_version(tag)
+        sha = capture_command("git", "rev-parse", "HEAD").strip()
+        tagged = capture_command("git", "rev-parse", f"refs/tags/{tag}^{{commit}}").strip()
+        if sha != tagged:
+            raise Exit("The checkout must match the exact release tag commit.", code=1)
+        if output := os.environ.get("GITHUB_OUTPUT"):
+            with Path(output).open("a", encoding="utf-8") as stream:
+                stream.write(f"tag={tag}\nversion={tag[1:]}\nsha={sha}\n")
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
+
+
+@task
+def publish_release(context: Context, tag: str, directory: str = "dist/release") -> None:
+    """Publish exactly three CI artifacts after verifying uploaded SHA-256 digests."""
+    validate_release(context, tag)
+    try:
+        release_tools.publish_release(ROOT, ROOT / directory, tag)
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
 
 
 @task
@@ -1007,6 +1052,28 @@ def build_ios_simulator(context: Context) -> None:
 def build_windows(context: Context) -> None:
     """Build Windows desktop on Windows."""
     build_target("windows")
+
+
+@task
+def build_windows_installer(context: Context) -> None:
+    """Build a Windows x64 per-user EXE installer using Inno Setup 6."""
+    require_host("windows")
+    build_target("windows")
+    try:
+        artifact = windows_installer.build_installer(ROOT)
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
+    print(f"Built {artifact} ({artifact.stat().st_size} bytes).")
+
+
+@task
+def smoke_windows_installer(context: Context) -> None:
+    """Test install/reinstall/startup/uninstall on a disposable Windows CI runner."""
+    require_host("windows")
+    try:
+        windows_installer.smoke_installer(ROOT)
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
 
 
 @task

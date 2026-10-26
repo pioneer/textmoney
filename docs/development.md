@@ -60,6 +60,7 @@ ship obsolete renamed-module bytecode. Source files are preserved.
 | `build-ios-simulator` | macOS; Xcode and CocoaPods, no signing required | `build/ios-simulator` |
 | `build-macos` | macOS; Xcode and CocoaPods | `build/macos` |
 | `build-windows` | Windows; Visual Studio Desktop development with C++ | `build/windows` |
+| `build-windows-installer` | Windows x64; Visual Studio C++ and Inno Setup 6 | `dist/windows/TxnCount-<version>-windows-x64-setup.exe` |
 | `build-linux`, `build-linux-appimage` | Linux x86_64; Flet toolchain, GTK, media and AppImage build tools | `dist/linux/TxnCount-<version>-x86_64.AppImage` |
 
 Flet installs its required Flutter version when unavailable, and JDK/Android SDK
@@ -92,11 +93,10 @@ bundle and dependencies are staged under a temporary AppDir in `build/`; the
 final AppImage alone is placed in `dist/linux/`. `uv run inv clean` removes
 these outputs and cached tools.
 
-The release workflow builds on Ubuntu 24.04, runs `uv run inv check`, validates
-and smoke-tests the AppImage, uploads it as a workflow artifact, and attaches
-it to the already-created Android GitHub Release without replacing existing
-assets. It runs after a successful Android release workflow for the same tag;
-maintainers can also dispatch it manually for an existing release tag.
+The unified release workflow builds on Ubuntu 24.04, validates and smoke-tests
+the AppImage, and uploads it as a workflow artifact. The final publication job
+attaches all three platform artifacts to a draft and publishes only after every
+required build succeeds. See [one-command releases](#one-command-releases).
 
 The Ubuntu 24.04 build target requires the packages reported by
 `uv run flet --version --json`, plus `desktop-file-utils`, `file`,
@@ -168,6 +168,125 @@ using the same source or packaged metadata as Settings → About. The header wra
 on narrow screens.
 
 ## Signing and CI
+
+### One-command releases
+
+After committing and pushing the release tooling to `main`, prepare and publish
+Android, Linux and Windows together from a clean, synchronized `main` checkout:
+
+```sh
+uv run inv release --version X.Y.Z
+```
+
+Replace `X.Y.Z` with a new stable version, for example `0.3.7`. This is an
+explicit publication command: it updates `[project].version` and the Android
+build number in `pyproject.toml`, refreshes `uv.lock` offline, runs
+`uv run inv check`, commits those two files, creates an annotated `vX.Y.Z` tag,
+and atomically pushes `main` and that tag to `origin`. It waits for the exact
+release workflow run and reports its result. The requested version must exceed
+the current project version and listed published stable versions. The build
+number increases beyond both the current and prior stable release's code.
+
+The local prerequisites are Git, uv, the locked development dependencies
+(`uv run inv setup`), and GitHub CLI authenticated with permission to push
+`main`/release tags and read Actions (`gh auth login`). The local command does
+not compile platform binaries: no Flutter, Visual Studio, Java or Android SDK
+is needed locally. Branch protection must allow the release commit/tag push;
+the command never bypasses protection or force-pushes. Commit and push any
+release notes or application changes before running it.
+
+The [All-platform release workflow](../.github/workflows/release.yml) runs:
+
+1. Exact tag/version/commit and increasing Android build-number validation.
+2. Format, lint, Pyright and tests on Linux Python 3.13/3.14 and Windows
+   Python 3.13, plus the existing Beancount compatibility checks.
+3. Parallel builds from that same commit:
+   - Production-signed Android APK on Ubuntu, using only the protected
+     `android-production` environment's existing signing secrets.
+   - Linux x86_64 AppImage on Ubuntu 24.04, with structure and isolated Xvfb
+     startup checks.
+   - Windows x64 per-user EXE installer on `windows-2022`, with install,
+     same-version reinstall, responsive-window startup and uninstall checks.
+4. A publication job with release-write permission, only after all three
+   platform jobs succeed. It creates a draft, uploads the three artifacts and
+   `SHA256SUMS`, checks GitHub's uploaded SHA-256 digests, then publishes the
+   complete release as latest. Existing assets are never replaced. A failed
+   build cannot publish a partial release; an upload/verification failure
+   leaves any created draft unpublished.
+
+Expected downloads are `txncount-X.Y.Z.apk`,
+`TxnCount-X.Y.Z-x86_64.AppImage`, and
+`TxnCount-X.Y.Z-windows-x64-setup.exe`. macOS, iOS, web and Android AAB are not
+part of this release command. Native build tasks remain available separately.
+GitHub environment approval rules still apply, so the command may wait for
+maintainer approval rather than bypassing it.
+Release workflows share a concurrency group so different versions cannot race
+to publish as latest. Do not queue several releases at once: GitHub may replace
+an older pending run with a newer pending run.
+
+After a pushed tag's CI/network failure, inspect Actions and reconnect with:
+
+```sh
+uv run inv release --version X.Y.Z --resume
+```
+
+Resume requires the matching version/tag commit at synchronized `main`. It does
+not increment versions, create another commit/tag, or push. It watches the exact
+existing run and reruns failed jobs if the run has completed unsuccessfully.
+Successful jobs/artifacts are retained. A draft can resume uploading only when
+its existing assets have identical digests. If code must change to fix a failed
+build, use a new version/tag; never move an existing release tag.
+
+Failures before the push leave local edits, commits or tags intact for explicit
+inspection; there is no automatic reset, deletion or rollback. `--resume` is
+only for tags already pushed successfully. If the push failed, resolve the
+reported problem and inspect/push the prepared commit and tag explicitly before
+resuming. Do not rerun without inspecting a possibly completed publication.
+
+CI compilation/startup checks are not physical-device certification or a full
+interactive GUI test. Test install/update, folder selection, journal CRUD,
+conflicts and backups on disposable data on the actual target OS. The Windows
+installer implementation has not yet been executed on a Windows runner; its
+first native build and smoke test are required before claiming Windows support.
+
+### Windows installer
+
+For a local Windows build, install Visual Studio 2022 with **Desktop development
+with C++**, its recommended Windows SDK/CMake components, and Inno Setup 6.
+Enable Windows Developer Mode for Flutter plugin symlinks. VS Code is optional
+and does not provide the native compiler. Flet downloads its required Flutter
+SDK; Android Studio, Android SDK and Java are not required for this target.
+
+```sh
+uv run inv setup
+uv run inv check
+uv run inv build-windows-installer
+```
+
+The installer includes the full Flet bundle and app-local Visual C++ runtime
+DLLs taken from the installed Visual Studio redistributable directory. It uses
+the stable bundle ID as its installer identity and derives its version/publisher
+from `pyproject.toml`. The installer icon is generated from `assets/icon.png`,
+not a separately maintained icon source. It installs under
+`%LOCALAPPDATA%\Programs\TxnCount`, without elevation, and registers a Start
+Menu shortcut, an optional desktop shortcut and an uninstaller. The package
+targets x64-compatible Windows 10 1809+ systems; Windows ARM emulation and older
+Windows versions are not validated.
+
+Uninstall removes installer-managed application files, not the selected
+journal/backups or `%APPDATA%\txncount` preferences. Keep financial data outside
+the application installation directory. The CI-only
+`uv run inv smoke-windows-installer` task uses a disposable install directory and
+synthetic journal/preferences; it checks a same-version reinstall, not an upgrade
+from an older released installer. It is restricted to disposable GitHub runners
+because Inno Setup registers the normal application identity.
+
+The initial installer is **unsigned**. Android signing keys cannot sign Windows
+executables. Windows may show unknown-publisher/SmartScreen warnings; trusted
+Windows signing requires a separate certificate/signing service and CI setup.
+Users do not need Python, uv, Flutter or Visual Studio to run the installed app.
+For local cross-platform static analysis, use
+`uv run inv typecheck --platform Windows`; it does not emulate a Windows build.
 
 ### One-time setup helper
 
@@ -244,9 +363,9 @@ The release task also needs `gh` authenticated to
 `pioneer/txncount` and Android SDK Build Tools (`apksigner` and `aapt`).
 Requires JDK 17.
 
-The `android-release.yml` workflow runs only for pushed `v*` tags, checks the
-project and release version before accessing signing secrets, verifies the APK,
-then publishes it as a GitHub Release asset. Configure the GitHub
+The unified `release.yml` workflow runs only for pushed `v*` tags, checks the
+project and release version before accessing signing secrets, and verifies the
+APK before handing it to the final all-platform publication job. Configure the GitHub
 `android-production` environment with required reviewers and restrict its
 deployment branches/tags to release tags. Add environment secrets
 `ANDROID_KEYSTORE_BASE64` (base64-encoded existing JKS),
@@ -254,19 +373,15 @@ deployment branches/tags to release tags. Add environment secrets
 mode-0600 temporary keystore and removes it after the build. The pinned
 certificate check remains the trust anchor even if the secret is replaced.
 
-The latest published release at setup was v0.3.0 with Android version code 22.
-The first production-signed release must use a later project version and a
-version code greater than 22. Existing debug-signed installations cannot update
-in place to the production certificate; export/verify the journal first, then
-uninstall and install the production APK. Later releases signed by the same
-certificate can update in place. A successful build does not substitute for
+Releases retain the existing production certificate so installed production APKs
+can update in place. A successful build does not substitute for
 install/update testing on a physical Android device.
 
 Physical-device release checklist:
 
 1. Back up and verify the journal; use a disposable journal copy for testing.
-2. Install the first production APK, confirm the app ID/version and reselect the
-  external journal folder if Android asks for its SAF permission again.
+2. Install the production APK, confirm the app ID/version and select the
+  external test journal folder.
 3. Create or edit only disposable test data, then close/reopen and confirm it
   persists in the selected external folder.
 4. Install the next production APK over it (for example, `adb install -r
@@ -284,8 +399,8 @@ Push/PR CI runs format-check, lint, Pyright, and pytest on Linux, Windows, and
 macOS with Python 3.13, plus Linux with Python 3.14. Manual
 workflow dispatch adds web, APK/AAB, Linux, Windows, macOS, and unsigned iOS
 simulator builds on the proper runners. It does not publish or install signing
-secrets. The separate Android release workflow is the only workflow that
-receives production signing secrets. A green simulator job does not certify a
+secrets. Only the Android job in the unified release workflow receives production signing
+secrets. A green simulator job does not certify a
 physical device or store release.
 
 References: [Flet publishing](https://flet.dev/docs/publish/),

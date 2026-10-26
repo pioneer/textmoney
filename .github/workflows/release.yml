@@ -1,0 +1,220 @@
+name: All-platform release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: all-platform-release
+  cancel-in-progress: false
+
+env:
+  FLET_CLI_NO_RICH_OUTPUT: "1"
+  PYTHONUTF8: "1"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Validate release identity
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run inv validate-release --tag "$GITHUB_REF_NAME"
+
+  check:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            python: "3.13"
+          - os: ubuntu-24.04
+            python: "3.14"
+          - os: windows-2022
+            python: "3.13"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.12.10"
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run inv check
+
+  compatibility:
+    needs: [prepare, check]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - uses: dtolnay/rust-toolchain@1.96.0
+      - run: uv sync --locked
+      - run: cargo install rustledger --version 0.24.0 --locked --no-default-features
+      - run: uv run inv check-compat
+
+  android:
+    needs: [prepare, check, compatibility]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    environment: android-production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Materialize protected keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/android-release.jks"
+          test -s "$RUNNER_TEMP/android-release.jks"
+          chmod 600 "$RUNNER_TEMP/android-release.jks"
+      - name: Build and verify signed APK
+        env:
+          FLET_ANDROID_SIGNING_KEY_STORE: ${{ runner.temp }}/android-release.jks
+          FLET_ANDROID_SIGNING_KEY_ALIAS: android-release
+          FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          FLET_ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: uv run inv build-android-release --tag "$RELEASE_TAG"
+      - name: Remove temporary keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/android-release.jks"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-android
+          path: build/apk/txncount-${{ needs.prepare.outputs.version }}.apk
+          if-no-files-found: error
+
+  linux:
+    needs: [prepare, check, compatibility]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Install Flet and AppImage build dependencies
+        run: |
+          mapfile -t flet_packages < <(uv run flet --version --json | jq -r '.linux_dependencies[]')
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            "${flet_packages[@]}" \
+            desktop-file-utils file libgirepository1.0-dev librsvg2-dev \
+            squashfs-tools xvfb
+      - run: uv run inv build-linux-appimage
+      - run: uv run inv validate-linux-appimage
+      - name: Smoke test with isolated settings
+        run: |
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/txncount-smoke-config"
+          export XDG_CACHE_HOME="$RUNNER_TEMP/txncount-smoke-cache"
+          uv run inv smoke-linux-appimage
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-linux
+          path: dist/linux/TxnCount-${{ needs.prepare.outputs.version }}-x86_64.AppImage
+          if-no-files-found: error
+
+  windows:
+    needs: [prepare, check, compatibility]
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run inv build-windows-installer
+      - run: uv run inv smoke-windows-installer
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-windows
+          path: dist/windows/TxnCount-${{ needs.prepare.outputs.version }}-windows-x64-setup.exe
+          if-no-files-found: error
+
+  publish:
+    needs: [prepare, android, linux, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.12.10"
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --locked
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist/release
+          merge-multiple: true
+      - name: Verify and publish all three platforms together
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: uv run inv publish-release --tag "$RELEASE_TAG"

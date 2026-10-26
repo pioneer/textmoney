@@ -85,7 +85,9 @@ Android 7.0 or newer is required. You can also track this repository with
 [Obtainium](https://github.com/ImranR98/Obtainium) for updates.
 
 Android and Linux x86_64 AppImage downloads are published. Windows support is
-implemented but has not yet been validated; there is no Windows release download.
+implemented but has not yet been validated; there is no Windows release download
+yet. The unified release workflow prepares a per-user Windows x64 EXE installer,
+not a portable ZIP; its first native build and installation test are still pending.
 Android APKs use the maintained production signing certificate. Newer releases
 can update an existing installation in place.
 
@@ -317,6 +319,23 @@ uv run inv build-linux    # Build the Linux x86_64 AppImage
 uv run inv build-local    # Build for the current desktop OS
 uv run inv --list         # All available tasks
 ```
+
+To create the next Android, Linux and Windows release together, use a clean,
+synchronized `main` checkout with authenticated GitHub CLI:
+
+```sh
+uv run inv release --version X.Y.Z
+```
+
+This command **commits and pushes** the version/build-number update and release
+tag, waits for CI to build and validate a production-signed APK, an AppImage and
+a Windows EXE installer, then publishes all three together with SHA-256
+checksums. It does not need platform SDKs locally. Replace `X.Y.Z` with a new
+stable version. If a pushed release run is interrupted or fails, inspect it and
+use `uv run inv release --version X.Y.Z --resume`; existing release assets are
+never overwritten. Windows installers are initially unsigned and may trigger
+SmartScreen warnings. See [one-command releases](docs/development.md#one-command-releases)
+for prerequisites, protected signing approvals, failure recovery and testing limits.
 
 For production signing setup, run `uv run inv setup-android-release`; add
 `--upload-secrets` to configure GitHub signing secrets after private password

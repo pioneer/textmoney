@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import platform
 import shutil
 import stat
 import subprocess
@@ -132,7 +133,7 @@ def ensure_toolchain(tool_dir: Path) -> tuple[Path, Path, Path]:
 
 
 def platform_architecture() -> str:
-    return os.uname().machine if hasattr(os, "uname") else ""
+    return platform.machine()
 
 
 def _runtime_from_tool(appimagetool: Path, runtime_path: Path) -> None:

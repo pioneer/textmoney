@@ -248,9 +248,12 @@ resuming. Do not rerun without inspecting a possibly completed publication.
 
 CI compilation/startup checks are not physical-device certification or a full
 interactive GUI test. Test install/update, folder selection, journal CRUD,
-conflicts and backups on disposable data on the actual target OS. The Windows
-installer implementation has not yet been executed on a Windows runner; its
-first native build and smoke test are required before claiming Windows support.
+conflicts and backups on disposable data on the actual target OS. The v0.3.8
+Windows CI run built the installer and reached temporary-directory cleanup
+after install/reinstall, responsive-window startup, uninstall and data checks,
+but failed because an uninstaller child still held its log open. A complete
+native smoke-test pass with process-tree waiting is still required before
+claiming Windows installer validation.
 
 ### Windows installer
 
@@ -283,6 +286,11 @@ the application installation directory. The CI-only
 synthetic journal/preferences; it checks a same-version reinstall, not an upgrade
 from an older released installer. It is restricted to disposable GitHub runners
 because Inno Setup registers the normal application identity.
+The smoke test waits for the uninstaller's entire process tree using
+[PowerShell `Start-Process -Wait`](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/start-process?view=powershell-5.1#notes)
+before checking removal/data preservation and cleaning the temporary directory.
+Waiting only for the original process, or for the app executable to disappear,
+does not guarantee that Inno Setup's child has finished writing its log.
 
 The initial installer is **unsigned**. Android signing keys cannot sign Windows
 executables. Windows may show unknown-publisher/SmartScreen warnings; trusted

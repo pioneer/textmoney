@@ -107,6 +107,21 @@ def build_installer(root: Path) -> Path:
     return artifact
 
 
+def uninstall(executable: Path, log: Path) -> None:
+    program = str(executable).replace("'", "''")
+    arguments = f'/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG="{log}"'.replace("'", "''")
+    # Inno's original process can exit before its temporary uninstaller child.
+    run(
+        "powershell",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "$ErrorActionPreference = 'Stop'; "
+        f"$process = Start-Process -FilePath '{program}' -ArgumentList '{arguments}' "
+        "-Wait -PassThru; exit $process.ExitCode",
+    )
+
+
 def smoke_installer(root: Path) -> None:
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Installer smoke testing is restricted to disposable GitHub runners.")
@@ -172,16 +187,7 @@ def smoke_installer(root: Path) -> None:
                 if process.poll() is None:
                     process.terminate()
                 process.wait(timeout=15)
-        run(
-            str(install / "unins000.exe"),
-            "/VERYSILENT",
-            "/SUPPRESSMSGBOXES",
-            "/NORESTART",
-            f"/LOG={stage / 'uninstall.log'}",
-        )
-        deadline = time.monotonic() + 30
-        while executable.exists() and time.monotonic() < deadline:
-            time.sleep(0.2)
+        uninstall(install / "unins000.exe", stage / "uninstall.log")
         if executable.exists():
             raise RuntimeError("Uninstall left the application executable installed.")
         if journal.read_bytes() != original or preferences.read_bytes() != settings_before:

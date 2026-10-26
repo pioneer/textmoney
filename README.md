@@ -84,10 +84,10 @@ Download the production-signed Android APK or Linux x86_64 AppImage from
 Android 7.0 or newer is required. You can also track this repository with
 [Obtainium](https://github.com/ImranR98/Obtainium) for updates.
 
-Android and Linux x86_64 AppImage downloads are published. Windows support is
-implemented but has not yet been validated; there is no Windows release download
-yet. The unified release workflow prepares a per-user Windows x64 EXE installer,
-not a portable ZIP; its first native build and installation test are still pending.
+Android and Linux x86_64 AppImage downloads are published. The Windows x64
+per-user EXE installer (not a portable ZIP) has passed native CI build,
+install/reinstall, startup and uninstall checks. There is no published Windows
+release download yet; full interactive Windows testing remains pending.
 Android APKs use the maintained production signing certificate. Newer releases
 can update an existing installation in place.
 

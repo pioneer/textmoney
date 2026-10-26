@@ -181,6 +181,8 @@ def test_existing_draft_with_matching_assets_resumes_without_reupload(
         )
     )
     metadata = {
+        "id": 123,
+        "tag_name": "v0.3.7",
         "draft": True,
         "prerelease": False,
         "assets": [
@@ -191,6 +193,7 @@ def test_existing_draft_with_matching_assets_resumes_without_reupload(
     run = MagicMock(
         side_effect=[
             '[{"tagName":"v0.3.7","isDraft":true,"isPrerelease":false}]',
+            '{"databaseId":123,"tagName":"v0.3.7"}',
             json.dumps(metadata),
             json.dumps(metadata),
             "",
@@ -358,8 +361,18 @@ def publication_commands(
                     + ("0" * 64 if bad_digest else hashlib.sha256(path.read_bytes()).hexdigest()),
                 }
             )
+        if args[:3] == ("gh", "release", "view"):
+            return json.dumps({"databaseId": 123, "tagName": "v0.3.7"})
         if args[:2] == ("gh", "api"):
-            return json.dumps({"draft": True, "prerelease": False, "assets": assets})
+            return json.dumps(
+                {
+                    "id": 123,
+                    "tag_name": "v0.3.7",
+                    "draft": True,
+                    "prerelease": False,
+                    "assets": assets,
+                }
+            )
         return ""
 
     result = MagicMock(side_effect=run)
@@ -387,6 +400,106 @@ def test_publish_uploads_exact_artifacts_and_checksums_before_publishing(
         "--draft=false",
         "--latest",
     )
+
+
+@pytest.mark.parametrize("new_draft", [False, True])
+def test_publish_reads_draft_by_id_when_tag_endpoint_is_not_available(
+    artifacts: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    new_draft: bool,
+) -> None:
+    command = publication_commands(monkeypatch, artifacts)
+    original = command.side_effect
+    assert callable(original)
+
+    def run(root: Path, *args: str) -> str:
+        if new_draft and args[:3] == ("gh", "release", "list"):
+            return "[]"
+        if args[:3] == ("gh", "release", "view"):
+            return json.dumps({"databaseId": 123, "tagName": "v0.3.7"})
+        if args[:2] == ("gh", "api"):
+            assert args[2] == f"repos/{REPO}/releases/123", "Tag endpoint cannot read this draft"
+        result = original(root, *args)
+        assert isinstance(result, str)
+        return result
+
+    command.side_effect = run
+    release.publish_release(artifacts.parent, artifacts, "v0.3.7")
+    assert command.call_args.args[1:4] == ("gh", "release", "edit")
+    assert (
+        any(call.args[1:4] == ("gh", "release", "create") for call in command.call_args_list)
+        == new_draft
+    )
+
+
+@pytest.mark.parametrize(
+    "identity",
+    [
+        {"databaseId": 0, "tagName": "v0.3.7"},
+        {"databaseId": True, "tagName": "v0.3.7"},
+        {"databaseId": "123", "tagName": "v0.3.7"},
+        {"databaseId": 123, "tagName": "v0.3.8"},
+    ],
+)
+def test_publish_rejects_invalid_resolved_identity(
+    artifacts: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    identity: dict[str, object],
+) -> None:
+    command = publication_commands(monkeypatch, artifacts)
+    original = command.side_effect
+    assert callable(original)
+
+    def run(root: Path, *args: str) -> str:
+        if args[:3] == ("gh", "release", "view"):
+            return json.dumps(identity)
+        result = original(root, *args)
+        assert isinstance(result, str)
+        return result
+
+    command.side_effect = run
+    with pytest.raises(RuntimeError, match="invalid release identity"):
+        release.publish_release(artifacts.parent, artifacts, "v0.3.7")
+    assert not any(call.args[1:3] == ("gh", "api") for call in command.call_args_list)
+    assert not any(call.args[1:4] == ("gh", "release", "upload") for call in command.call_args_list)
+    assert not any(call.args[1:4] == ("gh", "release", "edit") for call in command.call_args_list)
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        {"id": 456},
+        {"tag_name": "v0.3.8"},
+        {"draft": False},
+        {"prerelease": True},
+    ],
+)
+@pytest.mark.parametrize("after_upload", [False, True])
+def test_publish_requires_matching_stable_draft_before_and_after_upload(
+    artifacts: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    changed: dict[str, object],
+    after_upload: bool,
+) -> None:
+    command = publication_commands(monkeypatch, artifacts)
+    original = command.side_effect
+    assert callable(original)
+    reads = 0
+
+    def run(root: Path, *args: str) -> str:
+        nonlocal reads
+        result = original(root, *args)
+        assert isinstance(result, str)
+        if args[:2] == ("gh", "api"):
+            reads += 1
+            if reads == (2 if after_upload else 1):
+                return json.dumps(json.loads(result) | changed)
+        return result
+
+    command.side_effect = run
+    with pytest.raises(RuntimeError, match="matching stable draft"):
+        release.publish_release(artifacts.parent, artifacts, "v0.3.7")
+    assert not any(call.args[1:4] == ("gh", "release", "edit") for call in command.call_args_list)
 
 
 @pytest.mark.parametrize("failure", ["missing", "empty", "extra", "digest", "published", "upload"])

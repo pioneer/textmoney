@@ -8,8 +8,22 @@ import time
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 TRAILER = "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+
+
+class ReleaseAsset(TypedDict):
+    name: str
+    digest: NotRequired[str | None]
+
+
+class ReleaseMetadata(TypedDict):
+    id: int
+    tag_name: str
+    draft: bool
+    prerelease: bool
+    assets: list[ReleaseAsset]
 
 
 def run(root: Path, *args: str) -> str:
@@ -302,9 +316,39 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
             f"TxnCount {tag}",
             "--generate-notes",
         )
-    metadata = json.loads(run(root, "gh", "api", f"repos/{repo}/releases/tags/{tag}"))
-    if not metadata["draft"] or metadata["prerelease"]:
-        raise RuntimeError("Release must remain a stable draft until all artifacts are verified.")
+    identity = json.loads(
+        run(
+            root,
+            "gh",
+            "release",
+            "view",
+            tag,
+            "--repo",
+            repo,
+            "--json",
+            "databaseId,tagName",
+        )
+    )
+    release_id = identity["databaseId"]
+    if type(release_id) is not int or release_id <= 0 or identity["tagName"] != tag:
+        raise RuntimeError("GitHub returned an invalid release identity.")
+    # The tag endpoint can return 404 for drafts; resolve once and keep using its ID.
+    endpoint = f"repos/{repo}/releases/{release_id}"
+
+    def read_draft() -> ReleaseMetadata:
+        metadata: ReleaseMetadata = json.loads(run(root, "gh", "api", endpoint))
+        if (
+            metadata["id"] != release_id
+            or metadata["tag_name"] != tag
+            or metadata["draft"] is not True
+            or metadata["prerelease"] is not False
+        ):
+            raise RuntimeError(
+                "Release must remain the matching stable draft until all artifacts are verified."
+            )
+        return metadata
+
+    metadata = read_draft()
     for asset in metadata["assets"]:
         name = asset["name"]
         if name not in digests or asset.get("digest") != f"sha256:{digests[name]}":
@@ -312,7 +356,7 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
     present = {asset["name"] for asset in metadata["assets"]}
     for name in sorted(digests.keys() - present):
         run(root, "gh", "release", "upload", tag, str(directory / name), "--repo", repo)
-    metadata = json.loads(run(root, "gh", "api", f"repos/{repo}/releases/tags/{tag}"))
+    metadata = read_draft()
     observed = {asset["name"]: asset.get("digest") for asset in metadata["assets"]}
     if observed != {name: f"sha256:{value}" for name, value in digests.items()}:
         raise RuntimeError("Uploaded artifact digests differ; release left unpublished.")

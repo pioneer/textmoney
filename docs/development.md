@@ -216,6 +216,8 @@ The [All-platform release workflow](../.github/workflows/release.yml) runs:
    complete release as latest. Existing assets are never replaced. A failed
    build cannot publish a partial release; an upload/verification failure
    leaves any created draft unpublished.
+   Draft metadata is resolved through GitHub CLI and then read by numeric release
+   ID: GitHub's release-by-tag API can return 404 while the release is still a draft.
 
 Expected downloads are `txncount-X.Y.Z.apk`,
 `TxnCount-X.Y.Z-x86_64.AppImage`, and
@@ -248,12 +250,10 @@ resuming. Do not rerun without inspecting a possibly completed publication.
 
 CI compilation/startup checks are not physical-device certification or a full
 interactive GUI test. Test install/update, folder selection, journal CRUD,
-conflicts and backups on disposable data on the actual target OS. The v0.3.8
-Windows CI run built the installer and reached temporary-directory cleanup
-after install/reinstall, responsive-window startup, uninstall and data checks,
-but failed because an uninstaller child still held its log open. A complete
-native smoke-test pass with process-tree waiting is still required before
-claiming Windows installer validation.
+conflicts and backups on disposable data on the actual target OS. The v0.3.10
+Windows CI run passed the native installer build and complete install/reinstall,
+responsive-window startup, uninstall and data-preservation smoke test. This is
+packaging/startup validation, not a full interactive Windows GUI test.
 
 ### Windows installer
 

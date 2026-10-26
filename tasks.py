@@ -607,32 +607,34 @@ def setup(context: Context) -> None:
 @task
 def verify_flet(context: Context) -> None:
     """Verify diagnostic APIs through the configured Flet MCP stdio server."""
-    execute("python", "tools/verify_flet.py")
+    execute(sys.executable, "tools/verify_flet.py")
 
 
 @task
 def probe_beancount(context: Context) -> None:
     """Inspect both pure-Python parsers and official desktop engine on synthetic fixtures."""
-    execute("python", "tools/probe_beancount.py")
+    execute(sys.executable, "tools/probe_beancount.py")
 
 
 @task
 def beancount_diagnostics(context: Context) -> None:
     """Run the same bundled pure-Python experiment as the Android button."""
-    execute("python", "-m", "app.beancount_diagnostics", env={"PYTHONPATH": str(ROOT / "src")})
+    execute(
+        sys.executable, "-m", "app.beancount_diagnostics", env={"PYTHONPATH": str(ROOT / "src")}
+    )
 
 
 @task
 def check_beancount_apk(context: Context) -> None:
     """Check APK parser resources and smoke-test its payload on Flet's host CPython."""
-    execute("python", "tools/check_beancount_apk.py")
+    execute(sys.executable, "tools/check_beancount_apk.py")
 
 
 @task
 def probe_beancount_android(context: Context) -> None:
     """Check official engine wheel availability without installing or building it."""
     execute(
-        "python",
+        sys.executable,
         "-m",
         "pip",
         "install",
@@ -838,7 +840,7 @@ def test(context: Context) -> None:
 @task
 def check_compat(context: Context, strict: bool = False, rustfava_appimage: str = "") -> None:
     """Compare synthetic Beancount behavior across installed engines."""
-    args = ["python", "-m", "tools.check_compat"]
+    args = [sys.executable, "-m", "tools.check_compat"]
     if strict:
         args.append("--strict")
     if rustfava_appimage:
@@ -847,13 +849,13 @@ def check_compat(context: Context, strict: bool = False, rustfava_appimage: str 
 
 
 def compile_translations() -> None:
-    execute("python", "tools/locales.py", "compile")
+    execute(sys.executable, "tools/locales.py", "compile")
 
 
 @task
 def translations_validate(context: Context) -> None:
     """Validate gettext keys, placeholders, plural forms and the POT template."""
-    execute("python", "tools/locales.py", "validate")
+    execute(sys.executable, "tools/locales.py", "validate")
 
 
 @task
@@ -865,13 +867,13 @@ def translations_compile(context: Context) -> None:
 @task
 def translations_template(context: Context) -> None:
     """Refresh messages.pot from the English base PO catalog."""
-    execute("python", "tools/locales.py", "template")
+    execute(sys.executable, "tools/locales.py", "template")
 
 
 @task
 def translations_init(context: Context, language: str) -> None:
     """Create a new language PO catalog from messages.pot."""
-    execute("python", "tools/locales.py", "init", language)
+    execute(sys.executable, "tools/locales.py", "init", language)
 
 
 @task

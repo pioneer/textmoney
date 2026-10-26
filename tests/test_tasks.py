@@ -531,14 +531,51 @@ def test_check_order_and_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tasks, "execute", record)
     tasks.check(Context())
     assert calls == [
-        "python tools/locales.py validate",
-        "python tools/locales.py compile",
+        f"{sys.executable} tools/locales.py validate",
+        f"{sys.executable} tools/locales.py compile",
         "ruff format --check .",
         "ruff check .",
         "pyright",
-        "python tools/locales.py compile",
+        f"{sys.executable} tools/locales.py compile",
         "pytest",
     ]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "verify_flet",
+        "probe_beancount",
+        "beancount_diagnostics",
+        "check_beancount_apk",
+        "probe_beancount_android",
+        "check_compat",
+        "translations_validate",
+        "translations_compile",
+        "translations_template",
+        "translations_init",
+    ],
+)
+def test_python_tasks_use_the_invoke_interpreter(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+) -> None:
+    execute = MagicMock()
+    monkeypatch.setattr(tasks, "execute", execute)
+    operation = getattr(tasks, name)
+    if name == "translations_init":
+        operation(Context(), language="de")
+    else:
+        operation(Context())
+    assert execute.call_args.args[0] == sys.executable
+
+
+def test_translation_validation_does_not_depend_on_python_path_lookup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PATH", str(tmp_path))
+    tasks.translations_validate(Context())
 
 
 @pytest.mark.parametrize("prefix", ["../bad", "a//b", "a/./b", "a b", "a?b"])
@@ -648,8 +685,8 @@ def test_check_stops_on_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(Exit, match="format failed"):
         tasks.check(Context())
     assert calls == [
-        ("python", "tools/locales.py", "validate"),
-        ("python", "tools/locales.py", "compile"),
+        (sys.executable, "tools/locales.py", "validate"),
+        (sys.executable, "tools/locales.py", "compile"),
         ("ruff", "format", "--check", "."),
     ]
 

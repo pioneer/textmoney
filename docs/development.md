@@ -10,6 +10,9 @@ OS and 3.14 on Linux.
 pyproject.toml and uv.lock. Review upgrades deliberately, verify current Flet MCP
 contracts, then run `uv run inv check` and a real build. Flet runtime, CLI extras,
 and MCP are pinned together to stable 1.0.1 in this template.
+Python helper subprocesses use Invoke's `sys.executable`, keeping translation
+and diagnostic tools in the same uv environment on every host. They do not
+resolve another `python` from the system installation or `PATH`.
 
 Use `uv run inv run` for desktop or `uv run inv run-web` for browser development.
 Both hot-reload the source tree. Stop with Ctrl+C. Web binds to localhost, not the

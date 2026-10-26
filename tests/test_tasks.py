@@ -9,14 +9,17 @@ from unittest.mock import MagicMock
 
 import flet_desktop
 import pytest
+from flet_platform_assets import render_icons, write
 from invoke.context import Context
 from invoke.exceptions import Exit
+from PIL.IcoImagePlugin import IcoImageFile
 
 import tasks
 
 
-def test_linux_icon_is_large_transparent_and_keeps_android_source(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("target", ["linux", "windows"])
+def test_desktop_icon_is_large_transparent_and_keeps_android_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str
 ) -> None:
     assets = tmp_path / "assets"
     assets.mkdir()
@@ -28,7 +31,7 @@ def test_linux_icon_is_large_transparent_and_keeps_android_source(
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nversion = "0.2.2"\n[tool.flet]\nbuild_number = 19\n'
     )
-    image = tasks.linux_icon()
+    image = tasks.desktop_icon()
     assert image.mode == "RGBA" and image.size == (1024, 1024)
     alpha = image.getchannel("A")
     bounds = alpha.getbbox()
@@ -40,19 +43,31 @@ def test_linux_icon_is_large_transparent_and_keeps_android_source(
     colors = image.getcolors(1024 * 1024)
     assert colors is not None
     assert sum(count for count, pixel in colors if pixel == (23, 50, 77, 255)) > 1000
-    tasks.stage_assets(linux=True)
+    tasks.stage_assets(linux=target == "linux", windows=target == "windows")
     staged = tmp_path / "src/assets"
-    with tasks.Image.open(staged / "icon_linux.png") as icon:
+    with tasks.Image.open(staged / f"icon_{target}.png") as icon:
         assert icon.tobytes() == image.tobytes()
+        if target == "windows":
+            generated = render_icons(icon, platform="windows", derived=False)
+            paths = write(generated, tmp_path / "flutter", declared_only=False)
+            with tasks.Image.open(paths[0]) as ico:
+                assert isinstance(ico, IcoImageFile)
+                assert ico.ico.sizes() == {(16, 16), (32, 32), (48, 48), (256, 256)}
+                for size in (16, 32, 48, 256):
+                    rendered_alpha = ico.ico.getimage((size, size)).getchannel("A")
+                    assert rendered_alpha.getpixel((0, 0)) == 0
+                    visible = rendered_alpha.point([0] * 128 + [255] * 128).getbbox()
+                    assert visible is not None
+                    assert max(visible[2] - visible[0], visible[3] - visible[1]) / size >= 0.85
     assert (assets / "icon.png").read_bytes() == original
     assert (staged / "icon.png").read_bytes() == original
     tasks.stage_assets()
-    assert not (staged / "icon_linux.png").exists()
+    assert not (staged / f"icon_{target}.png").exists()
     assert (staged / "icon.png").read_bytes() == original
 
 
 @pytest.mark.parametrize("target", ["linux", "apk", "web", "windows", "macos"])
-def test_only_linux_build_stages_linux_icon(
+def test_build_stages_only_its_desktop_icon(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str
 ) -> None:
     stage = MagicMock()
@@ -62,7 +77,7 @@ def test_only_linux_build_stages_linux_icon(
     monkeypatch.setattr(tasks, "execute", MagicMock(side_effect=Exit("stop after staging")))
     with pytest.raises(Exit, match="stop after staging"):
         tasks.build_target(target)
-    stage.assert_called_once_with(linux=target == "linux")
+    stage.assert_called_once_with(linux=target == "linux", windows=target == "windows")
 
 
 def test_app_icon_generates_canonical_currency_artwork(
@@ -124,7 +139,7 @@ def test_linux_development_icon_does_not_modify_shared_client(
     )
     assert (client / "flet").stat().st_mode & 0o111
     with tasks.Image.open(client / "data/app_icon.png") as icon:
-        assert icon.tobytes() == tasks.linux_icon().tobytes()
+        assert icon.tobytes() == tasks.desktop_icon().tobytes()
     assert (client / "lib").resolve() == stock / "lib"
     assert (client / "data/flutter_assets").resolve() == stock / "data/flutter_assets"
     assert (stock / "flet").read_bytes() == binary
@@ -139,7 +154,7 @@ def test_linux_development_icon_does_not_modify_shared_client(
     tasks.Image.new("RGB", (1024, 1024), "blue").save(root / "assets/icon.png")
     tasks.prepare_linux_dev_client()
     with tasks.Image.open(client / "data/app_icon.png") as icon:
-        assert icon.tobytes() == tasks.linux_icon().tobytes()
+        assert icon.tobytes() == tasks.desktop_icon().tobytes()
     updated_line = next(line for line in entry.read_text().splitlines() if line.startswith("Icon="))
     assert updated_line != icon_line
     updated_icon = Path(updated_line.removeprefix("Icon="))

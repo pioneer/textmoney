@@ -12,16 +12,19 @@ Regenerate it with `uv run inv app-icon`; validate with `uv run inv icon-check`.
 There are no maintained duplicate platform icons. Invoke stages the root assets
 for Flet, which generates launcher/window icons and splash screens.
 
-Linux uses a generated transparent derivative of the canonical PNG, not the
-opaque Android-safe canvas. An artwork silhouette preserves the dark currency
+Linux and Windows use a generated transparent derivative of the canonical PNG,
+not the opaque Android-safe canvas. An artwork silhouette preserves the dark currency
 symbols and pencil outlines while removing only the surrounding background.
 The foreground is cropped, centered and scaled to a 944-pixel maximum extent
 on a transparent 1024-square canvas. If the artwork geometry changes, update
-the silhouette in `tasks.linux_icon` alongside it.
-Linux builds stage this as ignored `src/assets/icon_linux.png`, supported by
-Flet's platform-specific icon lookup; other builds stage only the original.
-The development client uses the same derivative for its window and desktop
-entry. The maintained `assets/icon.png` and Android output are unchanged.
+the silhouette in `tasks.desktop_icon` alongside it.
+Builds stage this as ignored `src/assets/icon_linux.png` or
+`src/assets/icon_windows.png`, using Flet's platform-specific icon lookup.
+This replaces the oversized Android-safe background with artwork framed for desktop sizes.
+Other builds stage only the original. The Linux development client uses the same
+derivative for its window and desktop entry; the Windows installer generates its
+ICO from its staged derivative too. The maintained `assets/icon.png` and Android
+output are unchanged.
 
 Linux source runs use a generated branded Flet client and hidden desktop entry;
 see [development](development.md). Native X11 smoke testing verified the TxnCount

@@ -24,6 +24,8 @@ def bundle(tmp_path: Path) -> Path:
         (source / name).write_bytes(b"synthetic")
     (tmp_path / "assets").mkdir()
     Image.new("RGB", (1024, 1024), "green").save(tmp_path / "assets/icon.png")
+    (tmp_path / "src/assets").mkdir(parents=True)
+    Image.new("RGBA", (1024, 1024), (0, 128, 0, 128)).save(tmp_path / "src/assets/icon_windows.png")
     return tmp_path
 
 
@@ -49,6 +51,9 @@ def test_installer_packages_entire_bundle_app_local_runtime_and_generated_icon(
         assert (source / "txncount.exe").read_bytes() == b"synthetic"
         with Image.open(defines["SetupIcon"]) as icon:
             assert icon.format == "ICO"
+            pixel = icon.convert("RGBA").getpixel((0, 0))
+            assert isinstance(pixel, tuple)
+            assert pixel[3] == 128
         output = Path(defines["OutputDir"]) / f"{defines['OutputName']}.exe"
         output.write_bytes(b"synthetic installer")
         return ""
@@ -67,6 +72,17 @@ def test_missing_bundle_prevents_compilation(bundle: Path, monkeypatch: pytest.M
     with pytest.raises(RuntimeError, match="bundle is incomplete"):
         windows_installer.build_installer(bundle)
     run.assert_not_called()
+
+
+def test_missing_desktop_icon_prevents_compilation(
+    bundle: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (bundle / "src/assets/icon_windows.png").unlink()
+    command = MagicMock()
+    monkeypatch.setattr(windows_installer, "run", command)
+    with pytest.raises(RuntimeError, match="staged Windows desktop icon is missing"):
+        windows_installer.build_installer(bundle)
+    command.assert_not_called()
 
 
 def test_missing_compiler_is_an_explicit_failure(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -33,9 +33,10 @@ The desktop entry references a generated icon filename containing its content
 hash, so GNOME/Wayland switchers do not reuse the previous artwork's cached
 filename. Each launch refreshes this generated copy from the canonical asset.
 Restart an already-running development window after changing the artwork.
-Linux builds stage the same derivative as `src/assets/icon_linux.png`; it is
-generated, not maintained, and other targets retain the original Android-safe
-icon. See [branding](branding.md) for the silhouette and framing policy.
+Linux and Windows builds stage the same derivative as `src/assets/icon_linux.png`
+and `src/assets/icon_windows.png`, respectively. These are generated, not
+maintained; other targets retain the original Android-safe icon. See
+[branding](branding.md) for the silhouette and framing policy.
 `.env.example` is documentation, not automatically loaded configuration. Set
 variables in your shell/IDE; keep local `.env` files out of version control.
 
@@ -272,8 +273,9 @@ uv run inv build-windows-installer
 The installer includes the full Flet bundle and app-local Visual C++ runtime
 DLLs taken from the installed Visual Studio redistributable directory. It uses
 the stable bundle ID as its installer identity and derives its version/publisher
-from `pyproject.toml`. The installer icon is generated from `assets/icon.png`,
-not a separately maintained icon source. It installs under
+from `pyproject.toml`. Both the app and installer icons use the transparent,
+tightly framed Windows derivative staged from `assets/icon.png`, not a separately
+maintained icon source. It installs under
 `%LOCALAPPDATA%\Programs\TxnCount`, without elevation, and registers a Start
 Menu shortcut, an optional desktop shortcut and an uninstaller. The package
 targets x64-compatible Windows 10 1809+ systems; Windows ARM emulation and older
@@ -286,6 +288,11 @@ the application installation directory. The CI-only
 synthetic journal/preferences; it checks a same-version reinstall, not an upgrade
 from an older released installer. It is restricted to disposable GitHub runners
 because Inno Setup registers the normal application identity.
+It checks a responsive window, not rendered controls or the interactive Finish-page
+launch checkbox (silent installation skips that launch). In v0.3.11 a user reported
+a blank window when launching from the installer, while a subsequent Start Menu
+launch worked normally. The cause is not established; if this occurs, close the app
+and reopen it from the Start Menu. Installer-first-launch verification remains manual.
 The smoke test waits for the uninstaller's entire process tree using
 [PowerShell `Start-Process -Wait`](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/start-process?view=powershell-5.1#notes)
 before checking removal/data preservation and cleaning the temporary directory.

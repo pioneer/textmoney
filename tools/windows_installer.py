@@ -67,6 +67,9 @@ def build_installer(root: Path) -> Path:
     for relative in ("txncount.exe", "flutter_windows.dll", "data/flutter_assets"):
         if not (source / relative).exists():
             raise RuntimeError(f"Windows bundle is incomplete: missing {relative}. Build it first.")
+    icon_source = root / "src/assets/icon_windows.png"
+    if not icon_source.is_file():
+        raise RuntimeError("The staged Windows desktop icon is missing. Build through Invoke.")
     output = root / "dist/windows"
     output.mkdir(parents=True, exist_ok=True)
     artifact = output / installer_name(version)
@@ -84,7 +87,7 @@ def build_installer(root: Path) -> Path:
         for dll in runtime.glob("*.dll"):
             shutil.copy2(dll, bundle / dll.name)
         icon = stage / "setup.ico"
-        with Image.open(root / "assets/icon.png") as image:
+        with Image.open(icon_source) as image:
             image.save(icon, format="ICO", sizes=[(n, n) for n in (16, 32, 48, 64, 128, 256)])
         defines = {
             "AppId": identity["bundle_id"],

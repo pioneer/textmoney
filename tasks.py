@@ -71,7 +71,7 @@ def debug_env(debug: bool) -> dict[str, str]:
     }
 
 
-def stage_assets(*, linux: bool = False) -> None:
+def stage_assets(*, linux: bool = False, windows: bool = False) -> None:
     validate_icon()
     compile_translations()
     # Flet's exclusions match exact paths, so nested development caches can leak.
@@ -87,11 +87,12 @@ def stage_assets(*, linux: bool = False) -> None:
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(ROOT / "assets", destination)
-    if linux:
-        linux_icon().save(destination / "icon_linux.png")
+    for target, enabled in (("linux", linux), ("windows", windows)):
+        if enabled:
+            desktop_icon().save(destination / f"icon_{target}.png")
 
 
-def linux_icon() -> Image.Image:
+def desktop_icon() -> Image.Image:
     """Remove the Android canvas using an artwork mask, retaining dark outlines."""
     validate_icon()
     scale = 3
@@ -115,7 +116,7 @@ def linux_icon() -> Image.Image:
     artwork.putalpha(alpha)
     bounds = alpha.getbbox()
     if bounds is None:
-        raise Exit("Linux icon has no visible artwork.", code=1)
+        raise Exit("Desktop icon has no visible artwork.", code=1)
     artwork = artwork.crop(bounds)
     factor = 944 / max(artwork.size)
     artwork = artwork.resize(
@@ -509,7 +510,7 @@ def build_target(
         raise Exit("Production signing is supported only for Android APK builds.", code=1)
     require_host(target)
     (ROOT / "src/app/.debug-mode").unlink(missing_ok=True)
-    stage_assets(linux=target == "linux")
+    stage_assets(linux=target == "linux", windows=target == "windows")
     execute(
         "flet",
         "build",
@@ -548,7 +549,7 @@ def prepare_linux_dev_client() -> Path:
     for item in (stock / "data").iterdir():
         if item.name != "app_icon.png":
             (destination / "data" / item.name).symlink_to(item, target_is_directory=item.is_dir())
-    icon_image = linux_icon()
+    icon_image = desktop_icon()
     icon_bytes = icon_image.tobytes()
     icon = destination / "data" / f"app_icon-{hashlib.sha256(icon_bytes).hexdigest()}.png"
     icon_image.save(icon)

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import NotRequired, TypedDict
 
 TRAILER = "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+ANDROID_ABIS = ("arm64-v8a", "armeabi-v7a", "x86_64")
 
 
 class ReleaseAsset(TypedDict):
@@ -53,10 +54,14 @@ def version_numbers(version: str) -> tuple[int, ...]:
     return numbers
 
 
-def artifact_names(version: str) -> tuple[str, ...]:
+def android_apk_names(version: str) -> tuple[str, ...]:
     version_numbers(version)
+    return tuple(f"txncount-{version}-{abi}.apk" for abi in ANDROID_ABIS)
+
+
+def artifact_names(version: str) -> tuple[str, ...]:
     return (
-        f"txncount-{version}.apk",
+        *android_apk_names(version),
         f"TxnCount-{version}-x86_64.AppImage",
         f"TxnCount-{version}-windows-x64-setup.exe",
     )
@@ -266,7 +271,8 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
         raise RuntimeError("Publication requires a stable vX.Y.Z release tag.")
     if {path.name for path in directory.iterdir()} - {"SHA256SUMS"} != set(names):
         raise RuntimeError(
-            "Release artifacts must contain exactly the APK, AppImage and installer."
+            "Release artifacts must contain exactly the three architecture APKs, "
+            "AppImage and installer."
         )
     digests = {}
     for name in names:

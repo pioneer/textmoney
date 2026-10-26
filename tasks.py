@@ -13,6 +13,7 @@ import sys
 import tomllib
 from base64 import b64decode, b64encode
 from pathlib import Path
+from zipfile import BadZipFile, ZipFile
 
 from flet_cli.utils.android_sdk import AndroidSDK
 from invoke.context import Context
@@ -422,10 +423,14 @@ def android_build_tool(name: str) -> str:
     raise Exit(f"{name} is required; install Android SDK Build Tools or add it to PATH.", code=1)
 
 
-def verify_android_release_apk(apk: Path) -> None:
+def verify_android_release_apk(apk: Path, abi: str) -> None:
     version, build_number = release_identity()
     bundle_id, _, expected_fingerprint = android_release_configuration()
-    expected_filename = f"txncount-{version}.apk"
+    if abi not in release_tools.ANDROID_ABIS:
+        raise Exit(f"Unsupported release APK architecture: {abi}.", code=1)
+    expected_filename = release_tools.android_apk_names(version)[
+        release_tools.ANDROID_ABIS.index(abi)
+    ]
     if apk.name != expected_filename:
         raise Exit(f"Release APK must be named {expected_filename}.", code=1)
     if not apk.is_file() or apk.stat().st_size == 0:
@@ -466,9 +471,28 @@ def verify_android_release_apk(apk: Path) -> None:
             f"expected {version}/{build_number}.",
             code=1,
         )
+    try:
+        with ZipFile(apk) as archive:
+            native_files = {
+                name
+                for name in archive.namelist()
+                if name.startswith("lib/") and name.endswith(".so")
+            }
+    except (OSError, BadZipFile) as exc:
+        raise Exit("Could not inspect the release APK's native libraries.", code=1) from exc
+    observed_abis = {name.split("/")[1] for name in native_files}
+    if observed_abis != {abi}:
+        raise Exit(
+            f"APK native architectures are {sorted(observed_abis)!r}; expected only {abi}.", code=1
+        )
+    required = {f"lib/{abi}/libapp.so", f"lib/{abi}/libflutter.so"}
+    if not required <= native_files or not any(
+        name.startswith(f"lib/{abi}/libpython") for name in native_files
+    ):
+        raise Exit("Release APK is missing the Flutter app, engine or Python runtime.", code=1)
     print(
         f"Verified {apk} ({apk.stat().st_size} bytes): {bundle_id} "
-        f"{version} ({build_number}), production signer {expected_fingerprint}."
+        f"{version} ({build_number}), {abi}, production signer {expected_fingerprint}."
     )
 
 
@@ -1022,15 +1046,23 @@ def validate_android_release(context: Context, tag: str = "") -> None:
 
 @task
 def build_android_release(context: Context, tag: str = "") -> None:
-    """Build and verify a production-signed Android APK."""
+    """Build and verify three standalone production APKs, one per architecture."""
     release_tag = tag or os.environ.get("GITHUB_REF_NAME", "")
     if not release_tag:
         raise Exit("Supply the release tag with --tag or set GITHUB_REF_NAME.", code=1)
     validate_android_release_version(release_tag)
     signing_env = validate_android_signing_environment()
-    build_target("apk", signing=True, env=signing_env)
     version, _ = release_identity()
-    verify_android_release_apk(ROOT / "build/apk" / f"txncount-{version}.apk")
+    output = ROOT / "dist/android"
+    output.mkdir(parents=True, exist_ok=True)
+    for abi, name in zip(
+        release_tools.ANDROID_ABIS, release_tools.android_apk_names(version), strict=True
+    ):
+        # Single-ABI builds retain the project version code, unlike --split-per-abi.
+        build_target("apk", "--arch", abi, signing=True, env=signing_env)
+        apk = output / name
+        (ROOT / "build/apk" / f"txncount-{version}.apk").replace(apk)
+        verify_android_release_apk(apk, abi)
 
 
 @task

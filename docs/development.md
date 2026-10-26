@@ -48,8 +48,9 @@ Linux, Windows to Windows, and Darwin to macOS; it does not emulate another OS.
 Platform-specific tasks reject incompatible hosts before starting a build.
 The [version metadata](#version-metadata) below describes the authoritative
 version/build fields.
-APK builds produce `build/apk/txncount-<project.version>.apk`; generated packaged
-version metadata is staged alongside assets and removed by `clean`.
+Development APK builds produce `build/apk/txncount-<project.version>.apk`.
+Production builds collect three standalone architecture APKs in `dist/android/`;
+generated packaged version metadata is staged alongside assets and removed by `clean`.
 Linux AppImage builds reuse Flet's bundled Linux output and produce
 `dist/linux/TxnCount-<project.version>-x86_64.AppImage`.
 Build staging also clears source-tree `__pycache__` directories: Flet's relative
@@ -99,7 +100,7 @@ these outputs and cached tools.
 
 The unified release workflow builds on Ubuntu 24.04, validates and smoke-tests
 the AppImage, and uploads it as a workflow artifact. The final publication job
-attaches all three platform artifacts to a draft and publishes only after every
+attaches all five binaries across the three platforms to a draft and publishes only after every
 required build succeeds. See [one-command releases](#one-command-releases).
 
 The Ubuntu 24.04 build target requires the packages reported by
@@ -165,8 +166,10 @@ virtual environment, or local Flet user data.
 
 `[project].version` in `pyproject.toml` is the maintained app version;
 `[tool.flet].build_number` is the independent Android version code.
-Invoke stages these values for the packaged About display and names APKs
-`txncount-<version>.apk`. The Android app ID is `com.pioneer.txncount`.
+Invoke stages these values for the packaged About display and names development APKs
+`txncount-<version>.apk` and production APKs `txncount-<version>-<abi>.apk`.
+All three production APKs use the same project version code.
+The Android app ID is `com.pioneer.txncount`.
 Every main screen also shows `v<version> (<build_number>)` beside its title,
 using the same source or packaged metadata as Settings → About. The header wraps
 on narrow screens.
@@ -205,14 +208,15 @@ The [All-platform release workflow](../.github/workflows/release.yml) runs:
 2. Format, lint, Pyright and tests on Linux Python 3.13/3.14 and Windows
    Python 3.13, plus the existing Beancount compatibility checks.
 3. Parallel builds from that same commit:
-   - Production-signed Android APK on Ubuntu, using only the protected
+   - Three production-signed standalone Android APKs on Ubuntu, one each for
+     `arm64-v8a`, `armeabi-v7a` and `x86_64`, using only the protected
      `android-production` environment's existing signing secrets.
    - Linux x86_64 AppImage on Ubuntu 24.04, with structure and isolated Xvfb
      startup checks.
    - Windows x64 per-user EXE installer on `windows-2022`, with install,
      same-version reinstall, responsive-window startup and uninstall checks.
 4. A publication job with release-write permission, only after all three
-   platform jobs succeed. It creates a draft, uploads the three artifacts and
+   platform jobs succeed. It creates a draft, uploads the five binaries and
    `SHA256SUMS`, checks GitHub's uploaded SHA-256 digests, then publishes the
    complete release as latest. Existing assets are never replaced. A failed
    build cannot publish a partial release; an upload/verification failure
@@ -220,9 +224,18 @@ The [All-platform release workflow](../.github/workflows/release.yml) runs:
    Draft metadata is resolved through GitHub CLI and then read by numeric release
    ID: GitHub's release-by-tag API can return 404 while the release is still a draft.
 
-Expected downloads are `txncount-X.Y.Z.apk`,
-`TxnCount-X.Y.Z-x86_64.AppImage`, and
-`TxnCount-X.Y.Z-windows-x64-setup.exe`. macOS, iOS, web and Android AAB are not
+Expected downloads are:
+
+- `txncount-X.Y.Z-arm64-v8a.apk`
+- `txncount-X.Y.Z-armeabi-v7a.apk`
+- `txncount-X.Y.Z-x86_64.apk`
+- `TxnCount-X.Y.Z-x86_64.AppImage`
+- `TxnCount-X.Y.Z-windows-x64-setup.exe`
+- `SHA256SUMS`, covering all five binaries.
+
+No universal APK is published, so Obtainium's architecture filtering can narrow
+the APK list to one matching download. Each APK installs independently; these are
+not split-install bundles. macOS, iOS, web and Android AAB are not
 part of this release command. Native build tasks remain available separately.
 GitHub environment approval rules still apply, so the command may wait for
 maintainer approval rather than bypassing it.
@@ -350,13 +363,19 @@ Android builds without a configured upload key use a debug key and cannot go to
 Google Play. `uv run inv build-android` deliberately ignores configured
 production-signing variables and continues to produce a development APK.
 `uv run inv build-android-release --tag vX.Y.Z` is the separate, fail-closed
-production task. It requires `FLET_ANDROID_SIGNING_KEY_STORE`,
+production task. It builds all three ABIs sequentially with Flet's supported
+`--arch <abi>` option and collects them as `dist/android/txncount-X.Y.Z-<abi>.apk`.
+Flet clears `build/apk/` on each build, so completed release APKs live outside it.
+Separate single-ABI builds preserve the exact project version code; Flutter's
+`--split-per-abi` would add ABI-specific version-code offsets.
+It requires `FLET_ANDROID_SIGNING_KEY_STORE`,
 `FLET_ANDROID_SIGNING_KEY_ALIAS`, `FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD`,
 and `FLET_ANDROID_SIGNING_KEY_PASSWORD`; the alias must be `android-release`.
 The task checks the tagged project version and requires the Android version code
 to exceed the code in the latest prior stable GitHub Release. It then verifies
-the APK signature, pinned certificate SHA-256, application ID, version name/code,
-filename, and nonzero size. It never falls back to debug signing.
+each APK's signature, pinned certificate SHA-256, application ID, version name/code,
+architecture-specific filename, nonzero size, sole native ABI and presence of the
+Flutter app, engine and Python runtime. It never falls back to debug signing.
 
 The approved production certificate fingerprint is pinned in
 `[tool.txncount.android_release]` in pyproject.toml. Keep the existing JKS file
@@ -383,7 +402,7 @@ Requires JDK 17.
 
 The unified `release.yml` workflow runs only for pushed `v*` tags, checks the
 project and release version before accessing signing secrets, and verifies the
-APK before handing it to the final all-platform publication job. Configure the GitHub
+three APKs before handing them to the final all-platform publication job. Configure the GitHub
 `android-production` environment with required reviewers and restrict its
 deployment branches/tags to release tags. Add environment secrets
 `ANDROID_KEYSTORE_BASE64` (base64-encoded existing JKS),
@@ -398,14 +417,17 @@ install/update testing on a physical Android device.
 Physical-device release checklist:
 
 1. Back up and verify the journal; use a disposable journal copy for testing.
-2. Install the production APK, confirm the app ID/version and select the
-  external test journal folder.
+2. Choose the APK matching the device's supported ABI (`adb shell getprop
+  ro.product.cpu.abilist`), install it, confirm the app ID/version and select the
+  external test journal folder. ARM64 is appropriate for most modern phones.
 3. Create or edit only disposable test data, then close/reopen and confirm it
   persists in the selected external folder.
 4. Install the next production APK over it (for example, `adb install -r
-  build/apk/txncount-X.Y.Z.apk`) and confirm Android updates the existing app
+  dist/android/txncount-X.Y.Z-arm64-v8a.apk` for an ARM64 device) and confirm Android updates the existing app
   without uninstalling, the test data remains, and the app reports the new
-  version.
+  version. Test an update from the prior universal APK as well. In Obtainium,
+  enable "Attempt to filter APKs by CPU architecture if possible" and remove
+  any filename filter requiring the old universal filename.
 
 `build-ios` may produce only an unsigned archive without configured
 certificates/profiles; an installable/exportable IPA needs matching signing.

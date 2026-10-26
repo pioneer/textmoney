@@ -79,15 +79,21 @@ See the [file and synchronization contract](docs/synchronization.md).
 
 ## Get the app
 
-Download the production-signed Android APK or Linux x86_64 AppImage from
+Download a production-signed Android APK, Linux x86_64 AppImage or Windows x64 installer from
 **[GitHub Releases](https://github.com/pioneer/txncount/releases/latest)**.
 Android 7.0 or newer is required. You can also track this repository with
 [Obtainium](https://github.com/ImranR98/Obtainium) for updates.
 
-Android and Linux x86_64 AppImage downloads are published. The Windows x64
-per-user EXE installer (not a portable ZIP) has passed native CI build,
-install/reinstall, startup and uninstall checks. There is no published Windows
-release download yet; full interactive Windows testing remains pending.
+Android downloads are standalone APKs for `arm64-v8a` (most modern phones),
+`armeabi-v7a` (32-bit Android), and `x86_64` (compatible emulators/devices).
+Choose one matching your device; no universal APK is published starting with 0.3.13.
+Obtainium can select the matching APK when "Attempt to filter APKs by CPU
+architecture if possible" is enabled. Remove any custom APK filter requiring
+the previous universal filename.
+
+The Windows x64 per-user EXE installer (not a portable ZIP) has passed native CI
+build, install/reinstall, responsive-window startup and uninstall checks.
+Full interactive Windows testing remains pending.
 Android APKs use the maintained production signing certificate. Newer releases
 can update an existing installation in place.
 
@@ -328,8 +334,8 @@ uv run inv release --version X.Y.Z
 ```
 
 This command **commits and pushes** the version/build-number update and release
-tag, waits for CI to build and validate a production-signed APK, an AppImage and
-a Windows EXE installer, then publishes all three together with SHA-256
+tag, waits for CI to build and validate three production-signed architecture APKs,
+an AppImage and a Windows EXE installer, then publishes all five binaries together with SHA-256
 checksums. It does not need platform SDKs locally. Replace `X.Y.Z` with a new
 stable version. If a pushed release run is interrupted or fails, inspect it and
 use `uv run inv release --version X.Y.Z --resume`; existing release assets are

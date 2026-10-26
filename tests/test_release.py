@@ -15,6 +15,16 @@ SHA = "a" * 40
 REPO = "pioneer/txncount"
 
 
+def test_release_requires_exactly_three_named_architecture_apks_and_both_desktops() -> None:
+    assert release.artifact_names("0.3.13") == (
+        "txncount-0.3.13-arm64-v8a.apk",
+        "txncount-0.3.13-armeabi-v7a.apk",
+        "txncount-0.3.13-x86_64.apk",
+        "TxnCount-0.3.13-x86_64.AppImage",
+        "TxnCount-0.3.13-windows-x64-setup.exe",
+    )
+
+
 @pytest.fixture
 def workspace(tmp_path: Path) -> Path:
     (tmp_path / "pyproject.toml").write_text(
@@ -388,8 +398,8 @@ def test_publish_uploads_exact_artifacts_and_checksums_before_publishing(
     run = publication_commands(monkeypatch, artifacts)
     release.publish_release(artifacts.parent, artifacts, "v0.3.7")
     uploads = [call for call in run.call_args_list if call.args[1:4] == ("gh", "release", "upload")]
-    assert len(uploads) == 4
-    assert len((artifacts / "SHA256SUMS").read_text().splitlines()) == 3
+    assert len(uploads) == 6
+    assert len((artifacts / "SHA256SUMS").read_text().splitlines()) == 5
     assert run.call_args.args[1:] == (
         "gh",
         "release",
@@ -502,7 +512,9 @@ def test_publish_requires_matching_stable_draft_before_and_after_upload(
     assert not any(call.args[1:4] == ("gh", "release", "edit") for call in command.call_args_list)
 
 
-@pytest.mark.parametrize("failure", ["missing", "empty", "extra", "digest", "published", "upload"])
+@pytest.mark.parametrize(
+    "failure", ["missing", "empty", "extra", "universal", "digest", "published", "upload"]
+)
 def test_publish_failures_never_publish(
     artifacts: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -522,9 +534,22 @@ def test_publish_failures_never_publish(
         first.write_bytes(b"")
     elif failure == "extra":
         (artifacts / "unexpected.txt").write_text("must not publish")
+    elif failure == "universal":
+        (artifacts / "txncount-0.3.7.apk").write_bytes(b"old universal APK")
     with pytest.raises(RuntimeError):
         release.publish_release(artifacts.parent, artifacts, "v0.3.7")
     assert not any(call.args[1:4] == ("gh", "release", "edit") for call in run.call_args_list)
+
+
+@pytest.mark.parametrize("abi", ["arm64-v8a", "armeabi-v7a", "x86_64"])
+def test_missing_any_architecture_prevents_all_publication(
+    artifacts: Path, monkeypatch: pytest.MonkeyPatch, abi: str
+) -> None:
+    (artifacts / f"txncount-0.3.7-{abi}.apk").unlink()
+    run = publication_commands(monkeypatch, artifacts)
+    with pytest.raises(RuntimeError, match="three architecture APKs"):
+        release.publish_release(artifacts.parent, artifacts, "v0.3.7")
+    run.assert_not_called()
 
 
 def test_single_release_workflow_gates_publication_on_all_platforms() -> None:
@@ -533,6 +558,11 @@ def test_single_release_workflow_gates_publication_on_all_platforms() -> None:
     assert "runs-on: windows-2022" in workflow
     assert "build-windows-installer" in workflow and "smoke-windows-installer" in workflow
     assert "build-android-release" in workflow and "validate-linux-appimage" in workflow
+    for abi in ("arm64-v8a", "armeabi-v7a", "x86_64"):
+        assert (
+            f"dist/android/txncount-${{{{ needs.prepare.outputs.version }}}}-{abi}.apk" in workflow
+        )
+    assert "path: build/apk/txncount-" not in workflow
     assert "smoke-linux-appimage" in workflow and "uv run inv check" in workflow
     assert workflow.count("contents: write") == 1
     assert "group: all-platform-release" in workflow

@@ -6,6 +6,7 @@ import sys
 from base64 import b64encode
 from pathlib import Path
 from unittest.mock import MagicMock
+from zipfile import ZipFile
 
 import flet_desktop
 import pytest
@@ -319,6 +320,59 @@ def test_release_build_passes_explicit_signing_environment(
     assert execute.call_args.kwargs["unset_env"] == ()
 
 
+@pytest.mark.parametrize("failure", ["none", "build", "verify"])
+def test_production_task_builds_and_preserves_each_standalone_architecture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "release_identity", lambda: ("0.3.13", 36))
+    validate = MagicMock()
+    monkeypatch.setattr(tasks, "validate_android_release_version", validate)
+    signing_env = {"synthetic": "signing"}
+    monkeypatch.setattr(tasks, "validate_android_signing_environment", lambda: signing_env)
+    calls: list[str] = []
+    intermediate = tmp_path / "build/apk/txncount-0.3.13.apk"
+
+    def build(target: str, *extra: str, signing: bool, env: dict[str, str]) -> None:
+        assert target == "apk" and signing and env == signing_env
+        assert extra[0] == "--arch" and len(extra) == 2
+        abi = extra[1]
+        calls.append(abi)
+        if abi == "armeabi-v7a" and failure == "build":
+            raise Exit("synthetic build failure")
+        # Flet clears build/apk on each build; release output must live elsewhere.
+        if intermediate.parent.exists():
+            shutil.rmtree(intermediate.parent)
+        intermediate.parent.mkdir(parents=True)
+        intermediate.write_bytes(abi.encode())
+
+    verified: list[str] = []
+
+    def verify(apk: Path, abi: str) -> None:
+        assert apk == tmp_path / f"dist/android/txncount-0.3.13-{abi}.apk"
+        assert apk.read_bytes() == abi.encode()
+        verified.append(abi)
+        if abi == "armeabi-v7a" and failure == "verify":
+            raise Exit("synthetic verification failure")
+
+    monkeypatch.setattr(tasks, "build_target", build)
+    monkeypatch.setattr(tasks, "verify_android_release_apk", verify)
+    if failure != "none":
+        with pytest.raises(Exit, match="synthetic"):
+            tasks.build_android_release(Context(), tag="v0.3.13")
+        assert calls == ["arm64-v8a", "armeabi-v7a"]
+        assert "x86_64" not in verified
+    else:
+        tasks.build_android_release(Context(), tag="v0.3.13")
+        assert calls == verified == ["arm64-v8a", "armeabi-v7a", "x86_64"]
+        for abi in calls:
+            assert (
+                tmp_path / f"dist/android/txncount-0.3.13-{abi}.apk"
+            ).read_bytes() == abi.encode()
+    assert not intermediate.exists()
+    validate.assert_called_once_with("v0.3.13")
+
+
 def test_signing_environment_requires_all_values_and_existing_keystore(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -434,13 +488,22 @@ def release_apk_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tasks, "release_identity", lambda: ("0.3.0", 22))
 
 
+def write_native_apk(path: Path, abis: tuple[str, ...]) -> None:
+    with ZipFile(path, "w") as archive:
+        for abi in abis:
+            for name in ("libapp.so", "libflutter.so", "libpython3.14.so"):
+                archive.writestr(f"lib/{abi}/{name}", b"synthetic native library")
+
+
 @pytest.mark.usefixtures("release_apk_identity")
+@pytest.mark.parametrize("abi", ["arm64-v8a", "armeabi-v7a", "x86_64"])
 def test_release_apk_verification_checks_signer_identity_and_version(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    abi: str,
 ) -> None:
-    apk = tmp_path / "txncount-0.3.0.apk"
-    apk.write_bytes(b"synthetic signed apk")
+    apk = tmp_path / f"txncount-0.3.0-{abi}.apk"
+    write_native_apk(apk, (abi,))
     monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
     monkeypatch.setattr(
         tasks,
@@ -452,7 +515,7 @@ def test_release_apk_verification_checks_signer_identity_and_version(
             else "package: name='com.pioneer.txncount' versionCode='22' versionName='0.3.0'\n"
         ),
     )
-    tasks.verify_android_release_apk(apk)
+    tasks.verify_android_release_apk(apk, abi)
 
 
 @pytest.mark.usefixtures("release_apk_identity")
@@ -460,7 +523,7 @@ def test_release_apk_verification_rejects_wrong_signer(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    apk = tmp_path / "txncount-0.3.0.apk"
+    apk = tmp_path / "txncount-0.3.0-arm64-v8a.apk"
     apk.write_bytes(b"synthetic signed apk")
     monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
     monkeypatch.setattr(
@@ -473,7 +536,7 @@ def test_release_apk_verification_rejects_wrong_signer(
         ),
     )
     with pytest.raises(Exit, match="does not match"):
-        tasks.verify_android_release_apk(apk)
+        tasks.verify_android_release_apk(apk, "arm64-v8a")
 
 
 @pytest.mark.usefixtures("release_apk_identity")
@@ -490,7 +553,7 @@ def test_release_apk_verification_rejects_wrong_package_or_version(
     monkeypatch: pytest.MonkeyPatch,
     bad_badging: str,
 ) -> None:
-    apk = tmp_path / "txncount-0.3.0.apk"
+    apk = tmp_path / "txncount-0.3.0-arm64-v8a.apk"
     apk.write_bytes(b"synthetic signed apk")
     monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
     monkeypatch.setattr(
@@ -504,7 +567,44 @@ def test_release_apk_verification_rejects_wrong_package_or_version(
         ),
     )
     with pytest.raises(Exit, match="application ID|version metadata"):
-        tasks.verify_android_release_apk(apk)
+        tasks.verify_android_release_apk(apk, "arm64-v8a")
+
+
+@pytest.mark.usefixtures("release_apk_identity")
+@pytest.mark.parametrize(
+    "failure",
+    ["wrong-abi", "universal", "no-native-libs", "runtime", "corrupt", "filename", "unknown"],
+)
+def test_release_apk_verification_rejects_wrong_architecture_or_incomplete_payload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    apk = tmp_path / "txncount-0.3.0-arm64-v8a.apk"
+    native_abis = {
+        "wrong-abi": ("x86_64",),
+        "universal": ("arm64-v8a", "armeabi-v7a", "x86_64"),
+        "no-native-libs": (),
+    }.get(failure, ("arm64-v8a",))
+    write_native_apk(apk, native_abis)
+    if failure == "runtime":
+        with ZipFile(apk, "w") as archive:
+            archive.writestr("lib/arm64-v8a/libapp.so", b"missing runtime and engine")
+    elif failure == "corrupt":
+        apk.write_bytes(b"not an APK")
+    elif failure == "filename":
+        apk = apk.rename(tmp_path / "txncount-0.3.0.apk")
+    monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
+    monkeypatch.setattr(
+        tasks,
+        "capture_command",
+        lambda *args: (
+            "Signer #1 certificate SHA-256 digest: "
+            "0cc03e9537ef041c51eb8ececa1ae9e246c7e5a2c814ff1dd9a7f19ab6c07fa6"
+            if args[1] == "verify"
+            else "package: name='com.pioneer.txncount' versionCode='22' versionName='0.3.0'\n"
+        ),
+    )
+    with pytest.raises(Exit, match="architectur|missing|inspect|named"):
+        tasks.verify_android_release_apk(apk, "mips" if failure == "unknown" else "arm64-v8a")
 
 
 @pytest.mark.parametrize(

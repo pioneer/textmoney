@@ -82,7 +82,9 @@ the staged copy. Generated Flutter files and native icons live under `build/`.
 Run one build/mobile-debug task at a time in a checkout because they share staging.
 `pyproject.toml` owns the app version and build number. Invoke generates ignored
 `src/app/.release.json` for packaged About/version access and renames Android
-output to `txncount-<version>.apk`. Source runs read the project configuration;
+development output to `txncount-<version>.apk`. Production builds collect one
+standalone APK per ABI as `dist/android/txncount-<version>-<abi>.apk`, all with the
+same project version code. Source runs read the project configuration;
 no second maintained version constant is needed.
 
 The journal format is standard Beancount wherever possible. Format extensions

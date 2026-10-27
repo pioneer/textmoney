@@ -615,8 +615,9 @@ def test_future_definition_and_discontinuation_preserve_history(
 
 
 @pytest.mark.parametrize("reload_before_save", [False, True])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_budget_conflicts_retain_all_unsaved_dialog_fields(
-    view: tuple[FinanceView, MagicMock], tmp_path: Path, reload_before_save: bool
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, reload_before_save: bool, newline: str
 ) -> None:
     async def scenario() -> None:
         host, page = view
@@ -627,8 +628,13 @@ def test_budget_conflicts_retain_all_unsaved_dialog_fields(
         amount.value = "123.456"
         currency.value = "EUR"
         effective.occurred.value = date_input(date(2026, 1, 16), host.language)
-        external = journal.source.replace("10.00 USD", "20.00 USD")
-        (tmp_path / FILENAME).write_text(external)
+        external = (
+            journal.source.replace("\r\n", "\n")
+            .replace("10.00 USD", "20.00 USD")
+            .replace("\n", newline)
+            .encode("utf-8")
+        )
+        (tmp_path / FILENAME).write_bytes(external)
         if reload_before_save:
             await journal.poll()
             await host.budgets.refresh()
@@ -640,7 +646,7 @@ def test_budget_conflicts_retain_all_unsaved_dialog_fields(
         assert effective.occurred.value == date_input(date(2026, 1, 16), host.language)
         assert not amount.disabled
         page.pop_dialog.assert_not_called()
-        assert (tmp_path / FILENAME).read_text() == external
+        assert (tmp_path / FILENAME).read_bytes() == external
 
     asyncio.run(scenario())
 

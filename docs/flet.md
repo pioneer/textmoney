@@ -51,7 +51,9 @@ extension discovery and `dev_packages` resolution. The custom service necessaril
 uses Flet's protected `_invoke_method` hook, following its official extension
 pattern; its compatibility must be rechecked on Flet upgrades.
 
-The standard picker returns a path-like string but supplies no directory document
+The standard directory picker is unsupported in web mode; see
+[browser preview limitations](deployment.md). On desktop it returns a path-like
+string but supplies no directory document
 operations or persisted-grant inspection API. Android therefore uses the local
 extension instead, with provider operations delegated to existing Flutter SAF
 libraries. See [the storage report](android-storage-validation.md).

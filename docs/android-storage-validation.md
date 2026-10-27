@@ -3,8 +3,11 @@
 This report preserves the original experiment and its device-test findings.
 Old package IDs, synthetic filenames, build numbers and checksums below describe
 those historical builds, not the current release. Module/task references and
-links use current diagnostic names. See
-[current version metadata](development.md#version-metadata).
+links use current diagnostic names. The explicitly labelled
+[current recovery section](#current-android-save-recovery) is maintained separately
+from the Stage 1 history. For current behavior use [Data safety](data-safety.md),
+[Testing](testing.md) and [version metadata](development.md#version-metadata).
+Download binaries from [GitHub Releases](https://github.com/pioneer/txncount/releases/latest).
 
 **Verdict: PASS (user-confirmed physical-device testing, 2026-10-18).**
 At the start of Stage 2 the user confirmed that the Android Storage PoC
@@ -16,9 +19,10 @@ were supplied, and this is not a claim of independent observation, reboot testin
 or compatibility with every document provider. The tested storage implementation
 is preserved for Stage 2. At the start of Stage 3 the user reaffirmed both PoCs
 passed. MVP 0.1 reuses this policy/bridge, extending only the filename allowlist
-to a separate `txncount.beancount` journal and backup prefix. Current APK and
-MVP-specific testing are documented in [MVP 0.1](mvp-0.1.md); build 2 details
-below are historical.
+to a separate `txncount.beancount` journal and backup prefix. The
+[MVP report](mvp-0.1.md) also records a historical build; neither report is a
+current download guide. Today's diagnostic filename is `storage-test.beancount`,
+not the Stage 1 `poc-test.beancount`.
 
 ## Phase B: first phone feedback and build 2
 
@@ -133,10 +137,12 @@ installed, no financial files were accessed, and nothing was committed/pushed.
 ## APK and installation (historical build 2)
 
 This section records the APK used for the successful Storage PoC phone test.
-Later stages replace the APK at the same path; use the current
-[Stage 2 report](beancount-compatibility.md) for the latest build/checksum and installation.
+The local output below is not retained as a downloadable artifact. Use
+[published releases](https://github.com/pioneer/txncount/releases/latest) for
+current downloads/checksums; the [Stage 2 report](beancount-compatibility.md#stage-2-history)
+records a different historical build.
 
-- Output: [build/apk/txncount.apk](../build/apk/txncount.apk), approximately
+- Historical local output: `build/apk/txncount.apk`, approximately
   134 MiB, debug-key signed, version 0.1.0 / build 2. This replaces the build 1
   output formerly named `finance-poc.apk`.
 - Bundles ARM64, ARMv7 and x86_64; Android 7.0 / API 24 or newer.
@@ -232,8 +238,9 @@ deletes the original as an intermediate replacement step.
    It contains schema version, previous/candidate SHA-256 hashes, backup ID,
    `prepared` phase, acknowledged pending-backup IDs and a SHA-256 checksum over
    the metadata. It contains **no journal contents**.
-4. Recheck any captured synchronization-source inventory and original bytes,
-   then directly write the candidate through SAF.
+4. Recheck the original journal bytes after preparing the recovery record,
+   then directly write the candidate through SAF. There is no synchronization-
+   source inventory comparison.
    Native read-back must match the candidate; shared Python read-back still runs.
 5. Preserve existing backup finalization/retention. Finally write and read-verify
    a `complete` record after checking both journal and intent again. Completion
@@ -340,7 +347,12 @@ New physical-device checklist (disposable synthetic journal only):
    access. Check that recovery waits for outstanding I/O and remains blocked
    while access/outcomes cannot be established.
 
-## Physical-device checklist (Phase B)
+## Historical physical-device checklist (Phase B)
+
+This checklist is for the original Stage 1 build and its `poc-test.beancount`
+filename. Current diagnostics use `storage-test.beancount`; use the
+[current transaction/device checklist](testing.md#transaction-and-device-checklist)
+and [recovery checklist](#limits-and-verification) for current builds.
 
 1. Create an **empty disposable** local folder, optionally the Dropsync-managed
    test folder. Install/open **txncount**; Select Folder and choose **Use this folder**

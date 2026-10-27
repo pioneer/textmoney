@@ -1,15 +1,17 @@
-# TxnCount MVP 0.1
+# TxnCount MVP 0.1 - milestone archive
 
-This report retains historical milestone examples. The current
-[journal and synchronization contract](synchronization.md) supersedes its
-`id`, `timestamp`, `display-name` and distributed-conflict behavior: current
-output uses `name`, local `time`, optional native reimbursement links and
-sequential editing. Local backup and Android recovery protection remain.
+This is a historical development report, not a current format guide or device
+checklist. Use [Supported journal format and editing](journal-format.md),
+[Data safety](data-safety.md), [Sequential editing](synchronization.md) and
+[Testing](testing.md) for current behavior. The old metadata, negative-balance
+rejections and lists of missing features below describe milestone builds only.
+Current output uses `name`, local `time`, native reimbursement links and
+source-bound editing, not generated persistent transaction IDs.
 
 This report records the original MVP and adaptive-UI builds through build 6.
-The newer [CRUD/Fava milestone](crud-fava.md) adds guarded editing/deletion,
-account/category lifecycle and operating currency settings; its verification
-and APK details supersede the older build information below.
+The [CRUD/Fava archive](crud-fava.md) records later milestones, not the current
+release contract. Download current binaries from
+[GitHub Releases](https://github.com/pioneer/txncount/releases/latest).
 
 **Android update (2026-10-18):** the user confirmed recording an expense and
 seeing the account balance update on a physical phone. Other MVP device checks
@@ -27,7 +29,7 @@ without modifying journal text. The fixes are verified with automated tests and
 a live compact browser UI using an isolated synthetic journal; Android
 confirmation of build 6 is pending.
 
-## Implemented
+## Implemented at this milestone
 
 - **Accounts**: explicitly create a technical ID, display name, one currency and
   optional nonnegative opening balance; show recalculated Decimal balances.
@@ -64,7 +66,7 @@ autobean parser. The small [journal service](../src/app/journal.py) coordinates
 append-only persistence through the original storage policy. There is no generic
 repository framework or new runtime dependency.
 
-## Synchronized format
+## Historical synchronized format
 
 The selected folder contains **`txncount.beancount`** (UTF-8). Account definitions,
 display names and entries share one file, avoiding multi-file write transactions.
@@ -153,7 +155,7 @@ The official engine remains a desktop test oracle, not an Android dependency.
   offers compare-and-swap or automatic merging; a concurrent external write
   after the last hash check cannot be excluded. Failed/uncertain writes may
   require manual restoration from the displayed backup. See the current
-  [desktop write contract](crud-fava.md#desktop-atomic-replacement).
+  [desktop write contract](data-safety.md#desktop-atomic-replacement).
 - Android now records save intent before direct writes. Unfinished or damaged
   recovery state blocks modifications across restart, including valid-looking
   truncation. Review in Settings; no automatic restoration or retry. See
@@ -202,7 +204,7 @@ picker-driven workflow and Windows execution remain unverified.
 
 ## APK and physical-device checklist
 
-**Built successfully:** [build/apk/txncount.apk](../build/apk/txncount.apk),
+**Historical local output:** `build/apk/txncount.apk`,
 141,057,234 bytes (about 135 MiB). Identity remains `com.pioneer.financepoc`,
 version 0.1.0, build **6**, Android 7.0+ (target API 36), with `arm64-v8a`,
 `armeabi-v7a` and `x86_64` ABIs. `apksigner` verified the same existing debug
@@ -215,6 +217,10 @@ Packaged grammar extraction and MVP modules were checked. No Android device or
 emulator is connected here; host execution of the APK archives is **not**
 Android runtime verification. Physical testing of adaptive navigation,
 localization and theme persistence is still pending.
+
+The following checklist belongs to build 6 and contains superseded expectations,
+including insufficient-funds rejection and IDs/timestamps. Do not use it to
+validate current builds; use [the maintained checklist](testing.md#transaction-and-device-checklist).
 
 1. Open **txncount** and select a dedicated synthetic/synchronized test folder.
    Expect the new-journal prompt and retained read/write access. Do not use real

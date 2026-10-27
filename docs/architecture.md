@@ -149,7 +149,8 @@ transactions are appended; CRUD uses the parser's token positions to splice only
 selected directives, preserving other bytes. Original parser round-trips must be
 exact before an edit is allowed. Unsupported engine semantics block saving. There is no full booking
 engine, include resolver or generic persistence framework. See the
-[Beancount report](beancount-compatibility.md) and [MVP format](mvp-0.1.md).
+[Beancount reference scope](beancount-compatibility.md) and
+[current supported format](journal-format.md).
 
 Folder/language/theme/timezone preferences use Flet SharedPreferences on Android and a
 local configuration file on desktop; Android's grant is separately retained by
@@ -184,7 +185,7 @@ journal write/read-back; unfinished and legacy backups are never eligible for
 deletion. Adapters list, finalize and delete only their own backup namespace,
 using SAF document operations on Android. Cleanup failure is a post-save warning,
 not a failed financial transaction. The automatic-cleanup preference is local
-to each device. See [retention and recovery](crud-fava.md#backup-retention).
+to each device. See [retention and recovery](data-safety.md#backup-retention).
 
 Desktop writes exclusively stage a same-directory temporary file, preserve file
 permissions, flush/fsync it, recheck the supplied baseline hash, then commit with
@@ -199,13 +200,15 @@ validates and snapshots the reviewed journal without rewriting it. The native
 bridge serializes operations across service instances so timeout/cancellation
 does not let inspection overtake still-running I/O in the same Flutter process.
 Neither adapter provides locking or compare-and-swap. See
-[write guarantees](crud-fava.md#desktop-atomic-replacement) and
+[write guarantees](data-safety.md#desktop-atomic-replacement) and
 [Android recovery](android-storage-validation.md#current-android-save-recovery).
 
-The CRUD milestone intentionally remains single-file at the user's direction;
-no native SAF changes, migration, or multi-file transactions were introduced.
-Fava and the official engine serve only as desktop test oracles. See the
-[CRUD guide](crud-fava.md) for guarded expense editing and deletion rules.
+The financial journal intentionally remains single-file at the user's direction;
+there is no migration or multi-file accounting transaction mechanism.
+Fava and the official engine serve only as development-time test oracles. See
+[supported editing](journal-format.md#transactions-and-editing) and
+[data safety](data-safety.md) for current rules; the
+[CRUD milestone archive](crud-fava.md) records superseded implementations.
 
 Incoming transactions use the same explicit two-posting model and guarded
 transaction edit/delete pipeline. Income credits user-managed `Income:`
@@ -275,7 +278,7 @@ destination fees increase its total price. A shared Decimal calculation derives
 the principal, gross received amount and rate for the preview and builder.
 Exchange edits reconstruct these from stored postings, including both amount
 fields and fee currency; the same guarded splicing and deletion pipeline is used.
-See [the accounting examples and precision policy](crud-fava.md#cross-currency-transfers).
+See [the accounting examples and precision policy](journal-format.md#transfers-and-exchange-precision).
 
 Negative asset balances, including historical ones, now produce visible warnings
 instead of blocking loading or saving, as explicitly approved for overdrafts and
@@ -316,4 +319,6 @@ failures are explicit; an explicit named zone permits manual entry, while date
 pickers require a known client timezone to decode Flet's UTC date transport.
 Picker dates are sent at client-local noon and returned instants are converted
 back to the client timezone, independently of the app's chosen display zone.
-Ambiguous/nonexistent DST wall times are rejected, not guessed.
+Manually entered transaction wall times do not resolve an instant, so DST gaps
+and overlaps do not reject them. The separate picker-transport helper rejects
+ambiguous/nonexistent device-local instants rather than guessing an offset.

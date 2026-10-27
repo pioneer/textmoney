@@ -27,7 +27,13 @@ ICO from its staged derivative too. The maintained `assets/icon.png` and Android
 output are unchanged.
 
 Linux source runs use a generated branded Flet client and hidden desktop entry;
-see [development](development.md). Native X11 smoke testing verified the TxnCount
+see [development](development.md).
+
+## Historical Linux validation
+
+The following observations and test count record the icon-development milestone,
+not the current release's full validation.
+Native X11 smoke testing verified the TxnCount
 window title, development WM_CLASS and app icon pixels. After the transparent
 Linux derivative change, a real `uv run inv build-linux` and an isolated X11
 launch verified the packaged window's 256-square `_NET_WM_ICON`: corner alpha
@@ -40,8 +46,14 @@ test of `uv run inv run` with isolated preferences verified
 that identity to the existing generated icon. Alt-Tab's final visual presentation
 still needs confirmation in the user's session.
 
-Product name: **TxnCount**. Package/bundle: `com.pioneer.txncount`, starting with
-0.1.1 (13). Future releases must retain the new identity and signing key.
-The generated/installed Android icon and display name still need phone inspection;
-the canonical PNG has been visually inspected. No public release branding,
-store signing, or production identity work is implied.
+## Current release identity
+
+Product name: **TxnCount**. Package/bundle: `com.pioneer.txncount`, introduced in
+version 0.1.1 (build 13). This is the stable package identity, not a fixed app
+version. Future releases must retain it and the maintained production
+Android signing key. Production-signed Android APKs, a Linux AppImage and a
+Windows installer are published through the [release workflow](development.md#one-command-releases).
+Windows installers are currently unsigned; production Android signing is not a
+claim of app-store submission or approval.
+The canonical PNG has been visually inspected. Native CI packaging/startup checks
+do not replace physical-phone inspection of the installed launcher icon and name.

@@ -157,6 +157,11 @@ implement the whole Beancount engine.
 
 ## Verification
 
+Budgeting is included in published **v0.3.15**, alongside Android, Linux and
+Windows packaging. The observations below distinguish earlier development
+checks from device verification; published binaries are available from
+[GitHub Releases](https://github.com/pioneer/txncount/releases/latest).
+
 Run all formatting, lint, type and regression checks:
 
 ```sh
@@ -209,6 +214,7 @@ Implementation validation on Linux:
   tab, unbudgeted categories are hidden, explicit zero budgets remain, and the
   new monthly definition dialog starts on the first day of the current month.
 
-An APK build is not proof of device behavior: Android interaction/SAF and Windows
-execution require their respective platforms. These development builds are not
-a published release.
+An APK build is not proof of device behavior. Physical Android interaction/SAF
+testing is still required. The v0.3.15 release workflow passed native Windows
+tests and installer/startup smoke checks, but not a full interactive budgeting
+workflow. Earlier development builds listed above are not the published binaries.

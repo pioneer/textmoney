@@ -37,6 +37,9 @@ Archive or remove an old directory yourself only after reviewing its contents.
 
 ## Local save protection retained
 
+See [Data safety, backups and recovery](data-safety.md) for the maintained save
+sequence, retention rules and recovery decisions.
+
 - Previous contents are backed up and read-verified before modification.
 - Desktop uses same-directory staging, fsync, and atomic replacement where the
   filesystem supports it; Android SAF direct writes are **not atomic**.
@@ -66,13 +69,19 @@ Real-provider, multi-device and power-loss behavior requires physical testing.
   a dated accounting `close`.
 - Transfer fees are stored in postings, not `txncount-fee-mode` metadata.
   Fee-category defaults are local device preferences.
-- Fava `custom "budget"` directives are approved for future budgeting. No budget,
-  envelope, rollover, or allocation feature is implemented by this cleanup.
+- Category budgeting is implemented with native Fava-compatible
+  `custom "budget"` directives in this journal. Manage definitions in
+  **Accounting → Budgets** and monitor monthly spending in **Reports → Budgets**.
+  Daily allocation, effective dates and history follow the reference calculations;
+  there are no envelopes or rollover rules. See [Category budgets](budgets.md).
 
 Untouched user metadata, tags, links and comments are preserved. Existing legacy
 app metadata is not globally migrated or deleted; it is not a substitute for
 the current source baseline. Any further journal extension requires explicit
 maintainer approval.
+
+See [Supported journal format and editing](journal-format.md) for the complete
+current profile, including readable versus editable transaction shapes.
 
 ## Validation of this simplification
 

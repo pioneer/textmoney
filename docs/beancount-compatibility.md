@@ -283,9 +283,11 @@ expense journal is documented separately in [MVP 0.1](mvp-0.1.md).
 ## Historical Stage 2 APK and phone test
 
 These build 3 results describe the successful PoC. The output path is reused by
-newer builds; use [MVP 0.1](mvp-0.1.md) for the current APK identity and checklist.
+newer builds. [MVP 0.1](mvp-0.1.md) is another historical report, not the current
+APK guide. Use [published releases](https://github.com/pioneer/txncount/releases/latest)
+and [current device checks](testing.md#transaction-and-device-checklist).
 
-- [build/apk/txncount.apk](../build/apk/txncount.apk), approximately 135 MiB.
+- Historical local output `build/apk/txncount.apk`, approximately 135 MiB.
 - txncount 0.1.0, build **3**, package `com.pioneer.financepoc`, Android 7.0+.
 - SHA-256: `d1dde3d771bc5df82d08e840dfccba5e5f97128110264760f4971761dd1ef8a7`.
 

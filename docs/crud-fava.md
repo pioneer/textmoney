@@ -1,33 +1,27 @@
-# CRUD and Fava compatibility
+# CRUD and Fava compatibility - milestone archive
 
-## Journal metadata and declaration dates
+This is a historical development record, not the current user guide or format
+contract. Sections describe different milestones and include superseded UI,
+metadata, validation and timezone behavior. Old test counts and APK measurements
+record those builds only; they do not establish current device compatibility.
 
-TxnCount keeps `txncount.beancount` as the sole financial source of truth.
-New transactions serialize local wall-clock `time` strings, not IDs, creation
-instants or offsets. Supported transaction kind is inferred from postings.
-Baseline-bound source positions support editing hand-written transactions.
-Native shared links associate reimbursements with expenses. Transfer fee
-presentation is reconstructed canonically from the economic postings.
+Use the maintained guides instead:
 
-Absent `txncount-active` means active. New edits do not add a redundant `TRUE`;
-explicit `TRUE` and `FALSE` values remain supported; this is visibility, not
-an accounting `close`. Account/category labels use `name`. Fee-category defaults
-are local device preferences, not journal metadata.
+- [Supported journal format and editing](journal-format.md)
+- [Data safety, backups and recovery](data-safety.md)
+- [Sequential editing and synchronization](synchronization.md)
+- [Reports](reporting.md) and [Category budgets](budgets.md)
+- [Current regression and device checklists](testing.md)
+- [Published downloads](https://github.com/pioneer/txncount/releases/latest)
 
-The sections below retain historical milestone details (including superseded
-metadata/UI examples). The current format and synchronization contract is
-[documented separately](synchronization.md); no global migration or stripping
-of arbitrary existing metadata is performed.
+In particular, current writes use `name`, local `time` and native reimbursement
+links, not persistent transaction IDs or the legacy metadata described below.
+Fee defaults are local, supported hand-written transactions can be edited, and
+negative asset balances warn rather than block saves. Timezone changes do not
+convert saved wall-clock times. Do not copy historical examples as a current
+journal specification.
 
-New account and category declaration dates default to today and are editable
-for backdating. Account opening date and opening-balance effective date are
-separate; an opening balance cannot predate its account. Category availability
-cannot predate its declared parent. New opening-balance and adjustment equity
-declarations use an effective transaction date, moving earlier only when a new
-backdated posting requires it. Existing historical dates, including 1970
-declarations, are never normalized or rewritten on load.
-
-## Scope and format
+## Historical scope and format
 
 ### Category editor
 
@@ -69,56 +63,9 @@ checks were not performed.
 
 ### Backup retention
 
-Before every modification, the previous journal is still backed up and verified.
-Synchronization additionally retains verified exact versions in `.txncount-sync/`.
-These are protected recovery evidence, outside ordinary backup retention, with
-no automatic cleanup. Never delete them while investigating conflicts. See
-[conflict review and manual recovery](synchronization.md).
-After the new journal has been written and read back successfully, automatic
-cleanup (enabled by default) keeps the union of:
-
-- The 20 most recent completed-write snapshots.
-- The latest snapshot on each of the last 30 UTC calendar dates, including today.
-- The latest snapshot in each of the last 12 UTC calendar months, including this month.
-
-Overlapping tiers keep a single file, not duplicate copies. Recent history is
-retained even when older than the daily/monthly windows. Future-dated snapshots
-are protected against clock skew; the current session's latest recovery copy is
-also retained. This bounds ordinary completed-write history, not protected files
-or total bytes. Each backup is still a full journal copy, so this reduces
-accumulated storage and file count, not necessarily uploads on each save.
-
-**Settings → Backups** offers a device-local automatic-cleanup checkbox and
-**Clean up old backups**. The latter previews the eligible count and bytes and
-requires confirmation. Confirmation recomputes retention and only deletes files
-still eligible from the approved preview; it cannot expand the approved set.
-Cleanup verifies the current journal baseline and never rewrites the journal.
-Other devices and external tools must not edit concurrently; there is no
-cross-device lock or atomic snapshot of the synchronized directory.
-
-New names include a UTC creation timestamp and UUID. They start as
-`txncount-<timestamp>-<uuid>-pending.beancount` and become `-committed.beancount`
-only after successful journal verification. A failed, conflicting, cancelled or
-uncertain write leaves its pending recovery copy protected, including after
-restart. Explicit diagnostic/manual backups also remain protected. Finalization
-or pruning errors do not undo a verified save: the UI explicitly reports that
-changes were saved but backup maintenance failed, and logs retain the traceback.
-Some old files may already have been deleted if pruning fails partway through.
-
-**Existing UUID-only backups are deliberately not migrated or deleted.** Their
-creation dates and failed-write status cannot be established reliably from
-synchronizer-modified timestamps. Inspect and archive/remove those externally
-after taking an independent copy. Unknown filenames, pending recovery copies,
-directories and symlinks are not deletion candidates. Resolve protected recovery
-copies explicitly outside the app once the journal is known to be correct.
-
-Desktop uses checked filesystem operations. Android uses SAF listing, renaming
-and deletion through the existing `saf_util` adapter; `content://` identifiers
-are never treated as filesystem paths. Providers that cannot list sizes, rename
-or delete report a maintenance error and retain protection rather than guessing.
-Sync tools propagate deletions; pause cleanup while troubleshooting sync and
-keep independent backups. Cleanup is not atomic and cannot eliminate external
-provider/synchronization races.
+The maintained [backup-retention contract](data-safety.md#backup-retention) is
+separate from these milestone results. No `.txncount-sync/` snapshots are created,
+read or required; legacy contents are ignored and not automatically deleted.
 
 Release 0.2.1 (Android build 18): `uv run inv check` passed formatting, Ruff, Pyright and 476 tests,
 including exact tier boundaries, overlap, failure/cancellation protection,
@@ -232,13 +179,16 @@ counterparty, description and date/time; confirmed deletion removes all postings
 Unmarked/ambiguous split entries remain read-only rather than being reduced to
 two postings.
 
-Settings selects an active expense category as the default fee category.
-Its `open` directive stores `txncount-default-transfer-fee: TRUE`, so the
-choice synchronizes with the journal. In the absence of a marked category,
-`Expenses:Bank-Fees` is used and created with a localized display name only on
+At this milestone, Settings selected an active expense category as the default
+fee category and stored `txncount-default-transfer-fee: TRUE` on its `open`.
+**Superseded:** current defaults are local device preferences, not synchronized
+journal metadata; see [current transfers](journal-format.md#transfers-and-exchange-precision).
+In the absence of a marked category, this milestone used
+`Expenses:Bank-Fees`, created with a localized display name only on
 the first nonzero fee, in the same backed-up save as the transfer. An inactive
 default must be reactivated or replaced; it is never silently bypassed.
-`txncount-fee-mode: "added"` or `"deducted"` is standard transaction metadata.
+This milestone stored `txncount-fee-mode: "added"` or `"deducted"` metadata;
+current writes reconstruct fee presentation from postings without this field.
 Unrelated transaction/posting metadata and comments survive edits. If an
 annotated fee posting is removed, a zero-amount posting retains its annotations;
 new zero-fee transfers have only two postings.
@@ -285,14 +235,18 @@ principal, never a rounded unit rate or artificial income/expense:
 
 For a destination-currency fee, the source total price includes the withheld fee:
 `-100.00 USD @@ 4200.00 UAH`, destination `4195.00 UAH`, expense `5.00 UAH`.
-These are one transaction, with the existing UUID, timestamp, backups and
-conflict checks. Fees alone affect expenses in their own currency. Balances
+At this milestone these were one transaction with a UUID and timestamp. Current
+writes use local `time`, not these legacy identity fields.
+Fees alone affect expenses in their own currency. Balances
 sum actual units, not prices. Editing reconstructs totals, principal and fee
 currency from postings; no rate or financial state is stored separately.
 
-The model validates exact signed total-price weights plus a bounded exchange
-shape. It still rejects unit prices (`@`), costs, inferred units, third-currency
-fees and ambiguous splits; unmarked entries cannot be edited accidentally.
+The milestone model validated exact signed total-price weights plus a bounded
+exchange shape and rejected unit prices (`@`). **Superseded:** bounded `@`
+exchanges are now readable but remain read-only in the transaction editor;
+recognized hand-written transactions do not require an app ID for editing.
+See [current exchange support](journal-format.md#transfers-and-exchange-precision).
+Costs, inferred units, third-currency fees and ambiguous exchanges remain unsupported.
 Amounts retain the existing 12-integer-digit/two-decimal limit. Exchange
 serialization uses two decimals without changing monetary values: Beancount
 internally converts `@@` to a unit price and needs normal monetary tolerances
@@ -372,8 +326,10 @@ negative historical asset balance, but remains allowed.
 An optional original-expense selection fills category and full original amount;
 change the amount for partial reimbursements and choose any same-currency
 receiving account. Linked creation checks category/currency and that the receipt
-does not predate the selected expense. Links are stored in standard string
-metadata `txncount-expense-id`. Only ordinary app-editable expenses appear in
+does not predate the selected expense. At this milestone links were stored as
+`txncount-expense-id` string metadata. **Superseded:** current writes use native
+shared links, not that field; see [current transactions](journal-format.md#transactions-and-editing).
+Only ordinary app-editable expenses appear in
 the chooser; unlinked receipts remain supported. There is no remaining-amount
 limit or enforced allocation. Links survive later edits/deletion of the original
 and do not change accounting or cascade deletions; they may refer to old records.
@@ -382,7 +338,8 @@ Reimbursements reduce net expenses on the **receipt accounting date**, not
 retroactively on the purchase date. A period's net expenses can be negative.
 `Ledger.period_totals(start, end)` uses inclusive dates and returns separate
 `income` and `expenses` maps keyed by currency. It excludes equity adjustments
-and opening balances. The app still has no dedicated reporting screen.
+and opening balances. There was no dedicated reporting screen at this milestone;
+current versions have [Overview](reporting.md) and [Budgets](budgets.md) reports.
 
 Focused synthetic tests cover receipts, partial/unlinked/different-account
 reimbursements, pre-tracking adjustments, period boundaries, distinct currencies,
@@ -418,6 +375,9 @@ backup/conflict policy. No real financial files were used during development.
 cross-file moves and migration are deferred. Changing a date across a year
 boundary changes the date in `txncount.beancount`, retaining the ID.
 
+The following legacy editing rules predate source-bound editing of recognized
+hand-written transactions; use the [current editing contract](journal-format.md#transactions-and-editing).
+
 - **Expenses:** edit an app-marked, persistent-ID, ordinary two-posting expense's
   date/time, amount, account, category, payee and
   description. IDs, tags, links, comments, posting metadata and unrelated
@@ -441,7 +401,8 @@ boundary changes the date in `txncount.beancount`, retaining the ID.
   instead. Child categories and references from other directives also block
   deletion. No historical transactions are removed when deactivating an item.
 
-Active state is ordinary Beancount metadata on the `open` directive:
+This historical example uses the superseded `display-name` key. Current output
+uses `name`; boolean `txncount-active` remains the visibility preference:
 
 ```beancount
 1970-01-01 open Assets:Cash UAH
@@ -496,110 +457,14 @@ unsupported accounting semantics rather than pretending to be a full engine.
 
 ## Safety and conflicts
 
-Before an edit, the lossless parser must round-trip the original source exactly.
-Only selected directive spans are replaced; other bytes, including LF/CRLF and
-unrelated descriptive directives, are untouched. Candidate syntax, declarations,
-balanced supported postings and chronological balances
-are validated before storage is modified. The existing policy checks hashes,
-creates and verifies a unique backup, rechecks hashes and compares read-back
-bytes to the already validated candidate before updating the in-memory ledger.
-
-Every edit/confirmation captures its opening source baseline and journal object.
-Polling, manual reload or a changed folder cannot silently apply old form values
-to a newer version. Conflicts leave the draft visible. Cancel/reopen after
-reviewing the current data; Settings also has Cancel to reload current currency
-settings. Backup/write failures are explicit, not success-shaped fallbacks.
-
-Android SAF writes remain **non-atomic**: the native provider stream writes
-directly to the document. Desktop uses atomic replacement as described below.
-Neither has compare-and-swap, cross-process locking, automatic merge or rollback.
-A simultaneous external write in the final check/write window remains possible.
-A failed/uncertain write blocks further saves; inspect the verified backup and
-restore externally if necessary.
-Take an independent backup before upgrading a real-data installation.
-
-Android now persists a verified, checksummed save-intent record before the
-destructive provider operation. On reopening, unfinished saves, damaged records
-and missing metadata for existing journals or unaccounted pending backups require
-explicit review, even when the current
-journal is syntactically valid. No automatic journal replacement or transaction
-retry is performed. Settings offers **Review interrupted save**: compare the
-current version, validate the associated previous backup, and explicitly keep a
-reviewed version (with a new protected snapshot), or cancel and restore
-externally. Invalid/missing journals cannot be accepted until fixed externally.
-See [Android recovery](android-storage-validation.md#current-android-save-recovery)
-for the complete ordering, metadata lifecycle and provider limitations.
+The maintained contract has moved to [Data safety, backups and recovery](data-safety.md).
+Use it for current conflict handling, retention and Android interrupted-save review,
+not the older metadata or checklist descriptions in this archive.
 
 ### Desktop atomic replacement
 
-Linux and Windows share the following save sequence:
-
-1. Validate the complete candidate before touching storage.
-2. Check the existing SHA-256 baseline, create and read-verify the previous
-   contents as a unique `pending` backup, then check the baseline again.
-3. Exclusively create an unpredictable `.<journal-name>.<random>.tmp` in the
-   journal's directory. No truncating write is made to the original journal.
-4. Preserve existing permissions, write all candidate bytes, flush the stream,
-   apply existing mode bits and fsync the temporary file; then close it.
-5. Read and check the original SHA-256 baseline again, enforce target/folder
-   restrictions, and
-   call `os.replace(temporary, journal)`. Replacement is the
-   commit point.
-6. Fsync the parent directory on supported POSIX filesystems. Windows skips
-   directory sync with an explicit durability warning. Filesystems reporting
-   unsupported directory sync also produce a warning; other sync failures are
-   surfaced as errors **after replacement**.
-7. Read back the journal and compare exact bytes. Only then update the hash and
-   in-memory ledger, finalize the backup and apply existing retention.
-
-**Atomicity:** on filesystems supporting same-directory atomic replacement,
-readers opening the journal see complete old or new contents. Existing open
-handles can continue seeing the old file. Staging creation, partial/short writes,
-permission copying, flush or file-fsync failures leave the original untouched.
-Ordinary pre-replacement failures and detected conflicts remove the temporary
-file; cleanup failures are explicitly reported. Existing target-symlink and
-backup-directory restrictions remain. No adversarial directory-race guarantee
-is added.
-
-**Permissions and portability:** existing POSIX owner/group and mode bits, Linux
-access ACLs, and Windows DACLs are copied; permission-copy failure aborts before
-replacement. An inherited Linux access ACL is removed when the original has
-none, avoiding broader permissions from the staging directory. Windows DACL
-copying happens before any candidate bytes are written
-and protects the copied DACL against broader directory inheritance. New POSIX
-files are `0600`; new Windows files inherit the selected folder's permissions.
-This does not preserve inode identity, modification timestamps, arbitrary
-extended attributes, Windows ownership/SACLs or alternate data streams.
-Directory write permission is needed. Windows sharing/access restrictions can
-make replacement fail; there is no fallback to truncation and no automatic retry.
-Native Windows behavior has not been verified on a Windows host.
-
-**Durability and recovery:** file fsync and supported parent-directory fsync
-improve power-loss resilience, but do not certify every disk, network filesystem
-or synchronization tool. Backup creation/finalization still does not fsync the
-backup directory; its power-loss durability is not strengthened here.
-A directory-sync or read-back error can occur after the new journal is already
-saved. Readiness is invalidated and the verified `pending` backup is retained,
-not pruned. Inspect the journal/history and recovery backup, then reload before
-deciding whether to submit again. Backup finalization/retention failures after
-successful read-back remain a successful save with a maintenance warning.
-There is no automatic restoration.
-
-An error returned by replacement itself is treated conservatively as an
-uncertain outcome: keep any remaining complete temporary file and the backup.
-A process crash before replacement leaves the old journal and may leave an
-incomplete or complete hidden temporary file. Temporary files are never
-automatically promoted or pruned; inspect them before manual recovery/cleanup.
-Cancellation of an asynchronous caller does not stop an already running desktop
-I/O thread, so cancellation may also require inspecting and reloading the journal.
-
-**Concurrency:** this is not locking or compare-and-swap. The final hash check
-only narrows the TOCTOU window; two TxnCount instances, Dropbox, Dropsync or any
-other writer can still overwrite changes made after that check. Do not edit
-simultaneously. Android's SAF/provider behavior is unchanged by desktop staging.
-Conflicted-copy filename notices are advisory only. TxnCount performs no
-distributed merge or hidden revision tracking.
-See [synchronization](synchronization.md).
+See the maintained [desktop replacement sequence and limitations](data-safety.md#desktop-atomic-replacement).
+This heading remains for existing links.
 
 ## Compact lists and simpler expense entry (build 9)
 
@@ -633,13 +498,11 @@ date or time sets both the accounting date and timestamp from the visible group.
 Invalid partially typed dates retain their original format/hint across a
 language change. Date pickers cover 1970–2100; manual fields retain validation.
 
-Timezone changes convert timestamp presentation, not stored instants or
-accounting dates. Unchanged timestamp edits preserve the exact original offset
-and subsecond precision. Newly typed ambiguous or nonexistent DST times are
-refused with an explanation rather than choosing an offset silently. Date/time
-drafts retain their visible timezone when opened; reopen an editor to use a
-subsequently selected timezone. Changing settings converts the new-expense
-draft's time while retaining its instant and accounting date.
+The milestone used instant-based timestamps, converted their presentation when
+the timezone changed and rejected ambiguous/nonexistent DST times.
+**Superseded:** current journal times are local wall-clock strings without offsets.
+Timezone changes do not convert saved times, and manual DST-gap/overlap wall
+times are accepted without resolving an instant. See [current time semantics](journal-format.md#times-and-metadata).
 
 The Python runtime adds `tzdata`; the existing native bridge adds only
 `flutter_timezone` 5.1.1 to retrieve the device zone. No SAF read/write/grant
@@ -745,7 +608,7 @@ testing. SAF storage behavior is unchanged.
 - SDK `aapt dump badging` and `apksigner verify --print-certs` verified the new
   package, version and unchanged debug signing certificate. `adb devices`
   listed no devices; this build has not been run on Android or Windows.
-- APK: [txncount-0.1.1.apk](../build/apk/txncount-0.1.1.apk),
+- Historical local output: `build/apk/txncount-0.1.1.apk`,
   **141,273,366 bytes**. SHA-256:
   `10d3b93bfa6335fca1371ff49febb559b1b3e23c4ddedab9a15278c89c68e5dc`.
 - Nothing was committed, pushed or published. The existing GitHub v0.1.0
@@ -835,7 +698,7 @@ to/from an explicit app language on Android.
 
 ### Historical build 12
 
-[build/apk/txncount.apk](../build/apk/txncount.apk), **build 12**, 141,395,218
+Historical local output `build/apk/txncount.apk`, **build 12**, 141,395,218
 bytes (about 135 MiB). Package remains `com.pioneer.financepoc`, label
 `TxnCount`, version 0.1.0; Android 7.0+ (target API 36). Packaged ABIs:
 `arm64-v8a`, `armeabi-v7a`, `x86_64`.
@@ -848,40 +711,10 @@ The signing certificate matches previous builds:
 
 ## Physical-device checklist
 
-Use a separate synthetic folder or a copy, not the only copy of your real data.
-
-1. Set `UAH USD EUR` in Settings; restart and confirm persistence. Open the same
-   file in desktop Fava: the missing-operating-currency warning must be absent.
-   Find the field under **Advanced → Journal display currencies**. Create an
-   account with a missing currency: it must be appended without losing choices.
-3. Edit an expense's fields, including date/time and year. Check the same ID,
-   metadata/comments, recalculated balances and verified backup.
-   Check both manual fields and calendar/clock pickers, especially near midnight.
-4. Cancel a delete: nothing changes. Confirm deletion: the entry is physically
-   gone, no reversal exists, balances update and the previous file is backed up.
-5. Rename an account/category. Lower an opening balance below required funds:
-   reject without changing files. Try a safe opening adjustment and verify the
-   original opening ID is retained.
-6. Delete zero-opening unused accounts and leaf categories. For items with
-   history, deactivate instead; check they remain in history but disappear from
-   expense choices. Reactivate and verify availability. Try a parent category.
-7. Keep an edit dialog open and change the journal externally. Wait for polling,
-   then save: reject and retain input. Cancel/reopen to use the new baseline.
-8. Check English/Ukrainian/Russian labels and dialogs, rotation, themes, and
-   medium/desktop layouts. Test split/unsupported editing refusal explicitly.
-9. Keep Timezone on System, then try `Europe/Kyiv` and `UTC`. Restart and confirm
-   the selection persists. Confirm displayed timestamps use the chosen zone,
-   but accounting dates and existing journal bytes do not change. Test phone
-   timezone changes and dates near midnight; selecting a day must not shift it.
-10. Check localized month names in history and numeric format hints in forms.
-    Exercise date/time manual entry and pickers in every app language. Try DST
-    gaps/overlaps: new ambiguous/nonexistent times must be refused explicitly.
-11. Add an expense without opening Shop / recipient; it should save blank.
-    Expand the section and set a recipient on another expense. Edit its amount
-    while the recipient stays collapsed: the saved recipient must remain.
-    A failed/conflicting save keeps all draft text. Confirm no payee in lists
-    or default-payee setting; new expenses start blank after restart.
-12. Confirm only one visible date and time; try manual input and both pickers.
-    Save a description with multiple lines, quotes and backslashes; reopen it
-    and check the text, ID, metadata, backup and balance. Editing a legacy
-    entry without touching its date/time must retain both stored dates exactly.
+The old checklist used persistent IDs, instant-based timestamps and rejected
+negative balances. It is not valid for current builds. Use the maintained
+[transaction/device checklist](testing.md#transaction-and-device-checklist),
+[sequential-file checklist](testing.md#sequential-file-workflow-regression-checklist)
+and [budget checklist](testing.md#category-budget-regression-checklist), always
+with a disposable synthetic journal. Historical APKs above are measurements,
+not download links; use [published releases](https://github.com/pioneer/txncount/releases/latest).

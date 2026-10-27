@@ -275,23 +275,30 @@ detect an older journal replacing the current one while the app was closed.
 A save reported as uncertain may already have committed: inspect and reload
 before retrying, to avoid duplicate entries.
 Backups require manual recovery; they are not automatic undo or a substitute for
-an independent copy. See [desktop write guarantees](docs/crud-fava.md#desktop-atomic-replacement).
+an independent copy. See [desktop write guarantees](docs/data-safety.md#desktop-atomic-replacement).
 See [Android recovery and device-testing limits](docs/android-storage-validation.md#current-android-save-recovery).
 Automatic retention keeps the 20 most recent completed-write backups, plus the
 latest available snapshot from each day in the last 30 days and each month in
 the last 12 calendar months, counting overlapping snapshots once. Settings
 offers a toggle and a cleanup preview. Protected recovery copies and legacy
-undated backups are never pruned. See [backup retention](docs/crud-fava.md#backup-retention).
+undated backups are never pruned. See [backup retention](docs/data-safety.md#backup-retention).
 
 TxnCount supports a limited, single-file Beancount profile, not arbitrary
 Beancount books. Unsupported accounting features or invalid data block saving
-rather than being silently discarded. See the [format guide](docs/mvp-0.1.md)
-and [editing and data-safety guide](docs/crud-fava.md) for details.
+rather than being silently discarded. See the [supported format and editing guide](docs/journal-format.md)
+and [data-safety guide](docs/data-safety.md) for the current contracts.
+The [MVP report](docs/mvp-0.1.md) and [CRUD milestone archive](docs/crud-fava.md)
+record historical behavior, not current instructions.
 
 ## Version history
 
+Only published releases are listed; unsuccessful build/tag attempts are not
+releases.
+
 | Version | Highlights |
 | --- | --- |
+| [0.3.15](https://github.com/pioneer/txncount/releases/tag/v0.3.15) | Fava-compatible category budgets: management under Accounting, monthly monitoring under Reports, searchable category/account trees, historical changes and exact reference tests. Plain-language budget guidance and LF/CRLF conflict-preservation regressions. Android build 38. |
+| [0.3.13](https://github.com/pioneer/txncount/releases/tag/v0.3.13) | Unified Android/Linux/Windows release workflow; Windows x64 per-user installer with native CI smoke checks and corrected icon framing. Separate production-signed Android APKs per architecture. Android build 36. |
 | [0.3.6](https://github.com/pioneer/txncount/releases/tag/v0.3.6) | Scrollable bottom clearance keeps Reports, both Accounting tabs and wider-layout Settings content clear of the floating Add button. Mobile Settings remains button-free. Android build 29. |
 | [0.3.5](https://github.com/pioneer/txncount/releases/tag/v0.3.5) | Summaries above smaller account movements, centered date headings and an Initial placeholder; separators only in wide transaction history; final transactions stay clear of the Add button. Home balances follow configured currency order. Android build 28. |
 | [0.3.4](https://github.com/pioneer/txncount/releases/tag/v0.3.4) | Mobile Settings moves to a top-right gear with Back navigation; wider layouts retain Settings in the rail. Home/Transactions group entries by date and emphasize summaries over account movements. Android build 27. |
@@ -332,6 +339,12 @@ uv run inv build-linux    # Build the Linux x86_64 AppImage
 uv run inv build-local    # Build for the current desktop OS
 uv run inv --list         # All available tasks
 ```
+
+The browser is a development UI preview, not a supported journal-storage target.
+Folder selection is unavailable in web mode. Static web packaging does not add
+browser filesystem integration; see [web deployment limits](docs/deployment.md).
+Apple build tasks are also tooling, not a claim of supported or device-tested
+iOS/macOS distributions.
 
 To create the next Android, Linux and Windows release together, use a clean,
 synchronized `main` checkout with authenticated GitHub CLI:

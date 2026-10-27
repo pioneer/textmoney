@@ -6,7 +6,10 @@ strings; translate the `msgstr` values. The maintained base catalogs are
 [English](../locales/en.po), [Ukrainian](../locales/uk.po) and
 [Russian](../locales/ru.po). [messages.pot](../locales/messages.pot) is generated
 from English. Compiled MO files are build artifacts under `src/app/locale/` and
-are included in app packaging; Babel is only a development dependency.
+are included in app packaging. Babel is a runtime dependency for budget number
+formatting and journal locale settings; its catalog-authoring tools are also used
+during development. Android extracts Babel's bundled locale data through
+`tool.flet.android.extract_packages`.
 
 ## Maintainer commands
 

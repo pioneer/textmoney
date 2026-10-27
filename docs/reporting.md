@@ -1,7 +1,11 @@
 # Financial reports
 
+The Reports screen has **Overview** and **Budgets** tabs. This page describes Overview;
+see [Category budgets](budgets.md) for the separate monthly budget report and its
+filters. Budget definitions are managed under **Accounting → Budgets**.
+
 Reports are derived in memory from the currently validated `Ledger`; the
-Beancount journal remains the only source of financial data. The screen offers
+Beancount journal remains the only source of financial data. Overview offers
 the current month, previous month, year to date, and an inclusive custom date
 range. Changing or reloading the ledger invalidates the small in-memory report
 cache.
@@ -16,7 +20,8 @@ fees are counted once.
 
 Totals are calculated independently per currency using `Decimal`; the
 application does not infer exchange rates or convert amounts. Category parents
-show their own postings plus descendants as a display subtotal. Only direct
+show their own postings plus descendants as a display subtotal in Overview.
+This does not add automatic parent rows to the Budgets report. Only direct
 category postings contribute to the overall metric, preventing hierarchy
 roll-ups from double-counting. Uncategorized postings are shown separately.
 

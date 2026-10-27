@@ -1,7 +1,7 @@
 # Development
 
-Install uv, then run the three commands at the start of the
-[README](../README.md). `.python-version` selects Python 3.13 for development;
+Install uv, then follow the [README development commands](../README.md#development).
+`.python-version` selects Python 3.13 for development;
 the application supports Python 3.13 and newer. CI checks 3.13 on every desktop
 OS and 3.14 on Linux.
 
@@ -14,7 +14,9 @@ Python helper subprocesses use Invoke's `sys.executable`, keeping translation
 and diagnostic tools in the same uv environment on every host. They do not
 resolve another `python` from the system installation or `PATH`.
 
-Use `uv run inv run` for desktop or `uv run inv run-web` for browser development.
+Use `uv run inv run` for desktop or `uv run inv run-web` for browser UI previews.
+Folder selection is unsupported in web mode; the preview is not a browser
+journal-storage implementation. See [web deployment limits](deployment.md).
 Both hot-reload the source tree. Stop with Ctrl+C. Web binds to localhost, not the
 LAN. Debug variants and log locations are documented in [debugging](debugging.md).
 On Linux, `run` and `debug` prepare a branded client under
@@ -67,6 +69,10 @@ ship obsolete renamed-module bytecode. Source files are preserved.
 | `build-windows` | Windows; Visual Studio Desktop development with C++ | `build/windows` |
 | `build-windows-installer` | Windows x64; Visual Studio C++ and Inno Setup 6 | `dist/windows/TxnCount-<version>-windows-x64-setup.exe` |
 | `build-linux`, `build-linux-appimage` | Linux x86_64; Flet toolchain, GTK, media and AppImage build tools | `dist/linux/TxnCount-<version>-x86_64.AppImage` |
+
+This table lists available tooling, not certified application support. Published
+distributions target Android, Linux and Windows. iOS/macOS tasks remain
+unvalidated application targets; web packaging does not add local-folder access.
 
 Flet installs its required Flutter version when unavailable, and JDK/Android SDK
 components for Android targets. Build and mobile-debug tasks pass `--yes`, so
@@ -143,12 +149,13 @@ JNI 1.1. The initial build reproduced that compile failure. Revisit the override
 when upgrading Flet. SAF Dart dependencies are explicitly version-pinned in the
 local extension's pubspec.
 
-Stage 2 runtime dependencies are the pinned pure-Python Beancount parser
-candidates and Lark. Official Beancount and pip are development-only (desktop
-oracle and binary-availability probe). Android's
+Runtime dependencies include the pinned pure-Python Beancount parser candidates,
+Lark, timezone data and Babel's budget formatting support. Official Beancount,
+Fava and pip are development-only (reference engines and binary-availability
+probe). Android's
 `tool.flet.android.extract_packages` extracts `autobean_refactor`,
-`beancount_parser` and `lark`, which load bundled grammars through filesystem
-paths. Do not remove this setting just because APK compilation succeeds.
+`beancount_parser`, `lark` and `babel`, which load bundled grammar/locale data
+through filesystem paths. Do not remove this setting just because APK compilation succeeds.
 `uv run inv check-beancount-apk` checks the actual archive layout and executes
 the payload on Flet's downloaded host CPython 3.14.7; a different Flet/Python
 release may require updating that probe's host executable path. A host payload

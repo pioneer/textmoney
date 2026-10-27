@@ -1,6 +1,6 @@
 [project]
 name = "txncount"
-version = "0.3.14"
+version = "0.3.15"
 description = "TxnCount: offline-first personal expense tracking"
 requires-python = ">=3.13"
 dependencies = [
@@ -58,7 +58,7 @@ product = "TxnCount"
 org = "com.pioneer"
 bundle_id = "com.pioneer.txncount"
 company = "Pioneer"
-build_number = 37
+build_number = 38
 icon_background = "#ffffff"
 
 [tool.txncount.android_release]

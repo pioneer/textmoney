@@ -2,16 +2,241 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TxnCount 0.3.4\n"
+"Project-Id-Version: TxnCount 0.3.13\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/txncount/issues\n"
-"POT-Creation-Date: 2026-10-25 20:02+0200\n"
-"PO-Revision-Date: 2026-10-25 20:02+0200\n"
+"POT-Creation-Date: 2026-10-27 21:26+0200\n"
+"PO-Revision-Date: 2026-10-27 21:26+0200\n"
 "Last-Translator: TxnCount localization contributors\n"
 "Language-Team: TxnCount language translators\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+
+msgid "ui.budget_title"
+msgstr ""
+
+msgid "ui.budget_simple_filters"
+msgstr ""
+
+msgid "ui.budget_account"
+msgstr ""
+
+msgid "ui.budget_all_accounts"
+msgstr ""
+
+msgid "ui.budget_all_currencies"
+msgstr ""
+
+msgid "ui.budget_account_warning"
+msgstr ""
+
+msgid "ui.budget_only_overspent"
+msgstr ""
+
+msgid "ui.budget_reset_filters"
+msgstr ""
+
+msgid "ui.budget_clear_filter"
+msgstr ""
+
+msgid "ui.budget_search_tree"
+msgstr ""
+
+msgid "ui.budget_search_transactions"
+msgstr ""
+
+msgid "ui.budget_no_matches"
+msgstr ""
+
+msgid "ui.budget_choose_month"
+msgstr ""
+
+msgid "ui.budget_month"
+msgstr ""
+
+msgid "ui.budget_year"
+msgstr ""
+
+msgid "ui.budget_show_month"
+msgstr ""
+
+msgid "ui.budget_month_error"
+msgstr ""
+
+msgid "ui.report_overview"
+msgstr ""
+
+msgid "ui.budget_report_empty"
+msgstr ""
+
+msgid "ui.budget_add"
+msgstr ""
+
+msgid "ui.budget_apply"
+msgstr ""
+
+msgid "ui.budget_previous"
+msgstr ""
+
+msgid "ui.budget_next"
+msgstr ""
+
+msgid "ui.budget_period"
+msgstr ""
+
+msgid "ui.budget_period_hint"
+msgstr ""
+
+msgid "ui.budget_interval"
+msgstr ""
+
+msgid "ui.budget_daily"
+msgstr ""
+
+msgid "ui.budget_weekly"
+msgstr ""
+
+msgid "ui.budget_monthly"
+msgstr ""
+
+msgid "ui.budget_quarterly"
+msgstr ""
+
+msgid "ui.budget_yearly"
+msgstr ""
+
+msgid "ui.budget_report"
+msgstr ""
+
+msgid "ui.budget_overview"
+msgstr ""
+
+msgid "ui.budget_changes"
+msgstr ""
+
+msgid "ui.budget_balances"
+msgstr ""
+
+msgid "ui.budget_charts"
+msgstr ""
+
+msgid "ui.budget_income_statement"
+msgstr ""
+
+msgid "ui.budget_net_profit"
+msgstr ""
+
+msgid "ui.budget_account_filter"
+msgstr ""
+
+msgid "ui.budget_category"
+msgstr ""
+
+msgid "ui.budget_text_filter"
+msgstr ""
+
+msgid "ui.budget_tag_filter"
+msgstr ""
+
+msgid "ui.budget_all"
+msgstr ""
+
+msgid "ui.budget_conversion"
+msgstr ""
+
+msgid "ui.budget_units"
+msgstr ""
+
+msgid "ui.budget_at_cost"
+msgstr ""
+
+msgid "ui.budget_at_value"
+msgstr ""
+
+msgid "ui.budget_filters"
+msgstr ""
+
+msgid "ui.budget_semantics"
+msgstr ""
+
+msgid "ui.budget_definitions"
+msgstr ""
+
+msgid "ui.budget_history_help"
+msgstr ""
+
+msgid "ui.budget_empty"
+msgstr ""
+
+msgid "ui.budget_planned"
+msgstr ""
+
+msgid "ui.budget_actual"
+msgstr ""
+
+msgid "ui.budget_remaining"
+msgstr ""
+
+msgid "ui.budget_consumed"
+msgstr ""
+
+msgid "ui.budget_zero_progress"
+msgstr ""
+
+msgid "ui.budget_overspent"
+msgstr ""
+
+msgid "ui.budget_missing"
+msgstr ""
+
+msgid "ui.budget_direct"
+msgstr ""
+
+msgid "ui.budget_subtree"
+msgstr ""
+
+msgid "ui.budget_transactions"
+msgstr ""
+
+msgid "ui.budget_change"
+msgstr ""
+
+msgid "ui.budget_stop"
+msgstr ""
+
+msgid "ui.budget_edit_help"
+msgstr ""
+
+msgid "ui.budget_effective"
+msgstr ""
+
+msgid "ui.budget_delete_help"
+msgstr ""
+
+msgid "ui.budget_interval_error"
+msgstr ""
+
+msgid "ui.budget_amount_error"
+msgstr ""
+
+msgid "ui.budget_currency_error"
+msgstr ""
+
+msgid "ui.budget_category_error"
+msgstr ""
+
+msgid "ui.budget_directive_error"
+msgstr ""
+
+msgid "ui.budget_range_error"
+msgstr ""
+
+msgid "ui.budget_fiscal_quarter_error"
+msgstr ""
+
+msgid "ui.budget_settings_error"
+msgstr ""
 
 #. Stable TxnCount key: ui.sync_required; do not translate this identifier.
 msgid "ui.sync_required"
@@ -927,6 +1152,9 @@ msgid "ui.crud_code_invalid"
 msgstr ""
 
 msgid "ui.create_account"
+msgstr ""
+
+msgid "ui.create_budget"
 msgstr ""
 
 #. Stable TxnCount key: ui.account_name; do not translate this identifier.

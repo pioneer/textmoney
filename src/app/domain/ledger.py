@@ -4,6 +4,10 @@ import re
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, localcontext
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.domain.budgets import Budget, Price
 
 EPOCH = date(1970, 1, 1)
 EQUITY = "Equity:Opening-Balances"
@@ -172,6 +176,7 @@ class Transaction:
     related_expense: str | None = None
     fee_mode: str = "added"
     links: tuple[str, ...] = ()
+    tags: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -183,6 +188,12 @@ class Ledger:
     operating_currencies: tuple[str, ...] = ()
     adjustments_opened: date | None = None
     default_fee_category: str = BANK_FEES
+    budgets: tuple["Budget", ...] = ()
+    prices: tuple["Price", ...] = ()
+    currency_precisions: tuple[tuple[str, int], ...] = ()
+    budget_locale: str | None = None
+    fiscal_year_end: str = "12-31"
+    invert_income: bool = False
 
     def period_totals(self, start: date, end: date) -> dict[str, dict[str, Decimal]]:
         """Inclusive accounting-date totals; income positive, reimbursements net expenses."""

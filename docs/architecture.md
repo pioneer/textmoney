@@ -22,6 +22,8 @@ src/app/domain/storage.py  SHA-256 and conflict error, no Flet imports
 src/app/domain/backups.py  timestamped backup identities and tiered retention
 src/app/domain/recovery.py checksummed, hash-only Android save records and classification
 src/app/domain/ledger.py   explicit accounts, Decimal postings and running-balance checks
+src/app/domain/budgets.py  Fava-compatible daily allocation, calendar ranges and budget reports
+src/app/ui/budgets.py      localized budget overview, report controls and definition management
 src/app/journal.py         one-journal load/append/save coordination, no Flet
 src/app/infrastructure/beancount_journal.py lossless reading, directive splices and generation
 src/app/storage.py         shared read/backup/conflict/write policy and draft
@@ -102,7 +104,37 @@ an expense and its reimbursements. Legacy/user metadata is preserved, not
 globally stripped or treated as an authoritative transaction identity.
 Transfer edit forms reconstruct economic amounts from postings, not stored
 fee-presentation metadata. The default fee category is a local device preference.
-Budget directives are permitted, but budget/envelope calculation is not implemented.
+Budget definitions use Fava-compatible native `custom "budget"` directives in the
+same journal. The budget domain adapts Fava 1.30.16's MIT allocation/calendar/price
+algorithms; its notice is shipped in `app/notices/fava.txt`. It uses a separate
+28-digit Decimal context with reference ordering, without changing the existing
+50-digit accounting reports. Fava and official Beancount remain development-only
+oracles, not runtime engines. There are no envelopes or rollover rules. See
+[budgeting](budgets.md) for calculation boundaries and reference tests.
+
+Accounting has Accounts, Categories and Budgets tabs; Reports has Overview and
+Budgets tabs. Budget management and reporting own separate control trees while
+sharing the same journal and budget view coordinator. The existing four compact
+navigation destinations and five wide rail destinations are unchanged.
+Budget reports show only categories with their own effective budget, hiding
+automatic parent totals without changing domain calculations.
+The report UI is monthly only. Searchable component-aware tree selectors filter
+categories and ordinary accounts; account filters restrict complete transactions,
+not budget definitions, with a persistent warning while active. Currency selection
+filters displayed figures only, never converts amounts. Transaction text search
+is confined to the drilldown. Advanced Fava-compatible domain calculations remain
+covered by oracle tests but are not exposed as report modes.
+New monthly definitions default to the first of the current month; historical
+edits retain their effective date. Reporting runs off the UI loop and ignores
+superseded work. Its owned task is cancelled on unmount.
+Controls, open hierarchy/filter sections and input survive ordinary polling and
+resizing. Journal/source guards and the existing storage pipeline protect budget
+CRUD exactly as other edits. New future-dated definitions append instead of
+rewriting history. External budget changes participate in reload summaries.
+
+Babel is a pure-Python runtime formatter for Fava currency precision and journal
+locale settings; it is not an accounting engine. Android extracts its bundled
+locale data, like the parsers' grammar files, because Babel reads filesystem paths.
 Transaction times are wall-clock values, not instants: no offset is persisted
 and changing display/default timezone must not convert saved transaction times.
 

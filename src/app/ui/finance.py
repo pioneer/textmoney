@@ -50,6 +50,7 @@ from app.localization import (
 )
 from app.storage import RecoveryRequired, StorageError
 from app.timekeeping import local_datetime, named_zone
+from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.version import release_identity
 
@@ -214,7 +215,7 @@ class FinanceView(ft.Row):
         self.report_error = ft.Text(color=ft.Colors.ERROR, visible=False)
         self.report_summary = ft.Column(spacing=12)
         self.report_categories = ft.Column(spacing=16)
-        self.reports_screen = ft.Column(
+        self.report_overview = ft.Column(
             spacing=16,
             controls=[
                 self.report_period,
@@ -227,6 +228,18 @@ class FinanceView(ft.Row):
         self._report_ledger: object | None = None
         self._report_range: tuple[date, date] | None = None
         self._report_data: PeriodReport | None = None
+        self.budgets = BudgetView(self)
+        self.budgets.visible = False
+        self.report_tab_bar = ft.TabBar(tabs=[], scrollable=False, secondary=True)
+        self.report_tabs = ft.Tabs(
+            length=2,
+            selected_index=0,
+            on_change=self._report_tab_changed,
+            content=ft.Column(
+                [self.report_tab_bar, self.report_overview, self.budgets], spacing=16
+            ),
+        )
+        self.reports_screen = ft.Column([self.report_tabs], spacing=16)
         self.home_balances = ft.Row(wrap=True, spacing=12, run_spacing=12)
         self.home_activity = ft.Column(spacing=0)
         self.accounts_panel_content = ft.Column(spacing=16)
@@ -244,15 +257,27 @@ class FinanceView(ft.Row):
             content=self.categories_panel_content,
             visible=False,
         )
+        self.budgets_panel = ft.Container(
+            padding=16,
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border_radius=12,
+            content=self.budgets.management,
+            visible=False,
+        )
         self.account_save = ft.Button(icon=ft.Icons.ADD, on_click=self._create_account)
         self.category_save = ft.Button(icon=ft.Icons.ADD, on_click=self._create_category)
         self.accounting_tab_bar = ft.TabBar(tabs=[], scrollable=False, secondary=True)
         self.accounting_tabs = ft.Tabs(
-            length=2,
+            length=3,
             selected_index=0,
             on_change=self._accounting_tab_changed,
             content=ft.Column(
-                [self.accounting_tab_bar, self.accounts_panel, self.categories_panel],
+                [
+                    self.accounting_tab_bar,
+                    self.accounts_panel,
+                    self.categories_panel,
+                    self.budgets_panel,
+                ],
                 spacing=16,
             ),
         )
@@ -389,6 +414,7 @@ class FinanceView(ft.Row):
         self.page.update()
 
     def will_unmount(self) -> None:
+        self.budgets.cancel()
         if self.worker is not None:
             self.worker.cancel()
 
@@ -516,6 +542,9 @@ class FinanceView(ft.Row):
         )
         self._build_navigation()
         self._build_screens()
+        self.budgets.sync()
+        if self.current_screen == "reports" and self.report_tabs.selected_index == 1:
+            self.budgets.request_refresh()
 
     def _build_navigation(self) -> None:
         destinations = [
@@ -593,6 +622,11 @@ class FinanceView(ft.Row):
         self.accounting_tab_bar.tabs = [
             ft.Tab(label=self.tr("accounts_title")),
             ft.Tab(label=self.tr("categories_title")),
+            ft.Tab(label=self.tr("budget_title")),
+        ]
+        self.report_tab_bar.tabs = [
+            ft.Tab(label=self.tr("report_overview")),
+            ft.Tab(label=self.tr("budget_title")),
         ]
         self.accounts_screen.controls = [self.accounting_tabs]
         self.category_root.label = self.tr("incoming_type")
@@ -733,7 +767,7 @@ class FinanceView(ft.Row):
             if self.page:
                 self.page.navigation_bar = None
         available = max(320, (width or 390) - rail_width - 48)
-        self.accounts_panel.width = self.categories_panel.width = min(
+        self.accounts_panel.width = self.categories_panel.width = self.budgets_panel.width = min(
             MAX_CONTENT_WIDTH - 40, available
         )
         self._build_navigation()
@@ -742,6 +776,7 @@ class FinanceView(ft.Row):
         self.screen_host.padding = (
             ft.Padding.only(bottom=96)
             if self.current_screen == "accounts"
+            or (self.current_screen == "reports" and self.report_tabs.selected_index == 1)
             or (self.current_screen == "settings" and self.screen_class != ScreenClass.COMPACT)
             else None
         )
@@ -1783,7 +1818,7 @@ class FinanceView(ft.Row):
             )
         summary = journal.external_summary
         if summary:
-            for kind in ("accounts", "categories", "transactions"):
+            for kind in ("accounts", "categories", "transactions", "budgets"):
                 controls.append(
                     ft.Text(
                         self.tr(
@@ -1793,6 +1828,7 @@ class FinanceView(ft.Row):
                                     "accounts": "accounts_title",
                                     "categories": "categories_title",
                                     "transactions": "nav_transactions",
+                                    "budgets": "budget_title",
                                 }[kind]
                             ),
                             added=summary.get(f"{kind}_added", 0),
@@ -3392,6 +3428,15 @@ class FinanceView(ft.Row):
     def _accounting_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
         self.accounts_panel.visible = event.control.selected_index == 0
         self.categories_panel.visible = event.control.selected_index == 1
+        self.budgets_panel.visible = event.control.selected_index == 2
+        self.page.update()
+
+    def _report_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
+        self.report_overview.visible = event.control.selected_index == 0
+        self.budgets.visible = event.control.selected_index == 1
+        if self.budgets.visible:
+            self.budgets.request_refresh()
+        self._apply_layout(self.page.width or self.page.window.width)
         self.page.update()
 
     def _navigate(self, screen: str) -> None:
@@ -3424,6 +3469,7 @@ class FinanceView(ft.Row):
         self.accounting_tabs.selected_index = 0
         self.accounts_panel.visible = True
         self.categories_panel.visible = False
+        self.budgets_panel.visible = False
         self._navigate("accounts")
 
     def _picker_zone(self) -> str | None:

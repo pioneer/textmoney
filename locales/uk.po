@@ -16,6 +16,231 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+msgid "ui.budget_title"
+msgstr "Бюджети"
+
+msgid "ui.budget_simple_filters"
+msgstr "Фільтри"
+
+msgid "ui.budget_account"
+msgstr "Рахунок"
+
+msgid "ui.budget_all_accounts"
+msgstr "Усі рахунки"
+
+msgid "ui.budget_all_currencies"
+msgstr "Усі валюти"
+
+msgid "ui.budget_account_warning"
+msgstr "Витрати відфільтровано за рахунком; бюджет не змінено. Витрати з інших рахунків не враховано."
+
+msgid "ui.budget_only_overspent"
+msgstr "Лише перевищені"
+
+msgid "ui.budget_reset_filters"
+msgstr "Скинути фільтри"
+
+msgid "ui.budget_clear_filter"
+msgstr "Прибрати фільтр"
+
+msgid "ui.budget_search_tree"
+msgstr "Пошук за назвою"
+
+msgid "ui.budget_search_transactions"
+msgstr "Пошук за одержувачем або описом"
+
+msgid "ui.budget_no_matches"
+msgstr "Збігів немає."
+
+msgid "ui.budget_choose_month"
+msgstr "Виберіть місяць"
+
+msgid "ui.budget_month"
+msgstr "Місяць"
+
+msgid "ui.budget_year"
+msgstr "Рік"
+
+msgid "ui.budget_show_month"
+msgstr "Показати"
+
+msgid "ui.budget_month_error"
+msgstr "Виберіть місяць і введіть рік від 1 до 9998."
+
+msgid "ui.report_overview"
+msgstr "Огляд"
+
+msgid "ui.budget_report_empty"
+msgstr "Для цього періоду та вибору немає активних бюджетів."
+
+msgid "ui.budget_add"
+msgstr "Нове визначення бюджету"
+
+msgid "ui.budget_apply"
+msgstr "Застосувати фільтри"
+
+msgid "ui.budget_previous"
+msgstr "Попередній місяць"
+
+msgid "ui.budget_next"
+msgstr "Наступний місяць"
+
+msgid "ui.budget_period"
+msgstr "Період"
+
+msgid "ui.budget_period_hint"
+msgstr "2026-01, 2026-Q1, FY2026 або 2026-01-15 to 2026-02-10"
+
+msgid "ui.budget_interval"
+msgstr "Інтервал"
+
+msgid "ui.budget_daily"
+msgstr "Щодня"
+
+msgid "ui.budget_weekly"
+msgstr "Щотижня"
+
+msgid "ui.budget_monthly"
+msgstr "Щомісяця"
+
+msgid "ui.budget_quarterly"
+msgstr "Щокварталу"
+
+msgid "ui.budget_yearly"
+msgstr "Щороку"
+
+msgid "ui.budget_report"
+msgstr "Звіт"
+
+msgid "ui.budget_overview"
+msgstr "Огляд за місяць"
+
+msgid "ui.budget_changes"
+msgstr "Зміни за категоріями"
+
+msgid "ui.budget_balances"
+msgstr "Накопичувальні підсумки категорій"
+
+msgid "ui.budget_charts"
+msgstr "Підсумки інтервалів (останні 100)"
+
+msgid "ui.budget_income_statement"
+msgstr "Показники доходів і витрат"
+
+msgid "ui.budget_net_profit"
+msgstr "Чистий прибуток (без бюджету Fava)"
+
+msgid "ui.budget_account_filter"
+msgstr "Фільтр рахунків"
+
+msgid "ui.budget_category"
+msgstr "Категорія"
+
+msgid "ui.budget_text_filter"
+msgstr "Одержувач або опис містить"
+
+msgid "ui.budget_tag_filter"
+msgstr "Тег (без #)"
+
+msgid "ui.budget_all"
+msgstr "Усі категорії"
+
+msgid "ui.budget_conversion"
+msgstr "Оцінка фактичних сум"
+
+msgid "ui.budget_units"
+msgstr "Початкові валюти"
+
+msgid "ui.budget_at_cost"
+msgstr "За собівартістю"
+
+msgid "ui.budget_at_value"
+msgstr "За ринковою вартістю"
+
+msgid "ui.budget_filters"
+msgstr "Звіти, фільтри та оцінка"
+
+msgid "ui.budget_semantics"
+msgstr "Правила Fava 1.30.16: щоденний розподіл; бюджети зберігають свої валюти. Звіти категорій використовують дерево рахунків, підсумки інтервалів — буквальні префікси. Розгорніть категорію для прямих сум і транзакцій. Прогрес — показник інтерфейсу TxnCount. Наведіть на суму для точного Decimal."
+
+msgid "ui.budget_definitions"
+msgstr "Визначення та історія бюджетів"
+
+msgid "ui.budget_history_help"
+msgstr "Нові датовані визначення зберігають історію. Кожна валюта змінюється окремо. Нульове визначення припиняє розподіл у цій валюті з дати набуття чинності; перенесення залишку немає."
+
+msgid "ui.budget_empty"
+msgstr "Визначень бюджетів ще немає. Додайте бюджет для наявної категорії."
+
+msgid "ui.budget_planned"
+msgstr "Бюджет"
+
+msgid "ui.budget_actual"
+msgstr "Витрачено"
+
+msgid "ui.budget_remaining"
+msgstr "Залишилось"
+
+msgid "ui.budget_consumed"
+msgstr "Використано"
+
+msgid "ui.budget_zero_progress"
+msgstr "Нульовий бюджет: відсоток не визначено."
+
+msgid "ui.budget_overspent"
+msgstr "Перевитрата"
+
+msgid "ui.budget_missing"
+msgstr "Бюджету немає"
+
+msgid "ui.budget_direct"
+msgstr "Без підкатегорій"
+
+msgid "ui.budget_subtree"
+msgstr "Разом із підкатегоріями"
+
+msgid "ui.budget_transactions"
+msgstr "Транзакції розрахунку"
+
+msgid "ui.budget_change"
+msgstr "Змінити з дати"
+
+msgid "ui.budget_stop"
+msgstr "Припинити з дати"
+
+msgid "ui.budget_edit_help"
+msgstr "Редагування цього визначення перерахує історичні періоди. Щоб зберегти минулі бюджети, скасуйте та виберіть «Змінити з дати»."
+
+msgid "ui.budget_effective"
+msgstr "Дата набуття чинності (можна майбутню)"
+
+msgid "ui.budget_delete_help"
+msgstr "Видалення визначення перерахує історію та може відновити попереднє визначення. Щоб натомість припинити майбутній розподіл, скасуйте та виберіть «Припинити з дати»."
+
+msgid "ui.budget_interval_error"
+msgstr "Виберіть щоденний, тижневий, місячний, квартальний або річний інтервал."
+
+msgid "ui.budget_amount_error"
+msgstr "Введіть скінченну десяткову суму бюджету без роздільників груп."
+
+msgid "ui.budget_currency_error"
+msgstr "Введіть правильний код одиниці Beancount, наприклад UAH, USD або EUR."
+
+msgid "ui.budget_category_error"
+msgstr "Виберіть наявну категорію."
+
+msgid "ui.budget_directive_error"
+msgstr "Директива бюджету потребує рахунку, рядка інтервалу та суми з валютою."
+
+msgid "ui.budget_range_error"
+msgstr "Введіть правильний період Fava, наприклад 2026-01, 2026-Q1, FY2026 або 2026-01-15 to 2026-02-10."
+
+msgid "ui.budget_fiscal_quarter_error"
+msgstr "Фінансові квартали потребують початку фінансового року першого числа місяця."
+
+msgid "ui.budget_settings_error"
+msgstr "Перевірте налаштування locale та fiscal-year-end Fava в журналі."
+
 #. Stable TxnCount key: ui.sync_required; do not translate this identifier.
 msgid "ui.sync_required"
 msgstr ""
@@ -1009,6 +1234,9 @@ msgstr "Введіть коректний код для вибраного ти�
 
 msgid "ui.create_account"
 msgstr "Створити рахунок"
+
+msgid "ui.create_budget"
+msgstr "Створити бюджет"
 
 #. Stable TxnCount key: ui.account_name; do not translate this identifier.
 msgid "ui.account_name"

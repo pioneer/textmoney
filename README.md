@@ -35,6 +35,13 @@ they are not personal financial data or Android device captures.*
 - View income, net expenses and net result in currency-specific period reports,
   with current/previous month, year-to-date or custom date ranges and category
   breakdowns.
+- Manage journal-backed category budgets under **Accounting → Budgets** and
+  monitor spending under **Reports → Budgets**: a monthly spending overview,
+  searchable category/account trees, currency-specific figures and overspending.
+  Budget definitions support daily through yearly frequencies and historical
+  or future changes.
+  Calculations are checked against Fava 1.30.16 within TxnCount's existing
+  accounting subset. See [Budgeting](docs/budgets.md).
 - Delete editable transactions after confirmation; deactivate and reactivate
   accounts and categories with history rather than losing their records.
 - Use system, light or dark appearance, and system or explicit timezones.
@@ -53,7 +60,7 @@ they are not personal financial data or Android device captures.*
 
 ## Future plans
 
-Planned areas include budgets and split-expense editing. Priorities and scope
+Planned areas include split-expense editing. Priorities and scope
 may change during alpha, with no release dates promised.
 
 ### Editing and synchronization

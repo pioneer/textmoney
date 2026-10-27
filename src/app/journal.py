@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from autobean_refactor import models
 
+from app.domain.budgets import Budget, budget_amount, budget_currency, interval_name
 from app.domain.ledger import (
     ADJUSTMENTS,
     BANK_FEES,
@@ -33,9 +34,11 @@ from app.domain.storage import ConflictError
 from app.infrastructure.beancount_journal import (
     JournalCodec,
     append,
+    budget_text,
     equity_declaration,
     open_account,
     open_category,
+    parse_budget,
     render,
     replace_directive,
     transaction_text,
@@ -135,22 +138,28 @@ class Journal:
         after_transactions = [
             replace(item, id="", related_expense=None) for item in ledger.transactions
         ]
-        counts = {"added": 0, "removed": 0, "changed": 0}
-        for operation, start, end, new_start, new_end in SequenceMatcher(
-            a=before_transactions, b=after_transactions, autojunk=False
-        ).get_opcodes():
-            removed, added = end - start, new_end - new_start
-            if operation == "replace":
-                counts["changed"] += min(removed, added)
-                counts["removed"] += max(0, removed - added)
-                counts["added"] += max(0, added - removed)
-            elif operation == "delete":
-                counts["removed"] += removed
-            elif operation == "insert":
-                counts["added"] += added
-        self.external_summary.update(
-            {f"transactions_{key}": value for key, value in counts.items()}
-        )
+        for kind, old_sequence, new_sequence in (
+            ("transactions", before_transactions, after_transactions),
+            (
+                "budgets",
+                [replace(item, id="") for item in self.ledger.budgets],
+                [replace(item, id="") for item in ledger.budgets],
+            ),
+        ):
+            counts = {"added": 0, "removed": 0, "changed": 0}
+            for operation, start, end, new_start, new_end in SequenceMatcher(
+                a=old_sequence, b=new_sequence, autojunk=False
+            ).get_opcodes():
+                removed, added = end - start, new_end - new_start
+                if operation == "replace":
+                    counts["changed"] += min(removed, added)
+                    counts["removed"] += max(0, removed - added)
+                    counts["added"] += max(0, added - removed)
+                elif operation == "delete":
+                    counts["removed"] += removed
+                elif operation == "insert":
+                    counts["added"] += added
+            self.external_summary.update({f"{kind}_{key}": value for key, value in counts.items()})
 
     async def _validate_recovery(self) -> None:
         self.recovery_valid = self.recovery_backup_valid = False
@@ -257,6 +266,82 @@ class Journal:
         if len(matches) != 1:
             raise LedgerError("crud_missing")
         return matches[0]
+
+    def _budget_definition(
+        self, account: str, occurred: date, interval: str, amount: str, currency: str
+    ) -> Budget:
+        self._require_ready()
+        if account not in {
+            *(category.id for category in self.ledger.categories),
+            *(item.account for item in self.ledger.budgets),
+        }:
+            raise LedgerError("budget_category_error")
+        return Budget(
+            "",
+            account,
+            occurred,
+            interval_name(interval),
+            budget_amount(amount),
+            budget_currency(currency),
+        )
+
+    async def save_budget(
+        self,
+        account: str,
+        occurred: date,
+        interval: str,
+        amount: str,
+        currency: str,
+        expected_source: str,
+        *,
+        identifier: str | None = None,
+    ) -> str | None:
+        """New dated definitions preserve history; editing targets one captured directive."""
+        budget = self._budget_definition(account, occurred, interval, amount, currency)
+
+        def change(document: models.File) -> str:
+            if identifier is None:
+                return append(self.source, budget_text(budget))
+            entry = next(
+                (
+                    item
+                    for item in document.raw_directives
+                    if isinstance(item, models.Custom)
+                    and item.type == "budget"
+                    and parse_budget(item).id == identifier
+                ),
+                None,
+            )
+            if entry is None:
+                raise LedgerError("crud_missing")
+
+            def update() -> None:
+                entry.date = budget.date
+                entry.values[0] = models.Account.from_value(budget.account)
+                entry.values[1] = budget.interval
+                entry.values[2] = models.Amount.from_value(budget.amount, budget.currency)
+
+            return replace_directive(self.source, entry, update)
+
+        return await self._change(change, expected_source)
+
+    async def delete_budget(self, identifier: str, expected_source: str) -> str | None:
+        def change(document: models.File) -> str:
+            entry = next(
+                (
+                    item
+                    for item in document.raw_directives
+                    if isinstance(item, models.Custom)
+                    and item.type == "budget"
+                    and parse_budget(item).id == identifier
+                ),
+                None,
+            )
+            if entry is None:
+                raise LedgerError("crud_missing")
+            return replace_directive(self.source, entry, None)
+
+        return await self._change(change, expected_source)
 
     def _new_record_date(self, value: date | None, default: date) -> date:
         result = value or default

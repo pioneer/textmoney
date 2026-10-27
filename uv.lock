@@ -2274,6 +2274,7 @@ version = "0.3.13"
 source = { virtual = "." }
 dependencies = [
     { name = "autobean-refactor" },
+    { name = "babel" },
     { name = "beancount-parser" },
     { name = "finance-saf" },
     { name = "flet" },
@@ -2299,6 +2300,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "autobean-refactor", specifier = "==0.3.1" },
+    { name = "babel", specifier = ">=2.16,<3" },
     { name = "beancount-parser", specifier = "==1.2.3" },
     { name = "finance-saf", directory = "extensions/finance-saf" },
     { name = "flet", specifier = "==1.0.1" },
@@ -2310,7 +2312,7 @@ requires-dist = [
 dev = [
     { name = "babel", specifier = ">=2.16,<3" },
     { name = "beancount", specifier = "==3.2.3" },
-    { name = "fava", specifier = ">=1.30,<2" },
+    { name = "fava", specifier = "==1.30.16" },
     { name = "flet", extras = ["all"], specifier = "==1.0.1" },
     { name = "flet-mcp", specifier = "==1.0.1" },
     { name = "invoke", specifier = ">=2.2,<3" },

@@ -2,10 +2,13 @@
 
 import gettext
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal, localcontext
 from functools import cache
 from pathlib import Path
 from typing import Final
+
+from babel.core import Locale
+from babel.numbers import format_decimal
 
 from app.domain.ledger import LedgerError
 
@@ -222,6 +225,32 @@ def format_amount(value: Decimal, language: str, currency: str = "") -> str:
         number = raw.replace(",", "\0").replace(".", ",").replace("\0", grouping)
     sign = "−" if value < 0 else ""
     return f"{sign}{number} {currency}".rstrip()
+
+
+def format_budget_number(value: Decimal, precision: int = 2, locale: str | None = None) -> str:
+    """Fava frontend fixed-point values (d3-format / Intl, not transaction money)."""
+    precision = max(0, min(precision, 20))
+    # Fava sends Decimal strings to the browser and formats ECMAScript numbers.
+    # Do not let binary floats enter the accounting calculations themselves.
+    binary = float(value)
+    if not (-float("inf") < binary < float("inf")):
+        return ("-" if value < 0 else "") + ("∞" if locale else "Infinity")
+    number = Decimal(str(abs(binary))) if locale else Decimal.from_float(abs(binary))
+    with localcontext() as context:
+        context.prec = max(50, len(number.as_tuple().digits) + precision + 2)
+        rounded = number.quantize(Decimal(1).scaleb(-precision), rounding=ROUND_HALF_UP)
+        if locale:
+            selected = Locale.parse(locale)
+            pattern = selected.decimal_formats[None]
+            fraction = "." + "0" * precision if precision else ""
+            raw = format_decimal(
+                rounded,
+                format=pattern.pattern.split(".")[0] + fraction,
+                locale=selected,
+                decimal_quantization=False,
+            )
+            return ("-" if value.is_signed() else "") + raw
+        return ("−" if value < 0 and rounded else "") + f"{rounded:.{precision}f}"
 
 
 def format_date(value: date, language: str) -> str:

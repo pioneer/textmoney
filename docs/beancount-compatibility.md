@@ -2,6 +2,15 @@
 
 ## Current automated baseline
 
+Category budgets have a separate, mandatory reference suite in
+[`tests/test_budgets.py`](../tests/test_budgets.py), run by `uv run inv check`.
+It compares native directives, daily allocations, direct/aggregate/cumulative
+reports, actuals, conversions and display precision against pinned **Fava
+1.30.16**. Fava/Beancount are development-only references; production retains
+TxnCount's explicit-posting model and lossless parser. See
+[Budgeting](budgets.md). The optional cross-engine baseline below is unrelated
+to the budgeting runtime and does not replace these parity assertions.
+
 Run the synthetic cross-engine checks with:
 
 ```sh

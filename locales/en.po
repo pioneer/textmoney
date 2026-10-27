@@ -15,6 +15,231 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+msgid "ui.budget_title"
+msgstr "Budgets"
+
+msgid "ui.budget_simple_filters"
+msgstr "Filters"
+
+msgid "ui.budget_account"
+msgstr "Account"
+
+msgid "ui.budget_all_accounts"
+msgstr "All accounts"
+
+msgid "ui.budget_all_currencies"
+msgstr "All currencies"
+
+msgid "ui.budget_account_warning"
+msgstr "Spending is filtered by account; the budget is unchanged. Spending from other accounts is excluded."
+
+msgid "ui.budget_only_overspent"
+msgstr "Only overspent"
+
+msgid "ui.budget_reset_filters"
+msgstr "Reset filters"
+
+msgid "ui.budget_clear_filter"
+msgstr "Remove filter"
+
+msgid "ui.budget_search_tree"
+msgstr "Search by name"
+
+msgid "ui.budget_search_transactions"
+msgstr "Search payee or description"
+
+msgid "ui.budget_no_matches"
+msgstr "No matches."
+
+msgid "ui.budget_choose_month"
+msgstr "Choose month"
+
+msgid "ui.budget_month"
+msgstr "Month"
+
+msgid "ui.budget_year"
+msgstr "Year"
+
+msgid "ui.budget_show_month"
+msgstr "Show"
+
+msgid "ui.budget_month_error"
+msgstr "Choose a month and enter a year from 1 to 9998."
+
+msgid "ui.report_overview"
+msgstr "Overview"
+
+msgid "ui.budget_report_empty"
+msgstr "No budgets are active for this period and selection."
+
+msgid "ui.budget_add"
+msgstr "New budget definition"
+
+msgid "ui.budget_apply"
+msgstr "Apply filters"
+
+msgid "ui.budget_previous"
+msgstr "Previous month"
+
+msgid "ui.budget_next"
+msgstr "Next month"
+
+msgid "ui.budget_period"
+msgstr "Period"
+
+msgid "ui.budget_period_hint"
+msgstr "2026-01, 2026-Q1, FY2026, or 2026-01-15 to 2026-02-10"
+
+msgid "ui.budget_interval"
+msgstr "Interval"
+
+msgid "ui.budget_daily"
+msgstr "Daily"
+
+msgid "ui.budget_weekly"
+msgstr "Weekly"
+
+msgid "ui.budget_monthly"
+msgstr "Monthly"
+
+msgid "ui.budget_quarterly"
+msgstr "Quarterly"
+
+msgid "ui.budget_yearly"
+msgstr "Yearly"
+
+msgid "ui.budget_report"
+msgstr "Report"
+
+msgid "ui.budget_overview"
+msgstr "Monthly overview"
+
+msgid "ui.budget_changes"
+msgstr "Category changes"
+
+msgid "ui.budget_balances"
+msgstr "Cumulative category balances"
+
+msgid "ui.budget_charts"
+msgstr "Interval totals (last 100)"
+
+msgid "ui.budget_income_statement"
+msgstr "Income statement series"
+
+msgid "ui.budget_net_profit"
+msgstr "Net profit (no Fava budget)"
+
+msgid "ui.budget_account_filter"
+msgstr "Account filter"
+
+msgid "ui.budget_category"
+msgstr "Category"
+
+msgid "ui.budget_text_filter"
+msgstr "Payee or description contains"
+
+msgid "ui.budget_tag_filter"
+msgstr "Tag (without #)"
+
+msgid "ui.budget_all"
+msgstr "All categories"
+
+msgid "ui.budget_conversion"
+msgstr "Actuals valuation"
+
+msgid "ui.budget_units"
+msgstr "Original currencies"
+
+msgid "ui.budget_at_cost"
+msgstr "At cost"
+
+msgid "ui.budget_at_value"
+msgstr "At market value"
+
+msgid "ui.budget_filters"
+msgstr "Reports, filters and valuation"
+
+msgid "ui.budget_semantics"
+msgstr "Fava 1.30.16 rules: daily allocation; budgets keep their currencies. Category reports use account trees; interval totals use literal account prefixes. Expand a category for direct values and transactions. Progress is a TxnCount display ratio. Hover amounts for exact Decimals."
+
+msgid "ui.budget_definitions"
+msgstr "Budget definitions and history"
+
+msgid "ui.budget_history_help"
+msgstr "New dated definitions preserve history. Each currency changes independently. A zero definition stops allocation in that currency from its effective date; there is no rollover."
+
+msgid "ui.budget_empty"
+msgstr "No budget definitions yet. Add one for an existing category."
+
+msgid "ui.budget_planned"
+msgstr "Budget"
+
+msgid "ui.budget_actual"
+msgstr "Spent"
+
+msgid "ui.budget_remaining"
+msgstr "Remaining"
+
+msgid "ui.budget_consumed"
+msgstr "Consumed"
+
+msgid "ui.budget_zero_progress"
+msgstr "Zero budget: percentage is undefined."
+
+msgid "ui.budget_overspent"
+msgstr "Overspent"
+
+msgid "ui.budget_missing"
+msgstr "No budget"
+
+msgid "ui.budget_direct"
+msgstr "Excluding subcategories"
+
+msgid "ui.budget_subtree"
+msgstr "Including children"
+
+msgid "ui.budget_transactions"
+msgstr "Contributing transactions"
+
+msgid "ui.budget_change"
+msgstr "Change from a date"
+
+msgid "ui.budget_stop"
+msgstr "Discontinue from a date"
+
+msgid "ui.budget_edit_help"
+msgstr "Editing this definition recalculates its historical periods. To preserve past budgets, cancel and use Change from a date instead."
+
+msgid "ui.budget_effective"
+msgstr "Effective date (future dates allowed)"
+
+msgid "ui.budget_delete_help"
+msgstr "Removing a definition recalculates history and may reactivate an earlier definition. To stop future allocation instead, cancel and use Discontinue from a date."
+
+msgid "ui.budget_interval_error"
+msgstr "Choose daily, weekly, monthly, quarterly or yearly."
+
+msgid "ui.budget_amount_error"
+msgstr "Enter a finite decimal budget amount, without grouping separators."
+
+msgid "ui.budget_currency_error"
+msgstr "Enter a valid Beancount commodity code, such as UAH, USD or EUR."
+
+msgid "ui.budget_category_error"
+msgstr "Choose an existing category."
+
+msgid "ui.budget_directive_error"
+msgstr "Budget directives need an account, interval string and amount with currency."
+
+msgid "ui.budget_range_error"
+msgstr "Enter a valid Fava period, for example 2026-01, 2026-Q1, FY2026 or 2026-01-15 to 2026-02-10."
+
+msgid "ui.budget_fiscal_quarter_error"
+msgstr "Fiscal quarters require a fiscal year starting on the first day of a month."
+
+msgid "ui.budget_settings_error"
+msgstr "Check the journal's Fava locale and fiscal-year-end settings."
+
 #. Stable TxnCount key: ui.sync_required; do not translate this identifier.
 msgid "ui.sync_required"
 msgstr ""
@@ -1003,6 +1228,9 @@ msgstr "Enter a valid code under the selected type and parent."
 
 msgid "ui.create_account"
 msgstr "Create account"
+
+msgid "ui.create_budget"
+msgstr "Create budget"
 
 #. Stable TxnCount key: ui.account_name; do not translate this identifier.
 msgid "ui.account_name"

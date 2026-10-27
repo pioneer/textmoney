@@ -321,7 +321,7 @@ def test_reports_keep_scroll_clearance_for_floating_action(
             if screen != "reports":
                 continue
             assert view.screen_host.content is view.reports_screen
-            listing = view.reports_screen.controls[-1]
+            listing = view.report_overview.controls[-1]
             assert isinstance(listing, ft.Container)
             assert listing.content is view.report_categories
             assert listing.padding == ft.Padding.only(bottom=96)

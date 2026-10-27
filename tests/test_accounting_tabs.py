@@ -34,7 +34,7 @@ def test_subtabs_share_layout_and_preserve_selection(
 ) -> None:
     view, _ = setup_view(monkeypatch)
     assert view.accounts_screen.controls == [view.accounting_tabs]
-    assert view.accounting_tabs.length == 2
+    assert view.accounting_tabs.length == 3
     assert view.accounts_panel.visible and not view.categories_panel.visible
     select_tab(view, 1)
     for width in [390, 800, 1366]:
@@ -49,6 +49,7 @@ def test_subtabs_share_layout_and_preserve_selection(
         assert [tab.label for tab in view.accounting_tab_bar.tabs if isinstance(tab, ft.Tab)] == [
             view.tr("accounts_title"),
             view.tr("categories_title"),
+            view.tr("budget_title"),
         ]
         for panel, button, listing in [
             (view.accounts_panel, view.account_save, view.account_list),

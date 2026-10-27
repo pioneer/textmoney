@@ -1,6 +1,8 @@
 """Lossless reading, directive splicing and generation with the phone-tested parser."""
 
 import io
+import re
+from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import date, datetime, time
@@ -8,8 +10,10 @@ from decimal import Decimal
 
 from autobean_refactor import models, printer
 from autobean_refactor.parser import Parser
+from babel.core import Locale, UnknownLocaleError
 from lark.exceptions import UnexpectedInput
 
+from app.domain.budgets import Budget, Price, interval_name
 from app.domain.ledger import (
     ADJUSTMENTS,
     EQUITY,
@@ -66,6 +70,11 @@ class JournalCodec:
         accounts: list[Account] = []
         categories: list[Category] = []
         transactions: list[Transaction] = []
+        budgets: list[Budget] = []
+        prices: list[Price] = []
+        fractional: dict[str, Counter[int]] = defaultdict(Counter)
+        precisions: dict[str, int] = {}
+        budget_options: list[tuple[date, str, str]] = []
         transaction_entries: list[models.Transaction] = []
         equity_opened = None
         adjustments_opened = None
@@ -87,6 +96,67 @@ class JournalCodec:
                 raise self._entry_error(entry, str(exc)) from None
             except ArithmeticError:
                 raise self._entry_error(entry, "Invalid monetary expression.") from None
+            if isinstance(entry, models.Custom) and entry.type == "budget":
+                try:
+                    budgets.append(parse_budget(entry))
+                except LedgerError as exc:
+                    raise self._entry_error(entry, str(exc)) from None
+            if isinstance(entry, models.Custom) and entry.type == "fava-option":
+                values = list(entry.values)
+                if len(values) >= 2 and isinstance(values[0], str) and isinstance(values[1], str):
+                    budget_options.append((entry.date, values[0].replace("-", "_"), values[1]))
+            if isinstance(entry, models.Price):
+                prices.append(
+                    Price(entry.date, entry.currency, entry.amount.number, entry.amount.currency)
+                )
+            if isinstance(entry, models.Commodity) and "precision" in entry.meta:
+                try:
+                    precisions[entry.currency] = int(str(entry.meta["precision"]))
+                except ValueError:
+                    raise self._entry_error(entry, "Invalid commodity display precision.") from None
+            amounts: list[tuple[str, Decimal]] = []
+            if isinstance(
+                entry,
+                (
+                    models.Open,
+                    models.Transaction,
+                    models.Note,
+                    models.Event,
+                    models.Price,
+                    models.Commodity,
+                    models.Custom,
+                    models.Document,
+                ),
+            ):
+                amounts.extend(
+                    (value.currency, value.number)
+                    for value in entry.meta.values()
+                    if isinstance(value, models.Amount)
+                )
+            if isinstance(entry, models.Custom):
+                amounts.extend(
+                    (value.currency, value.number)
+                    for value in entry.values
+                    if isinstance(value, models.Amount)
+                )
+            elif isinstance(entry, models.Price):
+                amounts.append((entry.amount.currency, entry.amount.number))
+            elif isinstance(entry, models.Transaction):
+                for posting in entry.postings:
+                    if isinstance(posting, models.Posting):
+                        amounts.extend(
+                            (value.currency, value.number)
+                            for value in posting.meta.values()
+                            if isinstance(value, models.Amount)
+                        )
+                        if posting.currency is not None and posting.number is not None:
+                            amounts.append((posting.currency, posting.number))
+                        if posting.price is not None and (
+                            posting.price.currency is not None and posting.price.number is not None
+                        ):
+                            amounts.append((posting.price.currency, posting.price.number))
+            for currency, number in amounts:
+                fractional[currency][max(0, -int(number.as_tuple().exponent))] += 1
             if isinstance(entry, safe):
                 continue
             if isinstance(entry, models.Option):
@@ -207,6 +277,7 @@ class JournalCodec:
                         tuple(postings),
                         "external",
                         links=tuple(entry.links),
+                        tags=tuple(entry.tags),
                     )
                 )
                 transaction_entries.append(entry)
@@ -214,6 +285,18 @@ class JournalCodec:
                 raise self._entry_error(
                     entry, "This directive requires unsupported accounting semantics."
                 )
+        options = {key: value for _, key, value in sorted(budget_options, key=lambda item: item[0])}
+        locale = options.get("locale")
+        fiscal_year_end = options.get("fiscal_year_end", "12-31")
+        try:
+            if locale is not None:
+                Locale.parse(locale)
+            month, day = map(int, fiscal_year_end.split("-"))
+            if not re.fullmatch(r"\d{2}-\d{2}", fiscal_year_end):
+                raise ValueError("Invalid fiscal year end")
+            date(2001, (month - 1) % 12 + 1, day)
+        except (ValueError, UnknownLocaleError) as exc:
+            raise LedgerError("budget_settings_error") from exc
         ledger = Ledger(
             tuple(accounts),
             tuple(categories),
@@ -221,6 +304,21 @@ class JournalCodec:
             equity_opened,
             tuple(dict.fromkeys(operating_currencies)),
             adjustments_opened,
+            budgets=tuple(budgets),
+            prices=tuple(prices),
+            currency_precisions=tuple(
+                (currency, precisions.get(currency, max(counts, key=lambda n: (counts[n], n))))
+                for currency, counts in fractional.items()
+            )
+            + tuple(
+                (currency, value)
+                for currency, value in precisions.items()
+                if currency not in fractional
+            ),
+            budget_locale=locale,
+            fiscal_year_end=fiscal_year_end,
+            invert_income=options.get("invert_income_liabilities_equity", "false").lower()
+            == "true",
         )
         inferred = tuple(
             replace(transaction, kind=_infer_transaction_kind(transaction, ledger))
@@ -267,6 +365,13 @@ class JournalCodec:
     @staticmethod
     def _entry_error(entry: models.RawTreeModel, reason: str) -> LedgerError:
         reason = {
+            "budget_interval_error": (
+                "Budget interval must be daily, weekly, monthly, quarterly or yearly."
+            ),
+            "budget_directive_error": (
+                "Budget needs an account, interval string and amount with currency."
+            ),
+            "budget_amount_error": "Budget amount must be a finite decimal.",
             "exchange_invalid": (
                 "Invalid exchange postings. Use one explicit positive conversion price "
                 "and matching source, destination and optional fee amounts."
@@ -324,6 +429,47 @@ class JournalCodec:
         if render(document) != source:
             raise LedgerError("crud_lossless")
         return document
+
+
+def parse_budget(entry: models.Custom) -> Budget:
+    values = list(entry.values)
+    if (
+        len(values) < 3
+        or not isinstance(values[0], (models.Account, str))
+        or not isinstance(values[1], str)
+        or not isinstance(values[2], models.Amount)
+    ):
+        raise LedgerError("budget_directive_error")
+    account, interval, amount = values[:3]
+    assert isinstance(account, (models.Account, str))
+    assert isinstance(interval, str)
+    assert isinstance(amount, models.Amount)
+    interval = interval_name(interval)
+    if not amount.number.is_finite():
+        raise LedgerError("budget_amount_error")
+    line = entry.token_store.get_position(entry.raw_date.first_token).line + 1
+    return Budget(
+        f"budget-line-{line}",
+        account.value if isinstance(account, models.Account) else account,
+        entry.date,
+        interval,
+        amount.number,
+        amount.currency,
+    )
+
+
+def budget_text(budget: Budget) -> str:
+    return render(
+        models.Custom.from_value(
+            budget.date,
+            "budget",
+            [
+                models.Account.from_value(budget.account),
+                budget.interval,
+                models.Amount.from_value(budget.amount, budget.currency),
+            ],
+        )
+    )
 
 
 def replace_directive(
@@ -406,6 +552,7 @@ def transaction_text(transaction: Transaction) -> str:
             ],
             meta={"time": transaction_time(transaction.timestamp)},
             links=transaction.links,
+            tags=transaction.tags,
         )
     )
 

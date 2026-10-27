@@ -308,6 +308,42 @@ def test_budget_form_default_date_preserves_historical_edits(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_budget_help_explains_each_action_in_its_dialog(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, language: str
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        host.language = language
+        journal = await load(host, tmp_path)
+        budget = journal.ledger.budgets[0]
+        assert host.budgets.history_help.value == host.tr("budget_history_help")
+        if language == "uk":
+            assert host.budgets.history_help.value == (
+                "Щоб змінити бюджет на майбутнє й залишити минулі місяці без змін, "
+                "натисніть «Змінити з дати». "
+                "Невикористаний залишок не додається до наступного місяця."
+            )
+        for selected, new, stop, key in (
+            (None, False, False, "budget_new_help"),
+            (budget, True, False, "budget_new_help"),
+            (budget, True, True, "budget_stop_help"),
+            (budget, False, False, "budget_edit_help"),
+        ):
+            host.budgets._form(selected, new=new, stop=stop)
+            dialog = page.show_dialog.call_args.args[0]
+            assert isinstance(dialog.content, ft.Column)
+            help_text = dialog.content.controls[0]
+            assert isinstance(help_text, ft.Text) and help_text.value == host.tr(key)
+            assert help_text.value != host.budgets.history_help.value
+            if stop:
+                assert fields(dialog)[1].value == "0"
+        assert journal.ledger.budgets == (budget,)
+        assert (tmp_path / FILENAME).read_text() == SOURCE
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("historical", [False, True])
 def test_interval_changes_adjust_only_untouched_new_budget_dates(
     view: tuple[FinanceView, MagicMock],

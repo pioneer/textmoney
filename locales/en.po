@@ -166,7 +166,13 @@ msgid "ui.budget_definitions"
 msgstr "Budget definitions and history"
 
 msgid "ui.budget_history_help"
-msgstr "New dated definitions preserve history. Each currency changes independently. A zero definition stops allocation in that currency from its effective date; there is no rollover."
+msgstr "To change a future budget without changing past months, use Change from a date. Unused amounts are not added to the next month."
+
+msgid "ui.budget_new_help"
+msgstr "Choose an amount and the date it starts. Budgets in other currencies stay unchanged."
+
+msgid "ui.budget_stop_help"
+msgstr "This budget will stop in this currency from the chosen date. Budgets for earlier dates and in other currencies stay unchanged."
 
 msgid "ui.budget_empty"
 msgstr "No budget definitions yet. Add one for an existing category."

@@ -813,7 +813,15 @@ class BudgetView(ft.Column):
         self.host._edit_dialog(
             tr("budget_stop" if stop else "crud_edit" if budget and not new else "budget_add"),
             [
-                ft.Text(tr("budget_edit_help" if budget and not new else "budget_history_help")),
+                ft.Text(
+                    tr(
+                        "budget_stop_help"
+                        if stop
+                        else "budget_edit_help"
+                        if budget and not new
+                        else "budget_new_help"
+                    )
+                ),
                 category,
                 amount,
                 currency,

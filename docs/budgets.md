@@ -43,6 +43,11 @@ MIT algorithms and their complete license notice are shipped in
 - **Delete** removes that definition only. An earlier definition can become active
   again, so deletion is not the same as discontinuation.
 
+The list explains how to change future budgets without changing past months,
+and that unused amounts are not added to the next month. Currency-specific
+behavior is explained in the create/change dialog; the stop dialog explains
+that earlier dates and other currencies are unaffected.
+
 Saving uses the existing validated, lossless splice/append, verified backup and
 hash-conflict pipeline. Comments and unrelated metadata/directives are preserved.
 Stale forms are rejected without discarding input, including after an external

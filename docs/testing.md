@@ -46,6 +46,50 @@ Browser previews help inspect layout, not local journal access:
 packaging is not a supported financial-storage target; see [Web deployment](deployment.md).
 Apple build tasks do not establish device-tested iOS/macOS support.
 
+## AppImage native GTK theme
+
+The Linux Bash hook tests execute the generated hook with controlled GNOME
+settings, including Orchis with `color-scheme=default`, Adwaita, dark themes,
+explicit variants, both environment overrides, unavailable/failing `gsettings`,
+missing color-scheme support, and non-GNOME sessions. They check host data paths
+and preserved bundled module setup. Packaging tests check that the replacement
+happens after linuxdeploy and before appimagetool; unknown upstream hook layouts
+are rejected. Hook execution tests skip on Windows or when Bash is unavailable.
+
+Run `uv run inv build-linux-appimage`, `uv run inv validate-linux-appimage` and
+`uv run inv smoke-linux-appimage` to check the actual package. Validation extracts
+the artifact and checks its maintained GTK policy; the Xvfb smoke test only
+checks startup, not visual theme correctness.
+
+For the GTK integration fix, additional Linux/Xvfb probes loaded the actual
+extracted AppImage's GTK library and compared its resolved CSS and headerbar
+foreground with host GTK. All 12 scenarios matched: real GNOME settings,
+Orchis/default, Adwaita/default, Orchis's dark variant, a dark theme name, both
+overrides, no `gsettings`, a missing theme, and custom themes in data-home,
+legacy-home and data-directory locations. The custom theme probes exercised CSS
+imports and checked a distinctive resolved widget color, not just `GTK_THEME`.
+Orchis's CSS differed from Adwaita and its own dark variant; missing themes
+loaded the built-in Adwaita CSS. These are local runtime results, not a
+cross-distribution visual certification.
+
+Before release, compare the native title bar in `uv run inv run` and the rebuilt
+AppImage on the same real desktop:
+
+1. With no theme environment overrides, check GNOME using Orchis (or another
+   installed custom GTK3 theme) and `color-scheme=default`, then Adwaita.
+2. Check a dark GTK theme and `prefer-dark`, restarting both launches after each
+   settings change. Do not equate `default` with a forced light theme.
+3. Set `APPIMAGE_GTK_THEME` and `GTK_THEME` independently, then together with
+   different installed themes. The AppImage-specific override must win.
+4. On a non-GNOME desktop or a system without `gsettings`, check native GTK
+   configuration and safe fallback. Request a nonexistent theme and verify the
+   app still launches with standard GTK styling.
+5. Confirm the application still uses native window decorations, its Material
+   controls are unchanged, and no manual override is needed for system themes.
+
+Real-desktop visual comparison remains manual; an environment dump, successful
+compilation or process surviving Xvfb is not sufficient proof by itself.
+
 ## Category budget regression checklist
 
 The [budget guide](budgets.md#verification) describes automated parity and failure

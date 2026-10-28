@@ -26,6 +26,44 @@ GTK_PLUGIN_URL = (
     "7a3fbc31a9e5075073ff8790f26effbac5f84453/linuxdeploy-plugin-gtk.sh"
 )
 GTK_PLUGIN_SHA256 = "b0f4cbc684a0103a9651f0955b635eaea0096b3a66c0f5a2c2aa337960375171"
+GTK_THEME_SETUP = Path(__file__).with_name("appimage_gtk_theme.sh")
+
+
+def _patch_gtk_hook(app_dir: Path) -> None:
+    hook = app_dir / "apprun-hooks/linuxdeploy-plugin-gtk.sh"
+    if hook.is_symlink() or not hook.is_file():
+        raise RuntimeError("linuxdeploy GTK hook is missing or is a symlink.")
+    source = hook.read_text(encoding="utf-8")
+    start = '\nCOLOR_SCHEME="'
+    end = "export GDK_BACKEND=x11"
+    data_dirs = (
+        'export XDG_DATA_DIRS="$APPDIR/usr/share:/usr/share:$XDG_DATA_DIRS" '
+        "# g_get_system_data_dirs() from GLib\n"
+    )
+    expected = (
+        'APPIMAGE_GTK_THEME="${APPIMAGE_GTK_THEME:-"Adwaita:$GTK_THEME_VARIANT"}"',
+        'export GTK_DATA_PREFIX="$APPDIR"',
+        'export GTK_THEME="$APPIMAGE_GTK_THEME" # Custom themes are broken',
+    )
+    if (
+        source.count(start) != 1
+        or source.count(end) != 1
+        or source.count(data_dirs) != 1
+        or source.index(start) >= source.index(end)
+        or any(source.count(line) != 1 for line in expected)
+    ):
+        raise RuntimeError("linuxdeploy GTK theme hook changed; review the pinned plugin patch.")
+    setup = GTK_THEME_SETUP.read_text(encoding="utf-8")
+    source = source[: source.index(start)] + setup + "\n" + source[source.index(end) :]
+    hook.write_text(source.replace(data_dirs, ""), encoding="utf-8")
+
+
+def _validate_gtk_hook(app_dir: Path) -> None:
+    hook = app_dir / "apprun-hooks/linuxdeploy-plugin-gtk.sh"
+    if not hook.is_file() or GTK_THEME_SETUP.read_text(encoding="utf-8") not in hook.read_text(
+        encoding="utf-8"
+    ):
+        raise RuntimeError("AppImage is missing the system GTK theme integration hook.")
 
 
 def run_command(
@@ -231,6 +269,7 @@ def build_appimage(
         raise RuntimeError(f"linuxdeploy failed with exit code {deployment.returncode}.")
     if not (app_dir / "AppRun").is_file():
         raise RuntimeError("linuxdeploy did not create an AppRun launcher.")
+    _patch_gtk_hook(app_dir)
 
     _runtime_from_tool(appimagetool, runtime_path)
     artifact = dist_dir / f"TextMoney-{version}-x86_64.AppImage"
@@ -311,6 +350,7 @@ def validate_appimage(artifact: Path, *, version: str, project_root: Path) -> Pa
     missing = [str(path.relative_to(app_dir)) for path in required if not path.is_file()]
     if missing:
         raise RuntimeError(f"Extracted AppImage is missing required files: {', '.join(missing)}")
+    _validate_gtk_hook(app_dir)
     desktop_check = run_command(
         "desktop-file-validate", str(app_dir / "com.pioneer.textmoney.desktop"), capture=True
     )

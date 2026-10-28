@@ -25,6 +25,9 @@ def _valid_appdir(app_dir: Path) -> Path:
         path = app_dir / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"synthetic")
+    hook = app_dir / "apprun-hooks/linuxdeploy-plugin-gtk.sh"
+    hook.parent.mkdir()
+    hook.write_text(linux_appimage.GTK_THEME_SETUP.read_text())
     return app_dir
 
 
@@ -113,7 +116,22 @@ def test_build_appimage_orchestrates_pinned_toolchain_and_output(
             return subprocess.CompletedProcess(args, 0, "4096\n", "")
         if args[0] == str(linuxdeploy):
             (root / "build/linux-appimage.AppDir/AppRun").write_text("#!/bin/sh\n")
+            directory = root / "build/linux-appimage.AppDir/apprun-hooks"
+            directory.mkdir()
+            (directory / "linuxdeploy-plugin-gtk.sh").write_text(
+                '#! /usr/bin/env bash\n\nCOLOR_SCHEME="synthetic"\n'
+                'APPIMAGE_GTK_THEME="${APPIMAGE_GTK_THEME:-"Adwaita:$GTK_THEME_VARIANT"}"\n'
+                'export GTK_DATA_PREFIX="$APPDIR"\n'
+                'export GTK_THEME="$APPIMAGE_GTK_THEME" # Custom themes are broken\n'
+                "export GDK_BACKEND=x11\n"
+                'export XDG_DATA_DIRS="$APPDIR/usr/share:/usr/share:$XDG_DATA_DIRS" '
+                "# g_get_system_data_dirs() from GLib\n"
+                'export GTK_PATH="$APPDIR/usr/lib/gtk-3.0"\n'
+            )
         if args[0] == str(appimagetool):
+            hook = root / "build/linux-appimage.AppDir/apprun-hooks/linuxdeploy-plugin-gtk.sh"
+            assert linux_appimage.GTK_THEME_SETUP.read_text() in hook.read_text()
+            assert 'export GTK_PATH="$APPDIR/usr/lib/gtk-3.0"' in hook.read_text()
             Path(args[-1]).write_bytes(b"AppImage")
         return subprocess.CompletedProcess(args, 0, "", "")
 
@@ -171,6 +189,14 @@ def test_validate_appimage_rejects_wrong_name_and_architecture(
     )
     with pytest.raises(RuntimeError, match="x86-64"):
         linux_appimage.validate_appimage(artifact, version="1.2.3", project_root=tmp_path)
+
+
+def test_validate_hook_refuses_an_unpatched_package(tmp_path: Path) -> None:
+    directory = tmp_path / "apprun-hooks"
+    directory.mkdir()
+    (directory / "linuxdeploy-plugin-gtk.sh").write_text('export GTK_THEME="Adwaita:light"\n')
+    with pytest.raises(RuntimeError, match="system GTK theme"):
+        linux_appimage._validate_gtk_hook(tmp_path)
 
 
 def test_smoke_test_requires_app_to_remain_alive(

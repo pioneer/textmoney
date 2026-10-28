@@ -109,6 +109,30 @@ bundle and dependencies are staged under a temporary AppDir in `build/`; the
 final AppImage alone is placed in `dist/linux/`. `uv run inv clean` removes
 these outputs and cached tools.
 
+After linuxdeploy generates its GTK launch hook, the packager replaces only the
+theme-selection portion with [the maintained theme policy](../tools/appimage_gtk_theme.sh),
+before appimagetool creates the AppImage. A changed upstream hook fails packaging
+instead of silently retaining its forced Adwaita default. Artifact validation
+also checks that the replacement policy is present.
+
+At startup the theme priority is nonempty `APPIMAGE_GTK_THEME`, then nonempty
+`GTK_THEME`, then the GNOME `org.gnome.desktop.interface gtk-theme` setting when
+running in a GNOME session with working `gsettings`. GNOME `prefer-dark` selects
+the theme's dark variant unless it already specifies a variant; `default` and
+`prefer-light` do not replace the chosen theme or force light Adwaita. On other
+desktops, or without readable GNOME settings, GTK retains its native
+XSettings/settings.ini selection. GTK supplies its built-in Adwaita fallback
+when the requested theme is unavailable. Restart after changing the desktop
+theme; live theme switching is not guaranteed.
+
+Host `XDG_DATA_DIRS` are preserved ahead of bundled data (defaulting to
+`/usr/local/share:/usr/share` when unset). GTK still searches `XDG_DATA_HOME` and
+`~/.themes`; `GTK_DATA_PREFIX` points to the bundle's `usr` directory. This keeps
+host GTK3 theme CSS, imports and adjacent resources discoverable while retaining
+the plugin's bundled schemas, modules and loaders. The native GTK title bar and
+Flet/Material styling are unchanged. See the [GTK checks](testing.md#appimage-native-gtk-theme)
+for automated coverage and manual visual verification.
+
 The unified release workflow builds on Ubuntu 24.04, validates and smoke-tests
 the AppImage, and uploads it as a workflow artifact. The final publication job
 attaches all five binaries across the three platforms to a draft and publishes only after every

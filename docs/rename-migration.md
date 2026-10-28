@@ -27,8 +27,8 @@ New artifacts are `textmoney-<version>-<abi>.apk`,
 The original artwork, generic Python `app` package and `finance-saf` extension
 name remain unchanged.
 
-Historical Git tags remain intact. The old TxnCount GitHub releases and their
-download assets are retired after the first TextMoney release succeeds.
+Historical Git tags remain intact. All 18 old TxnCount GitHub releases and their
+download assets were retired after TextMoney v0.3.16 was successfully published.
 Through v0.3.15/build 38, binaries used the old identity; TextMoney starts with
 v0.3.16/build 39.
 Version/build numbering continues; the production Android signing key is
@@ -136,11 +136,13 @@ user data has been transferred simply by implementing this command.
   `uv run inv smoke-linux-appimage`: local AppImage built, structurally validated
   and kept running for the 20-second Xvfb startup check.
 - GitHub rename retained the existing repository ID; origin now uses
-  `https://github.com/pioneer/textmoney.git`. Old release downloads are being
-  retired separately, without removing Git tags.
+  `https://github.com/pioneer/textmoney.git`. Old release downloads were retired
+  separately; the exact remote Git tag inventory was verified unchanged.
+- TextMoney v0.3.16/build 39 passed the all-platform release workflow, including
+  native Windows build/install/reinstall/startup/uninstall checks. The five
+  binary downloads and checksum manifest were published and their SHA-256
+  digests verified.
 
 No Android device was attached. Physical SAF re-selection/restart/write/recovery
-and native Windows install/uninstall checks for the new identity remain pending.
-Historical device and Windows CI results do not certify the renamed binaries.
-The v0.3.16 release workflow verifies production Android packages and native
-Linux/Windows packaging before publication. No private data has been migrated.
+and interactive Windows testing remain pending. Successful CI does not certify
+physical-device behavior. No private data has been migrated.

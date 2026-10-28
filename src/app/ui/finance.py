@@ -52,6 +52,7 @@ from app.storage import RecoveryRequired, StorageError
 from app.timekeeping import local_datetime, named_zone
 from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
+from app.ui.dialogs import show_dialog
 from app.version import release_identity
 
 logger = logging.getLogger(__name__)
@@ -1618,7 +1619,8 @@ class FinanceView(ft.Row):
         self._set_error(exc)
         if notify:
             conflict = isinstance(exc, ConflictError)
-            self.page.show_dialog(
+            show_dialog(
+                self.page,
                 ft.AlertDialog(
                     modal=True,
                     title=self.tr("conflict_title") if conflict else self.tr("action_failed"),
@@ -1629,7 +1631,7 @@ class FinanceView(ft.Row):
                     actions=[
                         ft.TextButton(self.tr("keep_editing"), on_click=self._dismiss),
                     ],
-                )
+                ),
             )
 
     def _dismiss(self, event: ft.Event[ft.TextButton]) -> None:
@@ -1760,7 +1762,8 @@ class FinanceView(ft.Row):
 
                 await self._action(confirm)
 
-            self.page.show_dialog(
+            show_dialog(
+                self.page,
                 ft.AlertDialog(
                     modal=True,
                     scrollable=True,
@@ -1774,7 +1777,7 @@ class FinanceView(ft.Row):
                             disabled=not journal.recovery_valid,
                         ),
                     ],
-                )
+                ),
             )
 
         await self._action(review)
@@ -1845,13 +1848,14 @@ class FinanceView(ft.Row):
                 ft.Text(journal.external_changes, selectable=True),
             ]
         )
-        self.page.show_dialog(
+        show_dialog(
+            self.page,
             ft.AlertDialog(
                 scrollable=True,
                 title=self.tr("external_details"),
                 content=ft.Column(controls, tight=True, width=560),
                 actions=[ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)],
-            )
+            ),
         )
 
     async def _scan_conflict_copies(self) -> None:
@@ -1929,7 +1933,8 @@ class FinanceView(ft.Row):
                     self.page.update()
 
             confirm.on_click = clean
-            self.page.show_dialog(
+            show_dialog(
+                self.page,
                 ft.AlertDialog(
                     modal=True,
                     scrollable=True,
@@ -1944,7 +1949,7 @@ class FinanceView(ft.Row):
                         )
                     ),
                     actions=[cancel, confirm],
-                )
+                ),
             )
 
         await self._action(preview)
@@ -2002,7 +2007,8 @@ class FinanceView(ft.Row):
                 self.page.update()
 
         submit.on_click = commit
-        self.page.show_dialog(
+        show_dialog(
+            self.page,
             ft.AlertDialog(
                 modal=True,
                 scrollable=True,
@@ -2017,7 +2023,7 @@ class FinanceView(ft.Row):
                     else ft.CrossAxisAlignment.START,
                 ),
                 actions=[cancel, submit],
-            )
+            ),
         )
 
     def _opening_details(self, transaction: Transaction) -> ft.ExpansionTile:
@@ -2123,7 +2129,8 @@ class FinanceView(ft.Row):
                         description += f" @@ {price}"
                     return description
 
-                self.page.show_dialog(
+                show_dialog(
+                    self.page,
                     ft.AlertDialog(
                         title=self.tr("details"),
                         scrollable=True,
@@ -2169,7 +2176,7 @@ class FinanceView(ft.Row):
                             tight=True,
                         ),
                         actions=[ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)],
-                    )
+                    ),
                 )
                 return
             self._transaction_dialog(journal, transaction)
@@ -2834,7 +2841,8 @@ class FinanceView(ft.Row):
 
             create.on_click = save_category
             update_suggestion()
-            self.page.show_dialog(
+            show_dialog(
+                self.page,
                 ft.AlertDialog(
                     modal=True,
                     scrollable=True,
@@ -2860,7 +2868,7 @@ class FinanceView(ft.Row):
                         horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                     ),
                     actions=[cancel, create],
-                )
+                ),
             )
 
         sign.on_change = configure

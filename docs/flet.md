@@ -39,6 +39,36 @@ Sources: [Flet documentation](https://flet.dev/docs/),
 [publishing](https://flet.dev/docs/publish/),
 [MCP cookbook](https://flet.dev/docs/cookbook/flet-mcp).
 
+## Required popup and Escape convention
+
+Every new or changed popup must preserve desktop **Escape = Cancel** behavior.
+This is a requirement for future features, not only the current transaction
+forms:
+
+- Present application-owned modal `AlertDialog` controls through
+  `app.ui.dialogs.show_dialog`, not directly through `page.show_dialog`.
+- Put the non-destructive **Cancel**, **Close**, or **Keep editing** `TextButton`
+  first in `actions`, with its normal click handler. Escape must invoke that
+  same handler; it must never choose Save, Delete, or another destructive action.
+- If an operation disables cancellation, disable that button so Escape is
+  disabled too. Do not bypass validation, busy-state guards, or draft handling.
+- Escape must affect only the active popup/menu/picker. Closing a nested popup
+  must preserve the parent form and its unsaved input.
+- Nonmodal dialogs and native date/time pickers may use Flutter's native
+  dismissal, but verify the same active-popup-only behavior. Do not install a
+  page-wide hardware-key handler for popup cancellation.
+- Add focused regression coverage and run the
+  [desktop popup checklist](testing.md#desktop-popup-cancellation), including
+  keyboard focus in inputs and action buttons, nesting, and disabled Cancel.
+
+The shared helper adds `KeyboardListener` controls around content and actions.
+Listeners follow the dialog's focus tree, so dropdown menus and nested pickers
+can consume Escape without also closing the parent. Cancellation preserves the
+button's disabled state and normal Flet click lifecycle. Flet 1.0.1 has no public
+programmatic button-click dispatch; the helper uses `button._trigger_event`.
+Regression tests exercise real sessions and protocol serialization; recheck
+this compatibility boundary on a Flet upgrade.
+
 ## storage diagnostics verification
 
 `uv run inv verify-flet` opens a real MCP stdio session and queries FilePicker

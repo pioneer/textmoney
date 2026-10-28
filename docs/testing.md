@@ -46,6 +46,28 @@ Browser previews help inspect layout, not local journal access:
 packaging is not a supported financial-storage target; see [Web deployment](deployment.md).
 Apple build tasks do not establish device-tested iOS/macOS support.
 
+## Desktop popup cancellation
+
+Escape must behave like the active popup's **Cancel** (or **Keep editing**)
+button, without saving. Automated tests cover the actual Flet keyboard/click
+event path on desktop platforms, nested popup dismissal, retained parent drafts,
+disabled cancellation while saving, native-picker/nonmodal pass-through, and
+traceback logging when a callback fails. Mobile shortcuts remain unchanged.
+
+With a disposable journal on a desktop:
+
+1. Open new/edit/delete transaction, account, category and budget popups. Focus
+   an input and each action button, then use Escape and compare with **Cancel**;
+   no journal write or backup should be created.
+2. From a transaction, open **Create category**, or trigger a conflict. Escape
+   closes only that popup and keeps the transaction draft intact. After it
+   closes, another Escape cancels the parent form.
+3. Open calendar/clock pickers, dropdown menus, month selection and searchable
+   budget trees. Escape must close only the active picker/menu, not its parent.
+4. While a save/cleanup disables **Cancel**, Escape must also remain disabled.
+   Check Linux and Windows keyboard behavior; headless tests do not certify
+   native input delivery.
+
 ## AppImage native GTK theme
 
 The Linux Bash hook tests execute the generated hook with controlled GNOME

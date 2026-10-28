@@ -58,7 +58,10 @@ class TransactionForm:
 
 
 def transaction_form(dialog: ft.AlertDialog) -> TransactionForm:
-    assert isinstance(dialog.content, ft.Column)
+    content = dialog.content
+    if isinstance(content, ft.KeyboardListener):
+        content = content.content
+    assert isinstance(content, ft.Column)
     controls: dict[str, ft.Control] = {}
     when: DateTimeFields | None = None
 
@@ -72,7 +75,7 @@ def transaction_form(dialog: ft.AlertDialog) -> TransactionForm:
             for child in control.controls or []:
                 visit(child)
 
-    visit(dialog.content)
+    visit(content)
 
     def get[T: ft.Control](key: str, cls: type[T]) -> T:
         value = controls[key]

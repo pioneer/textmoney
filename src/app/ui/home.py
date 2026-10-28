@@ -10,6 +10,7 @@ from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.preferences import DesktopPreferences
 from app.storage import SAMPLE, StorageError, StorageSession
+from app.ui.dialogs import show_dialog
 
 logger = logging.getLogger(__name__)
 FOLDER_KEY = "textmoney.diagnostics.folder.v1"
@@ -88,7 +89,8 @@ class StorageView(ft.Column):
         if isinstance(exc, ConflictError):
             self.result.value = str(exc)
             logger.warning("Storage action refused: %s", exc)
-            self.page.show_dialog(
+            show_dialog(
+                self.page,
                 ft.AlertDialog(
                     modal=True,
                     title="Write blocked: external change",
@@ -99,7 +101,7 @@ class StorageView(ft.Column):
                         "Read replaces the draft with the external file."
                     ),
                     actions=[ft.TextButton("Keep editing", on_click=self._close_conflict)],
-                )
+                ),
             )
             return
         if isinstance(exc, StorageError):

@@ -211,7 +211,10 @@ financial data. These are checks to perform, not claims of completed device test
    and overlap wall times must be accepted without selecting an offset.
 7. Exercise manual date/time entry and calendar/clock pickers in all languages,
    near midnight and after phone timezone changes. A selected date must not
-   shift through device-timezone transport.
+   shift through device-timezone transport. Expand **Advanced** in new and edited
+   transactions at phone and desktop widths: the floating time label must have
+   clear space below the payee field, whether the payee is blank or filled.
+   Switch expense/income/transfer and verify the spacing and unsaved input remain.
 8. Recheck language/theme persistence, rotation and compact/wide navigation.
    On Android, exercise retained grants, permission failures and the
    [interrupted-save checklist](android-storage-validation.md#limits-and-verification).

@@ -2412,18 +2412,32 @@ class FinanceView(ft.Row):
             data="advanced",
             title=self.tr("transaction_advanced"),
             controls=[
-                aligned_dropdown(special),
-                aligned_dropdown(reference),
-                fee_fields,
-                payee,
-                when.time_controls,
-                *([ft.Text(transaction.id, selectable=True)] if transaction else []),
-                *(
-                    [ft.Text(self.tr("incoming_linked", identifier=transaction.related_expense))]
-                    if transaction and transaction.related_expense
-                    else []
+                ft.Column(
+                    [
+                        aligned_dropdown(special),
+                        aligned_dropdown(reference),
+                        fee_fields,
+                        payee,
+                        when.time_controls,
+                        *([ft.Text(transaction.id, selectable=True)] if transaction else []),
+                        *(
+                            [
+                                ft.Text(
+                                    self.tr(
+                                        "incoming_linked", identifier=transaction.related_expense
+                                    )
+                                )
+                            ]
+                            if transaction and transaction.related_expense
+                            else []
+                        ),
+                    ],
+                    spacing=16,
+                    tight=True,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                 ),
             ],
+            controls_padding=ft.Padding.only(top=8),
             maintain_state=True,
             expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
         )

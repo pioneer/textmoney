@@ -798,7 +798,7 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         tile = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
         assert not tile.expanded
         assert tile.controls
-        payee = next(c for c in tile.controls if isinstance(c, ft.TextField))
+        payee = transaction_form(dialog).payee
         assert payee.value == "Saved shop"
         when = next(c for c in dialog.content.controls if isinstance(c, DateTimeFields))
         assert when.occurred.value == "01/01/2026"
@@ -814,7 +814,7 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         dialog = page.show_dialog.call_args.args[0]
         tile = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
         assert tile.controls
-        payee = next(c for c in tile.controls if isinstance(c, ft.TextField))
+        payee = transaction_form(dialog).payee
         payee.value = "Draft shop"
         tile.expanded = True
         description = next(

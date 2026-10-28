@@ -49,6 +49,52 @@ def ui(journal: Journal, monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, 
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
+@pytest.mark.parametrize("editing", [False, True])
+def test_advanced_fields_reserve_space_for_floating_time_label(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str, editing: bool
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        if editing:
+            await journal.add_expense(
+                "Assets:Bank",
+                "Expenses:Food",
+                "10",
+                "Synthetic shop",
+                "2026-10-18",
+                "Synthetic description",
+                "2026-10-18T12:34:56",
+            )
+        view, page = ui(journal, monkeypatch)
+        view.language = language
+        transaction = journal.ledger.transactions[-1] if editing else None
+        view._transaction_dialog(journal, transaction)
+        form = transaction_form(page.show_dialog.call_args.args[0])
+        assert form.advanced.controls is not None and len(form.advanced.controls) == 1
+        fields = form.advanced.controls[0]
+        assert isinstance(fields, ft.Column)
+        assert fields.spacing == 16 and fields.tight
+        assert fields.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+        assert form.advanced.controls_padding == ft.Padding.only(top=8)
+        index = fields.controls.index(form.payee)
+        assert fields.controls[index + 1] is form.when.time_controls
+        assert form.when.clock.label == translate(language, "time")
+        occurred = form.when.occurred.value
+        form.payee.value = "Unfinished draft"
+        form.when.clock.value = "17:"
+        for sign in ("+", "transfer", "-"):
+            form.sign.selected = [sign]
+            change(form.sign)
+            assert form.advanced.controls == [fields]
+            assert fields.controls[index + 1] is form.when.time_controls
+            assert form.payee.value == "Unfinished draft"
+            assert form.when.clock.value == "17:"
+            assert form.when.occurred.value == occurred
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
 def test_description_first_aligned_fields_and_sign_explanation_follow_account_roles(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str
 ) -> None:
@@ -65,8 +111,11 @@ def test_description_first_aligned_fields_and_sign_explanation_follow_account_ro
         assert dialog.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
         assert form.advanced.expanded_cross_axis_alignment == ft.CrossAxisAlignment.STRETCH
         assert form.advanced.controls is not None
-        assert isinstance(form.advanced.controls[2], ft.Column)
-        assert form.advanced.controls[2].horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+        advanced_fields = form.advanced.controls[0]
+        assert isinstance(advanced_fields, ft.Column)
+        fees = advanced_fields.controls[2]
+        assert isinstance(fees, ft.Column)
+        assert fees.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
         for dropdown in (
             form.account,
             form.category,
@@ -105,7 +154,7 @@ def test_description_first_aligned_fields_and_sign_explanation_follow_account_ro
                 category_row = dialog.content.controls[4]
                 assert isinstance(category_row, ft.Row)
                 assert category_row.visible == (not transferring)
-                special_row = form.advanced.controls[0]
+                special_row = advanced_fields.controls[0]
                 assert isinstance(special_row, ft.Row)
                 assert special_row.visible == (sign == "+")
                 assert (form.amount.value, form.second_amount.value) == ("105", "4200")
@@ -409,7 +458,10 @@ def test_sign_second_account_and_hidden_controls_preserve_draft_and_infer_only_v
             else:
                 assert row.controls == [dropdown]
         assert len(form.when.controls) == 1
-        assert form.when.time_controls in (form.advanced.controls or [])
+        assert form.advanced.controls is not None
+        advanced_fields = form.advanced.controls[0]
+        assert isinstance(advanced_fields, ft.Column)
+        assert form.when.time_controls in advanced_fields.controls
         assert not form.advanced.expanded and not form.special.visible
         assert form.second_account.value is None
         form.account.value, form.category.value = "Assets:Bank", "Expenses:Food"

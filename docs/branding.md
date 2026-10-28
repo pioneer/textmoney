@@ -50,8 +50,8 @@ still needs confirmation in the user's session.
 
 Product name: **TextMoney**. Package/bundle: `com.pioneer.textmoney`.
 The old `com.pioneer.txncount` identity was introduced in version 0.1.1
-(build 13); releases through v0.3.15/build 38 used it. The TextMoney rename is
-not published yet and creates a separate installation; see the
+(build 13); releases through v0.3.15/build 38 used it. TextMoney starts with
+v0.3.16/build 39 and creates a separate installation; see the
 [migration guide](rename-migration.md). Future TextMoney releases must retain
 the new ID and maintained production Android signing key.
 The [release workflow](development.md#one-command-releases) prepares

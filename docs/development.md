@@ -44,10 +44,10 @@ variables in your shell/IDE; keep local `.env` files out of version control.
 
 ## Packaging
 
-The TextMoney source rename is not a release. Published versions through
-v0.3.15/build 38 retain the old identity and artifact names. See the
-[migration guide](rename-migration.md) before transferring development data or
-preparing the first TextMoney release. Do not reset version/build numbers.
+TextMoney releases start with v0.3.16/build 39. Earlier release downloads are
+retired; historical Git tags retain the original identity and artifact names.
+See the [migration guide](rename-migration.md) before transferring development
+data. Do not reset version/build numbers.
 
 All builds go through Invoke so asset staging, icon validation, host checks, and
 release debug-marker removal happen consistently. `build-local` maps Linux to
@@ -422,8 +422,9 @@ deployment branches/tags to release tags. Add environment secrets
 mode-0600 temporary keystore and removes it after the build. The pinned
 certificate check remains the trust anchor even if the secret is replaced.
 
-Releases retain the existing production certificate so installed production APKs
-can update in place. A successful build does not substitute for
+Releases retain the existing production certificate so installed TextMoney APKs
+can update in place. The former application's different ID is not update-compatible.
+A successful build does not substitute for
 install/update testing on a physical Android device.
 
 Physical-device release checklist:
@@ -437,9 +438,9 @@ Physical-device release checklist:
 4. Install the next production APK over it (for example, `adb install -r
   dist/android/textmoney-X.Y.Z-arm64-v8a.apk` for an ARM64 device) and confirm Android updates the existing app
   without uninstalling, the test data remains, and the app reports the new
-  version. Test an update from the prior universal APK as well. In Obtainium,
-  enable "Attempt to filter APKs by CPU architecture if possible" and remove
-  any filename filter requiring the old universal filename.
+  version. In Obtainium, enable "Attempt to filter APKs by CPU architecture
+  if possible". The first TextMoney installation needs a fresh SAF grant;
+  updates must retain that grant.
 
 `build-ios` may produce only an unsigned archive without configured
 certificates/profiles; an installable/exportable IPA needs matching signing.

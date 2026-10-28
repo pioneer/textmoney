@@ -27,8 +27,10 @@ New artifacts are `textmoney-<version>-<abi>.apk`,
 The original artwork, generic Python `app` package and `finance-saf` extension
 name remain unchanged.
 
-Existing tags, release assets and their historical names remain intact.
-Through v0.3.15/build 38, the published binaries are TxnCount, not TextMoney.
+Historical Git tags remain intact. The old TxnCount GitHub releases and their
+download assets are retired after the first TextMoney release succeeds.
+Through v0.3.15/build 38, binaries used the old identity; TextMoney starts with
+v0.3.16/build 39.
 Version/build numbering continues; the production Android signing key is
 retained. Release validation permits only the explicitly approved transition
 from v0.3.15/build 38 with the old ID to the new ID and identical signing
@@ -133,10 +135,12 @@ user data has been transferred simply by implementing this command.
 - `uv run inv build-linux-appimage`, `uv run inv validate-linux-appimage` and
   `uv run inv smoke-linux-appimage`: local AppImage built, structurally validated
   and kept running for the 20-second Xvfb startup check.
-- GitHub rename retained the existing repository ID and all 18 published
-  releases; origin now uses `https://github.com/pioneer/textmoney.git`.
+- GitHub rename retained the existing repository ID; origin now uses
+  `https://github.com/pioneer/textmoney.git`. Old release downloads are being
+  retired separately, without removing Git tags.
 
 No Android device was attached. Physical SAF re-selection/restart/write/recovery
 and native Windows install/uninstall checks for the new identity remain pending.
 Historical device and Windows CI results do not certify the renamed binaries.
-No release has been published and no private data has been migrated.
+The v0.3.16 release workflow verifies production Android packages and native
+Linux/Windows packaging before publication. No private data has been migrated.

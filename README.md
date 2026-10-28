@@ -9,15 +9,7 @@ possible. Keep independent backups of important financial data.
 
 TextMoney is being developed with substantial AI assistance.
 
-**Source renamed; not released:** this source tree uses TextMoney and application ID
-`com.pioneer.textmoney`. Published releases through **v0.3.15** are still
-**TxnCount**; no TextMoney release has been published yet. This is a new
-installation, not an in-place upgrade of TxnCount. Existing development journals
-and desktop settings need the explicit [copy-only migration](docs/rename-migration.md).
-
-![Desktop Home, captured before the TextMoney rename](docs/screenshots/home-desktop.png)
-
-The screenshot is from the earlier TxnCount build.
+![Desktop Home with account balances and recent activity](docs/screenshots/home-desktop.png)
 
 ## Implemented
 
@@ -98,20 +90,16 @@ Android 7.0 or newer is required. You can also track this repository with
 
 Android downloads are standalone APKs for `arm64-v8a` (most modern phones),
 `armeabi-v7a` (32-bit Android), and `x86_64` (compatible emulators/devices).
-Choose one matching your device; no universal APK is published starting with 0.3.13.
+Choose one matching your device; no universal APK is published.
 Obtainium can select the matching APK when "Attempt to filter APKs by CPU
-architecture if possible" is enabled. Remove any custom APK filter requiring
-the previous universal filename.
+architecture if possible" is enabled.
 
-The Windows x64 per-user EXE installer (not a portable ZIP) passed native CI
-build, install/reinstall, responsive-window startup and uninstall checks under
-the old TxnCount identity.
+The Windows x64 per-user EXE installer (not a portable ZIP) is checked in native CI
+for build, install/reinstall, responsive-window startup and uninstall.
 Full interactive Windows testing remains pending.
-Android APKs use the maintained production signing certificate. Future TextMoney
-releases can update TextMoney in place; they cannot update the old TxnCount
-application ID. Re-add the renamed repository and new app to Obtainium after
-the first TextMoney release. Do not uninstall the old app until its data has
-been copied, checked and backed up.
+Android APKs use application ID `com.pioneer.textmoney` and the maintained
+production signing certificate. Newer TextMoney releases can update an existing
+TextMoney installation in place.
 
 ### Linux AppImage
 
@@ -301,30 +289,9 @@ record historical behavior, not current instructions.
 
 ## Version history
 
-Only published releases are listed; unsuccessful build/tag attempts are not
-releases. The entries below were published under the TxnCount name.
-
 | Version | Highlights |
 | --- | --- |
-| [0.3.15](https://github.com/pioneer/textmoney/releases/tag/v0.3.15) | Fava-compatible category budgets: management under Accounting, monthly monitoring under Reports, searchable category/account trees, historical changes and exact reference tests. Plain-language budget guidance and LF/CRLF conflict-preservation regressions. Android build 38. |
-| [0.3.13](https://github.com/pioneer/textmoney/releases/tag/v0.3.13) | Unified Android/Linux/Windows release workflow; Windows x64 per-user installer with native CI smoke checks and corrected icon framing. Separate production-signed Android APKs per architecture. Android build 36. |
-| [0.3.6](https://github.com/pioneer/textmoney/releases/tag/v0.3.6) | Scrollable bottom clearance keeps Reports, both Accounting tabs and wider-layout Settings content clear of the floating Add button. Mobile Settings remains button-free. Android build 29. |
-| [0.3.5](https://github.com/pioneer/textmoney/releases/tag/v0.3.5) | Summaries above smaller account movements, centered date headings and an Initial placeholder; separators only in wide transaction history; final transactions stay clear of the Add button. Home balances follow configured currency order. Android build 28. |
-| [0.3.4](https://github.com/pioneer/textmoney/releases/tag/v0.3.4) | Mobile Settings moves to a top-right gear with Back navigation; wider layouts retain Settings in the rail. Home/Transactions group entries by date and emphasize summaries over account movements. Android build 27. |
-| [0.3.3](https://github.com/pioneer/textmoney/releases/tag/v0.3.3) | More compact Home/Transactions rows with smaller typography and tighter spacing; full-width, theme-aware separators make wide rows easier to follow. Action touch targets remain unchanged. Android build 26. |
-| [0.3.2](https://github.com/pioneer/textmoney/releases/tag/v0.3.2) | Sequential journal editing without distributed merge evidence; retained conflict guards, backups and Android recovery; Beancount-friendly `name`, local `time` and native reimbursement links. Version/build visible in every screen header. Replacement Android build 25. |
-| [0.3.1](https://github.com/pioneer/textmoney/releases/tag/v0.3.1) | Production-signed Android releases and a Linux x86_64 AppImage distribution. Android build 23. |
-| [0.3.0](https://github.com/pioneer/textmoney/releases/tag/v0.3.0) | Period reports with income, net expenses and net result, separate currency totals, and hierarchical category breakdowns. Android build 22. |
-| [0.2.4](https://github.com/pioneer/textmoney/releases/tag/v0.2.4) | Atomic desktop journal replacement; verified Android save-intent records, interrupted-save detection and explicit recovery review. Existing Android journals require a one-time review; SAF writes remain non-atomic. Consistent rejection of invalid `24:00` times on Python 3.14. |
-| [0.2.3](https://github.com/pioneer/textmoney/releases/tag/v0.2.3) | Localized startup without an English-language flash; unified Accounting labels, Accounts/Categories subtabs and creation dialogs; larger transparent Linux icons and corrected Wayland development identity. |
-| [0.2.2](https://github.com/pioneer/textmoney/releases/tag/v0.2.2) | Matching income/expense category sections and a compact, collapsible category tree with session-preserved expansion state. |
-| [0.2.1](https://github.com/pioneer/textmoney/releases/tag/v0.2.1) | Bounded backup retention, automatic cleanup settings and a manual cleanup preview; protected recovery copies remain untouched. |
-| [0.2.0](https://github.com/pioneer/textmoney/releases/tag/v0.2.0) | Cross-currency transfers, a universal transaction form, and inline category creation. |
-| [0.1.4](https://github.com/pioneer/textmoney/releases/tag/v0.1.4) | Same-currency transfers, optional fees and loan repayments; configurable fee category and overdraft warnings. |
-| [0.1.3](https://github.com/pioneer/textmoney/releases/tag/v0.1.3) | Income, reimbursements and balance adjustments; unified transaction form, description previews and improved Android/Linux icons. |
-| [0.1.2](https://github.com/pioneer/textmoney/releases/tag/v0.1.2) | Refreshed money-and-text icon, correct icon for Linux source runs and clearer alpha documentation. |
-| [0.1.1](https://github.com/pioneer/textmoney/releases/tag/v0.1.1) | TxnCount Android app identity, versioned APK downloads and consistent in-app version display. |
-| 0.1.0 | Initial alpha: accounts, categories, expense editing/deletion, backups, translations and adaptive layouts. |
+| [0.3.16](https://github.com/pioneer/textmoney/releases/tag/v0.3.16) | First TextMoney release: unified application, storage and package identity; Android, Linux and Windows downloads. Includes account/category management, transactions, currency-separated reports, category budgets, conflict protection and verified backups. Android build 39. |
 
 ## Development
 

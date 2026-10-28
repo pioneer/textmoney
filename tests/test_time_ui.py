@@ -705,7 +705,7 @@ def test_new_expense_starts_empty_even_with_a_legacy_default_payee_preference(
     async def scenario() -> None:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.setenv("APPDATA", str(tmp_path))
-        await DesktopPreferences().set("txncount.default-payee.v1", "Legacy shop")
+        await DesktopPreferences().set("textmoney.default-payee.v1", "Legacy shop")
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
         page.width = 390
@@ -862,7 +862,7 @@ def test_opening_rows_hide_dates_and_page_headings_are_not_repeated(language: st
         view.current_screen = screen
         view._refresh_labels()
         assert texts(header) == [str(view.page_title.value), str(view.release_label.value)]
-        assert "TxnCount" not in texts(header)
+        assert "TextMoney" not in texts(header)
     assert view.tr("settings_title") not in texts(view.settings_screen)
 
 
@@ -1083,7 +1083,7 @@ def test_startup_restores_local_fee_preference_and_new_attachment_uses_it(
         await journal.create_category("Fees", "Fees", opened=EPOCH)
         prefs = DesktopPreferences()
         await prefs.set(DEFAULT_FEE_KEY, "Expenses:Fees")
-        await prefs.set("txncount.folder.v1", str(folder))
+        await prefs.set("textmoney.folder.v1", str(folder))
         page = MagicMock(spec=ft.Page)
         page.platform, page.width = ft.PagePlatform.LINUX, 390
         page.get_device_info = AsyncMock(
@@ -1122,14 +1122,14 @@ def test_possible_conflict_copy_poll_is_names_only_and_does_not_block_saving(
         )
         await journal.create_category("Food", "Food", opened=EPOCH)
         names = [
-            "txncount (device's conflicted copy 2026-10-24).beancount",
-            "txncount (1).beancount",
-            "txncount 2.beancount",
-            "txncount-3.beancount",
+            "textmoney (device's conflicted copy 2026-10-24).beancount",
+            "textmoney (1).beancount",
+            "textmoney 2.beancount",
+            "textmoney-3.beancount",
             "other (1).beancount",
-            "txncount-notes.beancount",
-            "../txncount (1).beancount",
-            "txncount (draft).beancount",
+            "textmoney-notes.beancount",
+            "../textmoney (1).beancount",
+            "textmoney (draft).beancount",
         ]
         monkeypatch.setattr(folder, "list_siblings", AsyncMock(return_value=names))
         await view._poll_journal()

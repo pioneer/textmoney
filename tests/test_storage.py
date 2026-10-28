@@ -30,7 +30,7 @@ def test_sha256_and_missing_baseline() -> None:
 def test_storage_diagnostics_never_touch_legacy_test_or_journal(tmp_path: Path) -> None:
     async def scenario() -> None:
         legacy = tmp_path / "poc-test.beancount"
-        journal = tmp_path / "txncount.beancount"
+        journal = tmp_path / "textmoney.beancount"
         legacy.write_bytes(b"legacy synthetic file")
         journal.write_bytes(b"synthetic journal sentinel")
         session = StorageSession(DesktopFolder(str(tmp_path)))
@@ -117,7 +117,7 @@ def test_unrelated_journals_and_sync_metadata_do_not_block_writes(
     async def scenario() -> None:
         sibling = tmp_path / "conflicted-copy.beancount"
         sibling.write_bytes(b"invalid unrelated journal")
-        metadata = tmp_path / ".txncount-sync"
+        metadata = tmp_path / ".textmoney-sync"
         if metadata_shape == "file":
             metadata.write_bytes(b"damaged legacy metadata")
         else:

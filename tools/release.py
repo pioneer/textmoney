@@ -56,14 +56,14 @@ def version_numbers(version: str) -> tuple[int, ...]:
 
 def android_apk_names(version: str) -> tuple[str, ...]:
     version_numbers(version)
-    return tuple(f"txncount-{version}-{abi}.apk" for abi in ANDROID_ABIS)
+    return tuple(f"textmoney-{version}-{abi}.apk" for abi in ANDROID_ABIS)
 
 
 def artifact_names(version: str) -> tuple[str, ...]:
     return (
         *android_apk_names(version),
-        f"TxnCount-{version}-x86_64.AppImage",
-        f"TxnCount-{version}-windows-x64-setup.exe",
+        f"TextMoney-{version}-x86_64.AppImage",
+        f"TextMoney-{version}-windows-x64-setup.exe",
     )
 
 
@@ -258,7 +258,7 @@ def start_release(
     run(root, "git", "diff", "--check")
     run(root, "git", "add", "--", "pyproject.toml", "uv.lock")
     run(root, "git", "commit", "-m", f"Release v{version}", "-m", TRAILER)
-    run(root, "git", "tag", "-a", tag, "-m", f"TxnCount {tag}")
+    run(root, "git", "tag", "-a", tag, "-m", f"TextMoney {tag}")
     run(root, "git", "push", "--atomic", "origin", "HEAD:refs/heads/main", f"refs/tags/{tag}")
     sha = run(root, "git", "rev-parse", "HEAD")
     wait_for_release(root, repo, tag, sha, resume=False)
@@ -319,7 +319,7 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
             "--draft",
             "--verify-tag",
             "--title",
-            f"TxnCount {tag}",
+            f"TextMoney {tag}",
             "--generate-notes",
         )
     identity = json.loads(

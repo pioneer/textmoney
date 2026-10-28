@@ -1,13 +1,17 @@
 # Supported journal format and editing
 
-This is the current format contract, not the original MVP profile. TxnCount uses
+For existing TxnCount development data, use the [copy-only migration](rename-migration.md).
+Do not just rename the old journal: its visibility metadata and recovery
+namespace also need explicit handling.
+
+This is the current format contract, not the original MVP profile. TextMoney uses
 `autobean-refactor` for lossless parsing and targeted edits, with its own bounded
 accounting model. It is not a full Beancount loader or booking engine.
 Fava and official Beancount are development-time references, not runtime engines.
 
 ## One journal
 
-The selected folder contains one UTF-8 financial journal, `txncount.beancount`.
+The selected folder contains one UTF-8 financial journal, `textmoney.beancount`.
 Declarations, transactions, journal options and budgets live in that file.
 There is no private working ledger, database, include traversal or separate budget
 store. Backups and Android recovery records are described in [Data safety](data-safety.md).
@@ -59,7 +63,7 @@ file. See [Category budgets](budgets.md) for intervals, precision and history.
 - New reserved equity declarations use the effective transaction date and move
   earlier only when a new backdated posting requires it. Existing historical
   dates, including `1970-01-01`, are not normalized on load.
-- An absent `txncount-active` means active. Explicit boolean `TRUE` and `FALSE`
+- An absent `textmoney-active` means active. Explicit boolean `TRUE` and `FALSE`
   remain supported; this is visibility/reactivation, not an accounting `close`.
   An inactive category parent makes its descendants unavailable for new entries.
 - Accounts/categories with history cannot be deleted; deactivate them instead.
@@ -107,8 +111,8 @@ overlaps are accepted as wall-clock labels, not resolved into instants.
 Native date-picker transport separately uses the device timezone to preserve the
 selected calendar day.
 
-New entries do not generate `id`, `timestamp`, `txncount-kind`,
-`txncount-expense-id` or `txncount-fee-mode` metadata. Fee-category defaults are
+New entries do not generate `id`, `timestamp`, `textmoney-kind`,
+`textmoney-expense-id` or `textmoney-fee-mode` metadata. Fee-category defaults are
 local device preferences, not journal settings. Unrelated existing user metadata,
 tags, links and comments are preserved; legacy app fields are not globally
 migrated, stripped or used as authoritative transaction identities.

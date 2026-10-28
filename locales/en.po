@@ -1,19 +1,25 @@
-# TxnCount gettext catalog.
+# TextMoney gettext catalog.
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TxnCount 0.2.4\n"
-"Report-Msgid-Bugs-To: https://github.com/pioneer/txncount/issues\n"
+"Project-Id-Version: TextMoney 0.2.4\n"
+"Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
 "POT-Creation-Date: 2026-10-22 01:49+0300\n"
 "PO-Revision-Date: 2026-10-22 01:49+0300\n"
-"Last-Translator: TxnCount localization contributors\n"
+"Last-Translator: TextMoney localization contributors\n"
 "Language: en\n"
-"Language-Team: TxnCount en translators\n"
+"Language-Team: TextMoney en translators\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+
+msgid "ui.error_migration_incomplete"
+msgstr "The data migration did not finish. Do not edit this folder. Keep the original and retry the migration into a new folder."
+
+msgid "ui.error_migration_required"
+msgstr "This folder contains a TxnCount journal. Close the old app and use the migration command to copy it into a new TextMoney folder."
 
 msgid "ui.budget_title"
 msgstr "Budgets"
@@ -160,7 +166,7 @@ msgid "ui.budget_filters"
 msgstr "Reports, filters and valuation"
 
 msgid "ui.budget_semantics"
-msgstr "Fava 1.30.16 rules: daily allocation; budgets keep their currencies. Category reports use account trees; interval totals use literal account prefixes. Expand a category for direct values and transactions. Progress is a TxnCount display ratio. Hover amounts for exact Decimals."
+msgstr "Fava 1.30.16 rules: daily allocation; budgets keep their currencies. Category reports use account trees; interval totals use literal account prefixes. Expand a category for direct values and transactions. Progress is a TextMoney display ratio. Hover amounts for exact Decimals."
 
 msgid "ui.budget_definitions"
 msgstr "Budget definitions and history"
@@ -246,79 +252,79 @@ msgstr "Fiscal quarters require a fiscal year starting on the first day of a mon
 msgid "ui.budget_settings_error"
 msgstr "Check the journal's Fava locale and fiscal-year-end settings."
 
-#. Stable TxnCount key: ui.sync_required; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_required; do not translate this identifier.
 msgid "ui.sync_required"
 msgstr ""
 "Conflicting journal versions were found and preserved. Saving is blocked."
 " Open Settings → Review synchronization conflicts."
 
-#. Stable TxnCount key: ui.sync_review; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_review; do not translate this identifier.
 msgid "ui.sync_review"
 msgstr "Review synchronization conflicts"
 
-#. Stable TxnCount key: ui.sync_details; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_details; do not translate this identifier.
 msgid "ui.sync_details"
 msgstr "Source and metadata (read only)"
 
-#. Stable TxnCount key: ui.sync_version; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_version; do not translate this identifier.
 msgid "ui.sync_version"
 msgstr "Other journal version"
 
-#. Stable TxnCount key: ui.sync_local; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_local; do not translate this identifier.
 msgid "ui.sync_local"
 msgstr "Current journal"
 
-#. Stable TxnCount key: ui.sync_remote; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_remote; do not translate this identifier.
 msgid "ui.sync_remote"
 msgstr "Other version"
 
-#. Stable TxnCount key: ui.sync_whole; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_whole; do not translate this identifier.
 msgid "ui.sync_whole"
 msgstr "Explicitly choose one complete version"
 
-#. Stable TxnCount key: ui.sync_choose; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_choose; do not translate this identifier.
 msgid "ui.sync_choose"
 msgstr "Choose which version of this transaction to keep"
 
-#. Stable TxnCount key: ui.sync_confirm; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_confirm; do not translate this identifier.
 msgid "ui.sync_confirm"
 msgstr "Confirm reviewed result"
 
-#. Stable TxnCount key: ui.sync_absent; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_absent; do not translate this identifier.
 msgid "ui.sync_absent"
 msgstr "Not present (choosing this removes/omits the transaction)"
 
-#. Stable TxnCount key: ui.sync_added; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_added; do not translate this identifier.
 msgid "ui.sync_added"
 msgstr "Added"
 
-#. Stable TxnCount key: ui.sync_deleted; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_deleted; do not translate this identifier.
 msgid "ui.sync_deleted"
 msgstr "Absent or deleted"
 
-#. Stable TxnCount key: ui.sync_modified; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_modified; do not translate this identifier.
 msgid "ui.sync_modified"
 msgstr "Modified"
 
-#. Stable TxnCount key: ui.sync_base_known; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_base_known; do not translate this identifier.
 msgid "ui.sync_base_known"
 msgstr ""
 "A common ancestor was verified from recorded parent hashes and exact "
 "snapshots."
 
-#. Stable TxnCount key: ui.sync_no_base; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_no_base; do not translate this identifier.
 msgid "ui.sync_no_base"
 msgstr ""
 "No verified common ancestor. Every difference requires your choice; "
 "absence is not proof of deletion."
 
-#. Stable TxnCount key: ui.sync_auto; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_auto; do not translate this identifier.
 msgid "ui.sync_auto"
 msgstr ""
 "Independent changes have been selected using the verified ancestor. "
 "Review before confirming."
 
-#. Stable TxnCount key: ui.sync_manual; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_manual; do not translate this identifier.
 msgid "ui.sync_manual"
 msgstr ""
 "Automatic merging is unsafe: declarations, options, comments or "
@@ -326,56 +332,56 @@ msgstr ""
 "explicitly choose one complete valid version. Choosing a whole version "
 "can omit changes from the other."
 
-#. Stable TxnCount key: ui.sync_help; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_help; do not translate this identifier.
 msgid "ui.sync_help"
 msgstr ""
 "Pause Dropbox/Dropsync on all devices. Both versions are preserved in "
-".txncount-sync. Cancel to postpone without changing the journal. The "
+".textmoney-sync. Cancel to postpone without changing the journal. The "
 "original conflict file is never deleted. Local checks cannot prove "
 "synchronization is finished. Resolve Android interrupted-save recovery "
 "first if requested."
 
-#. Stable TxnCount key: ui.sync_changed; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_changed; do not translate this identifier.
 msgid "ui.sync_changed"
 msgstr ""
 "A source version changed during resolution. Nothing will be retried "
 "automatically. Reload and review again."
 
-#. Stable TxnCount key: ui.sync_metadata; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_metadata; do not translate this identifier.
 msgid "ui.sync_metadata"
 msgstr ""
 "Synchronization evidence is missing, damaged or ambiguous. Saving is "
-"blocked. Preserve the folder and inspect .txncount-sync; do not delete "
+"blocked. Preserve the folder and inspect .textmoney-sync; do not delete "
 "evidence to bypass review."
 
-#. Stable TxnCount key: ui.sync_remaining; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_remaining; do not translate this identifier.
 msgid "ui.sync_remaining"
 msgstr ""
 "The reviewed result was saved. Other conflicting versions still need "
 "review in Settings."
 
-#. Stable TxnCount key: ui.recovery_required; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_required; do not translate this identifier.
 msgid "ui.recovery_required"
 msgstr ""
 "An unfinished or uncertain Android save needs review. Saving is blocked. "
 "Open Settings → Review interrupted save. Do not resubmit the transaction."
 
-#. Stable TxnCount key: ui.recovery_review; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_review; do not translate this identifier.
 msgid "ui.recovery_review"
 msgstr "Review interrupted save"
 
-#. Stable TxnCount key: ui.recovery_keep; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_keep; do not translate this identifier.
 msgid "ui.recovery_keep"
 msgstr "I reviewed this version — keep it"
 
-#. Stable TxnCount key: ui.recovery_restore_external; do not translate this
+#. Stable TextMoney key: ui.recovery_restore_external; do not translate this
 #. identifier.
 msgid "ui.recovery_restore_external"
 msgstr ""
-"Restore the journal from a verified backup outside TxnCount, then reload "
+"Restore the journal from a verified backup outside TextMoney, then reload "
 "and review. No automatic restoration was attempted."
 
-#. Stable TxnCount key: ui.recovery_help; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_help; do not translate this identifier.
 msgid "ui.recovery_help"
 msgstr ""
 "Cancel to preserve everything. Pause Dropbox/Dropsync and inspect the "
@@ -386,7 +392,7 @@ msgstr ""
 "editing. A valid journal can still be missing transactions. An unverified"
 " backup must not be assumed safe."
 
-#. Stable TxnCount key: ui.recovery_summary; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_summary; do not translate this identifier.
 msgid "ui.recovery_summary"
 msgstr ""
 "Detected state: {state}\n"
@@ -394,107 +400,107 @@ msgstr ""
 "Previous backup: {backup}\n"
 "Backup status: {verified}"
 
-#. Stable TxnCount key: ui.recovery_candidate; do not translate this
+#. Stable TextMoney key: ui.recovery_candidate; do not translate this
 #. identifier.
 msgid "ui.recovery_candidate"
 msgstr "matches the intended new version; it may already be saved"
 
-#. Stable TxnCount key: ui.recovery_unchanged; do not translate this
+#. Stable TextMoney key: ui.recovery_unchanged; do not translate this
 #. identifier.
 msgid "ui.recovery_unchanged"
 msgstr "matches the previous version"
 
-#. Stable TxnCount key: ui.recovery_unexpected; do not translate this
+#. Stable TextMoney key: ui.recovery_unexpected; do not translate this
 #. identifier.
 msgid "ui.recovery_unexpected"
 msgstr "unexpected version — possible truncation or external changes"
 
-#. Stable TxnCount key: ui.recovery_metadata; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_metadata; do not translate this identifier.
 msgid "ui.recovery_metadata"
 msgstr "missing or damaged save metadata"
 
-#. Stable TxnCount key: ui.recovery_valid; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_valid; do not translate this identifier.
 msgid "ui.recovery_valid"
 msgstr "passes validation"
 
-#. Stable TxnCount key: ui.recovery_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_invalid; do not translate this identifier.
 msgid "ui.recovery_invalid"
 msgstr "missing or invalid"
 
-#. Stable TxnCount key: ui.recovery_verified; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_verified; do not translate this identifier.
 msgid "ui.recovery_verified"
 msgstr "hash and journal validation passed"
 
-#. Stable TxnCount key: ui.recovery_unverified; do not translate this
+#. Stable TextMoney key: ui.recovery_unverified; do not translate this
 #. identifier.
 msgid "ui.recovery_unverified"
 msgstr "missing, corrupt, or not verifiable"
 
-#. Stable TxnCount key: ui.primary_account; do not translate this identifier.
+#. Stable TextMoney key: ui.primary_account; do not translate this identifier.
 msgid "ui.primary_account"
 msgstr "Account"
 
-#. Stable TxnCount key: ui.amount_debit_hint; do not translate this identifier.
+#. Stable TextMoney key: ui.amount_debit_hint; do not translate this identifier.
 msgid "ui.amount_debit_hint"
 msgstr "−: Money leaves the account"
 
-#. Stable TxnCount key: ui.amount_credit_hint; do not translate this
+#. Stable TextMoney key: ui.amount_credit_hint; do not translate this
 #. identifier.
 msgid "ui.amount_credit_hint"
 msgstr "+: Money enters the account"
 
-#. Stable TxnCount key: ui.amount_transfer_hint; do not translate this
+#. Stable TextMoney key: ui.amount_transfer_hint; do not translate this
 #. identifier.
 msgid "ui.amount_transfer_hint"
 msgstr "↔: Transfer between accounts"
 
-#. Stable TxnCount key: ui.source_account; do not translate this identifier.
+#. Stable TextMoney key: ui.source_account; do not translate this identifier.
 msgid "ui.source_account"
 msgstr "Source account"
 
-#. Stable TxnCount key: ui.destination_account; do not translate this
+#. Stable TextMoney key: ui.destination_account; do not translate this
 #. identifier.
 msgid "ui.destination_account"
 msgstr "Destination account"
 
-#. Stable TxnCount key: ui.source_account_optional; do not translate this
+#. Stable TextMoney key: ui.source_account_optional; do not translate this
 #. identifier.
 msgid "ui.source_account_optional"
 msgstr "Source account (optional)"
 
-#. Stable TxnCount key: ui.destination_account_optional; do not translate this
+#. Stable TextMoney key: ui.destination_account_optional; do not translate this
 #. identifier.
 msgid "ui.destination_account_optional"
 msgstr "Destination account (optional)"
 
-#. Stable TxnCount key: ui.transaction_advanced; do not translate this
+#. Stable TextMoney key: ui.transaction_advanced; do not translate this
 #. identifier.
 msgid "ui.transaction_advanced"
 msgstr "Advanced"
 
-#. Stable TxnCount key: ui.second_account; do not translate this identifier.
+#. Stable TextMoney key: ui.second_account; do not translate this identifier.
 msgid "ui.second_account"
 msgstr "Second account (optional)"
 
-#. Stable TxnCount key: ui.no_second_account; do not translate this identifier.
+#. Stable TextMoney key: ui.no_second_account; do not translate this identifier.
 msgid "ui.no_second_account"
 msgstr "No second account"
 
-#. Stable TxnCount key: ui.special_receipt; do not translate this identifier.
+#. Stable TextMoney key: ui.special_receipt; do not translate this identifier.
 msgid "ui.special_receipt"
 msgstr "Money received"
 
-#. Stable TxnCount key: ui.transfer_preview; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_preview; do not translate this identifier.
 msgid "ui.transfer_preview"
 msgstr ""
 "Debited: {debited}\n"
 "Credited: {credited}"
 
-#. Stable TxnCount key: ui.kind_transfer; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_transfer; do not translate this identifier.
 msgid "ui.kind_transfer"
 msgstr "Transfer"
 
-#. Stable TxnCount key: ui.transaction_help_transfer; do not translate this
+#. Stable TextMoney key: ui.transaction_help_transfer; do not translate this
 #. identifier.
 msgid "ui.transaction_help_transfer"
 msgstr ""
@@ -503,20 +509,20 @@ msgstr ""
 " fee counts as an expense. A repayment into a loan account reduces the "
 "amount owed. Negative balances warn but do not block saving."
 
-#. Stable TxnCount key: ui.exchange_debited; do not translate this identifier.
+#. Stable TextMoney key: ui.exchange_debited; do not translate this identifier.
 msgid "ui.exchange_debited"
 msgstr "Total debited"
 
-#. Stable TxnCount key: ui.exchange_credited; do not translate this identifier.
+#. Stable TextMoney key: ui.exchange_credited; do not translate this identifier.
 msgid "ui.exchange_credited"
 msgstr "Actually credited"
 
-#. Stable TxnCount key: ui.exchange_fee_currency; do not translate this
+#. Stable TextMoney key: ui.exchange_fee_currency; do not translate this
 #. identifier.
 msgid "ui.exchange_fee_currency"
 msgstr "Fee currency"
 
-#. Stable TxnCount key: ui.exchange_preview; do not translate this identifier.
+#. Stable TextMoney key: ui.exchange_preview; do not translate this identifier.
 msgid "ui.exchange_preview"
 msgstr ""
 "Debited: {debited}\n"
@@ -524,127 +530,127 @@ msgstr ""
 "Exchanged: {principal} → {gross}\n"
 "Rate excluding fees: {rate}"
 
-#. Stable TxnCount key: ui.exchange_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.exchange_invalid; do not translate this identifier.
 msgid "ui.exchange_invalid"
 msgstr ""
 "Unsupported or unbalanced exchange. Use one total-priced source "
 "principal, one destination and an optional source/destination-currency "
 "fee."
 
-#. Stable TxnCount key: ui.exchange_fee_invalid; do not translate this
+#. Stable TextMoney key: ui.exchange_fee_invalid; do not translate this
 #. identifier.
 msgid "ui.exchange_fee_invalid"
 msgstr "The fee must use the source or destination currency."
 
-#. Stable TxnCount key: ui.transfer_counterparty; do not translate this
+#. Stable TextMoney key: ui.transfer_counterparty; do not translate this
 #. identifier.
 msgid "ui.transfer_counterparty"
 msgstr "Counterparty (optional)"
 
-#. Stable TxnCount key: ui.transfer_account_type; do not translate this
+#. Stable TextMoney key: ui.transfer_account_type; do not translate this
 #. identifier.
 msgid "ui.transfer_account_type"
 msgstr "Account type"
 
-#. Stable TxnCount key: ui.transfer_asset; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_asset; do not translate this identifier.
 msgid "ui.transfer_asset"
 msgstr "Own money / cash"
 
-#. Stable TxnCount key: ui.transfer_liability; do not translate this
+#. Stable TextMoney key: ui.transfer_liability; do not translate this
 #. identifier.
 msgid "ui.transfer_liability"
 msgstr "Loan / credit"
 
-#. Stable TxnCount key: ui.transfer_owed; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_owed; do not translate this identifier.
 msgid "ui.transfer_owed"
 msgstr "Opening amount owed"
 
-#. Stable TxnCount key: ui.transfer_destination; do not translate this
+#. Stable TextMoney key: ui.transfer_destination; do not translate this
 #. identifier.
 msgid "ui.transfer_destination"
 msgstr "Transfer to"
 
-#. Stable TxnCount key: ui.transfer_fee_enabled; do not translate this
+#. Stable TextMoney key: ui.transfer_fee_enabled; do not translate this
 #. identifier.
 msgid "ui.transfer_fee_enabled"
 msgstr "Include a transfer fee"
 
-#. Stable TxnCount key: ui.transfer_fee; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_fee; do not translate this identifier.
 msgid "ui.transfer_fee"
 msgstr "Fee"
 
-#. Stable TxnCount key: ui.transfer_mode; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_mode; do not translate this identifier.
 msgid "ui.transfer_mode"
 msgstr "Fee deduction mode"
 
-#. Stable TxnCount key: ui.transfer_added; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_added; do not translate this identifier.
 msgid "ui.transfer_added"
 msgstr "Added on top of the amount"
 
-#. Stable TxnCount key: ui.transfer_deducted; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_deducted; do not translate this identifier.
 msgid "ui.transfer_deducted"
 msgstr "Deducted from the amount"
 
-#. Stable TxnCount key: ui.transfer_fee_category; do not translate this
+#. Stable TextMoney key: ui.transfer_fee_category; do not translate this
 #. identifier.
 msgid "ui.transfer_fee_category"
 msgstr "Fee category"
 
-#. Stable TxnCount key: ui.transfer_default_fee; do not translate this
+#. Stable TextMoney key: ui.transfer_default_fee; do not translate this
 #. identifier.
 msgid "ui.transfer_default_fee"
 msgstr "Default transfer fee category"
 
-#. Stable TxnCount key: ui.transfer_bank_fees; do not translate this
+#. Stable TextMoney key: ui.transfer_bank_fees; do not translate this
 #. identifier.
 msgid "ui.transfer_bank_fees"
 msgstr "Bank fees"
 
-#. Stable TxnCount key: ui.transfer_accounts; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_accounts; do not translate this identifier.
 msgid "ui.transfer_accounts"
 msgstr "Choose two different, explicitly created accounts."
 
-#. Stable TxnCount key: ui.transfer_currency; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_currency; do not translate this identifier.
 msgid "ui.transfer_currency"
 msgstr ""
 "For different account currencies enter both debited and credited amounts;"
 " for the same currency use one transfer amount."
 
-#. Stable TxnCount key: ui.transfer_amount; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_amount; do not translate this identifier.
 msgid "ui.transfer_amount"
 msgstr ""
 "Enter a positive transfer amount and nonnegative fee. A deducted fee must"
 " be smaller than the amount."
 
-#. Stable TxnCount key: ui.transfer_category; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_category; do not translate this identifier.
 msgid "ui.transfer_category"
 msgstr "Choose one expense category as the default transfer fee category."
 
-#. Stable TxnCount key: ui.transfer_negative; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_negative; do not translate this identifier.
 msgid "ui.transfer_negative"
 msgstr ""
 "Warning: these accounts have a negative balance at some point in their "
 "history. Saving is allowed:"
 
-#. Stable TxnCount key: ui.add_transaction; do not translate this identifier.
+#. Stable TextMoney key: ui.add_transaction; do not translate this identifier.
 msgid "ui.add_transaction"
 msgstr "Add transaction"
 
-#. Stable TxnCount key: ui.income_category; do not translate this identifier.
+#. Stable TextMoney key: ui.income_category; do not translate this identifier.
 msgid "ui.income_category"
 msgstr "Income category"
 
-#. Stable TxnCount key: ui.transaction_help_expense; do not translate this
+#. Stable TextMoney key: ui.transaction_help_expense; do not translate this
 #. identifier.
 msgid "ui.transaction_help_expense"
 msgstr "Money spent from an account. The account currency is used."
 
-#. Stable TxnCount key: ui.transaction_help_income; do not translate this
+#. Stable TextMoney key: ui.transaction_help_income; do not translate this
 #. identifier.
 msgid "ui.transaction_help_income"
 msgstr "Money received as income. Create income categories under Accounts."
 
-#. Stable TxnCount key: ui.transaction_help_reimbursement; do not translate
+#. Stable TextMoney key: ui.transaction_help_reimbursement; do not translate
 #. this identifier.
 msgid "ui.transaction_help_reimbursement"
 msgstr ""
@@ -653,7 +659,7 @@ msgstr ""
 "reimbursements are allowed; there is no debt tracking or reimbursement "
 "limit."
 
-#. Stable TxnCount key: ui.transaction_help_adjustment; do not translate this
+#. Stable TextMoney key: ui.transaction_help_adjustment; do not translate this
 #. identifier.
 msgid "ui.transaction_help_adjustment"
 msgstr ""
@@ -661,442 +667,442 @@ msgstr ""
 "returned for a purchase before tracking began. Does not change the "
 "opening balance."
 
-#. Stable TxnCount key: ui.incoming_type; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_type; do not translate this identifier.
 msgid "ui.incoming_type"
 msgstr "Type"
 
-#. Stable TxnCount key: ui.kind_income; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_income; do not translate this identifier.
 msgid "ui.kind_income"
 msgstr "Income"
 
-#. Stable TxnCount key: ui.kind_reimbursement; do not translate this
+#. Stable TextMoney key: ui.kind_reimbursement; do not translate this
 #. identifier.
 msgid "ui.kind_reimbursement"
 msgstr "Expense reimbursement"
 
-#. Stable TxnCount key: ui.kind_adjustment; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_adjustment; do not translate this identifier.
 msgid "ui.kind_adjustment"
 msgstr "Balance adjustment"
 
-#. Stable TxnCount key: ui.incoming_account; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_account; do not translate this identifier.
 msgid "ui.incoming_account"
 msgstr "Receive into account"
 
-#. Stable TxnCount key: ui.incoming_choose_account; do not translate this
+#. Stable TextMoney key: ui.incoming_choose_account; do not translate this
 #. identifier.
 msgid "ui.incoming_choose_account"
 msgstr "Choose an existing receiving account."
 
-#. Stable TxnCount key: ui.incoming_sender; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_sender; do not translate this identifier.
 msgid "ui.incoming_sender"
 msgstr "Sender (optional)"
 
-#. Stable TxnCount key: ui.incoming_reference_label; do not translate this
+#. Stable TextMoney key: ui.incoming_reference_label; do not translate this
 #. identifier.
 msgid "ui.incoming_reference_label"
 msgstr "Original expense (optional)"
 
-#. Stable TxnCount key: ui.incoming_no_reference; do not translate this
+#. Stable TextMoney key: ui.incoming_no_reference; do not translate this
 #. identifier.
 msgid "ui.incoming_no_reference"
 msgstr "No linked expense"
 
-#. Stable TxnCount key: ui.incoming_linked; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_linked; do not translate this identifier.
 msgid "ui.incoming_linked"
 msgstr "Expense reference: {identifier}"
 
-#. Stable TxnCount key: ui.incoming_category; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_category; do not translate this identifier.
 msgid "ui.incoming_category"
 msgstr "Choose an active category matching this transaction type."
 
-#. Stable TxnCount key: ui.incoming_amount; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_amount; do not translate this identifier.
 msgid "ui.incoming_amount"
 msgstr "Amount must be greater than zero."
 
-#. Stable TxnCount key: ui.incoming_date; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_date; do not translate this identifier.
 msgid "ui.incoming_date"
 msgstr "Choose a date between January 1, 1970 and today."
 
-#. Stable TxnCount key: ui.incoming_reference; do not translate this
+#. Stable TextMoney key: ui.incoming_reference; do not translate this
 #. identifier.
 msgid "ui.incoming_reference"
 msgstr ""
 "Choose an existing expense with the same category and currency, dated no "
 "later than this receipt."
 
-#. Stable TxnCount key: ui.incoming_period; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_period; do not translate this identifier.
 msgid "ui.incoming_period"
 msgstr "The end date must not precede the start date."
 
-#. Stable TxnCount key: ui.app_name; do not translate this identifier.
+#. Stable TextMoney key: ui.app_name; do not translate this identifier.
 msgid "ui.app_name"
-msgstr "TxnCount"
+msgstr "TextMoney"
 
-#. Stable TxnCount key: ui.timezone; do not translate this identifier.
+#. Stable TextMoney key: ui.timezone; do not translate this identifier.
 msgid "ui.timezone"
 msgstr "Timezone"
 
-#. Stable TxnCount key: ui.advanced; do not translate this identifier.
+#. Stable TextMoney key: ui.advanced; do not translate this identifier.
 msgid "ui.advanced"
 msgstr "Advanced"
 
-#. Stable TxnCount key: ui.payee_help; do not translate this identifier.
+#. Stable TextMoney key: ui.payee_help; do not translate this identifier.
 msgid "ui.payee_help"
 msgstr ""
 "Optional: the shop or person receiving the money, not the expense "
 "category. Leave blank if you do not need it."
 
-#. Stable TxnCount key: ui.display_currency_codes; do not translate this
+#. Stable TextMoney key: ui.display_currency_codes; do not translate this
 #. identifier.
 msgid "ui.display_currency_codes"
 msgstr ""
 "Space-separated codes, e.g. UAH USD EUR. New account currencies are added"
 " automatically; existing choices are kept."
 
-#. Stable TxnCount key: ui.timezone_help; do not translate this identifier.
+#. Stable TextMoney key: ui.timezone_help; do not translate this identifier.
 msgid "ui.timezone_help"
 msgstr ""
 "Used only for the default current clock and date-picker transport. System follows this device, "
 "or enter an IANA name such as Europe/Kyiv. Saved transaction dates and local wall times never "
 "convert when this setting changes; no timezone or UTC offset is stored."
 
-#. Stable TxnCount key: ui.timezone_system; do not translate this identifier.
+#. Stable TextMoney key: ui.timezone_system; do not translate this identifier.
 msgid "ui.timezone_system"
 msgstr "System"
 
-#. Stable TxnCount key: ui.timezone_saved; do not translate this identifier.
+#. Stable TextMoney key: ui.timezone_saved; do not translate this identifier.
 msgid "ui.timezone_saved"
 msgstr "Timezone saved."
 
-#. Stable TxnCount key: ui.timezone_current; do not translate this identifier.
+#. Stable TextMoney key: ui.timezone_current; do not translate this identifier.
 msgid "ui.timezone_current"
 msgstr "Default clock timezone: {zone} · transaction time is local wall time"
 
-#. Stable TxnCount key: ui.time; do not translate this identifier.
+#. Stable TextMoney key: ui.time; do not translate this identifier.
 msgid "ui.time"
 msgstr "Time (24-hour)"
 
-#. Stable TxnCount key: ui.date_hint; do not translate this identifier.
+#. Stable TextMoney key: ui.date_hint; do not translate this identifier.
 msgid "ui.date_hint"
 msgstr "MM/DD/YYYY"
 
-#. Stable TxnCount key: ui.time_hint; do not translate this identifier.
+#. Stable TextMoney key: ui.time_hint; do not translate this identifier.
 msgid "ui.time_hint"
 msgstr "HH:MM or HH:MM:SS"
 
-#. Stable TxnCount key: ui.pick_date; do not translate this identifier.
+#. Stable TextMoney key: ui.pick_date; do not translate this identifier.
 msgid "ui.pick_date"
 msgstr "Choose date"
 
-#. Stable TxnCount key: ui.pick_time; do not translate this identifier.
+#. Stable TextMoney key: ui.pick_time; do not translate this identifier.
 msgid "ui.pick_time"
 msgstr "Choose time"
 
-#. Stable TxnCount key: ui.details; do not translate this identifier.
+#. Stable TextMoney key: ui.details; do not translate this identifier.
 msgid "ui.details"
 msgstr "Details"
 
-#. Stable TxnCount key: ui.crud_timezone_invalid; do not translate this
+#. Stable TextMoney key: ui.crud_timezone_invalid; do not translate this
 #. identifier.
 msgid "ui.crud_timezone_invalid"
 msgstr "Unknown timezone. Use System or an IANA name such as Europe/Kyiv."
 
-#. Stable TxnCount key: ui.crud_timezone_unavailable; do not translate this
+#. Stable TextMoney key: ui.crud_timezone_unavailable; do not translate this
 #. identifier.
 msgid "ui.crud_timezone_unavailable"
 msgstr ""
 "Could not read the device timezone. Retry or set an explicit timezone in "
 "Settings."
 
-#. Stable TxnCount key: ui.crud_timezone_save; do not translate this
+#. Stable TextMoney key: ui.crud_timezone_save; do not translate this
 #. identifier.
 msgid "ui.crud_timezone_save"
 msgstr "Could not save the timezone setting. Please retry."
 
-#. Stable TxnCount key: ui.crud_date_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_date_invalid; do not translate this identifier.
 msgid "ui.crud_date_invalid"
 msgstr "Enter a valid date using the format shown below the field."
 
-#. Stable TxnCount key: ui.crud_time_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_time_invalid; do not translate this identifier.
 msgid "ui.crud_time_invalid"
 msgstr "Enter a valid 24-hour time: HH:MM or HH:MM:SS."
 
-#. Stable TxnCount key: ui.crud_time_missing; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_time_missing; do not translate this identifier.
 msgid "ui.crud_time_missing"
 msgstr ""
 "This local time does not exist because the clocks move forward. Choose "
 "another time."
 
-#. Stable TxnCount key: ui.crud_time_ambiguous; do not translate this
+#. Stable TextMoney key: ui.crud_time_ambiguous; do not translate this
 #. identifier.
 msgid "ui.crud_time_ambiguous"
 msgstr ""
 "This local time occurs twice when the clocks move back. Choose an "
 "unambiguous time. Unchanged existing timestamps can still be saved."
 
-#. Stable TxnCount key: ui.multiple_postings; do not translate this identifier.
+#. Stable TextMoney key: ui.multiple_postings; do not translate this identifier.
 msgid "ui.multiple_postings"
 msgstr "Multiple postings"
 
-#. Stable TxnCount key: ui.version; do not translate this identifier.
+#. Stable TextMoney key: ui.version; do not translate this identifier.
 msgid "ui.version"
 msgstr "Version 0.1"
 
-#. Stable TxnCount key: ui.nav_home; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_home; do not translate this identifier.
 msgid "ui.nav_home"
 msgstr "Home"
 
-#. Stable TxnCount key: ui.nav_transactions; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_transactions; do not translate this identifier.
 msgid "ui.nav_transactions"
 msgstr "Transactions"
 
-#. Stable TxnCount key: ui.nav_accounts; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_accounts; do not translate this identifier.
 msgid "ui.nav_accounts"
 msgstr "Accounting"
 
-#. Stable TxnCount key: ui.nav_settings; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_settings; do not translate this identifier.
 msgid "ui.nav_settings"
 msgstr "Settings"
 
-#. Stable TxnCount key: ui.nav_back; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_back; do not translate this identifier.
 msgid "ui.nav_back"
 msgstr "Back"
 
-#. Stable TxnCount key: ui.nav_reports; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_reports; do not translate this identifier.
 msgid "ui.nav_reports"
 msgstr "Reports"
 
-#. Stable TxnCount key: ui.report_period; do not translate this identifier.
+#. Stable TextMoney key: ui.report_period; do not translate this identifier.
 msgid "ui.report_period"
 msgstr "Period"
 
-#. Stable TxnCount key: ui.report_current_month; do not translate this identifier.
+#. Stable TextMoney key: ui.report_current_month; do not translate this identifier.
 msgid "ui.report_current_month"
 msgstr "Current month"
 
-#. Stable TxnCount key: ui.report_previous_month; do not translate this identifier.
+#. Stable TextMoney key: ui.report_previous_month; do not translate this identifier.
 msgid "ui.report_previous_month"
 msgstr "Previous month"
 
-#. Stable TxnCount key: ui.report_current_year; do not translate this identifier.
+#. Stable TextMoney key: ui.report_current_year; do not translate this identifier.
 msgid "ui.report_current_year"
 msgstr "Current year"
 
-#. Stable TxnCount key: ui.report_custom_range; do not translate this identifier.
+#. Stable TextMoney key: ui.report_custom_range; do not translate this identifier.
 msgid "ui.report_custom_range"
 msgstr "Custom date range"
 
-#. Stable TxnCount key: ui.report_start_date; do not translate this identifier.
+#. Stable TextMoney key: ui.report_start_date; do not translate this identifier.
 msgid "ui.report_start_date"
 msgstr "Start date"
 
-#. Stable TxnCount key: ui.report_end_date; do not translate this identifier.
+#. Stable TextMoney key: ui.report_end_date; do not translate this identifier.
 msgid "ui.report_end_date"
 msgstr "End date"
 
-#. Stable TxnCount key: ui.report_income; do not translate this identifier.
+#. Stable TextMoney key: ui.report_income; do not translate this identifier.
 msgid "ui.report_income"
 msgstr "Income"
 
-#. Stable TxnCount key: ui.report_expenses; do not translate this identifier.
+#. Stable TextMoney key: ui.report_expenses; do not translate this identifier.
 msgid "ui.report_expenses"
 msgstr "Expenses"
 
-#. Stable TxnCount key: ui.report_net; do not translate this identifier.
+#. Stable TextMoney key: ui.report_net; do not translate this identifier.
 msgid "ui.report_net"
 msgstr "Net result"
 
-#. Stable TxnCount key: ui.report_expense_categories; do not translate this identifier.
+#. Stable TextMoney key: ui.report_expense_categories; do not translate this identifier.
 msgid "ui.report_expense_categories"
 msgstr "Expenses by category"
 
-#. Stable TxnCount key: ui.report_income_categories; do not translate this identifier.
+#. Stable TextMoney key: ui.report_income_categories; do not translate this identifier.
 msgid "ui.report_income_categories"
 msgstr "Income by category"
 
-#. Stable TxnCount key: ui.report_uncategorized; do not translate this identifier.
+#. Stable TextMoney key: ui.report_uncategorized; do not translate this identifier.
 msgid "ui.report_uncategorized"
 msgstr "Uncategorized"
 
-#. Stable TxnCount key: ui.report_percentage_unavailable; do not translate this identifier.
+#. Stable TextMoney key: ui.report_percentage_unavailable; do not translate this identifier.
 msgid "ui.report_percentage_unavailable"
 msgstr "—"
 
-#. Stable TxnCount key: ui.report_categories_empty; do not translate this identifier.
+#. Stable TextMoney key: ui.report_categories_empty; do not translate this identifier.
 msgid "ui.report_categories_empty"
 msgstr "No category activity."
 
-#. Stable TxnCount key: ui.report_empty_period; do not translate this identifier.
+#. Stable TextMoney key: ui.report_empty_period; do not translate this identifier.
 msgid "ui.report_empty_period"
 msgstr "No income or expenses were recorded during this period."
 
-#. Stable TxnCount key: ui.report_unavailable; do not translate this identifier.
+#. Stable TextMoney key: ui.report_unavailable; do not translate this identifier.
 msgid "ui.report_unavailable"
 msgstr "Select and load a journal to view reports."
 
-#. Stable TxnCount key: ui.report_date_range; do not translate this identifier.
+#. Stable TextMoney key: ui.report_date_range; do not translate this identifier.
 msgid "ui.report_date_range"
 msgstr "The end date must not precede the start date."
 
-#. Stable TxnCount key: ui.welcome_title; do not translate this identifier.
+#. Stable TextMoney key: ui.welcome_title; do not translate this identifier.
 msgid "ui.welcome_title"
-msgstr "Welcome to TxnCount"
+msgstr "Welcome to TextMoney"
 
-#. Stable TxnCount key: ui.welcome_body; do not translate this identifier.
+#. Stable TextMoney key: ui.welcome_body; do not translate this identifier.
 msgid "ui.welcome_body"
 msgstr ""
 "Keep your accounts and expenses in a local plain-text Beancount file. "
 "Your data stays in the folder you choose. Cloud sync is optional and "
 "managed by your own sync app."
 
-#. Stable TxnCount key: ui.welcome_step; do not translate this identifier.
+#. Stable TextMoney key: ui.welcome_step; do not translate this identifier.
 msgid "ui.welcome_step"
 msgstr "Choose a folder to begin. You can create your first account next."
 
-#. Stable TxnCount key: ui.select_folder; do not translate this identifier.
+#. Stable TextMoney key: ui.select_folder; do not translate this identifier.
 msgid "ui.select_folder"
 msgstr "Choose data folder"
 
-#. Stable TxnCount key: ui.change_folder; do not translate this identifier.
+#. Stable TextMoney key: ui.change_folder; do not translate this identifier.
 msgid "ui.change_folder"
 msgstr "Change folder"
 
-#. Stable TxnCount key: ui.reload; do not translate this identifier.
+#. Stable TextMoney key: ui.reload; do not translate this identifier.
 msgid "ui.reload"
 msgstr "Reload data"
 
-#. Stable TxnCount key: ui.no_folder; do not translate this identifier.
+#. Stable TextMoney key: ui.no_folder; do not translate this identifier.
 msgid "ui.no_folder"
 msgstr "Choose a folder to get started."
 
-#. Stable TxnCount key: ui.folder; do not translate this identifier.
+#. Stable TextMoney key: ui.folder; do not translate this identifier.
 msgid "ui.folder"
 msgstr "Data folder"
 
-#. Stable TxnCount key: ui.folder_selected; do not translate this identifier.
+#. Stable TextMoney key: ui.folder_selected; do not translate this identifier.
 msgid "ui.folder_selected"
 msgstr "Folder selected"
 
-#. Stable TxnCount key: ui.access; do not translate this identifier.
+#. Stable TextMoney key: ui.access; do not translate this identifier.
 msgid "ui.access"
 msgstr "Folder access"
 
-#. Stable TxnCount key: ui.access_unchecked; do not translate this identifier.
+#. Stable TextMoney key: ui.access_unchecked; do not translate this identifier.
 msgid "ui.access_unchecked"
 msgstr "Access has not been checked."
 
-#. Stable TxnCount key: ui.access_ok; do not translate this identifier.
+#. Stable TextMoney key: ui.access_ok; do not translate this identifier.
 msgid "ui.access_ok"
 msgstr "Folder access is available."
 
-#. Stable TxnCount key: ui.access_failed; do not translate this identifier.
+#. Stable TextMoney key: ui.access_failed; do not translate this identifier.
 msgid "ui.access_failed"
 msgstr "Folder access could not be confirmed. Choose the folder again."
 
-#. Stable TxnCount key: ui.journal_loaded; do not translate this identifier.
+#. Stable TextMoney key: ui.journal_loaded; do not translate this identifier.
 msgid "ui.journal_loaded"
 msgstr "Your data is up to date."
 
-#. Stable TxnCount key: ui.journal_new; do not translate this identifier.
+#. Stable TextMoney key: ui.journal_new; do not translate this identifier.
 msgid "ui.journal_new"
 msgstr "Folder ready. Add your first account when you are ready."
 
-#. Stable TxnCount key: ui.external_reloaded; do not translate this identifier.
+#. Stable TextMoney key: ui.external_reloaded; do not translate this identifier.
 msgid "ui.external_reloaded"
 msgstr "External changes were loaded. Your form entries are unchanged."
 
-#. Stable TxnCount key: ui.reloaded; do not translate this identifier.
+#. Stable TextMoney key: ui.reloaded; do not translate this identifier.
 msgid "ui.reloaded"
 msgstr "Data reloaded. Your form entries are unchanged."
 
-#. Stable TxnCount key: ui.reload_hint; do not translate this identifier.
+#. Stable TextMoney key: ui.reload_hint; do not translate this identifier.
 msgid "ui.reload_hint"
 msgstr "Check the updated balance and history before retrying."
 
-#. Stable TxnCount key: ui.saved; do not translate this identifier.
+#. Stable TextMoney key: ui.saved; do not translate this identifier.
 msgid "ui.saved"
 msgstr "Saved and verified."
 
-#. Stable TxnCount key: ui.saved_backup; do not translate this identifier.
+#. Stable TextMoney key: ui.saved_backup; do not translate this identifier.
 msgid "ui.saved_backup"
 msgstr "Saved and verified. A backup was created."
 
-#. Stable TxnCount key: ui.backups_title; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_title; do not translate this identifier.
 msgid "ui.backups_title"
 msgstr "Backups"
 
-#. Stable TxnCount key: ui.backups_automatic; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_automatic; do not translate this identifier.
 msgid "ui.backups_automatic"
 msgstr "Automatically clean up old backups"
 
-#. Stable TxnCount key: ui.backups_policy; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_policy; do not translate this identifier.
 msgid "ui.backups_policy"
 msgstr ""
 "Keep the latest 20 copies, plus one per day for 30 calendar days and one "
 "per month for 12 calendar months (including today and this month)."
 
-#. Stable TxnCount key: ui.backups_protected; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_protected; do not translate this identifier.
 msgid "ui.backups_protected"
 msgstr ""
 "Recovery copies from unfinished writes, manual backups and older undated "
 "backups are never automatically deleted. Review those separately. "
 "Deletions propagate through synchronization."
 
-#. Stable TxnCount key: ui.backups_clean; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_clean; do not translate this identifier.
 msgid "ui.backups_clean"
 msgstr "Clean up old backups"
 
-#. Stable TxnCount key: ui.backups_cleaned; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_cleaned; do not translate this identifier.
 msgid "ui.backups_cleaned"
 msgstr "Backup cleanup completed. Protected copies were retained."
 
-#. Stable TxnCount key: ui.backups_saved_warning; do not translate this
+#. Stable TextMoney key: ui.backups_saved_warning; do not translate this
 #. identifier.
 msgid "ui.backups_saved_warning"
 msgstr ""
 "Changes saved and verified, but backup maintenance failed. Recovery "
 "copies were retained; check folder access and retry cleanup in Settings."
 
-#. Stable TxnCount key: ui.backups_setting_saved; do not translate this
+#. Stable TextMoney key: ui.backups_setting_saved; do not translate this
 #. identifier.
 msgid "ui.backups_setting_saved"
 msgstr "Backup cleanup preference saved on this device."
 
-#. Stable TxnCount key: ui.backups_setting_failed; do not translate this
+#. Stable TextMoney key: ui.backups_setting_failed; do not translate this
 #. identifier.
 msgid "ui.backups_setting_failed"
 msgstr "Could not save the backup cleanup preference. Try again."
 
-#. Stable TxnCount key: ui.backups_invalid_setting; do not translate this
+#. Stable TextMoney key: ui.backups_invalid_setting; do not translate this
 #. identifier.
 msgid "ui.backups_invalid_setting"
 msgstr "Invalid backup cleanup preference. Check the local settings file."
 
-#. Stable TxnCount key: ui.saved_new; do not translate this identifier.
+#. Stable TextMoney key: ui.saved_new; do not translate this identifier.
 msgid "ui.saved_new"
 msgstr "Saved and verified. This was a new file."
 
-#. Stable TxnCount key: ui.cancelled; do not translate this identifier.
+#. Stable TextMoney key: ui.cancelled; do not translate this identifier.
 msgid "ui.cancelled"
 msgstr "Folder selection cancelled. Nothing was changed."
 
-#. Stable TxnCount key: ui.action_failed; do not translate this identifier.
+#. Stable TextMoney key: ui.action_failed; do not translate this identifier.
 msgid "ui.action_failed"
 msgstr "Could not complete that action."
 
-#. Stable TxnCount key: ui.conflict_title; do not translate this identifier.
+#. Stable TextMoney key: ui.conflict_title; do not translate this identifier.
 msgid "ui.conflict_title"
 msgstr "Save paused"
 
-#. Stable TxnCount key: ui.conflict_body; do not translate this identifier.
+#. Stable TextMoney key: ui.conflict_body; do not translate this identifier.
 msgid "ui.conflict_body"
 msgstr ""
-"The journal changed outside TxnCount. Nothing was overwritten, and your "
+"The journal changed outside TextMoney. Nothing was overwritten, and your "
 "form entries are still here. Review external changes or reload. This stale form cannot be "
 "saved against a newer journal: keep your draft, then reopen a fresh form and re-enter it."
 
 msgid "ui.external_notice"
-msgstr "The journal changed outside TxnCount. Open drafts are retained, never rebased. Review changes, then reopen a fresh form before saving a stale draft."
+msgstr "The journal changed outside TextMoney. Open drafts are retained, never rebased. Review changes, then reopen a fresh form before saving a stale draft."
 
 msgid "ui.external_details"
 msgstr "Review external changes"
@@ -1114,7 +1120,7 @@ msgid "ui.external_diff"
 msgstr "Source differences (read only)"
 
 msgid "ui.conflict_copies"
-msgstr "Possible conflict copies (names only). The current journal remains active and saving is not blocked. Inspect these files externally; TxnCount will not read, merge, delete or activate them:"
+msgstr "Possible conflict copies (names only). The current journal remains active and saving is not blocked. Inspect these files externally; TextMoney will not read, merge, delete or activate them:"
 
 msgid "ui.conflict_copy_scan_failed"
 msgstr "Could not check sibling filenames for possible conflict copies. The current journal is still usable."
@@ -1131,104 +1137,104 @@ msgstr "The locally preferred fee category is unavailable or inactive in this jo
 msgid "ui.default_fee_invalid"
 msgstr "The local default fee category preference is invalid. Check this device's settings."
 
-#. Stable TxnCount key: ui.keep_editing; do not translate this identifier.
+#. Stable TextMoney key: ui.keep_editing; do not translate this identifier.
 msgid "ui.keep_editing"
 msgstr "Keep editing"
 
-#. Stable TxnCount key: ui.home_balances; do not translate this identifier.
+#. Stable TextMoney key: ui.home_balances; do not translate this identifier.
 msgid "ui.home_balances"
 msgstr "Your balances"
 
-#. Stable TxnCount key: ui.home_recent; do not translate this identifier.
+#. Stable TextMoney key: ui.home_recent; do not translate this identifier.
 msgid "ui.home_recent"
 msgstr "Recent activity"
 
-#. Stable TxnCount key: ui.home_no_accounts; do not translate this identifier.
+#. Stable TextMoney key: ui.home_no_accounts; do not translate this identifier.
 msgid "ui.home_no_accounts"
 msgstr "No accounts yet. Create one when you are ready."
 
-#. Stable TxnCount key: ui.home_no_transactions; do not translate this
+#. Stable TextMoney key: ui.home_no_transactions; do not translate this
 #. identifier.
 msgid "ui.home_no_transactions"
 msgstr "Your recent activity will appear here."
 
-#. Stable TxnCount key: ui.currency_group; do not translate this identifier.
+#. Stable TextMoney key: ui.currency_group; do not translate this identifier.
 msgid "ui.currency_group"
 msgstr "In {currency}"
 
-#. Stable TxnCount key: ui.transactions_title; do not translate this
+#. Stable TextMoney key: ui.transactions_title; do not translate this
 #. identifier.
 msgid "ui.transactions_title"
 msgstr "Transactions"
 
-#. Stable TxnCount key: ui.transactions_empty; do not translate this
+#. Stable TextMoney key: ui.transactions_empty; do not translate this
 #. identifier.
 msgid "ui.transactions_empty"
 msgstr "No transactions yet."
 
-#. Stable TxnCount key: ui.accounts_title; do not translate this identifier.
+#. Stable TextMoney key: ui.accounts_title; do not translate this identifier.
 msgid "ui.accounts_title"
 msgstr "Accounts"
 
-#. Stable TxnCount key: ui.accounts_empty; do not translate this identifier.
+#. Stable TextMoney key: ui.accounts_empty; do not translate this identifier.
 msgid "ui.accounts_empty"
 msgstr "No accounts yet."
 
-#. Stable TxnCount key: ui.categories_title; do not translate this identifier.
+#. Stable TextMoney key: ui.categories_title; do not translate this identifier.
 msgid "ui.categories_title"
 msgstr "Categories"
 
-#. Stable TxnCount key: ui.categories_expenses; do not translate this
+#. Stable TextMoney key: ui.categories_expenses; do not translate this
 #. identifier.
 msgid "ui.categories_expenses"
 msgstr "Expenses"
 
-#. Stable TxnCount key: ui.categories_income; do not translate this identifier.
+#. Stable TextMoney key: ui.categories_income; do not translate this identifier.
 msgid "ui.categories_income"
 msgstr "Income"
 
-#. Stable TxnCount key: ui.categories_empty; do not translate this identifier.
+#. Stable TextMoney key: ui.categories_empty; do not translate this identifier.
 msgid "ui.categories_empty"
 msgstr "No categories yet."
 
-#. Stable TxnCount key: ui.create_account; do not translate this identifier.
-#. Stable TxnCount key: ui.code_suggestion_status; do not translate this identifier.
+#. Stable TextMoney key: ui.create_account; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_status; do not translate this identifier.
 msgid "ui.code_suggestion_status"
 msgstr "Suggested code. You can edit it anytime."
 
-#. Stable TxnCount key: ui.code_suggestion_manual; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_manual; do not translate this identifier.
 msgid "ui.code_suggestion_manual"
 msgstr "Custom code. It will be checked before saving."
 
-#. Stable TxnCount key: ui.code_suggestion_collision; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_collision; do not translate this identifier.
 msgid "ui.code_suggestion_collision"
 msgstr "This code is already used: {code}"
 
-#. Stable TxnCount key: ui.code_suggestion_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_invalid; do not translate this identifier.
 msgid "ui.code_suggestion_invalid"
 msgstr "This code is invalid for the selected type or parent."
 
-#. Stable TxnCount key: ui.code_suggestion_regenerate; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_regenerate; do not translate this identifier.
 msgid "ui.code_suggestion_regenerate"
 msgstr "Regenerate"
 
-#. Stable TxnCount key: ui.code_suggestion_alternatives; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_alternatives; do not translate this identifier.
 msgid "ui.code_suggestion_alternatives"
 msgstr "Other suggestions"
 
-#. Stable TxnCount key: ui.code_suggestion_parent; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_parent; do not translate this identifier.
 msgid "ui.code_suggestion_parent"
 msgstr "Parent category (optional)"
 
-#. Stable TxnCount key: ui.category_parent_none; do not translate this identifier.
+#. Stable TextMoney key: ui.category_parent_none; do not translate this identifier.
 msgid "ui.category_parent_none"
 msgstr "No parent"
 
-#. Stable TxnCount key: ui.crud_code_collision; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_code_collision; do not translate this identifier.
 msgid "ui.crud_code_collision"
 msgstr "This account or category code already exists."
 
-#. Stable TxnCount key: ui.crud_code_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_code_invalid; do not translate this identifier.
 msgid "ui.crud_code_invalid"
 msgstr "Enter a valid code under the selected type and parent."
 
@@ -1238,491 +1244,491 @@ msgstr "Create account"
 msgid "ui.create_budget"
 msgstr "Create budget"
 
-#. Stable TxnCount key: ui.account_name; do not translate this identifier.
+#. Stable TextMoney key: ui.account_name; do not translate this identifier.
 msgid "ui.account_name"
 msgstr "Account name"
 
-#. Stable TxnCount key: ui.account_code; do not translate this identifier.
+#. Stable TextMoney key: ui.account_code; do not translate this identifier.
 msgid "ui.account_code"
 msgstr "Account code (advanced)"
 
-#. Stable TxnCount key: ui.account_code_hint; do not translate this identifier.
+#. Stable TextMoney key: ui.account_code_hint; do not translate this identifier.
 msgid "ui.account_code_hint"
 msgstr "For example, Cash or Bank:Daily"
 
-#. Stable TxnCount key: ui.currency; do not translate this identifier.
+#. Stable TextMoney key: ui.currency; do not translate this identifier.
 msgid "ui.currency"
 msgstr "Currency"
 
-#. Stable TxnCount key: ui.opening_balance; do not translate this identifier.
+#. Stable TextMoney key: ui.opening_balance; do not translate this identifier.
 msgid "ui.opening_balance"
 msgstr "Opening balance (optional)"
 
-#. Stable TxnCount key: ui.create_category; do not translate this identifier.
+#. Stable TextMoney key: ui.create_category; do not translate this identifier.
 msgid "ui.create_category"
 msgstr "Create category"
 
-#. Stable TxnCount key: ui.category_path; do not translate this identifier.
+#. Stable TextMoney key: ui.category_path; do not translate this identifier.
 msgid "ui.category_path"
 msgstr "Category path"
 
-#. Stable TxnCount key: ui.category_path_hint; do not translate this
+#. Stable TextMoney key: ui.category_path_hint; do not translate this
 #. identifier.
 msgid "ui.category_path_hint"
 msgstr "For example, Food:Groceries"
 
-#. Stable TxnCount key: ui.category_none_available; do not translate this
+#. Stable TextMoney key: ui.category_none_available; do not translate this
 #. identifier.
 msgid "ui.category_none_available"
 msgstr "No categories yet — add one"
 
-#. Stable TxnCount key: ui.category_name; do not translate this identifier.
+#. Stable TextMoney key: ui.category_name; do not translate this identifier.
 msgid "ui.category_name"
 msgstr "Category name"
 
-#. Stable TxnCount key: ui.pay_from; do not translate this identifier.
+#. Stable TextMoney key: ui.pay_from; do not translate this identifier.
 msgid "ui.pay_from"
 msgstr "Pay from"
 
-#. Stable TxnCount key: ui.choose_account; do not translate this identifier.
+#. Stable TextMoney key: ui.choose_account; do not translate this identifier.
 msgid "ui.choose_account"
 msgstr "Choose an account"
 
-#. Stable TxnCount key: ui.expense_category; do not translate this identifier.
+#. Stable TextMoney key: ui.expense_category; do not translate this identifier.
 msgid "ui.expense_category"
 msgstr "Category"
 
-#. Stable TxnCount key: ui.choose_category; do not translate this identifier.
+#. Stable TextMoney key: ui.choose_category; do not translate this identifier.
 msgid "ui.choose_category"
 msgstr "Choose a category"
 
-#. Stable TxnCount key: ui.amount; do not translate this identifier.
+#. Stable TextMoney key: ui.amount; do not translate this identifier.
 msgid "ui.amount"
 msgstr "Amount"
 
-#. Stable TxnCount key: ui.payee; do not translate this identifier.
+#. Stable TextMoney key: ui.payee; do not translate this identifier.
 msgid "ui.payee"
 msgstr "Shop / recipient (optional)"
 
-#. Stable TxnCount key: ui.date; do not translate this identifier.
+#. Stable TextMoney key: ui.date; do not translate this identifier.
 msgid "ui.date"
 msgstr "Date"
 
-#. Stable TxnCount key: ui.initial_date; do not translate this identifier.
+#. Stable TextMoney key: ui.initial_date; do not translate this identifier.
 msgid "ui.initial_date"
 msgstr "Initial"
 
-#. Stable TxnCount key: ui.kind_opening; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_opening; do not translate this identifier.
 msgid "ui.kind_opening"
 msgstr "Opening balance"
 
-#. Stable TxnCount key: ui.kind_expense; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_expense; do not translate this identifier.
 msgid "ui.kind_expense"
 msgstr "Expense"
 
-#. Stable TxnCount key: ui.kind_external; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_external; do not translate this identifier.
 msgid "ui.kind_external"
 msgstr "Transaction"
 
-#. Stable TxnCount key: ui.settings_title; do not translate this identifier.
+#. Stable TextMoney key: ui.settings_title; do not translate this identifier.
 msgid "ui.settings_title"
 msgstr "Settings"
 
-#. Stable TxnCount key: ui.language; do not translate this identifier.
+#. Stable TextMoney key: ui.language; do not translate this identifier.
 msgid "ui.language"
 msgstr "Language"
 
-#. Stable TxnCount key: ui.language_system; do not translate this identifier.
+#. Stable TextMoney key: ui.language_system; do not translate this identifier.
 msgid "ui.language_system"
 msgstr "System"
 
-#. Stable TxnCount key: ui.error_system_language; do not translate this
+#. Stable TextMoney key: ui.error_system_language; do not translate this
 #. identifier.
 msgid "ui.error_system_language"
 msgstr ""
 "Could not read the device language. Restart the app or select a language "
 "explicitly."
 
-#. Stable TxnCount key: ui.language_en; do not translate this identifier.
+#. Stable TextMoney key: ui.language_en; do not translate this identifier.
 msgid "ui.language_en"
 msgstr "English"
 
-#. Stable TxnCount key: ui.language_uk; do not translate this identifier.
+#. Stable TextMoney key: ui.language_uk; do not translate this identifier.
 msgid "ui.language_uk"
 msgstr "Українська"
 
-#. Stable TxnCount key: ui.language_ru; do not translate this identifier.
+#. Stable TextMoney key: ui.language_ru; do not translate this identifier.
 msgid "ui.language_ru"
 msgstr "Русский"
 
-#. Stable TxnCount key: ui.language_name; do not translate this identifier.
+#. Stable TextMoney key: ui.language_name; do not translate this identifier.
 msgid "ui.language_name"
 msgstr "English"
 
-#. Stable TxnCount key: ui.appearance; do not translate this identifier.
+#. Stable TextMoney key: ui.appearance; do not translate this identifier.
 msgid "ui.appearance"
 msgstr "Appearance"
 
-#. Stable TxnCount key: ui.theme_system; do not translate this identifier.
+#. Stable TextMoney key: ui.theme_system; do not translate this identifier.
 msgid "ui.theme_system"
 msgstr "Use device setting"
 
-#. Stable TxnCount key: ui.theme_light; do not translate this identifier.
+#. Stable TextMoney key: ui.theme_light; do not translate this identifier.
 msgid "ui.theme_light"
 msgstr "Light"
 
-#. Stable TxnCount key: ui.theme_dark; do not translate this identifier.
+#. Stable TextMoney key: ui.theme_dark; do not translate this identifier.
 msgid "ui.theme_dark"
 msgstr "Dark"
 
-#. Stable TxnCount key: ui.storage_section; do not translate this identifier.
+#. Stable TextMoney key: ui.storage_section; do not translate this identifier.
 msgid "ui.storage_section"
 msgstr "Your data"
 
-#. Stable TxnCount key: ui.storage_explanation; do not translate this
+#. Stable TextMoney key: ui.storage_explanation; do not translate this
 #. identifier.
 msgid "ui.storage_explanation"
 msgstr ""
 "Your journal is a plain-text file in Beancount format in this folder. "
-"TxnCount does not upload it. To sync between devices, use a sync app you "
+"TextMoney does not upload it. To sync between devices, use a sync app you "
 "trust (such as Dropbox or Dropsync)."
 
-#. Stable TxnCount key: ui.storage_filename; do not translate this identifier.
+#. Stable TextMoney key: ui.storage_filename; do not translate this identifier.
 msgid "ui.storage_filename"
-msgstr "Journal file: txncount.beancount"
+msgstr "Journal file: textmoney.beancount"
 
-#. Stable TxnCount key: ui.about; do not translate this identifier.
+#. Stable TextMoney key: ui.about; do not translate this identifier.
 msgid "ui.about"
-msgstr "About TxnCount"
+msgstr "About TextMoney"
 
-#. Stable TxnCount key: ui.about_body; do not translate this identifier.
+#. Stable TextMoney key: ui.about_body; do not translate this identifier.
 msgid "ui.about_body"
 msgstr ""
 "Offline-first personal expense tracking. Your files remain under your "
 "control."
 
-#. Stable TxnCount key: ui.diagnostics; do not translate this identifier.
+#. Stable TextMoney key: ui.diagnostics; do not translate this identifier.
 msgid "ui.diagnostics"
 msgstr "Technical diagnostics"
 
-#. Stable TxnCount key: ui.diagnostics_show; do not translate this identifier.
+#. Stable TextMoney key: ui.diagnostics_show; do not translate this identifier.
 msgid "ui.diagnostics_show"
 msgstr "Show diagnostics"
 
-#. Stable TxnCount key: ui.diagnostics_hide; do not translate this identifier.
+#. Stable TextMoney key: ui.diagnostics_hide; do not translate this identifier.
 msgid "ui.diagnostics_hide"
 msgstr "Hide diagnostics"
 
-#. Stable TxnCount key: ui.app_version; do not translate this identifier.
+#. Stable TextMoney key: ui.app_version; do not translate this identifier.
 msgid "ui.app_version"
 msgstr "App version"
 
-#. Stable TxnCount key: ui.account_created; do not translate this identifier.
+#. Stable TextMoney key: ui.account_created; do not translate this identifier.
 msgid "ui.account_created"
 msgstr "Account created."
 
-#. Stable TxnCount key: ui.category_created; do not translate this identifier.
+#. Stable TextMoney key: ui.category_created; do not translate this identifier.
 msgid "ui.category_created"
 msgstr "Category created."
 
-#. Stable TxnCount key: ui.form_error; do not translate this identifier.
+#. Stable TextMoney key: ui.form_error; do not translate this identifier.
 msgid "ui.form_error"
 msgstr "Please check the information and try again."
 
-#. Stable TxnCount key: ui.error_reload; do not translate this identifier.
+#. Stable TextMoney key: ui.error_reload; do not translate this identifier.
 msgid "ui.error_reload"
 msgstr "Reload a valid journal first. Your form entries are retained."
 
-#. Stable TxnCount key: ui.error_folder_starting; do not translate this
+#. Stable TextMoney key: ui.error_folder_starting; do not translate this
 #. identifier.
 msgid "ui.error_folder_starting"
 msgstr "Folder access is starting. Please try again."
 
-#. Stable TxnCount key: ui.error_select_folder_first; do not translate this
+#. Stable TextMoney key: ui.error_select_folder_first; do not translate this
 #. identifier.
 msgid "ui.error_select_folder_first"
 msgstr "Choose a data folder first."
 
-#. Stable TxnCount key: ui.error_duplicate_account; do not translate this
+#. Stable TextMoney key: ui.error_duplicate_account; do not translate this
 #. identifier.
 msgid "ui.error_duplicate_account"
 msgstr "That account code is already in use."
 
-#. Stable TxnCount key: ui.error_duplicate_category; do not translate this
+#. Stable TextMoney key: ui.error_duplicate_category; do not translate this
 #. identifier.
 msgid "ui.error_duplicate_category"
 msgstr "That category already exists."
 
-#. Stable TxnCount key: ui.error_date_format; do not translate this identifier.
+#. Stable TextMoney key: ui.error_date_format; do not translate this identifier.
 msgid "ui.error_date_format"
 msgstr "Enter the date as YYYY-MM-DD."
 
-#. Stable TxnCount key: ui.error_amount_format; do not translate this
+#. Stable TextMoney key: ui.error_amount_format; do not translate this
 #. identifier.
 msgid "ui.error_amount_format"
 msgstr "Enter a nonnegative amount with up to two decimal places."
 
-#. Stable TxnCount key: ui.error_amount_invalid; do not translate this
+#. Stable TextMoney key: ui.error_amount_invalid; do not translate this
 #. identifier.
 msgid "ui.error_amount_invalid"
 msgstr "That amount is not valid."
 
-#. Stable TxnCount key: ui.error_amount_range; do not translate this
+#. Stable TextMoney key: ui.error_amount_range; do not translate this
 #. identifier.
 msgid "ui.error_amount_range"
 msgstr ""
 "Amounts can have up to 12 digits before and 2 digits after the decimal "
 "point."
 
-#. Stable TxnCount key: ui.error_identifier; do not translate this identifier.
+#. Stable TextMoney key: ui.error_identifier; do not translate this identifier.
 msgid "ui.error_identifier"
 msgstr "Use uppercase-starting path segments separated by colons."
 
-#. Stable TxnCount key: ui.error_name; do not translate this identifier.
+#. Stable TextMoney key: ui.error_name; do not translate this identifier.
 msgid "ui.error_name"
 msgstr "Enter a name of 1 to 120 characters without control characters."
 
-#. Stable TxnCount key: ui.error_currency; do not translate this identifier.
+#. Stable TextMoney key: ui.error_currency; do not translate this identifier.
 msgid "ui.error_currency"
 msgstr "Enter a three-letter currency code, such as UAH, USD or EUR."
 
-#. Stable TxnCount key: ui.error_negative; do not translate this identifier.
+#. Stable TextMoney key: ui.error_negative; do not translate this identifier.
 msgid "ui.error_negative"
 msgstr "There is not enough money in this account for that expense."
 
-#. Stable TxnCount key: ui.error_expense_positive; do not translate this
+#. Stable TextMoney key: ui.error_expense_positive; do not translate this
 #. identifier.
 msgid "ui.error_expense_positive"
 msgstr "The expense amount must be greater than zero."
 
-#. Stable TxnCount key: ui.error_expense_date; do not translate this
+#. Stable TextMoney key: ui.error_expense_date; do not translate this
 #. identifier.
 msgid "ui.error_expense_date"
 msgstr "Choose a date from 1970-01-01 through today."
 
-#. Stable TxnCount key: ui.error_future_transaction; do not translate this
+#. Stable TextMoney key: ui.error_future_transaction; do not translate this
 #. identifier.
 msgid "ui.error_future_transaction"
 msgstr "Future-dated transactions are not supported."
 
-#. Stable TxnCount key: ui.error_choose_account_category; do not translate this
+#. Stable TextMoney key: ui.error_choose_account_category; do not translate this
 #. identifier.
 msgid "ui.error_choose_account_category"
 msgstr "Choose an account and category created in this app."
 
-#. Stable TxnCount key: ui.error_conflict; do not translate this identifier.
+#. Stable TextMoney key: ui.error_conflict; do not translate this identifier.
 msgid "ui.error_conflict"
 msgstr ""
-"The journal changed outside TxnCount. Nothing was overwritten. Reload "
+"The journal changed outside TextMoney. Nothing was overwritten. Reload "
 "before saving."
 
-#. Stable TxnCount key: ui.error_invalid_journal; do not translate this
+#. Stable TextMoney key: ui.error_invalid_journal; do not translate this
 #. identifier.
 msgid "ui.error_invalid_journal"
 msgstr ""
 "The journal contains invalid or unsupported accounting data. It was not "
 "changed."
 
-#. Stable TxnCount key: ui.error_unsupported; do not translate this identifier.
+#. Stable TextMoney key: ui.error_unsupported; do not translate this identifier.
 msgid "ui.error_unsupported"
 msgstr ""
 "This journal uses an accounting feature not supported here. It was not "
 "changed."
 
-#. Stable TxnCount key: ui.error_unbalanced; do not translate this identifier.
+#. Stable TextMoney key: ui.error_unbalanced; do not translate this identifier.
 msgid "ui.error_unbalanced"
 msgstr ""
 "The transaction is unbalanced or uses multiple currencies. It was not "
 "changed."
 
-#. Stable TxnCount key: ui.error_undeclared; do not translate this identifier.
+#. Stable TextMoney key: ui.error_undeclared; do not translate this identifier.
 msgid "ui.error_undeclared"
 msgstr "A transaction refers to an account that has not been created."
 
-#. Stable TxnCount key: ui.error_currency_mismatch; do not translate this
+#. Stable TextMoney key: ui.error_currency_mismatch; do not translate this
 #. identifier.
 msgid "ui.error_currency_mismatch"
 msgstr "The transaction currency does not match the account currency."
 
-#. Stable TxnCount key: ui.error_duplicate_id; do not translate this
+#. Stable TextMoney key: ui.error_duplicate_id; do not translate this
 #. identifier.
 msgid "ui.error_duplicate_id"
 msgstr ""
 "A transaction ID is duplicated. Resolve this in the journal file before "
 "saving."
 
-#. Stable TxnCount key: ui.error_transaction_shape; do not translate this
+#. Stable TextMoney key: ui.error_transaction_shape; do not translate this
 #. identifier.
 msgid "ui.error_transaction_shape"
 msgstr "Each transaction must have at least two explicit entries."
 
-#. Stable TxnCount key: ui.error_date_order; do not translate this identifier.
+#. Stable TextMoney key: ui.error_date_order; do not translate this identifier.
 msgid "ui.error_date_order"
 msgstr "A transaction is earlier than its account or category."
 
-#. Stable TxnCount key: ui.error_utf8; do not translate this identifier.
+#. Stable TextMoney key: ui.error_utf8; do not translate this identifier.
 msgid "ui.error_utf8"
 msgstr "The journal is not valid UTF-8. The file was not changed."
 
-#. Stable TxnCount key: ui.error_not_ready; do not translate this identifier.
+#. Stable TextMoney key: ui.error_not_ready; do not translate this identifier.
 msgid "ui.error_not_ready"
 msgstr "Read the journal before saving."
 
-#. Stable TxnCount key: ui.error_no_backup_source; do not translate this
+#. Stable TextMoney key: ui.error_no_backup_source; do not translate this
 #. identifier.
 msgid "ui.error_no_backup_source"
 msgstr "There is no existing file to back up."
 
-#. Stable TxnCount key: ui.error_backup; do not translate this identifier.
+#. Stable TextMoney key: ui.error_backup; do not translate this identifier.
 msgid "ui.error_backup"
 msgstr "Could not verify a backup. The journal was not changed."
 
-#. Stable TxnCount key: ui.error_write_uncertain; do not translate this
+#. Stable TextMoney key: ui.error_write_uncertain; do not translate this
 #. identifier.
 msgid "ui.error_write_uncertain"
 msgstr ""
 "The save may not have completed. Reload and check history and backups "
 "before trying again."
 
-#. Stable TxnCount key: ui.error_read; do not translate this identifier.
+#. Stable TextMoney key: ui.error_read; do not translate this identifier.
 msgid "ui.error_read"
 msgstr "Could not read the journal. Check folder access."
 
-#. Stable TxnCount key: ui.error_folder_missing; do not translate this
+#. Stable TextMoney key: ui.error_folder_missing; do not translate this
 #. identifier.
 msgid "ui.error_folder_missing"
 msgstr "The folder is unavailable. Choose it again."
 
-#. Stable TxnCount key: ui.error_file_disappeared; do not translate this
+#. Stable TextMoney key: ui.error_file_disappeared; do not translate this
 #. identifier.
 msgid "ui.error_file_disappeared"
 msgstr "The journal disappeared. Restore it before reloading."
 
-#. Stable TxnCount key: ui.error_grant; do not translate this identifier.
+#. Stable TextMoney key: ui.error_grant; do not translate this identifier.
 msgid "ui.error_grant"
 msgstr "Read/write access is missing. Choose the folder again."
 
-#. Stable TxnCount key: ui.error_symlink; do not translate this identifier.
+#. Stable TextMoney key: ui.error_symlink; do not translate this identifier.
 msgid "ui.error_symlink"
 msgstr "The selected journal location is unsafe. Choose a regular local folder."
 
-#. Stable TxnCount key: ui.error_invalid_response; do not translate this
+#. Stable TextMoney key: ui.error_invalid_response; do not translate this
 #. identifier.
 msgid "ui.error_invalid_response"
 msgstr "The storage provider returned an invalid response."
 
-#. Stable TxnCount key: ui.error_storage_generic; do not translate this
+#. Stable TextMoney key: ui.error_storage_generic; do not translate this
 #. identifier.
 msgid "ui.error_storage_generic"
 msgstr "A storage operation failed. Check folder access and free space."
 
-#. Stable TxnCount key: ui.error_timeout; do not translate this identifier.
+#. Stable TextMoney key: ui.error_timeout; do not translate this identifier.
 msgid "ui.error_timeout"
 msgstr ""
 "Storage timed out. The save result may be uncertain; reload and check the"
 " journal and backup before retrying."
 
-#. Stable TxnCount key: ui.error_unexpected; do not translate this identifier.
+#. Stable TextMoney key: ui.error_unexpected; do not translate this identifier.
 msgid "ui.error_unexpected"
 msgstr "Something unexpected happened. Saving is paused; check diagnostics."
 
-#. Stable TxnCount key: ui.error_language_save; do not translate this
+#. Stable TextMoney key: ui.error_language_save; do not translate this
 #. identifier.
 msgid "ui.error_language_save"
 msgstr "The language could not be saved. Your current choice remains active."
 
-#. Stable TxnCount key: ui.error_theme_save; do not translate this identifier.
+#. Stable TextMoney key: ui.error_theme_save; do not translate this identifier.
 msgid "ui.error_theme_save"
 msgstr "The appearance setting could not be saved."
 
-#. Stable TxnCount key: ui.account_list_title; do not translate this
+#. Stable TextMoney key: ui.account_list_title; do not translate this
 #. identifier.
 msgid "ui.account_list_title"
 msgstr "Your accounts"
 
-#. Stable TxnCount key: ui.category_form_title; do not translate this
+#. Stable TextMoney key: ui.category_form_title; do not translate this
 #. identifier.
 msgid "ui.category_form_title"
 msgstr "Add a category"
 
-#. Stable TxnCount key: ui.account_form_title; do not translate this
+#. Stable TextMoney key: ui.account_form_title; do not translate this
 #. identifier.
 msgid "ui.account_form_title"
 msgstr "Add an account"
 
-#. Stable TxnCount key: ui.sync_status; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_status; do not translate this identifier.
 msgid "ui.sync_status"
 msgstr "External changes are checked automatically."
 
-#. Stable TxnCount key: ui.operation_category; do not translate this
+#. Stable TextMoney key: ui.operation_category; do not translate this
 #. identifier.
 msgid "ui.operation_category"
 msgstr "Category"
 
-#. Stable TxnCount key: ui.operation_account; do not translate this identifier.
+#. Stable TextMoney key: ui.operation_account; do not translate this identifier.
 msgid "ui.operation_account"
 msgstr "Account"
 
-#. Stable TxnCount key: ui.operation_amount; do not translate this identifier.
+#. Stable TextMoney key: ui.operation_amount; do not translate this identifier.
 msgid "ui.operation_amount"
 msgstr "Amount"
 
-#. Stable TxnCount key: ui.technical_id; do not translate this identifier.
+#. Stable TextMoney key: ui.technical_id; do not translate this identifier.
 msgid "ui.technical_id"
 msgstr "Technical ID"
 
-#. Stable TxnCount key: ui.status_new_file; do not translate this identifier.
+#. Stable TextMoney key: ui.status_new_file; do not translate this identifier.
 msgid "ui.status_new_file"
 msgstr "A journal will be created when you save your first account."
 
-#. Stable TxnCount key: ui.no_activity; do not translate this identifier.
+#. Stable TextMoney key: ui.no_activity; do not translate this identifier.
 msgid "ui.no_activity"
 msgstr "Nothing to show yet."
 
-#. Stable TxnCount key: ui.crud_edit; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_edit; do not translate this identifier.
 msgid "ui.crud_edit"
 msgstr "Edit"
 
-#. Stable TxnCount key: ui.crud_delete; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_delete; do not translate this identifier.
 msgid "ui.crud_delete"
 msgstr "Delete"
 
-#. Stable TxnCount key: ui.crud_save; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_save; do not translate this identifier.
 msgid "ui.crud_save"
 msgstr "Save changes"
 
-#. Stable TxnCount key: ui.crud_cancel; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_cancel; do not translate this identifier.
 msgid "ui.crud_cancel"
 msgstr "Cancel"
 
-#. Stable TxnCount key: ui.crud_active; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_active; do not translate this identifier.
 msgid "ui.crud_active"
 msgstr "Active (available for new expenses)"
 
-#. Stable TxnCount key: ui.crud_inactive_label; do not translate this
+#. Stable TextMoney key: ui.crud_inactive_label; do not translate this
 #. identifier.
 msgid "ui.crud_inactive_label"
 msgstr "Inactive"
 
-#. Stable TxnCount key: ui.crud_description_label; do not translate this
+#. Stable TextMoney key: ui.crud_description_label; do not translate this
 #. identifier.
 msgid "ui.crud_description_label"
 msgstr "Description"
 
-#. Stable TxnCount key: ui.crud_timestamp; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_timestamp; do not translate this identifier.
 msgid "ui.crud_timestamp"
 msgstr "Date/time (ISO, with timezone)"
 
-#. Stable TxnCount key: ui.crud_timestamp_hint; do not translate this
+#. Stable TextMoney key: ui.crud_timestamp_hint; do not translate this
 #. identifier.
 msgid "ui.crud_timestamp_hint"
 msgstr "Leave blank for the current time, or enter 2026-01-01T12:00:00+02:00"
 
-#. Stable TxnCount key: ui.crud_operating; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_operating; do not translate this identifier.
 msgid "ui.crud_operating"
 msgstr "Journal display currencies"
 
-#. Stable TxnCount key: ui.crud_operating_help; do not translate this
+#. Stable TextMoney key: ui.crud_operating_help; do not translate this
 #. identifier.
 msgid "ui.crud_operating_help"
 msgstr ""
@@ -1730,24 +1736,24 @@ msgstr ""
 "compatible applications. Accounts keep their own currencies; this setting"
 " does not convert money or combine balances."
 
-#. Stable TxnCount key: ui.crud_confirm; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_confirm; do not translate this identifier.
 msgid "ui.crud_confirm"
 msgstr "Permanently delete?"
 
-#. Stable TxnCount key: ui.crud_confirm_body; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_confirm_body; do not translate this identifier.
 msgid "ui.crud_confirm_body"
 msgstr ""
 "This removes the entry from the journal, not a reversing entry. A "
 "verified backup is created before saving. Continue?"
 
-#. Stable TxnCount key: ui.crud_account_help; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_account_help; do not translate this identifier.
 msgid "ui.crud_account_help"
 msgstr ""
 "Technical ID and currency cannot change. Accounts with history (including"
 " an opening entry) can only be deactivated. Lower opening balances must "
 "still cover all expenses."
 
-#. Stable TxnCount key: ui.crud_category_help; do not translate this
+#. Stable TextMoney key: ui.crud_category_help; do not translate this
 #. identifier.
 msgid "ui.crud_category_help"
 msgstr ""
@@ -1755,81 +1761,81 @@ msgstr ""
 " deleted. Deactivating a parent also hides its descendants from new "
 "expenses."
 
-#. Stable TxnCount key: ui.crud_transaction_readonly; do not translate this
+#. Stable TextMoney key: ui.crud_transaction_readonly; do not translate this
 #. identifier.
 msgid "ui.crud_transaction_readonly"
 msgstr ""
-"Only TxnCount two-posting expenses with persistent IDs can be edited or "
+"Only TextMoney two-posting expenses with persistent IDs can be edited or "
 "deleted here. Change opening balances in Accounts. Split and external "
 "entries remain read-only."
 
-#. Stable TxnCount key: ui.crud_inactive; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_inactive; do not translate this identifier.
 msgid "ui.crud_inactive"
 msgstr ""
 "Reactivate the account/category (and its parents) before using it for an "
 "expense."
 
-#. Stable TxnCount key: ui.crud_active_invalid; do not translate this
+#. Stable TextMoney key: ui.crud_active_invalid; do not translate this
 #. identifier.
 msgid "ui.crud_active_invalid"
 msgstr ""
 "Invalid active-state metadata. Expected TRUE or FALSE; the journal is "
 "unchanged."
 
-#. Stable TxnCount key: ui.crud_lossless; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_lossless; do not translate this identifier.
 msgid "ui.crud_lossless"
 msgstr "A lossless edit could not be guaranteed. The journal was not changed."
 
-#. Stable TxnCount key: ui.crud_stale; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_stale; do not translate this identifier.
 msgid "ui.crud_stale"
 msgstr ""
 "Data changed after this form was opened. No overwrite. Cancel and reopen "
 "the form after reviewing the current data."
 
-#. Stable TxnCount key: ui.crud_missing; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_missing; do not translate this identifier.
 msgid "ui.crud_missing"
 msgstr "The selected account/category no longer exists. Reload the journal."
 
-#. Stable TxnCount key: ui.crud_datetime; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_datetime; do not translate this identifier.
 msgid "ui.crud_datetime"
 msgstr "Enter a valid date and an ISO date/time including a timezone."
 
-#. Stable TxnCount key: ui.crud_description; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_description; do not translate this identifier.
 msgid "ui.crud_description"
 msgstr ""
 "Description must be at most 500 characters. Line breaks are allowed; "
 "other control characters are not."
 
-#. Stable TxnCount key: ui.crud_currencies; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_currencies; do not translate this identifier.
 msgid "ui.crud_currencies"
 msgstr "Specify at least one three-letter display currency, e.g. UAH USD."
 
-#. Stable TxnCount key: ui.crud_opening_complex; do not translate this
+#. Stable TextMoney key: ui.crud_opening_complex; do not translate this
 #. identifier.
 msgid "ui.crud_opening_complex"
 msgstr ""
 "This opening balance has multiple or complex entries. It cannot be "
 "changed safely here; use an external Beancount editor."
 
-#. Stable TxnCount key: ui.crud_opening_help; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_opening_help; do not translate this identifier.
 msgid "ui.crud_opening_help"
 msgstr ""
 "Change the amount here or in Edit account. The original dates and "
 "metadata are retained."
 
-#. Stable TxnCount key: ui.crud_children; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_children; do not translate this identifier.
 msgid "ui.crud_children"
 msgstr ""
 "This category has children. Delete unused children first, or deactivate "
 "the parent."
 
-#. Stable TxnCount key: ui.crud_has_history; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_has_history; do not translate this identifier.
 msgid "ui.crud_has_history"
 msgstr ""
 "This account/category has transaction history and cannot be deleted. Use "
 "the Active checkbox to deactivate or reactivate it."
 
-#. Stable TxnCount key: ui.crud_referenced; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_referenced; do not translate this identifier.
 msgid "ui.crud_referenced"
 msgstr ""
 "Other journal directives reference this account/category. Delete is "
@@ -1893,26 +1899,26 @@ msgstr[1] ""
 "Eligible for deletion: {count} files, {size} bytes. Recent, daily and "
 "monthly copies stay. The list will be checked again before cleanup."
 
-#. Stable TxnCount key; date on which a new account is declared.
+#. Stable TextMoney key; date on which a new account is declared.
 msgid "ui.account_opened_date"
 msgstr "Account opening date"
 
-#. Stable TxnCount key; date on which a new category becomes available.
+#. Stable TextMoney key; date on which a new category becomes available.
 msgid "ui.category_available_date"
 msgstr "Category availability date"
 
-#. Stable TxnCount key; accounting date for an opening-balance transaction.
+#. Stable TextMoney key; accounting date for an opening-balance transaction.
 msgid "ui.opening_balance_date"
 msgstr "Opening-balance effective date"
 
-#. Stable TxnCount key; validation error for a newly entered declaration date.
+#. Stable TextMoney key; validation error for a newly entered declaration date.
 msgid "ui.crud_record_date"
 msgstr "Choose a date between 1970-01-01 and today."
 
-#. Stable TxnCount key; an opening balance cannot predate its account.
+#. Stable TextMoney key; an opening balance cannot predate its account.
 msgid "ui.crud_opening_before_account"
 msgstr "The opening-balance date cannot be before the account opening date."
 
-#. Stable TxnCount key; a child category cannot predate its parent.
+#. Stable TextMoney key; a child category cannot predate its parent.
 msgid "ui.crud_category_before_parent"
 msgstr "The category availability date cannot be before its parent category."

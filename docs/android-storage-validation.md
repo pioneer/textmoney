@@ -7,7 +7,7 @@ links use current diagnostic names. The explicitly labelled
 [current recovery section](#current-android-save-recovery) is maintained separately
 from the Stage 1 history. For current behavior use [Data safety](data-safety.md),
 [Testing](testing.md) and [version metadata](development.md#version-metadata).
-Download binaries from [GitHub Releases](https://github.com/pioneer/txncount/releases/latest).
+Download binaries from [GitHub Releases](https://github.com/pioneer/textmoney/releases/latest).
 
 **Verdict: PASS (user-confirmed physical-device testing, 2026-10-18).**
 At the start of Stage 2 the user confirmed that the Android Storage PoC
@@ -138,7 +138,7 @@ installed, no financial files were accessed, and nothing was committed/pushed.
 
 This section records the APK used for the successful Storage PoC phone test.
 The local output below is not retained as a downloadable artifact. Use
-[published releases](https://github.com/pioneer/txncount/releases/latest) for
+[published releases](https://github.com/pioneer/textmoney/releases/latest) for
 current downloads/checksums; the [Stage 2 report](beancount-compatibility.md#stage-2-history)
 records a different historical build.
 
@@ -226,7 +226,7 @@ or task cancellation does not cancel it. `saf_util` 3.1.1 rename delegates to
 `DocumentFile.renameTo` / `DocumentsContract.renameDocument`. Neither dependency
 establishes an atomic replace-existing operation or physical-durability contract.
 Renaming a staging document after deleting the journal would add a dangerous
-missing-file window. TxnCount therefore keeps direct provider writes and never
+missing-file window. TextMoney therefore keeps direct provider writes and never
 deletes the original as an intermediate replacement step.
 
 1. Validate the complete candidate in the existing journal service. Check the

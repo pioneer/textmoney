@@ -129,9 +129,9 @@ jobs:
         with:
           name: release-android
           path: |
-            dist/android/txncount-${{ needs.prepare.outputs.version }}-arm64-v8a.apk
-            dist/android/txncount-${{ needs.prepare.outputs.version }}-armeabi-v7a.apk
-            dist/android/txncount-${{ needs.prepare.outputs.version }}-x86_64.apk
+            dist/android/textmoney-${{ needs.prepare.outputs.version }}-arm64-v8a.apk
+            dist/android/textmoney-${{ needs.prepare.outputs.version }}-armeabi-v7a.apk
+            dist/android/textmoney-${{ needs.prepare.outputs.version }}-x86_64.apk
           if-no-files-found: error
 
   linux:
@@ -161,13 +161,13 @@ jobs:
       - run: uv run inv validate-linux-appimage
       - name: Smoke test with isolated settings
         run: |
-          export XDG_CONFIG_HOME="$RUNNER_TEMP/txncount-smoke-config"
-          export XDG_CACHE_HOME="$RUNNER_TEMP/txncount-smoke-cache"
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/textmoney-smoke-config"
+          export XDG_CACHE_HOME="$RUNNER_TEMP/textmoney-smoke-cache"
           uv run inv smoke-linux-appimage
       - uses: actions/upload-artifact@v7
         with:
           name: release-linux
-          path: dist/linux/TxnCount-${{ needs.prepare.outputs.version }}-x86_64.AppImage
+          path: dist/linux/TextMoney-${{ needs.prepare.outputs.version }}-x86_64.AppImage
           if-no-files-found: error
 
   windows:
@@ -190,7 +190,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: release-windows
-          path: dist/windows/TxnCount-${{ needs.prepare.outputs.version }}-windows-x64-setup.exe
+          path: dist/windows/TextMoney-${{ needs.prepare.outputs.version }}-windows-x64-setup.exe
           if-no-files-found: error
 
   publish:

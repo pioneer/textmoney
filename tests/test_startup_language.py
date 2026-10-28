@@ -23,7 +23,7 @@ def test_startup_shows_only_spinner_until_preferences_and_language_are_ready(
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.setenv("APPDATA", str(tmp_path))
         if saved:
-            await DesktopPreferences().set("txncount.language.v1", saved)
+            await DesktopPreferences().set("textmoney.language.v1", saved)
         page = MagicMock(spec=ft.Page)
         page.width = width
         page.platform = ft.PagePlatform.LINUX
@@ -80,7 +80,7 @@ def test_startup_failure_exits_spinner_and_displays_actionable_error(
     async def scenario() -> None:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.setenv("APPDATA", str(tmp_path))
-        await DesktopPreferences().set("txncount.language.v1", "uk")
+        await DesktopPreferences().set("textmoney.language.v1", "uk")
         page = MagicMock(spec=ft.Page)
         page.width = 390
         page.platform = ft.PagePlatform.LINUX
@@ -96,7 +96,7 @@ def test_startup_failure_exits_spinner_and_displays_actionable_error(
                 DesktopPreferences, "get", AsyncMock(side_effect=OSError("synthetic failure"))
             )
         elif failure == "folder":
-            await DesktopPreferences().set("txncount.folder.v1", "/synthetic/missing")
+            await DesktopPreferences().set("textmoney.folder.v1", "/synthetic/missing")
         view = FinanceView()
         if failure == "folder":
             view._attach = AsyncMock(side_effect=OSError("synthetic folder failure"))

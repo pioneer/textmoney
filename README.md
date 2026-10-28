@@ -1,4 +1,4 @@
-# TxnCount
+# TextMoney
 
 An offline-first personal expense tracker that keeps your data in
 plain-text [Beancount](https://beancount.github.io/) files in a folder you choose.
@@ -7,12 +7,17 @@ No sign-up, backend service, or app-managed cloud storage.
 **Alpha software:** features and file support are still limited, and bugs are
 possible. Keep independent backups of important financial data.
 
-TxnCount is being developed with substantial AI assistance.
+TextMoney is being developed with substantial AI assistance.
 
-![TxnCount Home in the desktop layout, with EUR balances and recent activity](docs/screenshots/home-desktop.png)
+**Source renamed; not released:** this source tree uses TextMoney and application ID
+`com.pioneer.textmoney`. Published releases through **v0.3.15** are still
+**TxnCount**; no TextMoney release has been published yet. This is a new
+installation, not an in-place upgrade of TxnCount. Existing development journals
+and desktop settings need the explicit [copy-only migration](docs/rename-migration.md).
 
-*Desktop Home. All screenshots use synthetic EUR data in the v0.3.6 web preview;
-they are not personal financial data or Android device captures.*
+![Desktop Home, captured before the TextMoney rename](docs/screenshots/home-desktop.png)
+
+The screenshot is from the earlier TxnCount build.
 
 ## Implemented
 
@@ -40,7 +45,7 @@ they are not personal financial data or Android device captures.*
   searchable category/account trees, currency-specific figures and overspending.
   Budget definitions support daily through yearly frequencies and historical
   or future changes.
-  Calculations are checked against Fava 1.30.16 within TxnCount's existing
+  Calculations are checked against Fava 1.30.16 within TextMoney's existing
   accounting subset. See [Budgeting](docs/budgets.md).
 - Delete editable transactions after confirmation; deactivate and reactivate
   accounts and categories with history rather than losing their records.
@@ -67,7 +72,7 @@ may change during alpha, with no release dates promised.
 
 Use one writer at a time. Save and close the editing session, let
 Dropbox/Dropsync (or your chosen tool) finish uploading, and wait for it to finish
-downloading on the next device before editing there. TxnCount does not contact
+downloading on the next device before editing there. TextMoney does not contact
 cloud APIs, synchronize files, merge journals or resolve cloud conflicts.
 A possible-conflict filename notice is advisory, not proof that synchronization
 has completed or that every conflicting copy has been found.
@@ -81,13 +86,13 @@ Account/category labels use `name:` metadata. Transaction time uses local
 creation instant; timezone selection only affects the default clock, not saved transactions.
 Reimbursements can share native Beancount links with expenses. New entries do
 not write app-generated `id:` metadata. Fee-category defaults are local settings;
-`txncount-active` remains the visibility/reactivation preference.
+`textmoney-active` remains the visibility/reactivation preference.
 See the [file and synchronization contract](docs/synchronization.md).
 
 ## Get the app
 
 Download a production-signed Android APK, Linux x86_64 AppImage or Windows x64 installer from
-**[GitHub Releases](https://github.com/pioneer/txncount/releases/latest)**.
+**[GitHub Releases](https://github.com/pioneer/textmoney/releases/latest)**.
 Android 7.0 or newer is required. You can also track this repository with
 [Obtainium](https://github.com/ImranR98/Obtainium) for updates.
 
@@ -98,16 +103,20 @@ Obtainium can select the matching APK when "Attempt to filter APKs by CPU
 architecture if possible" is enabled. Remove any custom APK filter requiring
 the previous universal filename.
 
-The Windows x64 per-user EXE installer (not a portable ZIP) has passed native CI
-build, install/reinstall, responsive-window startup and uninstall checks.
+The Windows x64 per-user EXE installer (not a portable ZIP) passed native CI
+build, install/reinstall, responsive-window startup and uninstall checks under
+the old TxnCount identity.
 Full interactive Windows testing remains pending.
-Android APKs use the maintained production signing certificate. Newer releases
-can update an existing installation in place.
+Android APKs use the maintained production signing certificate. Future TextMoney
+releases can update TextMoney in place; they cannot update the old TxnCount
+application ID. Re-add the renamed repository and new app to Obtainium after
+the first TextMoney release. Do not uninstall the old app until its data has
+been copied, checked and backed up.
 
 ### Linux AppImage
 
-Download `TxnCount-<version>-x86_64.AppImage` from
-[GitHub Releases](https://github.com/pioneer/txncount/releases).
+Download `TextMoney-<version>-x86_64.AppImage` from
+[GitHub Releases](https://github.com/pioneer/textmoney/releases).
 The AppImage is built on Ubuntu 24.04; use Ubuntu 24.04 or newer, or an up-to-date
 x86_64 Arch Linux system with a compatible desktop environment. No `uv` or
 separate Python installation is needed.
@@ -130,14 +139,14 @@ Then, on either distribution, open a terminal in the download directory, replace
 `<version>` below with the downloaded version, and run without installing:
 
 ```sh
-APPIMAGE="./TxnCount-<version>-x86_64.AppImage"
+APPIMAGE="./TextMoney-<version>-x86_64.AppImage"
 chmod +x "$APPIMAGE"
 "$APPIMAGE"
 ```
 
 To update, download the newer AppImage and run it instead; remove the old file
 when convenient. Your journal remains in the folder you selected, and Linux
-preferences stay under `${XDG_CONFIG_HOME:-~/.config}/txncount`. If FUSE is
+preferences stay under `${XDG_CONFIG_HOME:-~/.config}/textmoney`. If FUSE is
 unavailable, use `APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE"` instead. See the
 [AppImage FUSE guide](https://docs.appimage.org/user-guide/troubleshooting/fuse.html)
 for distribution details. The AppImage does not include the host graphics driver,
@@ -146,7 +155,7 @@ Ubuntu or Arch configuration.
 
 ## Getting started
 
-1. Open TxnCount and choose a dedicated local data folder.
+1. Open TextMoney and choose a dedicated local data folder.
 2. Create an account with its currency and, optionally, an opening balance.
 3. Add expense categories under **Accounting → Categories**.
 4. Use **Add transaction**, enter a description in the first
@@ -196,7 +205,7 @@ time and optional counterparty are under Advanced. Opening balances can
 be edited from either the account or its opening transaction. Accounts and
 categories with history can be deactivated and reactivated; their records remain.
 
-<img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense in TxnCount's compact phone layout" width="360">
+<img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense in TextMoney's compact phone layout" width="360">
 
 *Editing an expense in the compact layout.*
 
@@ -213,21 +222,21 @@ transfer fees remain expenses while transfer/loan principal and balance
 adjustments are excluded. Amounts in different currencies are always shown
 separately; reports do not infer exchange rates.
 
-![TxnCount Reports in the desktop layout, with EUR income, expenses, net result and category totals](docs/screenshots/reports-desktop.png)
+![TextMoney Reports in the desktop layout, with EUR income, expenses, net result and category totals](docs/screenshots/reports-desktop.png)
 
 *A monthly report with separate income and expense category breakdowns.*
 
 ## Your data and synchronization
 
-Your selected folder contains a single UTF-8 journal, `txncount.beancount`,
+Your selected folder contains a single UTF-8 journal, `textmoney.beancount`,
 and a `backups/` directory. Android additionally keeps interrupted-save recovery
-records. TxnCount accesses these files directly; it does not upload
+records. TextMoney accesses these files directly; it does not upload
 them or maintain a separate database. Edits preserve unrelated comments,
 metadata, tags and links.
 
 Dropbox, Dropsync or another folder synchronization tool can synchronize the
 folder separately, **including hidden recovery files**. Cloud synchronization is
-not built into TxnCount. Let it finish before editing on another device, and avoid
+not built into TextMoney. Let it finish before editing on another device, and avoid
 simultaneous edits. Local checks cannot establish that uploading/downloading is finished.
 
 While open, the app polls for external changes roughly every five seconds.
@@ -243,7 +252,7 @@ There is no cross-device merge or ancestry tracking.
 Sibling files are never automatically activated, rewritten or deleted.
 See [sequential editing and recovery limits](docs/synchronization.md).
 
-Before saving, TxnCount validates the candidate journal, compares the current
+Before saving, TextMoney validates the candidate journal, compares the current
 file's SHA-256 hash with the loaded baseline, and backs up and read-verifies the
 previous bytes. It checks the baseline again after backup and at the platform
 write boundary, then reads back the saved bytes. A failed backup or a detected
@@ -283,7 +292,7 @@ the last 12 calendar months, counting overlapping snapshots once. Settings
 offers a toggle and a cleanup preview. Protected recovery copies and legacy
 undated backups are never pruned. See [backup retention](docs/data-safety.md#backup-retention).
 
-TxnCount supports a limited, single-file Beancount profile, not arbitrary
+TextMoney supports a limited, single-file Beancount profile, not arbitrary
 Beancount books. Unsupported accounting features or invalid data block saving
 rather than being silently discarded. See the [supported format and editing guide](docs/journal-format.md)
 and [data-safety guide](docs/data-safety.md) for the current contracts.
@@ -293,28 +302,28 @@ record historical behavior, not current instructions.
 ## Version history
 
 Only published releases are listed; unsuccessful build/tag attempts are not
-releases.
+releases. The entries below were published under the TxnCount name.
 
 | Version | Highlights |
 | --- | --- |
-| [0.3.15](https://github.com/pioneer/txncount/releases/tag/v0.3.15) | Fava-compatible category budgets: management under Accounting, monthly monitoring under Reports, searchable category/account trees, historical changes and exact reference tests. Plain-language budget guidance and LF/CRLF conflict-preservation regressions. Android build 38. |
-| [0.3.13](https://github.com/pioneer/txncount/releases/tag/v0.3.13) | Unified Android/Linux/Windows release workflow; Windows x64 per-user installer with native CI smoke checks and corrected icon framing. Separate production-signed Android APKs per architecture. Android build 36. |
-| [0.3.6](https://github.com/pioneer/txncount/releases/tag/v0.3.6) | Scrollable bottom clearance keeps Reports, both Accounting tabs and wider-layout Settings content clear of the floating Add button. Mobile Settings remains button-free. Android build 29. |
-| [0.3.5](https://github.com/pioneer/txncount/releases/tag/v0.3.5) | Summaries above smaller account movements, centered date headings and an Initial placeholder; separators only in wide transaction history; final transactions stay clear of the Add button. Home balances follow configured currency order. Android build 28. |
-| [0.3.4](https://github.com/pioneer/txncount/releases/tag/v0.3.4) | Mobile Settings moves to a top-right gear with Back navigation; wider layouts retain Settings in the rail. Home/Transactions group entries by date and emphasize summaries over account movements. Android build 27. |
-| [0.3.3](https://github.com/pioneer/txncount/releases/tag/v0.3.3) | More compact Home/Transactions rows with smaller typography and tighter spacing; full-width, theme-aware separators make wide rows easier to follow. Action touch targets remain unchanged. Android build 26. |
-| [0.3.2](https://github.com/pioneer/txncount/releases/tag/v0.3.2) | Sequential journal editing without distributed merge evidence; retained conflict guards, backups and Android recovery; Beancount-friendly `name`, local `time` and native reimbursement links. Version/build visible in every screen header. Replacement Android build 25. |
-| [0.3.1](https://github.com/pioneer/txncount/releases/tag/v0.3.1) | Production-signed Android releases and a Linux x86_64 AppImage distribution. Android build 23. |
-| [0.3.0](https://github.com/pioneer/txncount/releases/tag/v0.3.0) | Period reports with income, net expenses and net result, separate currency totals, and hierarchical category breakdowns. Android build 22. |
-| [0.2.4](https://github.com/pioneer/txncount/releases/tag/v0.2.4) | Atomic desktop journal replacement; verified Android save-intent records, interrupted-save detection and explicit recovery review. Existing Android journals require a one-time review; SAF writes remain non-atomic. Consistent rejection of invalid `24:00` times on Python 3.14. |
-| [0.2.3](https://github.com/pioneer/txncount/releases/tag/v0.2.3) | Localized startup without an English-language flash; unified Accounting labels, Accounts/Categories subtabs and creation dialogs; larger transparent Linux icons and corrected Wayland development identity. |
-| [0.2.2](https://github.com/pioneer/txncount/releases/tag/v0.2.2) | Matching income/expense category sections and a compact, collapsible category tree with session-preserved expansion state. |
-| [0.2.1](https://github.com/pioneer/txncount/releases/tag/v0.2.1) | Bounded backup retention, automatic cleanup settings and a manual cleanup preview; protected recovery copies remain untouched. |
-| [0.2.0](https://github.com/pioneer/txncount/releases/tag/v0.2.0) | Cross-currency transfers, a universal transaction form, and inline category creation. |
-| [0.1.4](https://github.com/pioneer/txncount/releases/tag/v0.1.4) | Same-currency transfers, optional fees and loan repayments; configurable fee category and overdraft warnings. |
-| [0.1.3](https://github.com/pioneer/txncount/releases/tag/v0.1.3) | Income, reimbursements and balance adjustments; unified transaction form, description previews and improved Android/Linux icons. |
-| [0.1.2](https://github.com/pioneer/txncount/releases/tag/v0.1.2) | Refreshed money-and-text icon, correct icon for Linux source runs and clearer alpha documentation. |
-| [0.1.1](https://github.com/pioneer/txncount/releases/tag/v0.1.1) | TxnCount Android app identity, versioned APK downloads and consistent in-app version display. |
+| [0.3.15](https://github.com/pioneer/textmoney/releases/tag/v0.3.15) | Fava-compatible category budgets: management under Accounting, monthly monitoring under Reports, searchable category/account trees, historical changes and exact reference tests. Plain-language budget guidance and LF/CRLF conflict-preservation regressions. Android build 38. |
+| [0.3.13](https://github.com/pioneer/textmoney/releases/tag/v0.3.13) | Unified Android/Linux/Windows release workflow; Windows x64 per-user installer with native CI smoke checks and corrected icon framing. Separate production-signed Android APKs per architecture. Android build 36. |
+| [0.3.6](https://github.com/pioneer/textmoney/releases/tag/v0.3.6) | Scrollable bottom clearance keeps Reports, both Accounting tabs and wider-layout Settings content clear of the floating Add button. Mobile Settings remains button-free. Android build 29. |
+| [0.3.5](https://github.com/pioneer/textmoney/releases/tag/v0.3.5) | Summaries above smaller account movements, centered date headings and an Initial placeholder; separators only in wide transaction history; final transactions stay clear of the Add button. Home balances follow configured currency order. Android build 28. |
+| [0.3.4](https://github.com/pioneer/textmoney/releases/tag/v0.3.4) | Mobile Settings moves to a top-right gear with Back navigation; wider layouts retain Settings in the rail. Home/Transactions group entries by date and emphasize summaries over account movements. Android build 27. |
+| [0.3.3](https://github.com/pioneer/textmoney/releases/tag/v0.3.3) | More compact Home/Transactions rows with smaller typography and tighter spacing; full-width, theme-aware separators make wide rows easier to follow. Action touch targets remain unchanged. Android build 26. |
+| [0.3.2](https://github.com/pioneer/textmoney/releases/tag/v0.3.2) | Sequential journal editing without distributed merge evidence; retained conflict guards, backups and Android recovery; Beancount-friendly `name`, local `time` and native reimbursement links. Version/build visible in every screen header. Replacement Android build 25. |
+| [0.3.1](https://github.com/pioneer/textmoney/releases/tag/v0.3.1) | Production-signed Android releases and a Linux x86_64 AppImage distribution. Android build 23. |
+| [0.3.0](https://github.com/pioneer/textmoney/releases/tag/v0.3.0) | Period reports with income, net expenses and net result, separate currency totals, and hierarchical category breakdowns. Android build 22. |
+| [0.2.4](https://github.com/pioneer/textmoney/releases/tag/v0.2.4) | Atomic desktop journal replacement; verified Android save-intent records, interrupted-save detection and explicit recovery review. Existing Android journals require a one-time review; SAF writes remain non-atomic. Consistent rejection of invalid `24:00` times on Python 3.14. |
+| [0.2.3](https://github.com/pioneer/textmoney/releases/tag/v0.2.3) | Localized startup without an English-language flash; unified Accounting labels, Accounts/Categories subtabs and creation dialogs; larger transparent Linux icons and corrected Wayland development identity. |
+| [0.2.2](https://github.com/pioneer/textmoney/releases/tag/v0.2.2) | Matching income/expense category sections and a compact, collapsible category tree with session-preserved expansion state. |
+| [0.2.1](https://github.com/pioneer/textmoney/releases/tag/v0.2.1) | Bounded backup retention, automatic cleanup settings and a manual cleanup preview; protected recovery copies remain untouched. |
+| [0.2.0](https://github.com/pioneer/textmoney/releases/tag/v0.2.0) | Cross-currency transfers, a universal transaction form, and inline category creation. |
+| [0.1.4](https://github.com/pioneer/textmoney/releases/tag/v0.1.4) | Same-currency transfers, optional fees and loan repayments; configurable fee category and overdraft warnings. |
+| [0.1.3](https://github.com/pioneer/textmoney/releases/tag/v0.1.3) | Income, reimbursements and balance adjustments; unified transaction form, description previews and improved Android/Linux icons. |
+| [0.1.2](https://github.com/pioneer/textmoney/releases/tag/v0.1.2) | Refreshed money-and-text icon, correct icon for Linux source runs and clearer alpha documentation. |
+| [0.1.1](https://github.com/pioneer/textmoney/releases/tag/v0.1.1) | TxnCount Android app identity, versioned APK downloads and consistent in-app version display. |
 | 0.1.0 | Initial alpha: accounts, categories, expense editing/deletion, backups, translations and adaptive layouts. |
 
 ## Development
@@ -323,8 +332,8 @@ Requires **Python 3.13+** and [uv](https://docs.astral.sh/uv/).
 Clone the repository, then use Invoke for project operations:
 
 ```sh
-git clone https://github.com/pioneer/txncount.git
-cd txncount
+git clone https://github.com/pioneer/textmoney.git
+cd textmoney
 uv sync
 uv run inv run
 ```
@@ -371,7 +380,7 @@ release. See [signing setup](docs/development.md#one-time-setup-helper).
 ### Beancount Ecosystem Compatibility Testing
 
 Install the Python tools in a separate Python 3.13 environment; this does not
-modify TxnCount's project environment or the system Python:
+modify TextMoney's project environment or the system Python:
 
 **Ubuntu:** install `uv` using its
 [official standalone installer](https://docs.astral.sh/uv/getting-started/installation/).
@@ -394,7 +403,7 @@ Then create the isolated compatibility environment on either distribution:
 
 ```sh
 uv python install 3.13
-COMPAT="$HOME/.local/share/txncount-compat-venv"
+COMPAT="$HOME/.local/share/textmoney-compat-venv"
 uv venv --python 3.13 "$COMPAT"
 uv pip install --python "$COMPAT/bin/python" \
   'beancount>=3,<4' beanquery fava
@@ -403,7 +412,7 @@ uv pip install --python "$COMPAT/bin/python" \
 Check versions and command provenance:
 
 ```sh
-COMPAT="$HOME/.local/share/txncount-compat-venv"
+COMPAT="$HOME/.local/share/textmoney-compat-venv"
 "$COMPAT/bin/python" -c \
   'from importlib.metadata import version; print(*(f"{name} {version(name)}" for name in ("beancount", "beanquery", "fava")), sep="\n")'
 "$COMPAT/bin/bean-check" --version
@@ -419,7 +428,7 @@ different implementation.
 
 **Ubuntu:** download the Linux x86_64 GNU archive and matching `.sha256` file
 from [RustLedger v0.24.0](https://github.com/rustledger/rustledger/releases/tag/v0.24.0),
-the version used by TxnCount's compatibility CI. In a separate download directory,
+the version used by TextMoney's compatibility CI. In a separate download directory,
 verify the checksum and extract the archive:
 
 ```sh
@@ -457,7 +466,7 @@ rledger report --format json /path/to/disposable/journal.beancount balances
 To query balances with the official Python tools or open Fava on localhost:
 
 ```sh
-COMPAT="$HOME/.local/share/txncount-compat-venv"
+COMPAT="$HOME/.local/share/textmoney-compat-venv"
 "$COMPAT/bin/bean-check" /path/to/disposable/journal.beancount
 "$COMPAT/bin/bean-query" /path/to/disposable/journal.beancount \
   'SELECT account, currency, SUM(number) GROUP BY account, currency'
@@ -465,7 +474,7 @@ COMPAT="$HOME/.local/share/txncount-compat-venv"
   --host 127.0.0.1 --port 5000
 ```
 
-Open `http://127.0.0.1:5000` while Fava is running. Run TxnCount's synthetic
+Open `http://127.0.0.1:5000` while Fava is running. Run TextMoney's synthetic
 cross-engine suite with:
 
 ```sh
@@ -494,10 +503,10 @@ Always validate a **disposable copy**, never a live Dropbox/Dropsync journal.
 For local tests:
 
 ```sh
-SOURCE=/path/to/txncount.beancount
+SOURCE=/path/to/textmoney.beancount
 TEST_DIR="$(mktemp -d)"
-cp -- "$SOURCE" "$TEST_DIR/txncount.beancount"
-JOURNAL="$TEST_DIR/txncount.beancount"
+cp -- "$SOURCE" "$TEST_DIR/textmoney.beancount"
+JOURNAL="$TEST_DIR/textmoney.beancount"
 # Run the validation commands above against "$JOURNAL".
 ```
 
@@ -508,18 +517,18 @@ precision, transaction dates, IDs and relevant metadata types. Never commit
 real financial data. Remove the temporary test directory when finished.
 
 Passing `bean-check` verifies syntax and Beancount's validations; it does not
-prove that TxnCount can safely edit every valid Beancount feature or that
+prove that TextMoney can safely edit every valid Beancount feature or that
 another engine presents the same reports. Compare currency-specific balances
 and reports across engines. Fava and rustfava are separate applications:
 verify their GUI views independently; parser/loading success alone does not
 verify the Accounts, Journal, Balance Sheet or Income Statement screens.
-TxnCount supports simple explicit unit-price (`@`) currency exchanges as well
+TextMoney supports simple explicit unit-price (`@`) currency exchanges as well
 as its existing total-price (`@@`) transfer format. It preserves their original
 syntax during unrelated edits; transactions containing `@` are read-only in
 the transaction editor. Cost lots, inferred postings and other unsupported
 Beancount constructs remain blocked from editing.
 
-The APK is written to `build/apk/txncount-<version>.apk`. Native builds require
+The APK is written to `build/apk/textmoney-<version>.apk`. Native builds require
 platform toolchains; see [development and packaging](docs/development.md).
 See also [architecture](docs/architecture.md) and [testing](docs/testing.md).
 Translation maintenance and the planned Weblate configuration are documented in

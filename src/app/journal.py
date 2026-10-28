@@ -52,7 +52,7 @@ from app.storage import (
     StorageSession,
 )
 
-FILENAME = "txncount.beancount"
+FILENAME = "textmoney.beancount"
 
 
 class Journal:
@@ -597,8 +597,8 @@ class Journal:
 
             def update() -> None:
                 entry.meta["name"] = label
-                if not active or "txncount-active" in entry.meta:
-                    entry.meta["txncount-active"] = active
+                if not active or "textmoney-active" in entry.meta:
+                    entry.meta["textmoney-active"] = active
 
             source = replace_directive(self.source, entry, update)
             if balance is None:
@@ -689,8 +689,8 @@ class Journal:
 
             def update() -> None:
                 entry.meta["name"] = label
-                if not active or "txncount-active" in entry.meta:
-                    entry.meta["txncount-active"] = active
+                if not active or "textmoney-active" in entry.meta:
+                    entry.meta["textmoney-active"] = active
 
             return replace_directive(self.source, entry, update)
 
@@ -916,7 +916,7 @@ class Journal:
                     ),
                     None,
                 )
-                or f"txncount-{uuid4()}"
+                or f"textmoney-{uuid4()}"
             )
             if link not in entry.links:
                 source = replace_directive(source, entry, lambda: entry.links.append(link))

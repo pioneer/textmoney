@@ -197,7 +197,7 @@ def test_linux_run_selects_development_client_even_after_packaging(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (tmp_path / "src").mkdir()
-    packaged = tmp_path / "build/linux/txncount"
+    packaged = tmp_path / "build/linux/textmoney"
     packaged.parent.mkdir(parents=True)
     packaged.write_bytes(b"packaged app")
     packaged.chmod(0o755)
@@ -246,12 +246,12 @@ def test_release_staging_and_versioned_apk_output(
         assert args == ("flet", "build", "apk", "--yes")
         directory = tmp_path / "build/apk"
         directory.mkdir(parents=True)
-        (directory / "txncount.apk").write_bytes(b"synthetic APK")
+        (directory / "textmoney.apk").write_bytes(b"synthetic APK")
 
     monkeypatch.setattr(tasks, "execute", build)
     tasks.build_target("apk")
-    assert (tmp_path / "build/apk/txncount-0.1.1.apk").read_bytes() == b"synthetic APK"
-    assert not (tmp_path / "build/apk/txncount.apk").exists()
+    assert (tmp_path / "build/apk/textmoney-0.1.1.apk").read_bytes() == b"synthetic APK"
+    assert not (tmp_path / "build/apk/textmoney.apk").exists()
 
 
 def test_failed_build_does_not_rename_or_replace_apks(
@@ -260,15 +260,15 @@ def test_failed_build_does_not_rename_or_replace_apks(
 ) -> None:
     output = tmp_path / "build/apk"
     output.mkdir(parents=True)
-    (output / "txncount.apk").write_bytes(b"old unversioned APK")
-    (output / "txncount-0.1.1.apk").write_bytes(b"old versioned APK")
+    (output / "textmoney.apk").write_bytes(b"old unversioned APK")
+    (output / "textmoney-0.1.1.apk").write_bytes(b"old versioned APK")
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
     monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
     monkeypatch.setattr(tasks, "execute", MagicMock(side_effect=Exit("build failed", code=1)))
     with pytest.raises(Exit, match="build failed"):
         tasks.build_target("apk")
-    assert (output / "txncount.apk").read_bytes() == b"old unversioned APK"
-    assert (output / "txncount-0.1.1.apk").read_bytes() == b"old versioned APK"
+    assert (output / "textmoney.apk").read_bytes() == b"old unversioned APK"
+    assert (output / "textmoney-0.1.1.apk").read_bytes() == b"old versioned APK"
 
 
 def test_normal_apk_build_clears_production_signing_environment(
@@ -278,7 +278,7 @@ def test_normal_apk_build_clears_production_signing_environment(
     def build(*args: str, **kwargs: object) -> None:
         output = tmp_path / "build/apk"
         output.mkdir(parents=True)
-        (output / "txncount.apk").write_bytes(b"debug apk")
+        (output / "textmoney.apk").write_bytes(b"debug apk")
 
     execute = MagicMock(side_effect=build)
     monkeypatch.setattr(tasks, "require_host", lambda target: None)
@@ -299,7 +299,7 @@ def test_release_build_passes_explicit_signing_environment(
     def build(*args: str, **kwargs: object) -> None:
         output = tmp_path / "build/apk"
         output.mkdir(parents=True)
-        (output / "txncount.apk").write_bytes(b"release apk")
+        (output / "textmoney.apk").write_bytes(b"release apk")
 
     signing_env = {
         "FLET_ANDROID_SIGNING_KEY_STORE": str(tmp_path / "release.jks"),
@@ -331,7 +331,7 @@ def test_production_task_builds_and_preserves_each_standalone_architecture(
     signing_env = {"synthetic": "signing"}
     monkeypatch.setattr(tasks, "validate_android_signing_environment", lambda: signing_env)
     calls: list[str] = []
-    intermediate = tmp_path / "build/apk/txncount-0.3.13.apk"
+    intermediate = tmp_path / "build/apk/textmoney-0.3.13.apk"
 
     def build(target: str, *extra: str, signing: bool, env: dict[str, str]) -> None:
         assert target == "apk" and signing and env == signing_env
@@ -349,7 +349,7 @@ def test_production_task_builds_and_preserves_each_standalone_architecture(
     verified: list[str] = []
 
     def verify(apk: Path, abi: str) -> None:
-        assert apk == tmp_path / f"dist/android/txncount-0.3.13-{abi}.apk"
+        assert apk == tmp_path / f"dist/android/textmoney-0.3.13-{abi}.apk"
         assert apk.read_bytes() == abi.encode()
         verified.append(abi)
         if abi == "armeabi-v7a" and failure == "verify":
@@ -367,7 +367,7 @@ def test_production_task_builds_and_preserves_each_standalone_architecture(
         assert calls == verified == ["arm64-v8a", "armeabi-v7a", "x86_64"]
         for abi in calls:
             assert (
-                tmp_path / f"dist/android/txncount-0.3.13-{abi}.apk"
+                tmp_path / f"dist/android/textmoney-0.3.13-{abi}.apk"
             ).read_bytes() == abi.encode()
     assert not intermediate.exists()
     validate.assert_called_once_with("v0.3.13")
@@ -430,9 +430,9 @@ def test_previous_release_build_number_reads_published_release_metadata(
     monkeypatch: pytest.MonkeyPatch,
     line_wrapped: bool,
 ) -> None:
-    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/txncount")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/textmoney")
     content = b64encode(
-        b'[tool.flet]\nbuild_number = 22\nbundle_id = "com.pioneer.txncount"\n'
+        b'[tool.flet]\nbuild_number = 22\nbundle_id = "com.pioneer.textmoney"\n'
     ).decode("ascii")
     if line_wrapped:
         content = (
@@ -455,7 +455,7 @@ def test_previous_release_build_number_reads_published_release_metadata(
 def test_previous_release_build_number_rejects_invalid_base64(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/txncount")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/textmoney")
     responses = iter(
         [
             '[{"tagName":"v0.3.0","isDraft":false,"isPrerelease":false}]',
@@ -467,10 +467,59 @@ def test_previous_release_build_number_rejects_invalid_base64(
         tasks.previous_release_build_number("v0.3.1")
 
 
+@pytest.mark.parametrize(
+    "prior_tag,old_id,new_id,build,certificate_changed,allowed",
+    [
+        ("v0.3.15", "com.pioneer.txncount", "com.pioneer.textmoney", 38, False, True),
+        ("v0.3.13", "com.pioneer.txncount", "com.pioneer.textmoney", 38, False, False),
+        ("v0.3.15", "com.pioneer.txncount", "com.pioneer.textmoney", 37, False, False),
+        ("v0.3.15", "com.pioneer.other", "com.pioneer.textmoney", 38, False, False),
+        ("v0.3.15", "com.pioneer.txncount", "com.pioneer.other", 38, False, False),
+        ("v0.3.15", "com.pioneer.txncount", "com.pioneer.textmoney", 38, True, False),
+    ],
+)
+def test_only_the_approved_clean_break_can_change_android_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    prior_tag: str,
+    old_id: str,
+    new_id: str,
+    build: int,
+    certificate_changed: bool,
+    allowed: bool,
+) -> None:
+    certificate = tasks.android_release_configuration()[2]
+    current = (
+        f'[tool.flet]\nbundle_id = "{new_id}"\n'
+        '[tool.textmoney.android_release]\nsigning_alias = "android-release"\n'
+        f'certificate_sha256 = "{certificate}"\n'
+    )
+    (tmp_path / "pyproject.toml").write_text(current)
+    previous = (
+        f'[tool.flet]\nbundle_id = "{old_id}"\nbuild_number = {build}\n'
+        '[tool.txncount.android_release]\nsigning_alias = "android-release"\n'
+        f'certificate_sha256 = "{"0" * 64 if certificate_changed else certificate}"\n'
+    )
+    responses = iter(
+        [
+            json.dumps([{"tagName": prior_tag, "isDraft": False, "isPrerelease": False}]),
+            b64encode(previous.encode()).decode(),
+        ]
+    )
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/textmoney")
+    monkeypatch.setattr(tasks, "capture_command", lambda *args: next(responses))
+    if allowed:
+        assert tasks.previous_release_build_number("v0.3.16") == 38
+    else:
+        with pytest.raises(Exit, match="application ID changed"):
+            tasks.previous_release_build_number("v0.3.16")
+
+
 def test_previous_release_build_number_refuses_an_already_published_tag(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/txncount")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/textmoney")
     monkeypatch.setattr(
         tasks,
         "capture_command",
@@ -502,7 +551,7 @@ def test_release_apk_verification_checks_signer_identity_and_version(
     monkeypatch: pytest.MonkeyPatch,
     abi: str,
 ) -> None:
-    apk = tmp_path / f"txncount-0.3.0-{abi}.apk"
+    apk = tmp_path / f"textmoney-0.3.0-{abi}.apk"
     write_native_apk(apk, (abi,))
     monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
     monkeypatch.setattr(
@@ -512,7 +561,7 @@ def test_release_apk_verification_checks_signer_identity_and_version(
             "Signer #1 certificate SHA-256 digest: "
             "0cc03e9537ef041c51eb8ececa1ae9e246c7e5a2c814ff1dd9a7f19ab6c07fa6"
             if args[1] == "verify"
-            else "package: name='com.pioneer.txncount' versionCode='22' versionName='0.3.0'\n"
+            else "package: name='com.pioneer.textmoney' versionCode='22' versionName='0.3.0'\n"
         ),
     )
     tasks.verify_android_release_apk(apk, abi)
@@ -523,7 +572,7 @@ def test_release_apk_verification_rejects_wrong_signer(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    apk = tmp_path / "txncount-0.3.0-arm64-v8a.apk"
+    apk = tmp_path / "textmoney-0.3.0-arm64-v8a.apk"
     apk.write_bytes(b"synthetic signed apk")
     monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
     monkeypatch.setattr(
@@ -532,7 +581,7 @@ def test_release_apk_verification_rejects_wrong_signer(
         lambda *args: (
             "Signer #1 certificate SHA-256 digest: " + "0" * 64
             if args[1] == "verify"
-            else "package: name='com.pioneer.txncount' versionCode='22' versionName='0.3.0'\n"
+            else "package: name='com.pioneer.textmoney' versionCode='22' versionName='0.3.0'\n"
         ),
     )
     with pytest.raises(Exit, match="does not match"):
@@ -544,8 +593,8 @@ def test_release_apk_verification_rejects_wrong_signer(
     "bad_badging",
     [
         "package: name='com.other.app' versionCode='22' versionName='0.3.0'\n",
-        "package: name='com.pioneer.txncount' versionCode='21' versionName='0.3.0'\n",
-        "package: name='com.pioneer.txncount' versionCode='22' versionName='0.2.9'\n",
+        "package: name='com.pioneer.textmoney' versionCode='21' versionName='0.3.0'\n",
+        "package: name='com.pioneer.textmoney' versionCode='22' versionName='0.2.9'\n",
     ],
 )
 def test_release_apk_verification_rejects_wrong_package_or_version(
@@ -553,7 +602,7 @@ def test_release_apk_verification_rejects_wrong_package_or_version(
     monkeypatch: pytest.MonkeyPatch,
     bad_badging: str,
 ) -> None:
-    apk = tmp_path / "txncount-0.3.0-arm64-v8a.apk"
+    apk = tmp_path / "textmoney-0.3.0-arm64-v8a.apk"
     apk.write_bytes(b"synthetic signed apk")
     monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
     monkeypatch.setattr(
@@ -578,7 +627,7 @@ def test_release_apk_verification_rejects_wrong_package_or_version(
 def test_release_apk_verification_rejects_wrong_architecture_or_incomplete_payload(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
 ) -> None:
-    apk = tmp_path / "txncount-0.3.0-arm64-v8a.apk"
+    apk = tmp_path / "textmoney-0.3.0-arm64-v8a.apk"
     native_abis = {
         "wrong-abi": ("x86_64",),
         "universal": ("arm64-v8a", "armeabi-v7a", "x86_64"),
@@ -591,7 +640,7 @@ def test_release_apk_verification_rejects_wrong_architecture_or_incomplete_paylo
     elif failure == "corrupt":
         apk.write_bytes(b"not an APK")
     elif failure == "filename":
-        apk = apk.rename(tmp_path / "txncount-0.3.0.apk")
+        apk = apk.rename(tmp_path / "textmoney-0.3.0.apk")
     monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
     monkeypatch.setattr(
         tasks,
@@ -600,7 +649,7 @@ def test_release_apk_verification_rejects_wrong_architecture_or_incomplete_paylo
             "Signer #1 certificate SHA-256 digest: "
             "0cc03e9537ef041c51eb8ececa1ae9e246c7e5a2c814ff1dd9a7f19ab6c07fa6"
             if args[1] == "verify"
-            else "package: name='com.pioneer.txncount' versionCode='22' versionName='0.3.0'\n"
+            else "package: name='com.pioneer.textmoney' versionCode='22' versionName='0.3.0'\n"
         ),
     )
     with pytest.raises(Exit, match="architectur|missing|inspect|named"):

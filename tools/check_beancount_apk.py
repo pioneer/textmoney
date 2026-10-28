@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGES = {"autobean_refactor", "beancount_parser", "lark"}
+PACKAGES = {"autobean_refactor", "beancount_parser", "lark", "babel"}
 MVP_SMOKE = """
 import asyncio
 from datetime import date, datetime
@@ -22,6 +22,7 @@ from app.journal import FILENAME, Journal
 from app.domain.ledger import LedgerError
 from app.timekeeping import picker_timestamp, wall_timestamp
 
+assert FILENAME == "textmoney.beancount"
 reset_tzpath(())  # Force the bundled tzdata fallback, not the host's timezone database.
 assert picker_timestamp(date(2026, 1, 15), "12:00", "Europe/Kyiv").endswith("+02:00")
 assert picker_timestamp(date(2026, 7, 15), "12:00", "Europe/Kyiv").endswith("+03:00")
@@ -155,9 +156,9 @@ async def smoke():
     expense = next(t for t in journal.ledger.transactions if t.narration == "Linked expense")
     refund = journal.ledger.transactions[-1]
     assert refund.related_expense == expense.id
-    assert refund.links == expense.links and refund.links[0].startswith("txncount-")
-    assert journal.source.count("^txncount-") == 2
-    assert "txncount-expense-id:" not in journal.source
+    assert refund.links == expense.links and refund.links[0].startswith("textmoney-")
+    assert journal.source.count("^textmoney-") == 2
+    assert "textmoney-expense-id:" not in journal.source
     assert not any(line.lstrip().startswith("id:") for line in journal.source.splitlines())
     print("Native APK journal payload: name/time/source positions/reimbursement links PASS")
 
@@ -169,7 +170,7 @@ def main() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     version = project["project"]["version"]
     build = project["tool"]["flet"]["build_number"]
-    with ZipFile(ROOT / f"build/apk/txncount-{version}.apk") as apk:
+    with ZipFile(ROOT / f"build/apk/textmoney-{version}.apk") as apk:
         app_bytes = apk.read("assets/app.zip")
         site_bytes = apk.read("assets/sitepackages.zip")
         extract_bytes = apk.read("assets/extract.zip")
@@ -197,6 +198,11 @@ def main() -> None:
             assert f"app/{module}.pyc" in app.namelist()
         assert "autobean_refactor/beancount.lark" in extracted.namelist()
         assert "beancount_parser/grammar/beancount.lark" in extracted.namelist()
+        assert "babel/global.dat" in extracted.namelist()
+        assert "babel/locale-data/en.dat" in extracted.namelist()
+        for language in ("en", "uk", "ru"):
+            assert f"app/locale/{language}/LC_MESSAGES/textmoney.mo" in app.namelist()
+            assert f"app/locale/{language}/LC_MESSAGES/txncount.mo" not in app.namelist()
         for package in PACKAGES:
             assert any(n.startswith(f"{package}/") for n in extracted.namelist())
             assert not any(n.startswith(f"{package}/") for n in site.namelist())
@@ -204,7 +210,7 @@ def main() -> None:
         assert not any(n.startswith("fava/") for n in site.namelist())
         assert "tzdata/zoneinfo/Europe/Kyiv" in site.namelist()
         print(
-            "APK: 6 fixtures; parser bytecode; extracted grammar packages; "
+            "APK: 6 fixtures; parser bytecode; extracted grammar/Babel data; TextMoney catalogs; "
             "no official native engine."
         )
 
@@ -218,11 +224,11 @@ def main() -> None:
             raise FileNotFoundError(
                 "Flet host CPython 3.14.7 not found; payload execution unverified."
             )
-        with TemporaryDirectory(prefix="txncount-beancount-apk-") as temporary:
+        with TemporaryDirectory(prefix="textmoney-beancount-apk-") as temporary:
             directory = Path(temporary)
             (directory / "app.zip").write_bytes(app_bytes)
             (directory / "sitepackages.zip").write_bytes(site_bytes)
-            # Only this project's own generated parser package files are extracted.
+            # Mirror the runtime's extraction, without loading host dependencies.
             for name in extracted.namelist():
                 if name.split("/", 1)[0] in PACKAGES and not name.endswith("/"):
                     target = directory / "extracted" / name

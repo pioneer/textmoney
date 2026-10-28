@@ -70,7 +70,7 @@ def test_end_to_end_accounts_categories_expense_reload_and_official_engine(tmp_p
         accounts, _ = summarize.balance_by_account(entries)
         assert next(iter(accounts["Assets:Cash"])).units.number == Decimal("87.66")
         assert any(
-            isinstance(e, data.Transaction) and "txncount-kind" not in e.meta for e in entries
+            isinstance(e, data.Transaction) and "textmoney-kind" not in e.meta for e in entries
         )
         assert any(transaction.kind == "expense" for transaction in reloaded.ledger.transactions)
         assert not (tmp_path / "storage-test.beancount").exists()
@@ -267,12 +267,12 @@ def test_backup_failure_prevents_write_and_uncertain_write_requires_reload(tmp_p
 def test_android_adapter_allowlisted_filename_and_backup_namespace() -> None:
     async def scenario() -> None:
         bridge = MagicMock()
-        bridge.call = AsyncMock(return_value={"ok": True, "value": "backups/txncount-synthetic"})
+        bridge.call = AsyncMock(return_value={"ok": True, "value": "backups/textmoney-synthetic"})
         folder = AndroidFolder(bridge, "content://synthetic/tree/test", FILENAME)
         await folder.backup(b"journal")
         arguments = bridge.call.call_args.kwargs
         assert arguments["filename"] == FILENAME
-        assert arguments["name"].startswith("txncount-")
+        assert arguments["name"].startswith("textmoney-")
         with pytest.raises(StorageError):
             AndroidFolder(bridge, "content://synthetic/tree/test", "../other")
         with pytest.raises(StorageError):
@@ -312,7 +312,7 @@ def test_ui_success_conflict_reload_and_validation_retain_form_inputs(
         await external.load()
         await external.add_expense("Assets:Cash", "Expenses:Food", "90", "External", "2026-10-01")
         await dialog.actions[-1].on_click(MagicMock())
-        assert "outside TxnCount" in (view.message.value or "")
+        assert "outside TextMoney" in (view.message.value or "")
         assert amount.value == "1" and payee.value == "Draft payee"
         assert page.show_dialog.call_count == 2
         assert view.fab.disabled

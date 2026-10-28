@@ -1,20 +1,26 @@
-# TxnCount gettext catalog.
+# TextMoney gettext catalog.
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TxnCount 0.2.4\n"
-"Report-Msgid-Bugs-To: https://github.com/pioneer/txncount/issues\n"
+"Project-Id-Version: TextMoney 0.2.4\n"
+"Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
 "POT-Creation-Date: 2026-10-22 01:49+0300\n"
 "PO-Revision-Date: 2026-10-22 01:49+0300\n"
-"Last-Translator: TxnCount localization contributors\n"
+"Last-Translator: TextMoney localization contributors\n"
 "Language: uk\n"
-"Language-Team: TxnCount uk translators\n"
+"Language-Team: TextMoney uk translators\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+
+msgid "ui.error_migration_incomplete"
+msgstr "Перенесення даних не завершено. Не редагуйте цю папку. Збережіть оригінал і повторіть перенесення в нову папку."
+
+msgid "ui.error_migration_required"
+msgstr "У цій папці є журнал TxnCount. Закрийте старий застосунок і командою перенесення скопіюйте журнал у нову папку TextMoney."
 
 msgid "ui.budget_title"
 msgstr "Бюджети"
@@ -161,7 +167,7 @@ msgid "ui.budget_filters"
 msgstr "Звіти, фільтри та оцінка"
 
 msgid "ui.budget_semantics"
-msgstr "Правила Fava 1.30.16: щоденний розподіл; бюджети зберігають свої валюти. Звіти категорій використовують дерево рахунків, підсумки інтервалів — буквальні префікси. Розгорніть категорію для прямих сум і транзакцій. Прогрес — показник інтерфейсу TxnCount. Наведіть на суму для точного Decimal."
+msgstr "Правила Fava 1.30.16: щоденний розподіл; бюджети зберігають свої валюти. Звіти категорій використовують дерево рахунків, підсумки інтервалів — буквальні префікси. Розгорніть категорію для прямих сум і транзакцій. Прогрес — показник інтерфейсу TextMoney. Наведіть на суму для точного Decimal."
 
 msgid "ui.budget_definitions"
 msgstr "Визначення та історія бюджетів"
@@ -247,79 +253,79 @@ msgstr "Фінансові квартали потребують початку 
 msgid "ui.budget_settings_error"
 msgstr "Перевірте налаштування locale та fiscal-year-end Fava в журналі."
 
-#. Stable TxnCount key: ui.sync_required; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_required; do not translate this identifier.
 msgid "ui.sync_required"
 msgstr ""
 "Знайдено й збережено конфліктні версії журналу. Зміни заблоковано. "
 "Відкрийте Налаштування → Перевірити конфлікти синхронізації."
 
-#. Stable TxnCount key: ui.sync_review; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_review; do not translate this identifier.
 msgid "ui.sync_review"
 msgstr "Перевірити конфлікти синхронізації"
 
-#. Stable TxnCount key: ui.sync_details; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_details; do not translate this identifier.
 msgid "ui.sync_details"
 msgstr "Текст і метадані (лише перегляд)"
 
-#. Stable TxnCount key: ui.sync_version; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_version; do not translate this identifier.
 msgid "ui.sync_version"
 msgstr "Інша версія журналу"
 
-#. Stable TxnCount key: ui.sync_local; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_local; do not translate this identifier.
 msgid "ui.sync_local"
 msgstr "Поточний журнал"
 
-#. Stable TxnCount key: ui.sync_remote; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_remote; do not translate this identifier.
 msgid "ui.sync_remote"
 msgstr "Інша версія"
 
-#. Stable TxnCount key: ui.sync_whole; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_whole; do not translate this identifier.
 msgid "ui.sync_whole"
 msgstr "Явно виберіть одну повну версію"
 
-#. Stable TxnCount key: ui.sync_choose; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_choose; do not translate this identifier.
 msgid "ui.sync_choose"
 msgstr "Виберіть версію операції, яку слід залишити"
 
-#. Stable TxnCount key: ui.sync_confirm; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_confirm; do not translate this identifier.
 msgid "ui.sync_confirm"
 msgstr "Підтвердити перевірений результат"
 
-#. Stable TxnCount key: ui.sync_absent; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_absent; do not translate this identifier.
 msgid "ui.sync_absent"
 msgstr "Відсутня (цей вибір вилучає або не додає операцію)"
 
-#. Stable TxnCount key: ui.sync_added; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_added; do not translate this identifier.
 msgid "ui.sync_added"
 msgstr "Додано"
 
-#. Stable TxnCount key: ui.sync_deleted; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_deleted; do not translate this identifier.
 msgid "ui.sync_deleted"
 msgstr "Відсутня або видалена"
 
-#. Stable TxnCount key: ui.sync_modified; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_modified; do not translate this identifier.
 msgid "ui.sync_modified"
 msgstr "Змінено"
 
-#. Stable TxnCount key: ui.sync_base_known; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_base_known; do not translate this identifier.
 msgid "ui.sync_base_known"
 msgstr ""
 "Спільну початкову версію перевірено за записаними батьківськими хешами та"
 " точними знімками."
 
-#. Stable TxnCount key: ui.sync_no_base; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_no_base; do not translate this identifier.
 msgid "ui.sync_no_base"
 msgstr ""
 "Немає перевіреної спільної версії. Кожну відмінність потрібно вибрати "
 "вручну; відсутність не доводить видалення."
 
-#. Stable TxnCount key: ui.sync_auto; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_auto; do not translate this identifier.
 msgid "ui.sync_auto"
 msgstr ""
 "Незалежні зміни вибрано за перевіреною спільною версією. Перегляньте "
 "перед підтвердженням."
 
-#. Stable TxnCount key: ui.sync_manual; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_manual; do not translate this identifier.
 msgid "ui.sync_manual"
 msgstr ""
 "Автоматичне об'єднання небезпечне: відрізняються рахунки, параметри, "
@@ -327,57 +333,57 @@ msgstr ""
 " явно виберіть одну повну коректну версію. Вона може не містити змін "
 "іншої версії."
 
-#. Stable TxnCount key: ui.sync_help; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_help; do not translate this identifier.
 msgid "ui.sync_help"
 msgstr ""
 "Призупиніть Dropbox/Dropsync на всіх пристроях. Обидві версії збережено в"
-" .txncount-sync. Скасування відкладе рішення без змін журналу. "
+" .textmoney-sync. Скасування відкладе рішення без змін журналу. "
 "Конфліктний файл не видаляється. Локальна перевірка не доводить "
 "завершення синхронізації. За потреби спочатку завершіть відновлення "
 "перерваного збереження Android."
 
-#. Stable TxnCount key: ui.sync_changed; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_changed; do not translate this identifier.
 msgid "ui.sync_changed"
 msgstr ""
 "Початкову версію змінено під час узгодження. Автоматичного повтору не "
 "буде. Оновіть дані й перевірте знову."
 
-#. Stable TxnCount key: ui.sync_metadata; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_metadata; do not translate this identifier.
 msgid "ui.sync_metadata"
 msgstr ""
 "Дані синхронізації відсутні, пошкоджені або неоднозначні. Зміни "
-"заблоковано. Збережіть папку й перевірте .txncount-sync; не видаляйте "
+"заблоковано. Збережіть папку й перевірте .textmoney-sync; не видаляйте "
 "дані для обходу перевірки."
 
-#. Stable TxnCount key: ui.sync_remaining; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_remaining; do not translate this identifier.
 msgid "ui.sync_remaining"
 msgstr ""
 "Перевірений результат збережено. Інші конфліктні версії ще потребують "
 "перевірки в Налаштуваннях."
 
-#. Stable TxnCount key: ui.recovery_required; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_required; do not translate this identifier.
 msgid "ui.recovery_required"
 msgstr ""
 "Незавершене або невизначене збереження на Android потребує перевірки. "
 "Зміни заблоковано. Відкрийте Налаштування → Перевірити перерване "
 "збереження. Не надсилайте операцію повторно."
 
-#. Stable TxnCount key: ui.recovery_review; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_review; do not translate this identifier.
 msgid "ui.recovery_review"
 msgstr "Перевірити перерване збереження"
 
-#. Stable TxnCount key: ui.recovery_keep; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_keep; do not translate this identifier.
 msgid "ui.recovery_keep"
 msgstr "Я перевірив цю версію — залишити її"
 
-#. Stable TxnCount key: ui.recovery_restore_external; do not translate this
+#. Stable TextMoney key: ui.recovery_restore_external; do not translate this
 #. identifier.
 msgid "ui.recovery_restore_external"
 msgstr ""
-"Відновіть журнал із перевіреної копії поза TxnCount, потім оновіть дані "
+"Відновіть журнал із перевіреної копії поза TextMoney, потім оновіть дані "
 "та перевірте. Автоматичного відновлення не було."
 
-#. Stable TxnCount key: ui.recovery_help; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_help; do not translate this identifier.
 msgid "ui.recovery_help"
 msgstr ""
 "Скасування збереже все без змін. Призупиніть Dropbox/Dropsync та "
@@ -388,7 +394,7 @@ msgstr ""
 " може не містити частини операцій. Неперевірена копія не гарантує "
 "безпеки."
 
-#. Stable TxnCount key: ui.recovery_summary; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_summary; do not translate this identifier.
 msgid "ui.recovery_summary"
 msgstr ""
 "Стан: {state}\n"
@@ -396,107 +402,107 @@ msgstr ""
 "Попередня копія: {backup}\n"
 "Стан копії: {verified}"
 
-#. Stable TxnCount key: ui.recovery_candidate; do not translate this
+#. Stable TextMoney key: ui.recovery_candidate; do not translate this
 #. identifier.
 msgid "ui.recovery_candidate"
 msgstr "відповідає новій версії; можливо, вже збережено"
 
-#. Stable TxnCount key: ui.recovery_unchanged; do not translate this
+#. Stable TextMoney key: ui.recovery_unchanged; do not translate this
 #. identifier.
 msgid "ui.recovery_unchanged"
 msgstr "відповідає попередній версії"
 
-#. Stable TxnCount key: ui.recovery_unexpected; do not translate this
+#. Stable TextMoney key: ui.recovery_unexpected; do not translate this
 #. identifier.
 msgid "ui.recovery_unexpected"
 msgstr "неочікувана версія — можливе обрізання або зовнішні зміни"
 
-#. Stable TxnCount key: ui.recovery_metadata; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_metadata; do not translate this identifier.
 msgid "ui.recovery_metadata"
 msgstr "метадані збереження відсутні або пошкоджені"
 
-#. Stable TxnCount key: ui.recovery_valid; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_valid; do not translate this identifier.
 msgid "ui.recovery_valid"
 msgstr "перевірку пройдено"
 
-#. Stable TxnCount key: ui.recovery_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_invalid; do not translate this identifier.
 msgid "ui.recovery_invalid"
 msgstr "відсутній або некоректний"
 
-#. Stable TxnCount key: ui.recovery_verified; do not translate this identifier.
+#. Stable TextMoney key: ui.recovery_verified; do not translate this identifier.
 msgid "ui.recovery_verified"
 msgstr "хеш і журнал перевірено"
 
-#. Stable TxnCount key: ui.recovery_unverified; do not translate this
+#. Stable TextMoney key: ui.recovery_unverified; do not translate this
 #. identifier.
 msgid "ui.recovery_unverified"
 msgstr "відсутня, пошкоджена або не перевірена"
 
-#. Stable TxnCount key: ui.primary_account; do not translate this identifier.
+#. Stable TextMoney key: ui.primary_account; do not translate this identifier.
 msgid "ui.primary_account"
 msgstr "Рахунок"
 
-#. Stable TxnCount key: ui.amount_debit_hint; do not translate this identifier.
+#. Stable TextMoney key: ui.amount_debit_hint; do not translate this identifier.
 msgid "ui.amount_debit_hint"
 msgstr "−: Списання з рахунку"
 
-#. Stable TxnCount key: ui.amount_credit_hint; do not translate this
+#. Stable TextMoney key: ui.amount_credit_hint; do not translate this
 #. identifier.
 msgid "ui.amount_credit_hint"
 msgstr "+: Зарахування на рахунок"
 
-#. Stable TxnCount key: ui.amount_transfer_hint; do not translate this
+#. Stable TextMoney key: ui.amount_transfer_hint; do not translate this
 #. identifier.
 msgid "ui.amount_transfer_hint"
 msgstr "↔: Переказ між рахунками"
 
-#. Stable TxnCount key: ui.source_account; do not translate this identifier.
+#. Stable TextMoney key: ui.source_account; do not translate this identifier.
 msgid "ui.source_account"
 msgstr "Рахунок списання"
 
-#. Stable TxnCount key: ui.destination_account; do not translate this
+#. Stable TextMoney key: ui.destination_account; do not translate this
 #. identifier.
 msgid "ui.destination_account"
 msgstr "Рахунок зарахування"
 
-#. Stable TxnCount key: ui.source_account_optional; do not translate this
+#. Stable TextMoney key: ui.source_account_optional; do not translate this
 #. identifier.
 msgid "ui.source_account_optional"
 msgstr "Рахунок списання (необов'язково)"
 
-#. Stable TxnCount key: ui.destination_account_optional; do not translate this
+#. Stable TextMoney key: ui.destination_account_optional; do not translate this
 #. identifier.
 msgid "ui.destination_account_optional"
 msgstr "Рахунок зарахування (необов'язково)"
 
-#. Stable TxnCount key: ui.transaction_advanced; do not translate this
+#. Stable TextMoney key: ui.transaction_advanced; do not translate this
 #. identifier.
 msgid "ui.transaction_advanced"
 msgstr "Додатково"
 
-#. Stable TxnCount key: ui.second_account; do not translate this identifier.
+#. Stable TextMoney key: ui.second_account; do not translate this identifier.
 msgid "ui.second_account"
 msgstr "Другий рахунок (необов'язково)"
 
-#. Stable TxnCount key: ui.no_second_account; do not translate this identifier.
+#. Stable TextMoney key: ui.no_second_account; do not translate this identifier.
 msgid "ui.no_second_account"
 msgstr "Без другого рахунку"
 
-#. Stable TxnCount key: ui.special_receipt; do not translate this identifier.
+#. Stable TextMoney key: ui.special_receipt; do not translate this identifier.
 msgid "ui.special_receipt"
 msgstr "Надходження"
 
-#. Stable TxnCount key: ui.transfer_preview; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_preview; do not translate this identifier.
 msgid "ui.transfer_preview"
 msgstr ""
 "Списано: {debited}\n"
 "Зараховано: {credited}"
 
-#. Stable TxnCount key: ui.kind_transfer; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_transfer; do not translate this identifier.
 msgid "ui.kind_transfer"
 msgstr "Переказ"
 
-#. Stable TxnCount key: ui.transaction_help_transfer; do not translate this
+#. Stable TextMoney key: ui.transaction_help_transfer; do not translate this
 #. identifier.
 msgid "ui.transaction_help_transfer"
 msgstr ""
@@ -505,20 +511,20 @@ msgstr ""
 "Переказ на кредитний рахунок зменшує борг. Від'ємний баланс викликає "
 "попередження, але не блокує збереження."
 
-#. Stable TxnCount key: ui.exchange_debited; do not translate this identifier.
+#. Stable TextMoney key: ui.exchange_debited; do not translate this identifier.
 msgid "ui.exchange_debited"
 msgstr "Списано"
 
-#. Stable TxnCount key: ui.exchange_credited; do not translate this identifier.
+#. Stable TextMoney key: ui.exchange_credited; do not translate this identifier.
 msgid "ui.exchange_credited"
 msgstr "Зараховано"
 
-#. Stable TxnCount key: ui.exchange_fee_currency; do not translate this
+#. Stable TextMoney key: ui.exchange_fee_currency; do not translate this
 #. identifier.
 msgid "ui.exchange_fee_currency"
 msgstr "Валюта комісії"
 
-#. Stable TxnCount key: ui.exchange_preview; do not translate this identifier.
+#. Stable TextMoney key: ui.exchange_preview; do not translate this identifier.
 msgid "ui.exchange_preview"
 msgstr ""
 "Списано: {debited}\n"
@@ -526,126 +532,126 @@ msgstr ""
 "Обміняно: {principal} → {gross}\n"
 "Курс без комісії: {rate}"
 
-#. Stable TxnCount key: ui.exchange_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.exchange_invalid; do not translate this identifier.
 msgid "ui.exchange_invalid"
 msgstr ""
 "Непідтримуваний або незбалансований обмін. Потрібні сума обміну з повною "
 "ціною, зарахування та необов'язкова комісія у валюті одного з рахунків."
 
-#. Stable TxnCount key: ui.exchange_fee_invalid; do not translate this
+#. Stable TextMoney key: ui.exchange_fee_invalid; do not translate this
 #. identifier.
 msgid "ui.exchange_fee_invalid"
 msgstr "Комісія має бути у валюті вихідного рахунку або рахунку зарахування."
 
-#. Stable TxnCount key: ui.transfer_counterparty; do not translate this
+#. Stable TextMoney key: ui.transfer_counterparty; do not translate this
 #. identifier.
 msgid "ui.transfer_counterparty"
 msgstr "Контрагент (необов'язково)"
 
-#. Stable TxnCount key: ui.transfer_account_type; do not translate this
+#. Stable TextMoney key: ui.transfer_account_type; do not translate this
 #. identifier.
 msgid "ui.transfer_account_type"
 msgstr "Тип рахунку"
 
-#. Stable TxnCount key: ui.transfer_asset; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_asset; do not translate this identifier.
 msgid "ui.transfer_asset"
 msgstr "Власні кошти / готівка"
 
-#. Stable TxnCount key: ui.transfer_liability; do not translate this
+#. Stable TextMoney key: ui.transfer_liability; do not translate this
 #. identifier.
 msgid "ui.transfer_liability"
 msgstr "Позика / кредит"
 
-#. Stable TxnCount key: ui.transfer_owed; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_owed; do not translate this identifier.
 msgid "ui.transfer_owed"
 msgstr "Початкова сума боргу"
 
-#. Stable TxnCount key: ui.transfer_destination; do not translate this
+#. Stable TextMoney key: ui.transfer_destination; do not translate this
 #. identifier.
 msgid "ui.transfer_destination"
 msgstr "Переказати на"
 
-#. Stable TxnCount key: ui.transfer_fee_enabled; do not translate this
+#. Stable TextMoney key: ui.transfer_fee_enabled; do not translate this
 #. identifier.
 msgid "ui.transfer_fee_enabled"
 msgstr "Додати комісію"
 
-#. Stable TxnCount key: ui.transfer_fee; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_fee; do not translate this identifier.
 msgid "ui.transfer_fee"
 msgstr "Комісія"
 
-#. Stable TxnCount key: ui.transfer_mode; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_mode; do not translate this identifier.
 msgid "ui.transfer_mode"
 msgstr "Спосіб списання комісії"
 
-#. Stable TxnCount key: ui.transfer_added; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_added; do not translate this identifier.
 msgid "ui.transfer_added"
 msgstr "Додатково до суми переказу"
 
-#. Stable TxnCount key: ui.transfer_deducted; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_deducted; do not translate this identifier.
 msgid "ui.transfer_deducted"
 msgstr "Із суми переказу"
 
-#. Stable TxnCount key: ui.transfer_fee_category; do not translate this
+#. Stable TextMoney key: ui.transfer_fee_category; do not translate this
 #. identifier.
 msgid "ui.transfer_fee_category"
 msgstr "Категорія комісії"
 
-#. Stable TxnCount key: ui.transfer_default_fee; do not translate this
+#. Stable TextMoney key: ui.transfer_default_fee; do not translate this
 #. identifier.
 msgid "ui.transfer_default_fee"
 msgstr "Типова категорія комісії переказу"
 
-#. Stable TxnCount key: ui.transfer_bank_fees; do not translate this
+#. Stable TextMoney key: ui.transfer_bank_fees; do not translate this
 #. identifier.
 msgid "ui.transfer_bank_fees"
 msgstr "Банківські комісії"
 
-#. Stable TxnCount key: ui.transfer_accounts; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_accounts; do not translate this identifier.
 msgid "ui.transfer_accounts"
 msgstr "Виберіть два різні, явно створені рахунки."
 
-#. Stable TxnCount key: ui.transfer_currency; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_currency; do not translate this identifier.
 msgid "ui.transfer_currency"
 msgstr ""
 "Для різних валют введіть списану й зараховану суми; для однієї валюти — "
 "одну суму переказу."
 
-#. Stable TxnCount key: ui.transfer_amount; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_amount; do not translate this identifier.
 msgid "ui.transfer_amount"
 msgstr ""
 "Сума переказу має бути додатною, комісія — невід'ємною. Комісія із суми "
 "має бути меншою за переказ."
 
-#. Stable TxnCount key: ui.transfer_category; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_category; do not translate this identifier.
 msgid "ui.transfer_category"
 msgstr "Виберіть одну категорію витрат для типової комісії переказу."
 
-#. Stable TxnCount key: ui.transfer_negative; do not translate this identifier.
+#. Stable TextMoney key: ui.transfer_negative; do not translate this identifier.
 msgid "ui.transfer_negative"
 msgstr ""
 "Увага: ці рахунки мають від'ємний баланс у певний момент історії. "
 "Збереження дозволено:"
 
-#. Stable TxnCount key: ui.add_transaction; do not translate this identifier.
+#. Stable TextMoney key: ui.add_transaction; do not translate this identifier.
 msgid "ui.add_transaction"
 msgstr "Додати операцію"
 
-#. Stable TxnCount key: ui.income_category; do not translate this identifier.
+#. Stable TextMoney key: ui.income_category; do not translate this identifier.
 msgid "ui.income_category"
 msgstr "Категорія доходу"
 
-#. Stable TxnCount key: ui.transaction_help_expense; do not translate this
+#. Stable TextMoney key: ui.transaction_help_expense; do not translate this
 #. identifier.
 msgid "ui.transaction_help_expense"
 msgstr "Витрата коштів із рахунку. Використовується валюта рахунку."
 
-#. Stable TxnCount key: ui.transaction_help_income; do not translate this
+#. Stable TextMoney key: ui.transaction_help_income; do not translate this
 #. identifier.
 msgid "ui.transaction_help_income"
 msgstr "Надходження, що збільшує дохід. Категорії доходів створюються в Рахунках."
 
-#. Stable TxnCount key: ui.transaction_help_reimbursement; do not translate
+#. Stable TextMoney key: ui.transaction_help_reimbursement; do not translate
 #. this identifier.
 msgid "ui.transaction_help_reimbursement"
 msgstr ""
@@ -654,406 +660,406 @@ msgstr ""
 "посилання. Можна вказати часткову суму; обліку боргів і ліміту "
 "відшкодування немає."
 
-#. Stable TxnCount key: ui.transaction_help_adjustment; do not translate this
+#. Stable TextMoney key: ui.transaction_help_adjustment; do not translate this
 #. identifier.
 msgid "ui.transaction_help_adjustment"
 msgstr ""
 "Збільшує баланс без зміни доходів і витрат, наприклад повернення коштів "
 "за покупку до початку обліку. Не змінює початковий баланс."
 
-#. Stable TxnCount key: ui.incoming_type; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_type; do not translate this identifier.
 msgid "ui.incoming_type"
 msgstr "Тип"
 
-#. Stable TxnCount key: ui.kind_income; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_income; do not translate this identifier.
 msgid "ui.kind_income"
 msgstr "Дохід"
 
-#. Stable TxnCount key: ui.kind_reimbursement; do not translate this
+#. Stable TextMoney key: ui.kind_reimbursement; do not translate this
 #. identifier.
 msgid "ui.kind_reimbursement"
 msgstr "Відшкодування витрат"
 
-#. Stable TxnCount key: ui.kind_adjustment; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_adjustment; do not translate this identifier.
 msgid "ui.kind_adjustment"
 msgstr "Коригування балансу"
 
-#. Stable TxnCount key: ui.incoming_account; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_account; do not translate this identifier.
 msgid "ui.incoming_account"
 msgstr "Отримати на рахунок"
 
-#. Stable TxnCount key: ui.incoming_choose_account; do not translate this
+#. Stable TextMoney key: ui.incoming_choose_account; do not translate this
 #. identifier.
 msgid "ui.incoming_choose_account"
 msgstr "Виберіть наявний рахунок для отримання."
 
-#. Stable TxnCount key: ui.incoming_sender; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_sender; do not translate this identifier.
 msgid "ui.incoming_sender"
 msgstr "Відправник (необов'язково)"
 
-#. Stable TxnCount key: ui.incoming_reference_label; do not translate this
+#. Stable TextMoney key: ui.incoming_reference_label; do not translate this
 #. identifier.
 msgid "ui.incoming_reference_label"
 msgstr "Початкова витрата (необов'язково)"
 
-#. Stable TxnCount key: ui.incoming_no_reference; do not translate this
+#. Stable TextMoney key: ui.incoming_no_reference; do not translate this
 #. identifier.
 msgid "ui.incoming_no_reference"
 msgstr "Без посилання на витрату"
 
-#. Stable TxnCount key: ui.incoming_linked; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_linked; do not translate this identifier.
 msgid "ui.incoming_linked"
 msgstr "Посилання на витрату: {identifier}"
 
-#. Stable TxnCount key: ui.incoming_category; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_category; do not translate this identifier.
 msgid "ui.incoming_category"
 msgstr "Виберіть активну категорію відповідного типу."
 
-#. Stable TxnCount key: ui.incoming_amount; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_amount; do not translate this identifier.
 msgid "ui.incoming_amount"
 msgstr "Сума має бути більшою за нуль."
 
-#. Stable TxnCount key: ui.incoming_date; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_date; do not translate this identifier.
 msgid "ui.incoming_date"
 msgstr "Виберіть дату від 1 січня 1970 року до сьогодні."
 
-#. Stable TxnCount key: ui.incoming_reference; do not translate this
+#. Stable TextMoney key: ui.incoming_reference; do not translate this
 #. identifier.
 msgid "ui.incoming_reference"
 msgstr ""
 "Виберіть наявну витрату з тією самою категорією та валютою, не пізнішу за"
 " надходження."
 
-#. Stable TxnCount key: ui.incoming_period; do not translate this identifier.
+#. Stable TextMoney key: ui.incoming_period; do not translate this identifier.
 msgid "ui.incoming_period"
 msgstr "Кінцева дата не може передувати початковій."
 
-#. Stable TxnCount key: ui.app_name; do not translate this identifier.
+#. Stable TextMoney key: ui.app_name; do not translate this identifier.
 msgid "ui.app_name"
-msgstr "TxnCount"
+msgstr "TextMoney"
 
-#. Stable TxnCount key: ui.timezone; do not translate this identifier.
+#. Stable TextMoney key: ui.timezone; do not translate this identifier.
 msgid "ui.timezone"
 msgstr "Часовий пояс"
 
-#. Stable TxnCount key: ui.advanced; do not translate this identifier.
+#. Stable TextMoney key: ui.advanced; do not translate this identifier.
 msgid "ui.advanced"
 msgstr "Додаткові налаштування"
 
-#. Stable TxnCount key: ui.payee_help; do not translate this identifier.
+#. Stable TextMoney key: ui.payee_help; do not translate this identifier.
 msgid "ui.payee_help"
 msgstr ""
 "Необов'язково: магазин або людина, що отримує гроші, а не категорія "
 "витрат. Залиште порожнім, якщо це не потрібно."
 
-#. Stable TxnCount key: ui.display_currency_codes; do not translate this
+#. Stable TextMoney key: ui.display_currency_codes; do not translate this
 #. identifier.
 msgid "ui.display_currency_codes"
 msgstr ""
 "Коди через пробіл, наприклад UAH USD EUR. Валюти нових рахунків додаються"
 " автоматично; наявні налаштування зберігаються."
 
-#. Stable TxnCount key: ui.timezone_help; do not translate this identifier.
+#. Stable TextMoney key: ui.timezone_help; do not translate this identifier.
 msgid "ui.timezone_help"
 msgstr ""
 "Лише для початкового поточного часу й передавання дати календарю. Системний пояс цього пристрою "
 "або назва IANA, наприклад Europe/Kyiv. Збережені дати й місцевий час операцій не перетворюються "
 "при зміні цього параметра; часовий пояс і зміщення UTC не зберігаються."
 
-#. Stable TxnCount key: ui.timezone_system; do not translate this identifier.
+#. Stable TextMoney key: ui.timezone_system; do not translate this identifier.
 msgid "ui.timezone_system"
 msgstr "Системний"
 
-#. Stable TxnCount key: ui.timezone_saved; do not translate this identifier.
+#. Stable TextMoney key: ui.timezone_saved; do not translate this identifier.
 msgid "ui.timezone_saved"
 msgstr "Часовий пояс збережено."
 
-#. Stable TxnCount key: ui.timezone_current; do not translate this identifier.
+#. Stable TextMoney key: ui.timezone_current; do not translate this identifier.
 msgid "ui.timezone_current"
 msgstr "Пояс початкового часу: {zone} · час операції є місцевим"
 
-#. Stable TxnCount key: ui.time; do not translate this identifier.
+#. Stable TextMoney key: ui.time; do not translate this identifier.
 msgid "ui.time"
 msgstr "Час (24 години)"
 
-#. Stable TxnCount key: ui.date_hint; do not translate this identifier.
+#. Stable TextMoney key: ui.date_hint; do not translate this identifier.
 msgid "ui.date_hint"
 msgstr "ДД.ММ.РРРР"
 
-#. Stable TxnCount key: ui.time_hint; do not translate this identifier.
+#. Stable TextMoney key: ui.time_hint; do not translate this identifier.
 msgid "ui.time_hint"
 msgstr "ГГ:ХХ або ГГ:ХХ:СС"
 
-#. Stable TxnCount key: ui.pick_date; do not translate this identifier.
+#. Stable TextMoney key: ui.pick_date; do not translate this identifier.
 msgid "ui.pick_date"
 msgstr "Вибрати дату"
 
-#. Stable TxnCount key: ui.pick_time; do not translate this identifier.
+#. Stable TextMoney key: ui.pick_time; do not translate this identifier.
 msgid "ui.pick_time"
 msgstr "Вибрати час"
 
-#. Stable TxnCount key: ui.details; do not translate this identifier.
+#. Stable TextMoney key: ui.details; do not translate this identifier.
 msgid "ui.details"
 msgstr "Подробиці"
 
-#. Stable TxnCount key: ui.crud_timezone_invalid; do not translate this
+#. Stable TextMoney key: ui.crud_timezone_invalid; do not translate this
 #. identifier.
 msgid "ui.crud_timezone_invalid"
 msgstr ""
 "Невідомий часовий пояс. Виберіть системний або назву IANA, наприклад "
 "Europe/Kyiv."
 
-#. Stable TxnCount key: ui.crud_timezone_unavailable; do not translate this
+#. Stable TextMoney key: ui.crud_timezone_unavailable; do not translate this
 #. identifier.
 msgid "ui.crud_timezone_unavailable"
 msgstr ""
 "Не вдалося отримати часовий пояс пристрою. Повторіть спробу або задайте "
 "пояс у налаштуваннях."
 
-#. Stable TxnCount key: ui.crud_timezone_save; do not translate this
+#. Stable TextMoney key: ui.crud_timezone_save; do not translate this
 #. identifier.
 msgid "ui.crud_timezone_save"
 msgstr "Не вдалося зберегти часовий пояс. Повторіть спробу."
 
-#. Stable TxnCount key: ui.crud_date_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_date_invalid; do not translate this identifier.
 msgid "ui.crud_date_invalid"
 msgstr "Введіть правильну дату у форматі, вказаному під полем."
 
-#. Stable TxnCount key: ui.crud_time_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_time_invalid; do not translate this identifier.
 msgid "ui.crud_time_invalid"
 msgstr "Введіть час у 24-годинному форматі: ГГ:ХХ або ГГ:ХХ:СС."
 
-#. Stable TxnCount key: ui.crud_time_missing; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_time_missing; do not translate this identifier.
 msgid "ui.crud_time_missing"
 msgstr ""
 "Цього місцевого часу не існує через переведення годинника вперед. "
 "Виберіть інший час."
 
-#. Stable TxnCount key: ui.crud_time_ambiguous; do not translate this
+#. Stable TextMoney key: ui.crud_time_ambiguous; do not translate this
 #. identifier.
 msgid "ui.crud_time_ambiguous"
 msgstr ""
 "Цей час повторюється під час переведення годинника назад. Виберіть "
 "однозначний час. Незмінені наявні позначки можна зберігати."
 
-#. Stable TxnCount key: ui.multiple_postings; do not translate this identifier.
+#. Stable TextMoney key: ui.multiple_postings; do not translate this identifier.
 msgid "ui.multiple_postings"
 msgstr "Кілька проведень"
 
-#. Stable TxnCount key: ui.version; do not translate this identifier.
+#. Stable TextMoney key: ui.version; do not translate this identifier.
 msgid "ui.version"
 msgstr "Версія 0.1"
 
-#. Stable TxnCount key: ui.nav_home; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_home; do not translate this identifier.
 msgid "ui.nav_home"
 msgstr "Головна"
 
-#. Stable TxnCount key: ui.nav_transactions; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_transactions; do not translate this identifier.
 msgid "ui.nav_transactions"
 msgstr "Операції"
 
-#. Stable TxnCount key: ui.nav_accounts; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_accounts; do not translate this identifier.
 msgid "ui.nav_accounts"
 msgstr "Облік"
 
-#. Stable TxnCount key: ui.nav_settings; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_settings; do not translate this identifier.
 msgid "ui.nav_settings"
 msgstr "Налаштування"
 
-#. Stable TxnCount key: ui.nav_back; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_back; do not translate this identifier.
 msgid "ui.nav_back"
 msgstr "Назад"
 
-#. Stable TxnCount key: ui.nav_reports; do not translate this identifier.
+#. Stable TextMoney key: ui.nav_reports; do not translate this identifier.
 msgid "ui.nav_reports"
 msgstr "Звіти"
 
-#. Stable TxnCount key: ui.report_period; do not translate this identifier.
+#. Stable TextMoney key: ui.report_period; do not translate this identifier.
 msgid "ui.report_period"
 msgstr "Період"
 
-#. Stable TxnCount key: ui.report_current_month; do not translate this identifier.
+#. Stable TextMoney key: ui.report_current_month; do not translate this identifier.
 msgid "ui.report_current_month"
 msgstr "Поточний місяць"
 
-#. Stable TxnCount key: ui.report_previous_month; do not translate this identifier.
+#. Stable TextMoney key: ui.report_previous_month; do not translate this identifier.
 msgid "ui.report_previous_month"
 msgstr "Попередній місяць"
 
-#. Stable TxnCount key: ui.report_current_year; do not translate this identifier.
+#. Stable TextMoney key: ui.report_current_year; do not translate this identifier.
 msgid "ui.report_current_year"
 msgstr "Поточний рік"
 
-#. Stable TxnCount key: ui.report_custom_range; do not translate this identifier.
+#. Stable TextMoney key: ui.report_custom_range; do not translate this identifier.
 msgid "ui.report_custom_range"
 msgstr "Власний діапазон дат"
 
-#. Stable TxnCount key: ui.report_start_date; do not translate this identifier.
+#. Stable TextMoney key: ui.report_start_date; do not translate this identifier.
 msgid "ui.report_start_date"
 msgstr "Дата початку"
 
-#. Stable TxnCount key: ui.report_end_date; do not translate this identifier.
+#. Stable TextMoney key: ui.report_end_date; do not translate this identifier.
 msgid "ui.report_end_date"
 msgstr "Дата завершення"
 
-#. Stable TxnCount key: ui.report_income; do not translate this identifier.
+#. Stable TextMoney key: ui.report_income; do not translate this identifier.
 msgid "ui.report_income"
 msgstr "Доходи"
 
-#. Stable TxnCount key: ui.report_expenses; do not translate this identifier.
+#. Stable TextMoney key: ui.report_expenses; do not translate this identifier.
 msgid "ui.report_expenses"
 msgstr "Витрати"
 
-#. Stable TxnCount key: ui.report_net; do not translate this identifier.
+#. Stable TextMoney key: ui.report_net; do not translate this identifier.
 msgid "ui.report_net"
 msgstr "Чистий результат"
 
-#. Stable TxnCount key: ui.report_expense_categories; do not translate this identifier.
+#. Stable TextMoney key: ui.report_expense_categories; do not translate this identifier.
 msgid "ui.report_expense_categories"
 msgstr "Витрати за категоріями"
 
-#. Stable TxnCount key: ui.report_income_categories; do not translate this identifier.
+#. Stable TextMoney key: ui.report_income_categories; do not translate this identifier.
 msgid "ui.report_income_categories"
 msgstr "Доходи за категоріями"
 
-#. Stable TxnCount key: ui.report_uncategorized; do not translate this identifier.
+#. Stable TextMoney key: ui.report_uncategorized; do not translate this identifier.
 msgid "ui.report_uncategorized"
 msgstr "Без категорії"
 
-#. Stable TxnCount key: ui.report_percentage_unavailable; do not translate this identifier.
+#. Stable TextMoney key: ui.report_percentage_unavailable; do not translate this identifier.
 msgid "ui.report_percentage_unavailable"
 msgstr "—"
 
-#. Stable TxnCount key: ui.report_categories_empty; do not translate this identifier.
+#. Stable TextMoney key: ui.report_categories_empty; do not translate this identifier.
 msgid "ui.report_categories_empty"
 msgstr "За цей період немає руху за категоріями."
 
-#. Stable TxnCount key: ui.report_empty_period; do not translate this identifier.
+#. Stable TextMoney key: ui.report_empty_period; do not translate this identifier.
 msgid "ui.report_empty_period"
 msgstr "За цей період не було доходів або витрат."
 
-#. Stable TxnCount key: ui.report_unavailable; do not translate this identifier.
+#. Stable TextMoney key: ui.report_unavailable; do not translate this identifier.
 msgid "ui.report_unavailable"
 msgstr "Виберіть і завантажте журнал, щоб переглянути звіти."
 
-#. Stable TxnCount key: ui.report_date_range; do not translate this identifier.
+#. Stable TextMoney key: ui.report_date_range; do not translate this identifier.
 msgid "ui.report_date_range"
 msgstr "Дата завершення не може бути раніше за дату початку."
 
-#. Stable TxnCount key: ui.welcome_title; do not translate this identifier.
+#. Stable TextMoney key: ui.welcome_title; do not translate this identifier.
 msgid "ui.welcome_title"
-msgstr "Вітаємо у TxnCount"
+msgstr "Вітаємо у TextMoney"
 
-#. Stable TxnCount key: ui.welcome_body; do not translate this identifier.
+#. Stable TextMoney key: ui.welcome_body; do not translate this identifier.
 msgid "ui.welcome_body"
 msgstr ""
 "Облік рахунків і витрат зберігається у звичайному текстовому файлі "
 "Beancount у вибраній вами папці. Синхронізація — за бажанням, через ваш "
 "застосунок."
 
-#. Stable TxnCount key: ui.welcome_step; do not translate this identifier.
+#. Stable TextMoney key: ui.welcome_step; do not translate this identifier.
 msgid "ui.welcome_step"
 msgstr "Оберіть папку, щоб почати. Далі можна буде створити перший рахунок."
 
-#. Stable TxnCount key: ui.select_folder; do not translate this identifier.
+#. Stable TextMoney key: ui.select_folder; do not translate this identifier.
 msgid "ui.select_folder"
 msgstr "Обрати папку даних"
 
-#. Stable TxnCount key: ui.change_folder; do not translate this identifier.
+#. Stable TextMoney key: ui.change_folder; do not translate this identifier.
 msgid "ui.change_folder"
 msgstr "Змінити папку"
 
-#. Stable TxnCount key: ui.reload; do not translate this identifier.
+#. Stable TextMoney key: ui.reload; do not translate this identifier.
 msgid "ui.reload"
 msgstr "Оновити дані"
 
-#. Stable TxnCount key: ui.no_folder; do not translate this identifier.
+#. Stable TextMoney key: ui.no_folder; do not translate this identifier.
 msgid "ui.no_folder"
 msgstr "Оберіть папку, щоб почати."
 
-#. Stable TxnCount key: ui.folder; do not translate this identifier.
+#. Stable TextMoney key: ui.folder; do not translate this identifier.
 msgid "ui.folder"
 msgstr "Папка даних"
 
-#. Stable TxnCount key: ui.folder_selected; do not translate this identifier.
+#. Stable TextMoney key: ui.folder_selected; do not translate this identifier.
 msgid "ui.folder_selected"
 msgstr "Папку обрано"
 
-#. Stable TxnCount key: ui.access; do not translate this identifier.
+#. Stable TextMoney key: ui.access; do not translate this identifier.
 msgid "ui.access"
 msgstr "Доступ до папки"
 
-#. Stable TxnCount key: ui.access_unchecked; do not translate this identifier.
+#. Stable TextMoney key: ui.access_unchecked; do not translate this identifier.
 msgid "ui.access_unchecked"
 msgstr "Доступ ще не перевірено."
 
-#. Stable TxnCount key: ui.access_ok; do not translate this identifier.
+#. Stable TextMoney key: ui.access_ok; do not translate this identifier.
 msgid "ui.access_ok"
 msgstr "Папка доступна."
 
-#. Stable TxnCount key: ui.access_failed; do not translate this identifier.
+#. Stable TextMoney key: ui.access_failed; do not translate this identifier.
 msgid "ui.access_failed"
 msgstr "Не вдалося підтвердити доступ. Оберіть папку ще раз."
 
-#. Stable TxnCount key: ui.journal_loaded; do not translate this identifier.
+#. Stable TextMoney key: ui.journal_loaded; do not translate this identifier.
 msgid "ui.journal_loaded"
 msgstr "Дані актуальні."
 
-#. Stable TxnCount key: ui.journal_new; do not translate this identifier.
+#. Stable TextMoney key: ui.journal_new; do not translate this identifier.
 msgid "ui.journal_new"
 msgstr "Папка готова. Створіть перший рахунок, коли будете готові."
 
-#. Stable TxnCount key: ui.external_reloaded; do not translate this identifier.
+#. Stable TextMoney key: ui.external_reloaded; do not translate this identifier.
 msgid "ui.external_reloaded"
 msgstr "Зовнішні зміни завантажено. Введені дані форми збережено."
 
-#. Stable TxnCount key: ui.reloaded; do not translate this identifier.
+#. Stable TextMoney key: ui.reloaded; do not translate this identifier.
 msgid "ui.reloaded"
 msgstr "Дані оновлено. Введені дані форми збережено."
 
-#. Stable TxnCount key: ui.reload_hint; do not translate this identifier.
+#. Stable TextMoney key: ui.reload_hint; do not translate this identifier.
 msgid "ui.reload_hint"
 msgstr "Перевірте оновлений баланс та історію перед повторною спробою."
 
-#. Stable TxnCount key: ui.saved; do not translate this identifier.
+#. Stable TextMoney key: ui.saved; do not translate this identifier.
 msgid "ui.saved"
 msgstr "Зміни збережено та перевірено."
 
-#. Stable TxnCount key: ui.saved_backup; do not translate this identifier.
+#. Stable TextMoney key: ui.saved_backup; do not translate this identifier.
 msgid "ui.saved_backup"
 msgstr "Зміни збережено та перевірено. Створено резервну копію."
 
-#. Stable TxnCount key: ui.backups_title; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_title; do not translate this identifier.
 msgid "ui.backups_title"
 msgstr "Резервні копії"
 
-#. Stable TxnCount key: ui.backups_automatic; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_automatic; do not translate this identifier.
 msgid "ui.backups_automatic"
 msgstr "Автоматично очищати старі копії"
 
-#. Stable TxnCount key: ui.backups_policy; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_policy; do not translate this identifier.
 msgid "ui.backups_policy"
 msgstr ""
 "Зберігати 20 останніх копій, додатково одну на день за 30 календарних "
 "днів і одну на місяць за 12 календарних місяців (включно із сьогодні та "
 "поточним місяцем)."
 
-#. Stable TxnCount key: ui.backups_protected; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_protected; do not translate this identifier.
 msgid "ui.backups_protected"
 msgstr ""
 "Копії незавершених записів, ручні копії та старі копії без дати не "
 "видаляються автоматично. Переглядайте їх окремо. Видалення поширюється "
 "через синхронізацію."
 
-#. Stable TxnCount key: ui.backups_clean; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_clean; do not translate this identifier.
 msgid "ui.backups_clean"
 msgstr "Очистити старі копії"
 
-#. Stable TxnCount key: ui.backups_cleaned; do not translate this identifier.
+#. Stable TextMoney key: ui.backups_cleaned; do not translate this identifier.
 msgid "ui.backups_cleaned"
 msgstr "Очищення резервних копій завершено. Захищені копії збережено."
 
-#. Stable TxnCount key: ui.backups_saved_warning; do not translate this
+#. Stable TextMoney key: ui.backups_saved_warning; do not translate this
 #. identifier.
 msgid "ui.backups_saved_warning"
 msgstr ""
@@ -1061,48 +1067,48 @@ msgstr ""
 "вдалося. Копії для відновлення збережено; перевірте доступ до папки та "
 "повторіть очищення в налаштуваннях."
 
-#. Stable TxnCount key: ui.backups_setting_saved; do not translate this
+#. Stable TextMoney key: ui.backups_setting_saved; do not translate this
 #. identifier.
 msgid "ui.backups_setting_saved"
 msgstr "Налаштування очищення копій збережено на цьому пристрої."
 
-#. Stable TxnCount key: ui.backups_setting_failed; do not translate this
+#. Stable TextMoney key: ui.backups_setting_failed; do not translate this
 #. identifier.
 msgid "ui.backups_setting_failed"
 msgstr "Не вдалося зберегти налаштування очищення копій. Спробуйте ще раз."
 
-#. Stable TxnCount key: ui.backups_invalid_setting; do not translate this
+#. Stable TextMoney key: ui.backups_invalid_setting; do not translate this
 #. identifier.
 msgid "ui.backups_invalid_setting"
 msgstr ""
 "Некоректне налаштування очищення копій. Перевірте локальний файл "
 "налаштувань."
 
-#. Stable TxnCount key: ui.saved_new; do not translate this identifier.
+#. Stable TextMoney key: ui.saved_new; do not translate this identifier.
 msgid "ui.saved_new"
 msgstr "Зміни збережено та перевірено у новому файлі."
 
-#. Stable TxnCount key: ui.cancelled; do not translate this identifier.
+#. Stable TextMoney key: ui.cancelled; do not translate this identifier.
 msgid "ui.cancelled"
 msgstr "Вибір папки скасовано. Дані не змінено."
 
-#. Stable TxnCount key: ui.action_failed; do not translate this identifier.
+#. Stable TextMoney key: ui.action_failed; do not translate this identifier.
 msgid "ui.action_failed"
 msgstr "Не вдалося виконати дію."
 
-#. Stable TxnCount key: ui.conflict_title; do not translate this identifier.
+#. Stable TextMoney key: ui.conflict_title; do not translate this identifier.
 msgid "ui.conflict_title"
 msgstr "Збереження призупинено"
 
-#. Stable TxnCount key: ui.conflict_body; do not translate this identifier.
+#. Stable TextMoney key: ui.conflict_body; do not translate this identifier.
 msgid "ui.conflict_body"
 msgstr ""
-"Журнал змінився поза TxnCount. Дані не перезаписано, введене у форму "
+"Журнал змінився поза TextMoney. Дані не перезаписано, введене у форму "
 "збережено. Перегляньте зовнішні зміни або оновіть дані. Застарілу форму не можна зберегти "
 "поверх новішого журналу: залиште чернетку, відкрийте нову форму й перенесіть дані."
 
 msgid "ui.external_notice"
-msgstr "Журнал змінено поза TxnCount. Відкриті чернетки збережено без автоматичного перенесення на нову версію. Перегляньте зміни й відкрийте нову форму перед збереженням застарілої чернетки."
+msgstr "Журнал змінено поза TextMoney. Відкриті чернетки збережено без автоматичного перенесення на нову версію. Перегляньте зміни й відкрийте нову форму перед збереженням застарілої чернетки."
 
 msgid "ui.external_details"
 msgstr "Переглянути зовнішні зміни"
@@ -1120,7 +1126,7 @@ msgid "ui.external_diff"
 msgstr "Відмінності тексту (лише читання)"
 
 msgid "ui.conflict_copies"
-msgstr "Можливі конфліктні копії (лише назви). Поточний журнал залишається активним, збереження не заблоковано. Перевірте ці файли зовні; TxnCount не читатиме, не об’єднуватиме, не видалятиме й не активуватиме їх:"
+msgstr "Можливі конфліктні копії (лише назви). Поточний журнал залишається активним, збереження не заблоковано. Перевірте ці файли зовні; TextMoney не читатиме, не об’єднуватиме, не видалятиме й не активуватиме їх:"
 
 msgid "ui.conflict_copy_scan_failed"
 msgstr "Не вдалося перевірити назви сусідніх файлів на можливі конфліктні копії. Поточний журнал залишається доступним."
@@ -1137,104 +1143,104 @@ msgstr "Локально вибрана категорія комісії від
 msgid "ui.default_fee_invalid"
 msgstr "Локальний параметр типової категорії комісії некоректний. Перевірте налаштування цього пристрою."
 
-#. Stable TxnCount key: ui.keep_editing; do not translate this identifier.
+#. Stable TextMoney key: ui.keep_editing; do not translate this identifier.
 msgid "ui.keep_editing"
 msgstr "Продовжити редагування"
 
-#. Stable TxnCount key: ui.home_balances; do not translate this identifier.
+#. Stable TextMoney key: ui.home_balances; do not translate this identifier.
 msgid "ui.home_balances"
 msgstr "Ваші баланси"
 
-#. Stable TxnCount key: ui.home_recent; do not translate this identifier.
+#. Stable TextMoney key: ui.home_recent; do not translate this identifier.
 msgid "ui.home_recent"
 msgstr "Останні операції"
 
-#. Stable TxnCount key: ui.home_no_accounts; do not translate this identifier.
+#. Stable TextMoney key: ui.home_no_accounts; do not translate this identifier.
 msgid "ui.home_no_accounts"
 msgstr "Рахунків ще немає. Створіть перший, коли будете готові."
 
-#. Stable TxnCount key: ui.home_no_transactions; do not translate this
+#. Stable TextMoney key: ui.home_no_transactions; do not translate this
 #. identifier.
 msgid "ui.home_no_transactions"
 msgstr "Тут з’являться останні операції."
 
-#. Stable TxnCount key: ui.currency_group; do not translate this identifier.
+#. Stable TextMoney key: ui.currency_group; do not translate this identifier.
 msgid "ui.currency_group"
 msgstr "У валюті {currency}"
 
-#. Stable TxnCount key: ui.transactions_title; do not translate this
+#. Stable TextMoney key: ui.transactions_title; do not translate this
 #. identifier.
 msgid "ui.transactions_title"
 msgstr "Операції"
 
-#. Stable TxnCount key: ui.transactions_empty; do not translate this
+#. Stable TextMoney key: ui.transactions_empty; do not translate this
 #. identifier.
 msgid "ui.transactions_empty"
 msgstr "Операцій ще немає."
 
-#. Stable TxnCount key: ui.accounts_title; do not translate this identifier.
+#. Stable TextMoney key: ui.accounts_title; do not translate this identifier.
 msgid "ui.accounts_title"
 msgstr "Рахунки"
 
-#. Stable TxnCount key: ui.accounts_empty; do not translate this identifier.
+#. Stable TextMoney key: ui.accounts_empty; do not translate this identifier.
 msgid "ui.accounts_empty"
 msgstr "Рахунків ще немає."
 
-#. Stable TxnCount key: ui.categories_title; do not translate this identifier.
+#. Stable TextMoney key: ui.categories_title; do not translate this identifier.
 msgid "ui.categories_title"
 msgstr "Категорії"
 
-#. Stable TxnCount key: ui.categories_expenses; do not translate this
+#. Stable TextMoney key: ui.categories_expenses; do not translate this
 #. identifier.
 msgid "ui.categories_expenses"
 msgstr "Витрати"
 
-#. Stable TxnCount key: ui.categories_income; do not translate this identifier.
+#. Stable TextMoney key: ui.categories_income; do not translate this identifier.
 msgid "ui.categories_income"
 msgstr "Доходи"
 
-#. Stable TxnCount key: ui.categories_empty; do not translate this identifier.
+#. Stable TextMoney key: ui.categories_empty; do not translate this identifier.
 msgid "ui.categories_empty"
 msgstr "Категорій ще немає."
 
-#. Stable TxnCount key: ui.create_account; do not translate this identifier.
-#. Stable TxnCount key: ui.code_suggestion_status; do not translate this identifier.
+#. Stable TextMoney key: ui.create_account; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_status; do not translate this identifier.
 msgid "ui.code_suggestion_status"
 msgstr "Запропонований код. Його можна змінити будь-коли."
 
-#. Stable TxnCount key: ui.code_suggestion_manual; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_manual; do not translate this identifier.
 msgid "ui.code_suggestion_manual"
 msgstr "Власний код. Перед збереженням його буде перевірено."
 
-#. Stable TxnCount key: ui.code_suggestion_collision; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_collision; do not translate this identifier.
 msgid "ui.code_suggestion_collision"
 msgstr "Цей код уже використовується: {code}"
 
-#. Stable TxnCount key: ui.code_suggestion_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_invalid; do not translate this identifier.
 msgid "ui.code_suggestion_invalid"
 msgstr "Код не відповідає вибраному типу або батьківській категорії."
 
-#. Stable TxnCount key: ui.code_suggestion_regenerate; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_regenerate; do not translate this identifier.
 msgid "ui.code_suggestion_regenerate"
 msgstr "Створити знову"
 
-#. Stable TxnCount key: ui.code_suggestion_alternatives; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_alternatives; do not translate this identifier.
 msgid "ui.code_suggestion_alternatives"
 msgstr "Інші варіанти"
 
-#. Stable TxnCount key: ui.code_suggestion_parent; do not translate this identifier.
+#. Stable TextMoney key: ui.code_suggestion_parent; do not translate this identifier.
 msgid "ui.code_suggestion_parent"
 msgstr "Батьківська категорія (необов’язково)"
 
-#. Stable TxnCount key: ui.category_parent_none; do not translate this identifier.
+#. Stable TextMoney key: ui.category_parent_none; do not translate this identifier.
 msgid "ui.category_parent_none"
 msgstr "Без батьківської категорії"
 
-#. Stable TxnCount key: ui.crud_code_collision; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_code_collision; do not translate this identifier.
 msgid "ui.crud_code_collision"
 msgstr "Код рахунку або категорії вже існує."
 
-#. Stable TxnCount key: ui.crud_code_invalid; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_code_invalid; do not translate this identifier.
 msgid "ui.crud_code_invalid"
 msgstr "Введіть коректний код для вибраного типу та батьківської категорії."
 
@@ -1244,484 +1250,484 @@ msgstr "Створити рахунок"
 msgid "ui.create_budget"
 msgstr "Створити бюджет"
 
-#. Stable TxnCount key: ui.account_name; do not translate this identifier.
+#. Stable TextMoney key: ui.account_name; do not translate this identifier.
 msgid "ui.account_name"
 msgstr "Назва рахунку"
 
-#. Stable TxnCount key: ui.account_code; do not translate this identifier.
+#. Stable TextMoney key: ui.account_code; do not translate this identifier.
 msgid "ui.account_code"
 msgstr "Код рахунку (додатково)"
 
-#. Stable TxnCount key: ui.account_code_hint; do not translate this identifier.
+#. Stable TextMoney key: ui.account_code_hint; do not translate this identifier.
 msgid "ui.account_code_hint"
 msgstr "Наприклад, Cash або Bank:Daily"
 
-#. Stable TxnCount key: ui.currency; do not translate this identifier.
+#. Stable TextMoney key: ui.currency; do not translate this identifier.
 msgid "ui.currency"
 msgstr "Валюта"
 
-#. Stable TxnCount key: ui.opening_balance; do not translate this identifier.
+#. Stable TextMoney key: ui.opening_balance; do not translate this identifier.
 msgid "ui.opening_balance"
 msgstr "Початковий баланс (необов’язково)"
 
-#. Stable TxnCount key: ui.create_category; do not translate this identifier.
+#. Stable TextMoney key: ui.create_category; do not translate this identifier.
 msgid "ui.create_category"
 msgstr "Створити категорію"
 
-#. Stable TxnCount key: ui.category_path; do not translate this identifier.
+#. Stable TextMoney key: ui.category_path; do not translate this identifier.
 msgid "ui.category_path"
 msgstr "Шлях категорії"
 
-#. Stable TxnCount key: ui.category_path_hint; do not translate this
+#. Stable TextMoney key: ui.category_path_hint; do not translate this
 #. identifier.
 msgid "ui.category_path_hint"
 msgstr "Наприклад, Food:Groceries"
 
-#. Stable TxnCount key: ui.category_none_available; do not translate this
+#. Stable TextMoney key: ui.category_none_available; do not translate this
 #. identifier.
 msgid "ui.category_none_available"
 msgstr "Категорій ще немає — створіть першу"
 
-#. Stable TxnCount key: ui.category_name; do not translate this identifier.
+#. Stable TextMoney key: ui.category_name; do not translate this identifier.
 msgid "ui.category_name"
 msgstr "Назва категорії"
 
-#. Stable TxnCount key: ui.pay_from; do not translate this identifier.
+#. Stable TextMoney key: ui.pay_from; do not translate this identifier.
 msgid "ui.pay_from"
 msgstr "З якого рахунку"
 
-#. Stable TxnCount key: ui.choose_account; do not translate this identifier.
+#. Stable TextMoney key: ui.choose_account; do not translate this identifier.
 msgid "ui.choose_account"
 msgstr "Оберіть рахунок"
 
-#. Stable TxnCount key: ui.expense_category; do not translate this identifier.
+#. Stable TextMoney key: ui.expense_category; do not translate this identifier.
 msgid "ui.expense_category"
 msgstr "Категорія"
 
-#. Stable TxnCount key: ui.choose_category; do not translate this identifier.
+#. Stable TextMoney key: ui.choose_category; do not translate this identifier.
 msgid "ui.choose_category"
 msgstr "Оберіть категорію"
 
-#. Stable TxnCount key: ui.amount; do not translate this identifier.
+#. Stable TextMoney key: ui.amount; do not translate this identifier.
 msgid "ui.amount"
 msgstr "Сума"
 
-#. Stable TxnCount key: ui.payee; do not translate this identifier.
+#. Stable TextMoney key: ui.payee; do not translate this identifier.
 msgid "ui.payee"
 msgstr "Магазин / отримувач (необов'язково)"
 
-#. Stable TxnCount key: ui.date; do not translate this identifier.
+#. Stable TextMoney key: ui.date; do not translate this identifier.
 msgid "ui.date"
 msgstr "Дата"
 
-#. Stable TxnCount key: ui.initial_date; do not translate this identifier.
+#. Stable TextMoney key: ui.initial_date; do not translate this identifier.
 msgid "ui.initial_date"
 msgstr "Початок"
 
-#. Stable TxnCount key: ui.kind_opening; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_opening; do not translate this identifier.
 msgid "ui.kind_opening"
 msgstr "Початковий баланс"
 
-#. Stable TxnCount key: ui.kind_expense; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_expense; do not translate this identifier.
 msgid "ui.kind_expense"
 msgstr "Витрата"
 
-#. Stable TxnCount key: ui.kind_external; do not translate this identifier.
+#. Stable TextMoney key: ui.kind_external; do not translate this identifier.
 msgid "ui.kind_external"
 msgstr "Операція"
 
-#. Stable TxnCount key: ui.settings_title; do not translate this identifier.
+#. Stable TextMoney key: ui.settings_title; do not translate this identifier.
 msgid "ui.settings_title"
 msgstr "Налаштування"
 
-#. Stable TxnCount key: ui.language; do not translate this identifier.
+#. Stable TextMoney key: ui.language; do not translate this identifier.
 msgid "ui.language"
 msgstr "Мова"
 
-#. Stable TxnCount key: ui.language_system; do not translate this identifier.
+#. Stable TextMoney key: ui.language_system; do not translate this identifier.
 msgid "ui.language_system"
 msgstr "Системна"
 
-#. Stable TxnCount key: ui.error_system_language; do not translate this
+#. Stable TextMoney key: ui.error_system_language; do not translate this
 #. identifier.
 msgid "ui.error_system_language"
 msgstr ""
 "Не вдалося отримати мову пристрою. Перезапустіть застосунок або виберіть "
 "мову явно."
 
-#. Stable TxnCount key: ui.language_en; do not translate this identifier.
+#. Stable TextMoney key: ui.language_en; do not translate this identifier.
 msgid "ui.language_en"
 msgstr "English"
 
-#. Stable TxnCount key: ui.language_uk; do not translate this identifier.
+#. Stable TextMoney key: ui.language_uk; do not translate this identifier.
 msgid "ui.language_uk"
 msgstr "Українська"
 
-#. Stable TxnCount key: ui.language_ru; do not translate this identifier.
+#. Stable TextMoney key: ui.language_ru; do not translate this identifier.
 msgid "ui.language_ru"
 msgstr "Русский"
 
-#. Stable TxnCount key: ui.language_name; do not translate this identifier.
+#. Stable TextMoney key: ui.language_name; do not translate this identifier.
 msgid "ui.language_name"
 msgstr "Українська"
 
-#. Stable TxnCount key: ui.appearance; do not translate this identifier.
+#. Stable TextMoney key: ui.appearance; do not translate this identifier.
 msgid "ui.appearance"
 msgstr "Вигляд"
 
-#. Stable TxnCount key: ui.theme_system; do not translate this identifier.
+#. Stable TextMoney key: ui.theme_system; do not translate this identifier.
 msgid "ui.theme_system"
 msgstr "Як у системі"
 
-#. Stable TxnCount key: ui.theme_light; do not translate this identifier.
+#. Stable TextMoney key: ui.theme_light; do not translate this identifier.
 msgid "ui.theme_light"
 msgstr "Світла"
 
-#. Stable TxnCount key: ui.theme_dark; do not translate this identifier.
+#. Stable TextMoney key: ui.theme_dark; do not translate this identifier.
 msgid "ui.theme_dark"
 msgstr "Темна"
 
-#. Stable TxnCount key: ui.storage_section; do not translate this identifier.
+#. Stable TextMoney key: ui.storage_section; do not translate this identifier.
 msgid "ui.storage_section"
 msgstr "Ваші дані"
 
-#. Stable TxnCount key: ui.storage_explanation; do not translate this
+#. Stable TextMoney key: ui.storage_explanation; do not translate this
 #. identifier.
 msgid "ui.storage_explanation"
 msgstr ""
-"Журнал — це текстовий файл у форматі Beancount у цій папці. TxnCount не "
+"Журнал — це текстовий файл у форматі Beancount у цій папці. TextMoney не "
 "завантажує його в інтернет. Для синхронізації між пристроями "
 "використовуйте надійний для вас застосунок, наприклад Dropbox або "
 "Dropsync."
 
-#. Stable TxnCount key: ui.storage_filename; do not translate this identifier.
+#. Stable TextMoney key: ui.storage_filename; do not translate this identifier.
 msgid "ui.storage_filename"
-msgstr "Файл журналу: txncount.beancount"
+msgstr "Файл журналу: textmoney.beancount"
 
-#. Stable TxnCount key: ui.about; do not translate this identifier.
+#. Stable TextMoney key: ui.about; do not translate this identifier.
 msgid "ui.about"
-msgstr "Про TxnCount"
+msgstr "Про TextMoney"
 
-#. Stable TxnCount key: ui.about_body; do not translate this identifier.
+#. Stable TextMoney key: ui.about_body; do not translate this identifier.
 msgid "ui.about_body"
 msgstr "Офлайн-облік особистих витрат. Файли залишаються під вашим контролем."
 
-#. Stable TxnCount key: ui.diagnostics; do not translate this identifier.
+#. Stable TextMoney key: ui.diagnostics; do not translate this identifier.
 msgid "ui.diagnostics"
 msgstr "Технічна діагностика"
 
-#. Stable TxnCount key: ui.diagnostics_show; do not translate this identifier.
+#. Stable TextMoney key: ui.diagnostics_show; do not translate this identifier.
 msgid "ui.diagnostics_show"
 msgstr "Показати діагностику"
 
-#. Stable TxnCount key: ui.diagnostics_hide; do not translate this identifier.
+#. Stable TextMoney key: ui.diagnostics_hide; do not translate this identifier.
 msgid "ui.diagnostics_hide"
 msgstr "Приховати діагностику"
 
-#. Stable TxnCount key: ui.app_version; do not translate this identifier.
+#. Stable TextMoney key: ui.app_version; do not translate this identifier.
 msgid "ui.app_version"
 msgstr "Версія застосунку"
 
-#. Stable TxnCount key: ui.account_created; do not translate this identifier.
+#. Stable TextMoney key: ui.account_created; do not translate this identifier.
 msgid "ui.account_created"
 msgstr "Рахунок створено."
 
-#. Stable TxnCount key: ui.category_created; do not translate this identifier.
+#. Stable TextMoney key: ui.category_created; do not translate this identifier.
 msgid "ui.category_created"
 msgstr "Категорію створено."
 
-#. Stable TxnCount key: ui.form_error; do not translate this identifier.
+#. Stable TextMoney key: ui.form_error; do not translate this identifier.
 msgid "ui.form_error"
 msgstr "Перевірте введені дані та спробуйте ще раз."
 
-#. Stable TxnCount key: ui.error_reload; do not translate this identifier.
+#. Stable TextMoney key: ui.error_reload; do not translate this identifier.
 msgid "ui.error_reload"
 msgstr "Спочатку оновіть коректний журнал. Введені у форму дані збережено."
 
-#. Stable TxnCount key: ui.error_folder_starting; do not translate this
+#. Stable TextMoney key: ui.error_folder_starting; do not translate this
 #. identifier.
 msgid "ui.error_folder_starting"
 msgstr "Доступ до папки налаштовується. Спробуйте ще раз."
 
-#. Stable TxnCount key: ui.error_select_folder_first; do not translate this
+#. Stable TextMoney key: ui.error_select_folder_first; do not translate this
 #. identifier.
 msgid "ui.error_select_folder_first"
 msgstr "Спочатку оберіть папку даних."
 
-#. Stable TxnCount key: ui.error_duplicate_account; do not translate this
+#. Stable TextMoney key: ui.error_duplicate_account; do not translate this
 #. identifier.
 msgid "ui.error_duplicate_account"
 msgstr "Цей код рахунку вже використовується."
 
-#. Stable TxnCount key: ui.error_duplicate_category; do not translate this
+#. Stable TextMoney key: ui.error_duplicate_category; do not translate this
 #. identifier.
 msgid "ui.error_duplicate_category"
 msgstr "Така категорія вже існує."
 
-#. Stable TxnCount key: ui.error_date_format; do not translate this identifier.
+#. Stable TextMoney key: ui.error_date_format; do not translate this identifier.
 msgid "ui.error_date_format"
 msgstr "Введіть дату у форматі РРРР-ММ-ДД."
 
-#. Stable TxnCount key: ui.error_amount_format; do not translate this
+#. Stable TextMoney key: ui.error_amount_format; do not translate this
 #. identifier.
 msgid "ui.error_amount_format"
 msgstr "Введіть невід’ємну суму з двома або меншою кількістю знаків після коми."
 
-#. Stable TxnCount key: ui.error_amount_invalid; do not translate this
+#. Stable TextMoney key: ui.error_amount_invalid; do not translate this
 #. identifier.
 msgid "ui.error_amount_invalid"
 msgstr "Некоректна сума."
 
-#. Stable TxnCount key: ui.error_amount_range; do not translate this
+#. Stable TextMoney key: ui.error_amount_range; do not translate this
 #. identifier.
 msgid "ui.error_amount_range"
 msgstr "До коми має бути не більше 12 цифр, після — не більше двох."
 
-#. Stable TxnCount key: ui.error_identifier; do not translate this identifier.
+#. Stable TextMoney key: ui.error_identifier; do not translate this identifier.
 msgid "ui.error_identifier"
 msgstr "Сегменти шляху мають починатися з великої літери й розділятися двокрапкою."
 
-#. Stable TxnCount key: ui.error_name; do not translate this identifier.
+#. Stable TextMoney key: ui.error_name; do not translate this identifier.
 msgid "ui.error_name"
 msgstr "Введіть назву довжиною 1–120 символів без керівних символів."
 
-#. Stable TxnCount key: ui.error_currency; do not translate this identifier.
+#. Stable TextMoney key: ui.error_currency; do not translate this identifier.
 msgid "ui.error_currency"
 msgstr "Введіть трилітерний код валюти, наприклад UAH, USD або EUR."
 
-#. Stable TxnCount key: ui.error_negative; do not translate this identifier.
+#. Stable TextMoney key: ui.error_negative; do not translate this identifier.
 msgid "ui.error_negative"
 msgstr "На рахунку недостатньо коштів для цієї витрати."
 
-#. Stable TxnCount key: ui.error_expense_positive; do not translate this
+#. Stable TextMoney key: ui.error_expense_positive; do not translate this
 #. identifier.
 msgid "ui.error_expense_positive"
 msgstr "Сума витрати має бути більшою за нуль."
 
-#. Stable TxnCount key: ui.error_expense_date; do not translate this
+#. Stable TextMoney key: ui.error_expense_date; do not translate this
 #. identifier.
 msgid "ui.error_expense_date"
 msgstr "Оберіть дату від 1970-01-01 до сьогодні."
 
-#. Stable TxnCount key: ui.error_future_transaction; do not translate this
+#. Stable TextMoney key: ui.error_future_transaction; do not translate this
 #. identifier.
 msgid "ui.error_future_transaction"
 msgstr "Операції з майбутньою датою не підтримуються."
 
-#. Stable TxnCount key: ui.error_choose_account_category; do not translate this
+#. Stable TextMoney key: ui.error_choose_account_category; do not translate this
 #. identifier.
 msgid "ui.error_choose_account_category"
 msgstr "Оберіть рахунок і категорію, створені у застосунку."
 
-#. Stable TxnCount key: ui.error_conflict; do not translate this identifier.
+#. Stable TextMoney key: ui.error_conflict; do not translate this identifier.
 msgid "ui.error_conflict"
 msgstr ""
-"Журнал змінився поза TxnCount. Дані не перезаписано. Оновіть журнал перед"
+"Журнал змінився поза TextMoney. Дані не перезаписано. Оновіть журнал перед"
 " збереженням."
 
-#. Stable TxnCount key: ui.error_invalid_journal; do not translate this
+#. Stable TextMoney key: ui.error_invalid_journal; do not translate this
 #. identifier.
 msgid "ui.error_invalid_journal"
 msgstr ""
 "Журнал містить некоректні або непідтримувані облікові дані. Його не "
 "змінено."
 
-#. Stable TxnCount key: ui.error_unsupported; do not translate this identifier.
+#. Stable TextMoney key: ui.error_unsupported; do not translate this identifier.
 msgid "ui.error_unsupported"
 msgstr "Журнал використовує непідтримувану облікову функцію. Його не змінено."
 
-#. Stable TxnCount key: ui.error_unbalanced; do not translate this identifier.
+#. Stable TextMoney key: ui.error_unbalanced; do not translate this identifier.
 msgid "ui.error_unbalanced"
 msgstr "Операція не збалансована або містить кілька валют. Дані не змінено."
 
-#. Stable TxnCount key: ui.error_undeclared; do not translate this identifier.
+#. Stable TextMoney key: ui.error_undeclared; do not translate this identifier.
 msgid "ui.error_undeclared"
 msgstr "Операція містить рахунок, який не було створено."
 
-#. Stable TxnCount key: ui.error_currency_mismatch; do not translate this
+#. Stable TextMoney key: ui.error_currency_mismatch; do not translate this
 #. identifier.
 msgid "ui.error_currency_mismatch"
 msgstr "Валюта операції не відповідає валюті рахунку."
 
-#. Stable TxnCount key: ui.error_duplicate_id; do not translate this
+#. Stable TextMoney key: ui.error_duplicate_id; do not translate this
 #. identifier.
 msgid "ui.error_duplicate_id"
 msgstr "ID операції повторюється. Виправте журнал перед збереженням."
 
-#. Stable TxnCount key: ui.error_transaction_shape; do not translate this
+#. Stable TextMoney key: ui.error_transaction_shape; do not translate this
 #. identifier.
 msgid "ui.error_transaction_shape"
 msgstr "В операції мають бути щонайменше два явні записи."
 
-#. Stable TxnCount key: ui.error_date_order; do not translate this identifier.
+#. Stable TextMoney key: ui.error_date_order; do not translate this identifier.
 msgid "ui.error_date_order"
 msgstr "Дата операції передує даті створення рахунку або категорії."
 
-#. Stable TxnCount key: ui.error_utf8; do not translate this identifier.
+#. Stable TextMoney key: ui.error_utf8; do not translate this identifier.
 msgid "ui.error_utf8"
 msgstr "Журнал не є коректним UTF-8. Файл не змінено."
 
-#. Stable TxnCount key: ui.error_not_ready; do not translate this identifier.
+#. Stable TextMoney key: ui.error_not_ready; do not translate this identifier.
 msgid "ui.error_not_ready"
 msgstr "Спочатку прочитайте журнал."
 
-#. Stable TxnCount key: ui.error_no_backup_source; do not translate this
+#. Stable TextMoney key: ui.error_no_backup_source; do not translate this
 #. identifier.
 msgid "ui.error_no_backup_source"
 msgstr "Немає наявного файла для резервного копіювання."
 
-#. Stable TxnCount key: ui.error_backup; do not translate this identifier.
+#. Stable TextMoney key: ui.error_backup; do not translate this identifier.
 msgid "ui.error_backup"
 msgstr "Не вдалося перевірити резервну копію. Журнал не змінено."
 
-#. Stable TxnCount key: ui.error_write_uncertain; do not translate this
+#. Stable TextMoney key: ui.error_write_uncertain; do not translate this
 #. identifier.
 msgid "ui.error_write_uncertain"
 msgstr ""
 "Не вдалося підтвердити збереження. Оновіть дані й перевірте історію та "
 "копії перед повторною спробою."
 
-#. Stable TxnCount key: ui.error_read; do not translate this identifier.
+#. Stable TextMoney key: ui.error_read; do not translate this identifier.
 msgid "ui.error_read"
 msgstr "Не вдалося прочитати журнал. Перевірте доступ до папки."
 
-#. Stable TxnCount key: ui.error_folder_missing; do not translate this
+#. Stable TextMoney key: ui.error_folder_missing; do not translate this
 #. identifier.
 msgid "ui.error_folder_missing"
 msgstr "Папка недоступна. Оберіть її ще раз."
 
-#. Stable TxnCount key: ui.error_file_disappeared; do not translate this
+#. Stable TextMoney key: ui.error_file_disappeared; do not translate this
 #. identifier.
 msgid "ui.error_file_disappeared"
 msgstr "Журнал зник. Відновіть його перед оновленням."
 
-#. Stable TxnCount key: ui.error_grant; do not translate this identifier.
+#. Stable TextMoney key: ui.error_grant; do not translate this identifier.
 msgid "ui.error_grant"
 msgstr "Немає дозволу на читання й запис. Оберіть папку ще раз."
 
-#. Stable TxnCount key: ui.error_symlink; do not translate this identifier.
+#. Stable TextMoney key: ui.error_symlink; do not translate this identifier.
 msgid "ui.error_symlink"
 msgstr "Розташування журнала небезпечне. Оберіть звичайну локальну папку."
 
-#. Stable TxnCount key: ui.error_invalid_response; do not translate this
+#. Stable TextMoney key: ui.error_invalid_response; do not translate this
 #. identifier.
 msgid "ui.error_invalid_response"
 msgstr "Сховище повернуло некоректну відповідь."
 
-#. Stable TxnCount key: ui.error_storage_generic; do not translate this
+#. Stable TextMoney key: ui.error_storage_generic; do not translate this
 #. identifier.
 msgid "ui.error_storage_generic"
 msgstr "Помилка сховища. Перевірте доступ до папки та вільне місце."
 
-#. Stable TxnCount key: ui.error_timeout; do not translate this identifier.
+#. Stable TextMoney key: ui.error_timeout; do not translate this identifier.
 msgid "ui.error_timeout"
 msgstr ""
 "Час очікування сховища вичерпано. Результат збереження невідомий; оновіть"
 " дані та перевірте журнал і копію."
 
-#. Stable TxnCount key: ui.error_unexpected; do not translate this identifier.
+#. Stable TextMoney key: ui.error_unexpected; do not translate this identifier.
 msgid "ui.error_unexpected"
 msgstr ""
 "Сталася неочікувана помилка. Збереження призупинено; перевірте "
 "діагностику."
 
-#. Stable TxnCount key: ui.error_language_save; do not translate this
+#. Stable TextMoney key: ui.error_language_save; do not translate this
 #. identifier.
 msgid "ui.error_language_save"
 msgstr "Не вдалося зберегти мову. Поточний вибір діє."
 
-#. Stable TxnCount key: ui.error_theme_save; do not translate this identifier.
+#. Stable TextMoney key: ui.error_theme_save; do not translate this identifier.
 msgid "ui.error_theme_save"
 msgstr "Не вдалося зберегти вигляд."
 
-#. Stable TxnCount key: ui.account_list_title; do not translate this
+#. Stable TextMoney key: ui.account_list_title; do not translate this
 #. identifier.
 msgid "ui.account_list_title"
 msgstr "Ваші рахунки"
 
-#. Stable TxnCount key: ui.category_form_title; do not translate this
+#. Stable TextMoney key: ui.category_form_title; do not translate this
 #. identifier.
 msgid "ui.category_form_title"
 msgstr "Додати категорію"
 
-#. Stable TxnCount key: ui.account_form_title; do not translate this
+#. Stable TextMoney key: ui.account_form_title; do not translate this
 #. identifier.
 msgid "ui.account_form_title"
 msgstr "Додати рахунок"
 
-#. Stable TxnCount key: ui.sync_status; do not translate this identifier.
+#. Stable TextMoney key: ui.sync_status; do not translate this identifier.
 msgid "ui.sync_status"
 msgstr "Зовнішні зміни перевіряються автоматично."
 
-#. Stable TxnCount key: ui.operation_category; do not translate this
+#. Stable TextMoney key: ui.operation_category; do not translate this
 #. identifier.
 msgid "ui.operation_category"
 msgstr "Категорія"
 
-#. Stable TxnCount key: ui.operation_account; do not translate this identifier.
+#. Stable TextMoney key: ui.operation_account; do not translate this identifier.
 msgid "ui.operation_account"
 msgstr "Рахунок"
 
-#. Stable TxnCount key: ui.operation_amount; do not translate this identifier.
+#. Stable TextMoney key: ui.operation_amount; do not translate this identifier.
 msgid "ui.operation_amount"
 msgstr "Сума"
 
-#. Stable TxnCount key: ui.technical_id; do not translate this identifier.
+#. Stable TextMoney key: ui.technical_id; do not translate this identifier.
 msgid "ui.technical_id"
 msgstr "Технічний ID"
 
-#. Stable TxnCount key: ui.status_new_file; do not translate this identifier.
+#. Stable TextMoney key: ui.status_new_file; do not translate this identifier.
 msgid "ui.status_new_file"
 msgstr "Журнал буде створено після збереження першого рахунку."
 
-#. Stable TxnCount key: ui.no_activity; do not translate this identifier.
+#. Stable TextMoney key: ui.no_activity; do not translate this identifier.
 msgid "ui.no_activity"
 msgstr "Поки що нічого показати."
 
-#. Stable TxnCount key: ui.crud_edit; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_edit; do not translate this identifier.
 msgid "ui.crud_edit"
 msgstr "Редагувати"
 
-#. Stable TxnCount key: ui.crud_delete; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_delete; do not translate this identifier.
 msgid "ui.crud_delete"
 msgstr "Видалити"
 
-#. Stable TxnCount key: ui.crud_save; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_save; do not translate this identifier.
 msgid "ui.crud_save"
 msgstr "Зберегти зміни"
 
-#. Stable TxnCount key: ui.crud_cancel; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_cancel; do not translate this identifier.
 msgid "ui.crud_cancel"
 msgstr "Скасувати"
 
-#. Stable TxnCount key: ui.crud_active; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_active; do not translate this identifier.
 msgid "ui.crud_active"
 msgstr "Активний (для нових витрат)"
 
-#. Stable TxnCount key: ui.crud_inactive_label; do not translate this
+#. Stable TextMoney key: ui.crud_inactive_label; do not translate this
 #. identifier.
 msgid "ui.crud_inactive_label"
 msgstr "Неактивний"
 
-#. Stable TxnCount key: ui.crud_description_label; do not translate this
+#. Stable TextMoney key: ui.crud_description_label; do not translate this
 #. identifier.
 msgid "ui.crud_description_label"
 msgstr "Опис"
 
-#. Stable TxnCount key: ui.crud_timestamp; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_timestamp; do not translate this identifier.
 msgid "ui.crud_timestamp"
 msgstr "Дата й час (ISO з часовим поясом)"
 
-#. Stable TxnCount key: ui.crud_timestamp_hint; do not translate this
+#. Stable TextMoney key: ui.crud_timestamp_hint; do not translate this
 #. identifier.
 msgid "ui.crud_timestamp_hint"
 msgstr "Залиште порожнім для поточного часу або введіть 2026-01-01T12:00:00+02:00"
 
-#. Stable TxnCount key: ui.crud_operating; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_operating; do not translate this identifier.
 msgid "ui.crud_operating"
 msgstr "Валюти відображення журналу"
 
-#. Stable TxnCount key: ui.crud_operating_help; do not translate this
+#. Stable TextMoney key: ui.crud_operating_help; do not translate this
 #. identifier.
 msgid "ui.crud_operating_help"
 msgstr ""
@@ -1729,24 +1735,24 @@ msgstr ""
 "застосунках. Рахунки зберігають власні валюти; це налаштування не "
 "конвертує гроші й не об'єднує баланси."
 
-#. Stable TxnCount key: ui.crud_confirm; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_confirm; do not translate this identifier.
 msgid "ui.crud_confirm"
 msgstr "Видалити назавжди?"
 
-#. Stable TxnCount key: ui.crud_confirm_body; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_confirm_body; do not translate this identifier.
 msgid "ui.crud_confirm_body"
 msgstr ""
 "Запис буде видалено з журналу без зворотної операції. Перед збереженням "
 "створюється перевірена резервна копія. Продовжити?"
 
-#. Stable TxnCount key: ui.crud_account_help; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_account_help; do not translate this identifier.
 msgid "ui.crud_account_help"
 msgstr ""
 "Технічний ID та валюта незмінні. Рахунок з історією (включно з початковим"
 " балансом) можна лише деактивувати. Початковий баланс має покривати всі "
 "витрати."
 
-#. Stable TxnCount key: ui.crud_category_help; do not translate this
+#. Stable TextMoney key: ui.crud_category_help; do not translate this
 #. identifier.
 msgid "ui.crud_category_help"
 msgstr ""
@@ -1754,81 +1760,81 @@ msgstr ""
 " можна видаляти. Деактивація батьківської категорії приховує й дочірні "
 "для нових витрат."
 
-#. Stable TxnCount key: ui.crud_transaction_readonly; do not translate this
+#. Stable TextMoney key: ui.crud_transaction_readonly; do not translate this
 #. identifier.
 msgid "ui.crud_transaction_readonly"
 msgstr ""
-"Тут можна змінювати й видаляти лише витрати TxnCount із двома записами та"
+"Тут можна змінювати й видаляти лише витрати TextMoney із двома записами та"
 " постійним ID. Початковий баланс змінюйте в Рахунках. Розділені й "
 "зовнішні операції доступні лише для читання."
 
-#. Stable TxnCount key: ui.crud_inactive; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_inactive; do not translate this identifier.
 msgid "ui.crud_inactive"
 msgstr ""
 "Активуйте рахунок/категорію та батьківські категорії перед використанням "
 "у витраті."
 
-#. Stable TxnCount key: ui.crud_active_invalid; do not translate this
+#. Stable TextMoney key: ui.crud_active_invalid; do not translate this
 #. identifier.
 msgid "ui.crud_active_invalid"
 msgstr ""
 "Некоректні метадані активності. Очікується TRUE або FALSE. Журнал не "
 "змінено."
 
-#. Stable TxnCount key: ui.crud_lossless; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_lossless; do not translate this identifier.
 msgid "ui.crud_lossless"
 msgstr "Неможливо гарантувати збереження всього вмісту. Журнал не змінено."
 
-#. Stable TxnCount key: ui.crud_stale; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_stale; do not translate this identifier.
 msgid "ui.crud_stale"
 msgstr ""
 "Дані змінилися після відкриття форми. Перезапису немає. Скасуйте й "
 "відкрийте форму знову після перевірки даних."
 
-#. Stable TxnCount key: ui.crud_missing; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_missing; do not translate this identifier.
 msgid "ui.crud_missing"
 msgstr "Рахунок/категорія вже не існує. Оновіть журнал."
 
-#. Stable TxnCount key: ui.crud_datetime; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_datetime; do not translate this identifier.
 msgid "ui.crud_datetime"
 msgstr "Введіть коректну дату та дату/час ISO з часовим поясом."
 
-#. Stable TxnCount key: ui.crud_description; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_description; do not translate this identifier.
 msgid "ui.crud_description"
 msgstr ""
 "Опис має містити не більше 500 символів. Переноси рядків дозволено, інші "
 "керівні символи — ні."
 
-#. Stable TxnCount key: ui.crud_currencies; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_currencies; do not translate this identifier.
 msgid "ui.crud_currencies"
 msgstr "Вкажіть хоча б одну трилітерну валюту відображення, наприклад UAH USD."
 
-#. Stable TxnCount key: ui.crud_opening_complex; do not translate this
+#. Stable TextMoney key: ui.crud_opening_complex; do not translate this
 #. identifier.
 msgid "ui.crud_opening_complex"
 msgstr ""
 "Початковий баланс має кілька або складні записи. Безпечна зміна тут "
 "неможлива; скористайтеся зовнішнім редактором Beancount."
 
-#. Stable TxnCount key: ui.crud_opening_help; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_opening_help; do not translate this identifier.
 msgid "ui.crud_opening_help"
 msgstr ""
 "Змініть суму тут або під час редагування рахунку. Початкові дати й "
 "метадані зберігаються."
 
-#. Stable TxnCount key: ui.crud_children; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_children; do not translate this identifier.
 msgid "ui.crud_children"
 msgstr ""
 "Категорія має дочірні категорії. Спочатку видаліть невикористані дочірні "
 "або деактивуйте батьківську."
 
-#. Stable TxnCount key: ui.crud_has_history; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_has_history; do not translate this identifier.
 msgid "ui.crud_has_history"
 msgstr ""
 "Рахунок/категорія має історію й не може бути видалений. Використовуйте "
 "прапорець активності для деактивації чи активації."
 
-#. Stable TxnCount key: ui.crud_referenced; do not translate this identifier.
+#. Stable TextMoney key: ui.crud_referenced; do not translate this identifier.
 msgid "ui.crud_referenced"
 msgstr ""
 "Інші директиви посилаються на рахунок/категорію. Видалення заблоковане; "
@@ -1898,26 +1904,26 @@ msgstr[2] ""
 "щомісячні копії залишаться. Перед очищенням список буде перевірено "
 "повторно."
 
-#. Stable TxnCount key; date on which a new account is declared.
+#. Stable TextMoney key; date on which a new account is declared.
 msgid "ui.account_opened_date"
 msgstr "Дата відкриття рахунку"
 
-#. Stable TxnCount key; date on which a new category becomes available.
+#. Stable TextMoney key; date on which a new category becomes available.
 msgid "ui.category_available_date"
 msgstr "Дата доступності категорії"
 
-#. Stable TxnCount key; accounting date for an opening-balance transaction.
+#. Stable TextMoney key; accounting date for an opening-balance transaction.
 msgid "ui.opening_balance_date"
 msgstr "Дата початкового балансу"
 
-#. Stable TxnCount key; validation error for a newly entered declaration date.
+#. Stable TextMoney key; validation error for a newly entered declaration date.
 msgid "ui.crud_record_date"
 msgstr "Виберіть дату від 1970-01-01 до сьогодні."
 
-#. Stable TxnCount key; an opening balance cannot predate its account.
+#. Stable TextMoney key; an opening balance cannot predate its account.
 msgid "ui.crud_opening_before_account"
 msgstr "Дата початкового балансу не може бути ранішою за дату відкриття рахунку."
 
-#. Stable TxnCount key; a child category cannot predate its parent.
+#. Stable TextMoney key; a child category cannot predate its parent.
 msgid "ui.crud_category_before_parent"
 msgstr "Дата доступності категорії не може бути ранішою за дату батьківської категорії."

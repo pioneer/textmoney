@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 _NAME = re.compile(
-    r"(?P<prefix>txncount|storage-test)-(?P<stamp>\d{8}T\d{12}Z)-"
+    r"(?P<prefix>textmoney|storage-test)-(?P<stamp>\d{8}T\d{12}Z)-"
     r"[a-f0-9]{32}-(?P<state>pending|committed)\.beancount"
 )
 

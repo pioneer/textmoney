@@ -13,7 +13,7 @@ from babel.numbers import format_decimal
 from app.domain.ledger import LedgerError
 
 LOCALE_DIR: Final = Path(__file__).with_name("locale")
-DOMAIN: Final = "txncount"
+DOMAIN: Final = "textmoney"
 
 
 def _available_languages() -> tuple[str, ...]:
@@ -66,6 +66,12 @@ def _format_translation(value: str, key: str, values: dict[str, object]) -> str:
 
 
 _ERROR_KEYS: Final = {
+    (
+        "Incomplete migration. Review the migration output before opening."
+    ): "error_migration_incomplete",
+    (
+        "Legacy TxnCount journal found. Migrate a copy before opening in TextMoney."
+    ): "error_migration_required",
     "Reload a valid journal first. Unsaved form input is retained.": "error_reload",
     "Folder service is starting. Try again shortly.": "error_folder_starting",
     "Select a folder first.": "error_select_folder_first",
@@ -207,7 +213,7 @@ def localized_error(language: str, message: str) -> str:
             key = "error_backup"
         elif message.startswith("Unsupported") or "unsupported" in message.lower():
             key = "error_unsupported"
-        elif message.startswith("Transaction txncount-kind") or message.startswith(
+        elif message.startswith("Transaction textmoney-kind") or message.startswith(
             "Account display-name"
         ):
             key = "error_invalid_journal"

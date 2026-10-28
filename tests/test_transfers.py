@@ -166,7 +166,7 @@ def test_transfer_edit_fee_modes_accounts_and_delete_preserve_metadata(tmp_path:
         source = journal.source.replace(
             f'  time: "{transaction_time(original.timestamp)}"',
             f'  time: "{transaction_time(original.timestamp)}"\n'
-            '  txncount-kind: "transfer"\n'
+            '  textmoney-kind: "transfer"\n'
             '  receipt: "keep" ; keep comment',
         ).replace(
             "Assets:Bank -1005 UAH",
@@ -678,7 +678,7 @@ def test_exchange_edit_accounts_fee_sides_same_currency_and_delete(tmp_path: Pat
         text = journal.source.replace(
             f'  time: "{transaction_time(original.timestamp)}"',
             f'  time: "{transaction_time(original.timestamp)}"\n'
-            '  txncount-kind: "transfer"\n'
+            '  textmoney-kind: "transfer"\n'
             '  receipt: "keep" ; annotation',
         )
         text = text.replace(
@@ -774,7 +774,7 @@ def test_price_validation_does_not_accept_arbitrary_fx_constructs(tmp_path: Path
                 journal.codec.parse(text)
         text = journal.source.replace(
             f'  time: "{transaction_time(transaction.timestamp)}"',
-            f'  time: "{transaction_time(transaction.timestamp)}"\n  txncount-kind: "expense"',
+            f'  time: "{transaction_time(transaction.timestamp)}"\n  textmoney-kind: "expense"',
         )
         (tmp_path / FILENAME).write_text(text)
         await review_external_fixture(journal)

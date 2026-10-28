@@ -21,14 +21,14 @@ NOW = datetime(2026, 10, 21, 12, tzinfo=UTC)
 
 
 def entry(created: datetime, index: int = 0, *, state: str = "committed") -> BackupEntry:
-    name = f"txncount-{created:%Y%m%dT%H%M%S%fZ}-{index:032x}-{state}.beancount"
+    name = f"textmoney-{created:%Y%m%dT%H%M%S%fZ}-{index:032x}-{state}.beancount"
     return BackupEntry(name, 8, created)
 
 
 def snapshots(path: Path, count: int = 40) -> list[BackupEntry]:
     directory = path / "backups"
     directory.mkdir(exist_ok=True)
-    now = datetime.now(UTC)
+    now = datetime.now(UTC).replace(hour=12, minute=0, second=0, microsecond=0) - timedelta(days=1)
     entries = [entry(now - timedelta(minutes=i), i) for i in range(count)]
     for item in entries:
         (directory / item.name).write_bytes(b"original")
@@ -77,23 +77,23 @@ def test_future_snapshots_are_preserved_and_sparse_old_history_keeps_twenty() ->
 @pytest.mark.parametrize(
     "name",
     [
-        "txncount-" + "a" * 32 + ".beancount",
-        "../txncount.beancount",
-        "txncount-20269999T120000000000Z-" + "a" * 32 + "-committed.beancount",
+        "textmoney-" + "a" * 32 + ".beancount",
+        "../textmoney.beancount",
+        "textmoney-20269999T120000000000Z-" + "a" * 32 + "-committed.beancount",
         "other-20261021T120000000000Z-" + "a" * 32 + "-committed.beancount",
     ],
 )
 def test_unrecognized_and_legacy_names_are_never_eligible(name: str) -> None:
-    assert backup_time(name, "txncount") is None
+    assert backup_time(name, "textmoney") is None
 
 
 def test_names_embed_utc_time_and_unique_id_and_start_protected() -> None:
-    name = backup_name("txncount")
-    assert backup_time(name, "txncount") is None
-    created = backup_time(name, "txncount", pending=True)
+    name = backup_name("textmoney")
+    assert backup_time(name, "textmoney") is None
+    created = backup_time(name, "textmoney", pending=True)
     assert created is not None
     assert abs((datetime.now(UTC) - created).total_seconds()) < 5
-    assert backup_name("txncount") != name
+    assert backup_name("textmoney") != name
     assert backup_time(name, "storage-test", pending=True) is None
 
 
@@ -106,7 +106,7 @@ def test_verified_save_prunes_but_keeps_last_recovery_and_unrecognized_files(
         protected = entry(NOW - timedelta(days=800), state="pending")
         directory = tmp_path / "backups"
         (directory / protected.name).write_bytes(b"recovery")
-        legacy = "txncount-" + "a" * 32 + ".beancount"
+        legacy = "textmoney-" + "a" * 32 + ".beancount"
         for name in [legacy, "notes.txt", "storage-test-" + "b" * 32 + ".beancount"]:
             (directory / name).write_bytes(b"unrelated")
         session = StorageSession(DesktopFolder(str(tmp_path), FILENAME))
@@ -268,7 +268,7 @@ def test_desktop_rejects_symlinks_and_changed_size_and_uses_filename_not_mtime(
         with pytest.raises(StorageError, match="unrecognized"):
             await folder.delete_backup(entry(NOW, state="pending"))
         assert (await folder.list_backups())[0].created == backup_time(
-            (await folder.list_backups())[0].name, "txncount"
+            (await folder.list_backups())[0].name, "textmoney"
         )
         try:
             (tmp_path / "linked").symlink_to(tmp_path / "backups", target_is_directory=True)
@@ -365,7 +365,7 @@ def test_retention_preference_restores_before_attaching_folder(
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
         monkeypatch.setenv("APPDATA", str(tmp_path / "config"))
         preferences = DesktopPreferences()
-        await preferences.set("txncount.folder.v1", str(tmp_path))
+        await preferences.set("textmoney.folder.v1", str(tmp_path))
         if saved is not None:
             await preferences.set(BACKUP_CLEANUP_KEY, saved)
         page = MagicMock(spec=ft.Page)

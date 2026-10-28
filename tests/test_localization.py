@@ -128,9 +128,20 @@ def test_missing_selected_translation_falls_back_to_english(
 
 def test_compiled_catalogs_are_available_as_runtime_resources() -> None:
     for language in LANGUAGES:
-        path = LOCALE_DIR / language / "LC_MESSAGES" / "txncount.mo"
+        path = LOCALE_DIR / language / "LC_MESSAGES" / "textmoney.mo"
         assert path.is_file()
         assert localization._translations(language).gettext("ui.language_name")
+
+
+def test_compilation_retires_only_the_previous_generated_domain(tmp_path: Path) -> None:
+    directory = tmp_path / "en/LC_MESSAGES"
+    directory.mkdir(parents=True)
+    (directory / "txncount.mo").write_bytes(b"old generated catalog")
+    (directory / "other.mo").write_bytes(b"unrelated")
+    locale_tools.compile_catalogs(LOCALES_SOURCE, tmp_path)
+    assert (directory / "textmoney.mo").is_file()
+    assert not (directory / "txncount.mo").exists()
+    assert (directory / "other.mo").read_bytes() == b"unrelated"
 
 
 def test_runtime_discovers_compiled_language_directories(
@@ -138,7 +149,7 @@ def test_runtime_discovers_compiled_language_directories(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (tmp_path / "fr" / "LC_MESSAGES").mkdir(parents=True)
-    (tmp_path / "fr" / "LC_MESSAGES" / "txncount.mo").touch()
+    (tmp_path / "fr" / "LC_MESSAGES" / "textmoney.mo").touch()
     monkeypatch.setattr(localization, "LOCALE_DIR", tmp_path)
     assert localization._available_languages() == ("fr",)
 
@@ -292,7 +303,7 @@ def test_manual_language_switch_is_immediate_and_persisted(
         assert view.language == "uk"
         assert view.manual_language
         assert view.account_save.content == "Створити рахунок"
-        view.preferences.set.assert_awaited_once_with("txncount.language.v1", "uk")
+        view.preferences.set.assert_awaited_once_with("textmoney.language.v1", "uk")
         assert page.locale_configuration.current_locale.language_code == "uk"
 
     import asyncio
@@ -336,7 +347,7 @@ def test_system_language_option_tracks_device_even_after_manual_selection(
         assert not view.manual_language
         assert view.language_choice.value == "system"
         assert page.locale_configuration.current_locale == ft.Locale(language_code="ru")
-        view.preferences.set.assert_awaited_with("txncount.language.v1", "system")
+        view.preferences.set.assert_awaited_with("textmoney.language.v1", "system")
         locale_event.locales = [ft.Locale(language_code="de")]
         view._host_locale_changed(locale_event)
         assert view.language == "en"
@@ -356,7 +367,7 @@ def test_language_mode_restores_on_startup(
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.setenv("APPDATA", str(tmp_path))
         if saved is not None:
-            await DesktopPreferences().set("txncount.language.v1", saved)
+            await DesktopPreferences().set("textmoney.language.v1", saved)
         page = MagicMock(spec=ft.Page)
         page.platform = ft.PagePlatform.LINUX
         page.width = 390

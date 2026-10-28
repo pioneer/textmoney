@@ -12,7 +12,7 @@ from app.infrastructure.preferences import DesktopPreferences
 from app.storage import SAMPLE, StorageError, StorageSession
 
 logger = logging.getLogger(__name__)
-FOLDER_KEY = "txncount.diagnostics.folder.v1"
+FOLDER_KEY = "textmoney.diagnostics.folder.v1"
 
 
 class StorageView(ft.Column):
@@ -93,7 +93,7 @@ class StorageView(ft.Column):
                     modal=True,
                     title="Write blocked: external change",
                     content=ft.Text(
-                        "The test file changed outside txncount and was not overwritten. "
+                        "The test file changed outside textmoney and was not overwritten. "
                         "Your unsaved text is still in the editor.\n\n"
                         "Copy any text you want to keep before tapping Read: "
                         "Read replaces the draft with the external file."

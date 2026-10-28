@@ -15,12 +15,12 @@ from tools import linux_appimage, windows_installer
 @pytest.fixture
 def bundle(tmp_path: Path) -> Path:
     (tmp_path / "pyproject.toml").write_text(
-        '[project]\nversion = "0.3.7"\n[tool.flet]\nproduct = "TxnCount"\n'
-        'company = "Pioneer"\nbundle_id = "com.pioneer.txncount"\n'
+        '[project]\nversion = "0.3.7"\n[tool.flet]\nproduct = "TextMoney"\n'
+        'company = "Pioneer"\nbundle_id = "com.pioneer.textmoney"\n'
     )
     source = tmp_path / "build/windows"
     (source / "data/flutter_assets").mkdir(parents=True)
-    for name in ("txncount.exe", "flutter_windows.dll"):
+    for name in ("textmoney.exe", "flutter_windows.dll"):
         (source / name).write_bytes(b"synthetic")
     (tmp_path / "assets").mkdir()
     Image.new("RGB", (1024, 1024), "green").save(tmp_path / "assets/icon.png")
@@ -43,12 +43,12 @@ def test_installer_packages_entire_bundle_app_local_runtime_and_generated_icon(
     def run(*args: str, capture: bool = True) -> str:
         assert not capture
         defines = dict(arg[2:].split("=", 1) for arg in args if arg.startswith("/D"))
-        assert defines["AppId"] == "com.pioneer.txncount"
+        assert defines["AppId"] == "com.pioneer.textmoney"
         assert defines["AppVersion"] == "0.3.7"
         source = Path(defines["SourceDir"])
         assert (source / "data/flutter_assets").is_dir()
         assert (source / "concrt140.dll").read_bytes() == b"concrt140.dll"
-        assert (source / "txncount.exe").read_bytes() == b"synthetic"
+        assert (source / "textmoney.exe").read_bytes() == b"synthetic"
         with Image.open(defines["SetupIcon"]) as icon:
             assert icon.format == "ICO"
             pixel = icon.convert("RGBA").getpixel((0, 0))
@@ -60,7 +60,7 @@ def test_installer_packages_entire_bundle_app_local_runtime_and_generated_icon(
 
     monkeypatch.setattr(windows_installer, "run", run)
     result = windows_installer.build_installer(bundle)
-    assert result == bundle / "dist/windows/TxnCount-0.3.7-windows-x64-setup.exe"
+    assert result == bundle / "dist/windows/TextMoney-0.3.7-windows-x64-setup.exe"
     assert result.read_bytes() == b"synthetic installer"
     assert list((bundle / "build/windows-installer").iterdir()) == []
 
@@ -144,7 +144,7 @@ def test_installer_smoke_installs_twice_and_preserves_disposable_data(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
-    artifact = bundle / "dist/windows/TxnCount-0.3.7-windows-x64-setup.exe"
+    artifact = bundle / "dist/windows/TextMoney-0.3.7-windows-x64-setup.exe"
     artifact.parent.mkdir(parents=True)
     artifact.write_bytes(b"installer")
     installed: Path | None = None
@@ -164,18 +164,18 @@ def test_installer_smoke_installs_twice_and_preserves_disposable_data(
         if args[0] == str(artifact):
             installed = Path(next(arg[5:] for arg in args if arg.startswith("/DIR=")))
             installed.mkdir(exist_ok=True)
-            (installed / "txncount.exe").write_bytes(b"exe")
+            (installed / "textmoney.exe").write_bytes(b"exe")
             (installed / "unins000.exe").write_bytes(b"uninstaller")
         elif args[0].endswith("unins000.exe"):
             assert installed is not None
-            (installed / "txncount.exe").unlink()
+            (installed / "textmoney.exe").unlink()
             uninstall_child_running = True
         elif args[0] == "powershell":
             if "Start-Process" in args[-1]:
                 assert "-Wait" in args[-1] and "-PassThru" in args[-1]
                 assert "exit $process.ExitCode" in args[-1]
                 assert installed is not None
-                (installed / "txncount.exe").unlink()
+                (installed / "textmoney.exe").unlink()
                 uninstall_child_running = False
                 return ""
             return "ready"

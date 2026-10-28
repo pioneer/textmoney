@@ -174,9 +174,9 @@ class JournalCodec:
                 if not isinstance(name, str):
                     raise self._entry_error(entry, "Account name metadata must be a string.")
                 name = display_name(name)
-                active = entry.meta.get("txncount-active", True)
+                active = entry.meta.get("textmoney-active", True)
                 if not isinstance(active, bool):
-                    raise self._entry_error(entry, "txncount-active metadata must be boolean.")
+                    raise self._entry_error(entry, "textmoney-active metadata must be boolean.")
                 currencies = list(entry.currencies)
                 if entry.account.startswith(("Assets:", "Liabilities:")):
                     account_path(entry.account, entry.account.split(":")[0])

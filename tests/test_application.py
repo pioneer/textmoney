@@ -23,7 +23,7 @@ def test_import_and_view_without_gui() -> None:
 def test_page_startup() -> None:
     page = MagicMock(spec=ft.Page)
     asyncio.run(main(page))
-    assert page.title == "TxnCount"
+    assert page.title == "TextMoney"
     assert page.on_error is report_page_error
     assert page.theme_mode == ft.ThemeMode.SYSTEM
     assert [locale.language_code for locale in page.locale_configuration.supported_locales] == [

@@ -18,7 +18,7 @@ def desktop_preferences_path() -> Path:
         )
     else:
         root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return root / "txncount" / "preferences.json"
+    return root / "textmoney" / "preferences.json"
 
 
 class DesktopPreferences:
@@ -33,12 +33,12 @@ class DesktopPreferences:
             return {}
         except (OSError, json.JSONDecodeError) as exc:
             raise PreferencesError(
-                "Could not read TxnCount settings. Check the settings file and permissions."
+                "Could not read TextMoney settings. Check the settings file and permissions."
             ) from exc
         if not isinstance(values, dict) or any(
             not isinstance(key, str) or not isinstance(value, str) for key, value in values.items()
         ):
-            raise PreferencesError("The TxnCount settings file has an invalid format.")
+            raise PreferencesError("The TextMoney settings file has an invalid format.")
         return values
 
     async def get(self, key: str) -> str | None:
@@ -57,6 +57,6 @@ class DesktopPreferences:
                 await asyncio.to_thread(temporary.replace, self.path)
             except OSError as exc:
                 raise PreferencesError(
-                    "Could not save TxnCount settings. Check disk space and permissions."
+                    "Could not save TextMoney settings. Check disk space and permissions."
                 ) from exc
             return True

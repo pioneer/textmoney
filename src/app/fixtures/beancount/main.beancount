@@ -1,5 +1,5 @@
 ; Synthetic compatibility fixture. Never real financial data.
-option "title" "TxnCount Beancount compatibility diagnostics"
+option "title" "TextMoney Beancount compatibility diagnostics"
 option "operating_currency" "UAH"
 option "operating_currency" "USD"
 option "operating_currency" "EUR"

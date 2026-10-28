@@ -1,4 +1,4 @@
-# TxnCount branding
+# TextMoney branding
 
 The canonical [assets/icon.png](../assets/icon.png) is original minimal artwork:
 a rounded white text document with smooth dollar and euro symbols and a gold
@@ -48,11 +48,14 @@ still needs confirmation in the user's session.
 
 ## Current release identity
 
-Product name: **TxnCount**. Package/bundle: `com.pioneer.txncount`, introduced in
-version 0.1.1 (build 13). This is the stable package identity, not a fixed app
-version. Future releases must retain it and the maintained production
-Android signing key. Production-signed Android APKs, a Linux AppImage and a
-Windows installer are published through the [release workflow](development.md#one-command-releases).
+Product name: **TextMoney**. Package/bundle: `com.pioneer.textmoney`.
+The old `com.pioneer.txncount` identity was introduced in version 0.1.1
+(build 13); releases through v0.3.15/build 38 used it. The TextMoney rename is
+not published yet and creates a separate installation; see the
+[migration guide](rename-migration.md). Future TextMoney releases must retain
+the new ID and maintained production Android signing key.
+The [release workflow](development.md#one-command-releases) prepares
+production-signed Android APKs, a Linux AppImage and a Windows installer.
 Windows installers are currently unsigned; production Android signing is not a
 claim of app-store submission or approval.
 The canonical PNG has been visually inspected. Native CI packaging/startup checks

@@ -22,12 +22,12 @@ LAN. Debug variants and log locations are documented in [debugging](debugging.md
 On Linux, `run` and `debug` prepare a branded client under
 `build/linux-dev-client` and register a hidden desktop entry under
 `$XDG_DATA_HOME/applications` (default `~/.local/share/applications`).
-Its GTK identity is `io.txncount.local`, separate from the packaged app and other
+Its GTK identity is `dev.textmoney.app`, separate from the packaged app and other
 Flet apps. This gives the development window a generated transparent, tightly
 framed version of the canonical app icon without
 modifying Flet's shared client. The adapter checks the pinned client's binary
 identity before patching the local copy and fails explicitly if it changes.
-The runner supplies `FLET_APP_ID=io.txncount.local` so Wayland's application
+The runner supplies `FLET_APP_ID=dev.textmoney.app` so Wayland's application
 identity matches that desktop entry. It starts Flet from `src` with an absolute
 script path: otherwise Flet prefers an existing `build/linux` executable over
 `FLET_VIEW_PATH`, bypassing the development client after a packaging run.
@@ -44,17 +44,22 @@ variables in your shell/IDE; keep local `.env` files out of version control.
 
 ## Packaging
 
+The TextMoney source rename is not a release. Published versions through
+v0.3.15/build 38 retain the old identity and artifact names. See the
+[migration guide](rename-migration.md) before transferring development data or
+preparing the first TextMoney release. Do not reset version/build numbers.
+
 All builds go through Invoke so asset staging, icon validation, host checks, and
 release debug-marker removal happen consistently. `build-local` maps Linux to
 Linux, Windows to Windows, and Darwin to macOS; it does not emulate another OS.
 Platform-specific tasks reject incompatible hosts before starting a build.
 The [version metadata](#version-metadata) below describes the authoritative
 version/build fields.
-Development APK builds produce `build/apk/txncount-<project.version>.apk`.
+Development APK builds produce `build/apk/textmoney-<project.version>.apk`.
 Production builds collect three standalone architecture APKs in `dist/android/`;
 generated packaged version metadata is staged alongside assets and removed by `clean`.
 Linux AppImage builds reuse Flet's bundled Linux output and produce
-`dist/linux/TxnCount-<project.version>-x86_64.AppImage`.
+`dist/linux/TextMoney-<project.version>-x86_64.AppImage`.
 Build staging also clears source-tree `__pycache__` directories: Flet's relative
 path exclusions do not recursively match nested caches, which could otherwise
 ship obsolete renamed-module bytecode. Source files are preserved.
@@ -67,8 +72,8 @@ ship obsolete renamed-module bytecode. Source files are preserved.
 | `build-ios-simulator` | macOS; Xcode and CocoaPods, no signing required | `build/ios-simulator` |
 | `build-macos` | macOS; Xcode and CocoaPods | `build/macos` |
 | `build-windows` | Windows; Visual Studio Desktop development with C++ | `build/windows` |
-| `build-windows-installer` | Windows x64; Visual Studio C++ and Inno Setup 6 | `dist/windows/TxnCount-<version>-windows-x64-setup.exe` |
-| `build-linux`, `build-linux-appimage` | Linux x86_64; Flet toolchain, GTK, media and AppImage build tools | `dist/linux/TxnCount-<version>-x86_64.AppImage` |
+| `build-windows-installer` | Windows x64; Visual Studio C++ and Inno Setup 6 | `dist/windows/TextMoney-<version>-windows-x64-setup.exe` |
+| `build-linux`, `build-linux-appimage` | Linux x86_64; Flet toolchain, GTK, media and AppImage build tools | `dist/linux/TextMoney-<version>-x86_64.AppImage` |
 
 This table lists available tooling, not certified application support. Published
 distributions target Android, Linux and Windows. iOS/macOS tasks remain
@@ -115,7 +120,7 @@ The Ubuntu 24.04 build target requires the packages reported by
 Manjaro developers need the corresponding Flet GTK/GStreamer build
 dependencies, `desktop-file-utils`, `squashfs-tools`, `file`, `curl`,
 `gobject-introspection`, and `librsvg`; install them with the distribution
-package manager. No Arch package or AUR helper is used for TxnCount packaging.
+package manager. No Arch package or AUR helper is used for TextMoney packaging.
 Running the AppImage on Manjaro needs a compatible x86_64 userspace and may
 need the `fuse2` compatibility package; `APPIMAGE_EXTRACT_AND_RUN=1` is a
 fallback when FUSE mounting is unavailable. The host still supplies glibc,
@@ -174,9 +179,9 @@ virtual environment, or local Flet user data.
 `[project].version` in `pyproject.toml` is the maintained app version;
 `[tool.flet].build_number` is the independent Android version code.
 Invoke stages these values for the packaged About display and names development APKs
-`txncount-<version>.apk` and production APKs `txncount-<version>-<abi>.apk`.
+`textmoney-<version>.apk` and production APKs `textmoney-<version>-<abi>.apk`.
 All three production APKs use the same project version code.
-The Android app ID is `com.pioneer.txncount`.
+The Android app ID is `com.pioneer.textmoney`.
 Every main screen also shows `v<version> (<build_number>)` beside its title,
 using the same source or packaged metadata as Settings → About. The header wraps
 on narrow screens.
@@ -233,11 +238,11 @@ The [All-platform release workflow](../.github/workflows/release.yml) runs:
 
 Expected downloads are:
 
-- `txncount-X.Y.Z-arm64-v8a.apk`
-- `txncount-X.Y.Z-armeabi-v7a.apk`
-- `txncount-X.Y.Z-x86_64.apk`
-- `TxnCount-X.Y.Z-x86_64.AppImage`
-- `TxnCount-X.Y.Z-windows-x64-setup.exe`
+- `textmoney-X.Y.Z-arm64-v8a.apk`
+- `textmoney-X.Y.Z-armeabi-v7a.apk`
+- `textmoney-X.Y.Z-x86_64.apk`
+- `TextMoney-X.Y.Z-x86_64.AppImage`
+- `TextMoney-X.Y.Z-windows-x64-setup.exe`
 - `SHA256SUMS`, covering all five binaries.
 
 No universal APK is published, so Obtainium's architecture filtering can narrow
@@ -296,13 +301,13 @@ the stable bundle ID as its installer identity and derives its version/publisher
 from `pyproject.toml`. Both the app and installer icons use the transparent,
 tightly framed Windows derivative staged from `assets/icon.png`, not a separately
 maintained icon source. It installs under
-`%LOCALAPPDATA%\Programs\TxnCount`, without elevation, and registers a Start
+`%LOCALAPPDATA%\Programs\TextMoney`, without elevation, and registers a Start
 Menu shortcut, an optional desktop shortcut and an uninstaller. The package
 targets x64-compatible Windows 10 1809+ systems; Windows ARM emulation and older
 Windows versions are not validated.
 
 Uninstall removes installer-managed application files, not the selected
-journal/backups or `%APPDATA%\txncount` preferences. Keep financial data outside
+journal/backups or `%APPDATA%\textmoney` preferences. Keep financial data outside
 the application installation directory. The CI-only
 `uv run inv smoke-windows-installer` task uses a disposable install directory and
 synthetic journal/preferences; it checks a same-version reinstall, not an upgrade
@@ -371,7 +376,7 @@ Google Play. `uv run inv build-android` deliberately ignores configured
 production-signing variables and continues to produce a development APK.
 `uv run inv build-android-release --tag vX.Y.Z` is the separate, fail-closed
 production task. It builds all three ABIs sequentially with Flet's supported
-`--arch <abi>` option and collects them as `dist/android/txncount-X.Y.Z-<abi>.apk`.
+`--arch <abi>` option and collects them as `dist/android/textmoney-X.Y.Z-<abi>.apk`.
 Flet clears `build/apk/` on each build, so completed release APKs live outside it.
 Separate single-ABI builds preserve the exact project version code; Flutter's
 `--split-per-abi` would add ABI-specific version-code offsets.
@@ -385,7 +390,7 @@ architecture-specific filename, nonzero size, sole native ABI and presence of th
 Flutter app, engine and Python runtime. It never falls back to debug signing.
 
 The approved production certificate fingerprint is pinned in
-`[tool.txncount.android_release]` in pyproject.toml. Keep the existing JKS file
+`[tool.textmoney.android_release]` in pyproject.toml. Keep the existing JKS file
 and an encrypted offline backup; never commit it, encode it into logs, or place
 passwords in repository files. In Bash, configure local signing without putting
 passwords in command history:
@@ -404,7 +409,7 @@ unset FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD FLET_ANDROID_SIGNING_KEY_PASSWORD
 ```
 
 The release task also needs `gh` authenticated to
-`pioneer/txncount` and Android SDK Build Tools (`apksigner` and `aapt`).
+`pioneer/textmoney` and Android SDK Build Tools (`apksigner` and `aapt`).
 Requires JDK 17.
 
 The unified `release.yml` workflow runs only for pushed `v*` tags, checks the
@@ -430,7 +435,7 @@ Physical-device release checklist:
 3. Create or edit only disposable test data, then close/reopen and confirm it
   persists in the selected external folder.
 4. Install the next production APK over it (for example, `adb install -r
-  dist/android/txncount-X.Y.Z-arm64-v8a.apk` for an ARM64 device) and confirm Android updates the existing app
+  dist/android/textmoney-X.Y.Z-arm64-v8a.apk` for an ARM64 device) and confirm Android updates the existing app
   without uninstalling, the test data remains, and the app reports the new
   version. Test an update from the prior universal APK as well. In Obtainium,
   enable "Attempt to filter APKs by CPU architecture if possible" and remove

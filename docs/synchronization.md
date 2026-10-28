@@ -1,6 +1,6 @@
 # Sequential editing and external synchronization
 
-`txncount.beancount` is the sole active financial journal. TxnCount does not
+`textmoney.beancount` is the sole active financial journal. TextMoney does not
 contact cloud APIs, merge divergent versions, or certify synchronization.
 Dropbox/Dropsync or another user-managed tool transports the folder.
 
@@ -65,9 +65,9 @@ Real-provider, multi-device and power-loss behavior requires physical testing.
   captured unchanged source. New transactions do not write persistent `id:`.
 - Optional native shared links associate expenses and reimbursements. These
   are references, not remaining-debt tracking.
-- `txncount-active` remains the approved hide/reactivate preference; it is not
+- `textmoney-active` remains the approved hide/reactivate preference; it is not
   a dated accounting `close`.
-- Transfer fees are stored in postings, not `txncount-fee-mode` metadata.
+- Transfer fees are stored in postings, not `textmoney-fee-mode` metadata.
   Fee-category defaults are local device preferences.
 - Category budgeting is implemented with native Fava-compatible
   `custom "budget"` directives in this journal. Manage definitions in

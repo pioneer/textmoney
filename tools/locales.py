@@ -15,7 +15,7 @@ from babel.messages.pofile import read_po, write_po
 ROOT = Path(__file__).resolve().parents[1]
 LOCALES = ROOT / "locales"
 RUNTIME = ROOT / "src/app/locale"
-DOMAIN = "txncount"
+DOMAIN = "textmoney"
 LANGUAGE_CODE = re.compile(r"[a-z]{2,3}")
 
 
@@ -40,15 +40,15 @@ def new_catalog(language: str | None) -> Catalog:
         locale=language,
         domain=DOMAIN,
         header_comment=(
-            "# TxnCount gettext catalog.\n"
+            "# TextMoney gettext catalog.\n"
             "# Stable msgids are translation keys; translate msgstr values only."
         ),
-        project="TxnCount",
+        project="TextMoney",
         version=project_version(),
-        msgid_bugs_address="https://github.com/pioneer/txncount/issues",
+        msgid_bugs_address="https://github.com/pioneer/textmoney/issues",
         revision_date=datetime.now().astimezone().strftime("%Y-%m-%d %H:%M%z"),
-        last_translator="TxnCount localization contributors",
-        language_team=f"TxnCount {language or 'language'} translators",
+        last_translator="TextMoney localization contributors",
+        language_team=f"TextMoney {language or 'language'} translators",
         fuzzy=False,
     )
 
@@ -143,6 +143,7 @@ def compile_catalogs(
         destination.parent.mkdir(parents=True, exist_ok=True)
         with destination.open("wb") as stream:
             write_mo(stream, catalog)
+        destination.with_name("txncount.mo").unlink(missing_ok=True)
 
 
 def update_template() -> None:

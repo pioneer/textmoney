@@ -12,7 +12,7 @@ Use the maintained guides instead:
 - [Sequential editing and synchronization](synchronization.md)
 - [Reports](reporting.md) and [Category budgets](budgets.md)
 - [Current regression and device checklists](testing.md)
-- [Published downloads](https://github.com/pioneer/txncount/releases/latest)
+- [Published downloads](https://github.com/pioneer/textmoney/releases/latest)
 
 In particular, current writes use `name`, local `time` and native reimbursement
 links, not persistent transaction IDs or the legacy metadata described below.
@@ -717,4 +717,4 @@ negative balances. It is not valid for current builds. Use the maintained
 [sequential-file checklist](testing.md#sequential-file-workflow-regression-checklist)
 and [budget checklist](testing.md#category-budget-regression-checklist), always
 with a disposable synthetic journal. Historical APKs above are measurements,
-not download links; use [published releases](https://github.com/pioneer/txncount/releases/latest).
+not download links; use [published releases](https://github.com/pioneer/textmoney/releases/latest).

@@ -25,7 +25,7 @@ def run(*args: str, capture: bool = True) -> str:
 
 
 def installer_name(version: str) -> str:
-    return f"TxnCount-{version}-windows-x64-setup.exe"
+    return f"TextMoney-{version}-windows-x64-setup.exe"
 
 
 def compiler_path() -> Path:
@@ -64,7 +64,7 @@ def build_installer(root: Path) -> Path:
     version = project["project"]["version"]
     identity = project["tool"]["flet"]
     source = root / "build/windows"
-    for relative in ("txncount.exe", "flutter_windows.dll", "data/flutter_assets"):
+    for relative in ("textmoney.exe", "flutter_windows.dll", "data/flutter_assets"):
         if not (source / relative).exists():
             raise RuntimeError(f"Windows bundle is incomplete: missing {relative}. Build it first.")
     icon_source = root / "src/assets/icon_windows.png"
@@ -132,22 +132,22 @@ def smoke_installer(root: Path) -> None:
     artifact = root / "dist/windows" / installer_name(project["project"]["version"])
     if not artifact.is_file():
         raise RuntimeError("Build the Windows installer before running its smoke test.")
-    with tempfile.TemporaryDirectory(prefix="txncount-installer-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="textmoney-installer-") as temporary:
         stage = Path(temporary)
         install = stage / "installed"
         data = stage / "journal"
         data.mkdir()
-        journal = data / "txncount.beancount"
+        journal = data / "textmoney.beancount"
         original = b'; Synthetic installer smoke-test journal.\noption "operating_currency" "EUR"\n'
         journal.write_bytes(original)
-        preferences = stage / "config/txncount/preferences.json"
+        preferences = stage / "config/textmoney/preferences.json"
         preferences.parent.mkdir(parents=True)
         preferences.write_text(
-            json.dumps({"txncount.folder.v1": str(data), "txncount.language.v1": "en"}),
+            json.dumps({"textmoney.folder.v1": str(data), "textmoney.language.v1": "en"}),
             encoding="utf-8",
         )
         settings_before = preferences.read_bytes()
-        executable = install / "txncount.exe"
+        executable = install / "textmoney.exe"
         for _ in range(2):
             run(
                 str(artifact),
@@ -159,7 +159,7 @@ def smoke_installer(root: Path) -> None:
                 f"/LOG={stage / 'install.log'}",
             )
             if not executable.is_file():
-                raise RuntimeError("The installer did not install txncount.exe.")
+                raise RuntimeError("The installer did not install textmoney.exe.")
         env = os.environ | {
             "APPDATA": str(stage / "config"),
             "LOCALAPPDATA": str(stage / "local"),
@@ -176,7 +176,7 @@ def smoke_installer(root: Path) -> None:
                         "-Command",
                         f"$p=Get-Process -Id {process.pid} -ErrorAction Stop; "
                         "if ($p.MainWindowHandle -ne 0 -and $p.Responding "
-                        "-and $p.MainWindowTitle -eq 'TxnCount') { 'ready' }",
+                        "-and $p.MainWindowTitle -eq 'TextMoney') { 'ready' }",
                     )
                     if ready == "ready":
                         break

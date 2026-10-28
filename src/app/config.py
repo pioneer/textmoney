@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from importlib.resources import files
 from typing import Self
 
-APP_NAME = "TxnCount"
+APP_NAME = "TextMoney"
 
 
 @dataclass(frozen=True, slots=True)

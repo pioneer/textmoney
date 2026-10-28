@@ -653,7 +653,7 @@ def test_unified_editor_keeps_complex_and_external_movements_readonly(
         source = journal.source + (
             '\n2026-01-10 * "Synthetic protected movement"\n'
             '  id: "protected"\n'
-            f'  txncount-kind: "{kind}"\n' + postings
+            f'  textmoney-kind: "{kind}"\n' + postings
         )
         (tmp_path / FILENAME).write_text(source, newline="")
         await journal.load()

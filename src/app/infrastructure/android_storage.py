@@ -17,10 +17,10 @@ class AndroidFolder:
             raise StorageError("Android requires a content URI returned by the SAF picker.")
         self.bridge = bridge
         self.uri = uri
-        if filename not in {"storage-test.beancount", "txncount.beancount"}:
+        if filename not in {"storage-test.beancount", "textmoney.beancount"}:
             raise StorageError("Unsupported journal filename.")
         self.filename = filename
-        self.backup_prefix = "storage-test" if filename == "storage-test.beancount" else "txncount"
+        self.backup_prefix = "storage-test" if filename == "storage-test.beancount" else "textmoney"
         self._record: bytes | None = None
         self._candidate: bytes | None = None
 

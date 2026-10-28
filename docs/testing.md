@@ -170,7 +170,7 @@ financial data. These are checks to perform, not claims of completed device test
 Use only a disposable synthetic journal:
 
 1. Create accounts/categories; confirm `name` labels and local `time` metadata,
-   no new `id`/`timestamp`/`txncount-kind` fields, and no `.txncount-sync/`.
+   no new `id`/`timestamp`/`textmoney-kind` fields, and no `.textmoney-sync/`.
 2. Add a hand-written supported transaction without an ID. Edit/delete it from
    the UI, checking unrelated comments, tags and metadata remain unchanged.
 3. Open a transaction form, change the file externally, then save. Saving must

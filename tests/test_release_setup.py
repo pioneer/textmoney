@@ -22,7 +22,7 @@ def setup_key(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     monkeypatch.setattr(
         tasks,
         "android_release_configuration",
-        lambda: ("com.pioneer.txncount", "android-release", hashlib.sha256(b"cert").hexdigest()),
+        lambda: ("com.pioneer.textmoney", "android-release", hashlib.sha256(b"cert").hexdigest()),
     )
     return key
 
@@ -168,7 +168,7 @@ def test_setup_verifies_disposable_real_key_without_modifying_it(
     if keytool is None:
         pytest.skip("keytool is not installed")
     key = tmp_path / "disposable.jks"
-    env = {"TXNCOUNT_TEST_PASSWORD": "disposable-test-password"}
+    env = {"TEXTMONEY_TEST_PASSWORD": "disposable-test-password"}
     tasks.release_setup_command(
         keytool,
         "-genkeypair",
@@ -187,9 +187,9 @@ def test_setup_verifies_disposable_real_key_without_modifying_it(
         "-storetype",
         "JKS",
         "-storepass:env",
-        "TXNCOUNT_TEST_PASSWORD",
+        "TEXTMONEY_TEST_PASSWORD",
         "-keypass:env",
-        "TXNCOUNT_TEST_PASSWORD",
+        "TEXTMONEY_TEST_PASSWORD",
         env=env,
     )
     key.chmod(0o600)
@@ -202,17 +202,17 @@ def test_setup_verifies_disposable_real_key_without_modifying_it(
         "-keystore",
         str(key),
         "-storepass:env",
-        "TXNCOUNT_TEST_PASSWORD",
+        "TEXTMONEY_TEST_PASSWORD",
         env=env,
     )
     monkeypatch.setattr(tasks, "check_android_release_tools", lambda: None)
     monkeypatch.setattr(tasks.sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr(tasks.getpass, "getpass", lambda prompt: env["TXNCOUNT_TEST_PASSWORD"])
+    monkeypatch.setattr(tasks.getpass, "getpass", lambda prompt: env["TEXTMONEY_TEST_PASSWORD"])
     monkeypatch.setattr(
         tasks,
         "android_release_configuration",
         lambda: (
-            "com.pioneer.txncount",
+            "com.pioneer.textmoney",
             "android-release",
             hashlib.sha256(certificate).hexdigest(),
         ),

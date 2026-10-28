@@ -7,7 +7,7 @@ Category budgets have a separate, mandatory reference suite in
 It compares native directives, daily allocations, direct/aggregate/cumulative
 reports, actuals, conversions and display precision against pinned **Fava
 1.30.16**. Fava/Beancount are development-only references; production retains
-TxnCount's explicit-posting model and lossless parser. See
+TextMoney's explicit-posting model and lossless parser. See
 [Budgeting](budgets.md). The optional cross-engine baseline below is unrelated
 to the budgeting runtime and does not replace these parity assertions.
 
@@ -19,7 +19,7 @@ RUSTFAVA_APPIMAGE="$HOME/AppImages/rustfava.appimage" uv run inv check-compat --
 ```
 
 `check-compat` validates one synthetic, single-file journal only. It compares
-all 35 explicit posting rows and 12 account/currency balances across TxnCount,
+all 35 explicit posting rows and 12 account/currency balances across TextMoney,
 official Beancount, Beanquery and RustLedger. It also checks Fava's public
 annual interval-report API. The fixture covers ordinary income and expenses,
 a partial reimbursement, opening and adjustment equity, inactive categories,
@@ -77,7 +77,7 @@ smoke-test checklist:
 3. Check the Balance Sheet in UAH and USD separately.
 4. Check the Income Statement for period totals and fee categories.
 5. Inspect both `@` exchange directions, the `@@` exchange, and both fee cases.
-6. Confirm custom TxnCount metadata and inactive historical categories load
+6. Confirm custom TextMoney metadata and inactive historical categories load
    without visible errors.
 
 The application does not claim support for all valid Beancount books. Its
@@ -89,9 +89,9 @@ from `Posting.total_price` (`@@`); valuation uses posting units multiplied by
 the unit price with Decimal arithmetic and the posting sign. Ambiguous
 multi-price exchanges, costs/lots, inferred amounts, plugins, includes and
 other unsupported accounting directives remain blocked. Transactions carrying
-`@` are read-only in TxnCount's transaction editor/deleter so an unrelated edit
+`@` are read-only in TextMoney's transaction editor/deleter so an unrelated edit
 cannot silently rewrite them. The lossless directive-splice/append paths retain
-their original text. New TxnCount exchange serialization remains `@@`; it was
+their original text. New TextMoney exchange serialization remains `@@`; it was
 not changed.
 
 Real-journal regression remains a manual, disposable-copy procedure from the
@@ -284,7 +284,7 @@ expense journal is documented separately in [MVP 0.1](mvp-0.1.md).
 
 These build 3 results describe the successful PoC. The output path is reused by
 newer builds. [MVP 0.1](mvp-0.1.md) is another historical report, not the current
-APK guide. Use [published releases](https://github.com/pioneer/txncount/releases/latest)
+APK guide. Use [published releases](https://github.com/pioneer/textmoney/releases/latest)
 and [current device checks](testing.md#transaction-and-device-checklist).
 
 - Historical local output `build/apk/txncount.apk`, approximately 135 MiB.

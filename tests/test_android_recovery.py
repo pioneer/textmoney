@@ -59,7 +59,7 @@ class SafProvider:
         backup = None
         if self.marker is not None:
             try:
-                record = SaveRecord.decode(self.marker, "txncount")
+                record = SaveRecord.decode(self.marker, "textmoney")
             except ValueError:
                 record = None
             if record and record.backup:
@@ -103,7 +103,7 @@ class SafProvider:
                 raise StorageError("Synthetic marker persistence failure")
             assert encoded(self.marker) == args["marker"]
             assert encoded(self.data) == args["previous"]
-            intent = SaveRecord.decode(record, "txncount")
+            intent = SaveRecord.decode(record, "textmoney")
             if self.data is not None:
                 name = (intent.backup or "").removeprefix("backups/")
                 if self.backups.get(name) != self.data:
@@ -141,7 +141,7 @@ class SafProvider:
         if method == "accept_recovery":
             if self.race:
                 self.data = b"; external edit during recovery\n"
-            record = SaveRecord.decode(decoded(args["record"]) or b"", "txncount")
+            record = SaveRecord.decode(decoded(args["record"]) or b"", "textmoney")
             pending = sorted(
                 name
                 for name in self.backups
@@ -196,7 +196,7 @@ def test_successful_android_save_and_fresh_instance_load(
         assert provider.backups[backup.removeprefix("backups/")] == previous
         assert provider.data == candidate and provider.writes == 1
         assert provider.marker is not None
-        assert SaveRecord.decode(provider.marker, "txncount").phase == "complete"
+        assert SaveRecord.decode(provider.marker, "textmoney").phase == "complete"
         assert provider.calls.index("backup") < provider.calls.index("write")
         assert provider.calls.index("write") < provider.calls.index("finish_write")
         journal = Journal(provider.folder())
@@ -217,7 +217,7 @@ def test_first_journal_creation_has_recovery_record_without_previous_backup(
         session.draft = candidate.decode()
         assert await session.write() is None
         assert provider.marker is not None
-        record = SaveRecord.decode(provider.marker, "txncount")
+        record = SaveRecord.decode(provider.marker, "textmoney")
         assert record.previous is record.backup is None and record.phase == "complete"
         assert not provider.backups and provider.data == candidate
         await Journal(provider.folder()).load()
@@ -440,9 +440,9 @@ def test_save_record_checksum_detects_valid_json_corruption() -> None:
     value = json.loads(record.encode())
     value["phase"] = "complete"
     with pytest.raises(ValueError, match="Corrupted"):
-        SaveRecord.decode(json.dumps(value).encode(), "txncount")
+        SaveRecord.decode(json.dumps(value).encode(), "textmoney")
     assert (
-        SaveRecord.decode(replace(record, phase="complete").encode(), "txncount").phase
+        SaveRecord.decode(replace(record, phase="complete").encode(), "textmoney").phase
         == "complete"
     )
 
@@ -480,8 +480,8 @@ def test_android_ignores_legacy_sync_files_and_lists_names_only(
         previous, candidate, _ = books
         provider = SafProvider(previous)
         provider.legacy_files = {
-            ".txncount-sync": b"damaged legacy metadata",
-            ".txncount-sync/stale-edge.json": b"{damaged",
+            ".textmoney-sync": b"damaged legacy metadata",
+            ".textmoney-sync/stale-edge.json": b"{damaged",
             "conflicted-copy.beancount": b"invalid unrelated journal",
         }
         provider.siblings = ["conflicted-copy.beancount"]
@@ -492,7 +492,7 @@ def test_android_ignores_legacy_sync_files_and_lists_names_only(
         await folder.write(candidate, expected_hash=digest(previous))
 
         assert provider.data == candidate and provider.writes == 1
-        assert provider.legacy_files[".txncount-sync/stale-edge.json"] == b"{damaged"
+        assert provider.legacy_files[".textmoney-sync/stale-edge.json"] == b"{damaged"
         assert "sync_scan" not in provider.calls and "sync_put" not in provider.calls
         write_arguments = next(args for method, args in provider.arguments if method == "write")
         assert "sync_versions" not in write_arguments

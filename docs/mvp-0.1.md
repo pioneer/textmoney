@@ -11,7 +11,7 @@ source-bound editing, not generated persistent transaction IDs.
 This report records the original MVP and adaptive-UI builds through build 6.
 The [CRUD/Fava archive](crud-fava.md) records later milestones, not the current
 release contract. Download current binaries from
-[GitHub Releases](https://github.com/pioneer/txncount/releases/latest).
+[GitHub Releases](https://github.com/pioneer/textmoney/releases/latest).
 
 **Android update (2026-10-18):** the user confirmed recording an expense and
 seeing the account balance update on a physical phone. Other MVP device checks

@@ -3,9 +3,9 @@
 ## Scope and limitation
 
 These are build/hosting instructions for a development UI preview, not a
-supported browser edition of TxnCount. The normal journal workflow requires a
+supported browser edition of TextMoney. The normal journal workflow requires a
 user-selected local folder. Flet's `FilePicker.get_directory_path()` is unsupported
-in web mode, and TxnCount has no browser filesystem adapter, upload/import
+in web mode, and TextMoney has no browser filesystem adapter, upload/import
 replacement or browser-backed financial storage. Successfully serving a static
 bundle does not verify usable journal access or Pyodide dependency compatibility.
 Use Android, Linux or Windows for the supported local-folder workflow.

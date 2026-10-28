@@ -84,8 +84,8 @@ the staged copy. Generated Flutter files and native icons live under `build/`.
 Run one build/mobile-debug task at a time in a checkout because they share staging.
 `pyproject.toml` owns the app version and build number. Invoke generates ignored
 `src/app/.release.json` for packaged About/version access and renames Android
-development output to `txncount-<version>.apk`. Production builds collect one
-standalone APK per ABI as `dist/android/txncount-<version>-<abi>.apk`, all with the
+development output to `textmoney-<version>.apk`. Production builds collect one
+standalone APK per ABI as `dist/android/textmoney-<version>-<abi>.apk`, all with the
 same project version code. Source runs read the project configuration;
 no second maintained version constant is needed.
 
@@ -96,7 +96,7 @@ explicit maintainer approval before they are introduced or changed. Approved:
 used on commodities in Beancount's example; it is to replace `display-name`),
 transaction `time` (quoted local `"HH:MM"` or
 `"HH:MM:SS"`, as written by beangulp and sorted by autobean-format; it is to
-replace `timestamp`), and Fava `custom "budget"` directives. `txncount-active`
+replace `timestamp`), and Fava `custom "budget"` directives. `textmoney-active`
 remains an approved visibility preference: it does not mean accounting closure.
 New transactions have no persistent ID metadata. A source position identifies
 an entry only within its captured source baseline. Native shared links connect
@@ -162,13 +162,13 @@ the chosen adapter, never mirrored into app-private storage. Unsaved drafts and
 desktop hash baselines are in memory only; Android additionally stores save hashes
 and backup identifiers for crash review, never a second ledger. See the [report](android-storage-validation.md) for
 backup safety, provider limitations, and device verification status. The same
-adapters allow only `storage-test.beancount` and `txncount.beancount`, with separate
+adapters allow only `storage-test.beancount` and `textmoney.beancount`, with separate
 backup namespaces. Cloud transport still belongs to the user's external folder
 tool; external-change notices are described below. No
 analytics or authentication is included.
 
 External synchronization is deliberately sequential: finish editing and let the
-external tool finish syncing before opening another device. TxnCount does not
+external tool finish syncing before opening another device. TextMoney does not
 know whether synchronization is complete. Polling observes the main journal
 and lists sibling names for a nonblocking possible-conflict notice; it never
 reads sibling contents automatically or scans `.txncount-sync/`. No ancestry,
@@ -266,7 +266,7 @@ unpriced debit from that same account. A fee-free unit-price annotation on the
 positive destination is also supported. Balances sum posting units while
 transaction validation uses the annotation's official Beancount weight. Existing
 `@@` transfer serialization is unchanged. Transactions containing `@` remain
-read-only in TxnCount's transaction editor/deleter, while unrelated lossless
+read-only in TextMoney's transaction editor/deleter, while unrelated lossless
 edits preserve the original source. Costs/lots, inferred postings and other
 unsupported constructs are rejected rather than approximated. No booking engine
 or new runtime dependency is added. Loan schedules remain out of scope.

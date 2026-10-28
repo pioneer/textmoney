@@ -3,14 +3,14 @@
 Manage definitions in the **Accounting → Budgets** tab. Monitor spending and
 overspending in the **Reports → Budgets** tab, alongside the existing report
 **Overview**. Budgets live exclusively in the selected
-`txncount.beancount` journal:
+`textmoney.beancount` journal:
 
 ```beancount
 2026-01-01 custom "budget" Expenses:Food "monthly" 10000 UAH
 2026-02-01 custom "budget" Expenses:Food "monthly" 12000 UAH
 ```
 
-TxnCount retains its existing single-file explicit-posting accounting model.
+TextMoney retains its existing single-file explicit-posting accounting model.
 Fava **1.30.16** is the pinned development-time numerical reference, not a runtime
 dependency. No alternate engine, separate budget store, proprietary budget
 metadata, artificial transactions or license change is involved. Adapted Fava
@@ -99,7 +99,7 @@ not silently “corrected.” Parent and child budgets are added, not overridden
 the most-specific budget. Missing budgets and explicit zero budgets remain
 distinct.
 
-Consumed percentage is a **TxnCount presentation ratio**, `actual / budget * 100`,
+Consumed percentage is a **TextMoney presentation ratio**, `actual / budget * 100`,
 not a Fava-provided financial field. It is undefined for zero/missing budgets.
 Only the visual bar is clamped; amounts and percentages are not capped.
 Overspending does not block transactions.
@@ -157,10 +157,11 @@ implement the whole Beancount engine.
 
 ## Verification
 
-Budgeting is included in published **v0.3.15**, alongside Android, Linux and
-Windows packaging. The observations below distinguish earlier development
+Budgeting was first published as **TxnCount v0.3.15**, alongside Android, Linux and
+Windows packaging, before the [TextMoney rename](rename-migration.md).
+The observations below distinguish earlier development
 checks from device verification; published binaries are available from
-[GitHub Releases](https://github.com/pioneer/txncount/releases/latest).
+[GitHub Releases](https://github.com/pioneer/textmoney/releases/latest).
 
 Run all formatting, lint, type and regression checks:
 

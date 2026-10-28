@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent
 HOSTS = {"linux": "Linux", "windows": "Windows", "macos": "Darwin"}
 # Flet otherwise prompts before installing Flutter/Android SDKs, which fails without a TTY.
 UNATTENDED = "--yes"
-LINUX_DEV_APP_ID = "io.txncount.local"
+LINUX_DEV_APP_ID = "dev.textmoney.app"
 STOCK_CLIENT_APP_ID = b"com.appveyor.flet"
 ANDROID_SIGNING_ENV = (
     "FLET_ANDROID_SIGNING_KEY_STORE",
@@ -138,8 +138,8 @@ def android_release_configuration() -> tuple[str, str, str]:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     return (
         project["tool"]["flet"]["bundle_id"],
-        project["tool"]["txncount"]["android_release"]["signing_alias"],
-        project["tool"]["txncount"]["android_release"]["certificate_sha256"],
+        project["tool"]["textmoney"]["android_release"]["signing_alias"],
+        project["tool"]["textmoney"]["android_release"]["certificate_sha256"],
     )
 
 
@@ -222,8 +222,8 @@ def setup_android_release(
     if not store_password or not key_password:
         raise Exit("Both passwords are required; no secrets were uploaded.", code=1)
     secret_env = {
-        "TXNCOUNT_SETUP_STORE_PASSWORD": store_password,
-        "TXNCOUNT_SETUP_KEY_PASSWORD": key_password,
+        "TEXTMONEY_SETUP_STORE_PASSWORD": store_password,
+        "TEXTMONEY_SETUP_KEY_PASSWORD": key_password,
     }
     key_args = (
         "-keystore",
@@ -231,7 +231,7 @@ def setup_android_release(
         "-alias",
         alias,
         "-storepass:env",
-        "TXNCOUNT_SETUP_STORE_PASSWORD",
+        "TEXTMONEY_SETUP_STORE_PASSWORD",
     )
     certificate = release_setup_command("keytool", "-exportcert", *key_args, env=secret_env)
     if hashlib.sha256(certificate).hexdigest() != fingerprint.replace(":", "").lower():
@@ -241,14 +241,14 @@ def setup_android_release(
         "-certreq",
         *key_args,
         "-keypass:env",
-        "TXNCOUNT_SETUP_KEY_PASSWORD",
+        "TEXTMONEY_SETUP_KEY_PASSWORD",
         env=secret_env,
     )
     print("Production certificate and private-key password verified; keystore unchanged.")
     if not upload_secrets:
         print("No secrets uploaded. Use --upload-secrets to configure GitHub signing secrets.")
         return
-    repository = "pioneer/txncount"
+    repository = "pioneer/textmoney"
     environment = "android-production"
     release_setup_command("gh", "api", f"repos/{repository}/environments/{environment}")
     print(
@@ -381,13 +381,58 @@ def previous_release_build_number(tag: str) -> int:
     if not isinstance(build_number, int) or build_number < 1:
         raise Exit(f"Prior release {previous_tag} has an invalid Android version code.", code=1)
     current_bundle_id, _, _ = android_release_configuration()
-    if previous_bundle_id != current_bundle_id:
+    if previous_bundle_id != current_bundle_id and not (
+        previous_tag == "v0.3.15"
+        and previous_bundle_id == "com.pioneer.txncount"
+        and current_bundle_id == "com.pioneer.textmoney"
+        and build_number == 38
+        and previous_project.get("tool", {}).get("txncount", {}).get("android_release", {})
+        == tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"][
+            "textmoney"
+        ]["android_release"]
+    ):
         raise Exit(
             f"Android application ID changed since prior release {previous_tag}; "
             "in-place updates cannot be verified.",
             code=1,
         )
     return build_number
+
+
+@task
+def migrate_txncount(context: Context, source: str, destination: str) -> None:
+    """Copy an explicitly selected legacy journal to a new TextMoney folder."""
+    execute(
+        sys.executable,
+        "-m",
+        "tools.migrate_txncount",
+        "journal",
+        "--source",
+        source,
+        "--destination",
+        destination,
+        env={"PYTHONPATH": str(ROOT / "src")},
+    )
+
+
+@task
+def migrate_txncount_preferences(
+    context: Context, source: str, destination: str, journal_folder: str
+) -> None:
+    """Copy legacy desktop preferences explicitly; never inherit a folder grant."""
+    execute(
+        sys.executable,
+        "-m",
+        "tools.migrate_txncount",
+        "preferences",
+        "--source",
+        source,
+        "--destination",
+        destination,
+        "--journal-folder",
+        journal_folder,
+        env={"PYTHONPATH": str(ROOT / "src")},
+    )
 
 
 def validate_android_release_version(tag: str) -> None:
@@ -546,7 +591,7 @@ def build_target(
     )
     if target == "apk":
         version, _ = release_identity()
-        (ROOT / "build/apk/txncount.apk").replace(ROOT / f"build/apk/txncount-{version}.apk")
+        (ROOT / "build/apk/textmoney.apk").replace(ROOT / f"build/apk/textmoney-{version}.apk")
 
 
 def prepare_linux_dev_client() -> Path:
@@ -587,7 +632,7 @@ def prepare_linux_dev_client() -> Path:
     entry.parent.mkdir(parents=True, exist_ok=True)
     root = str(ROOT).replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%")
     entry.write_text(
-        "[Desktop Entry]\nType=Application\nName=TxnCount (development)\n"
+        "[Desktop Entry]\nType=Application\nName=TextMoney (development)\n"
         f'Exec=uv --directory "{root}" run inv run\n'
         f"Icon={icon}\nTerminal=false\nNoDisplay=true\n"
         f"StartupWMClass={LINUX_DEV_APP_ID}\n",
@@ -1061,7 +1106,7 @@ def build_android_release(context: Context, tag: str = "") -> None:
         # Single-ABI builds retain the project version code, unlike --split-per-abi.
         build_target("apk", "--arch", abi, signing=True, env=signing_env)
         apk = output / name
-        (ROOT / "build/apk" / f"txncount-{version}.apk").replace(apk)
+        (ROOT / "build/apk" / f"textmoney-{version}.apk").replace(apk)
         verify_android_release_apk(apk, abi)
 
 
@@ -1138,7 +1183,7 @@ def build_linux_appimage(context: Context) -> None:
 def validate_linux_appimage(context: Context) -> None:
     """Extract and structurally validate the versioned Linux AppImage."""
     version, _ = release_identity()
-    artifact = ROOT / "dist/linux" / f"TxnCount-{version}-x86_64.AppImage"
+    artifact = ROOT / "dist/linux" / f"TextMoney-{version}-x86_64.AppImage"
     try:
         linux_appimage.validate_appimage(artifact, version=version, project_root=ROOT)
     except RuntimeError as exc:
@@ -1149,7 +1194,7 @@ def validate_linux_appimage(context: Context) -> None:
 def smoke_linux_appimage(context: Context, timeout: int = 20) -> None:
     """Launch the Linux AppImage under Xvfb and verify startup."""
     version, _ = release_identity()
-    artifact = ROOT / "dist/linux" / f"TxnCount-{version}-x86_64.AppImage"
+    artifact = ROOT / "dist/linux" / f"TextMoney-{version}-x86_64.AppImage"
     try:
         linux_appimage.smoke_test_appimage(artifact, timeout_seconds=timeout)
     except RuntimeError as exc:

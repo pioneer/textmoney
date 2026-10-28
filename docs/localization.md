@@ -1,6 +1,6 @@
 # Localization
 
-TxnCount uses standard GNU gettext monolingual PO files. Stable semantic
+TextMoney uses standard GNU gettext monolingual PO files. Stable semantic
 `msgid` values (currently prefixed `ui.`) are identifiers, not English UI
 strings; translate the `msgstr` values. The maintained base catalogs are
 [English](../locales/en.po), [Ukrainian](../locales/uk.po) and

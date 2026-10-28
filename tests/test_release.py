@@ -12,25 +12,25 @@ from tools import release
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = "a" * 40
-REPO = "pioneer/txncount"
+REPO = "pioneer/textmoney"
 
 
 def test_release_requires_exactly_three_named_architecture_apks_and_both_desktops() -> None:
     assert release.artifact_names("0.3.13") == (
-        "txncount-0.3.13-arm64-v8a.apk",
-        "txncount-0.3.13-armeabi-v7a.apk",
-        "txncount-0.3.13-x86_64.apk",
-        "TxnCount-0.3.13-x86_64.AppImage",
-        "TxnCount-0.3.13-windows-x64-setup.exe",
+        "textmoney-0.3.13-arm64-v8a.apk",
+        "textmoney-0.3.13-armeabi-v7a.apk",
+        "textmoney-0.3.13-x86_64.apk",
+        "TextMoney-0.3.13-x86_64.AppImage",
+        "TextMoney-0.3.13-windows-x64-setup.exe",
     )
 
 
 @pytest.fixture
 def workspace(tmp_path: Path) -> Path:
     (tmp_path / "pyproject.toml").write_text(
-        '[project]\nname = "txncount"\nversion = "0.3.6"\n'
+        '[project]\nname = "textmoney"\nversion = "0.3.6"\n'
         "[tool.flet]\nbuild_number = 29\n"
-        '[tool.txncount]\nother = "preserve"\n',
+        '[tool.textmoney]\nother = "preserve"\n',
         encoding="utf-8",
     )
     (tmp_path / "uv.lock").write_text("old lock\n", encoding="utf-8")
@@ -82,7 +82,7 @@ def test_release_prepares_only_version_files_and_pushes_atomically(
     project = tomllib.loads((workspace / "pyproject.toml").read_text())
     assert project["project"]["version"] == "0.3.7"
     assert project["tool"]["flet"]["build_number"] == 32
-    assert project["tool"]["txncount"]["other"] == "preserve"
+    assert project["tool"]["textmoney"]["other"] == "preserve"
     check.assert_called_once()
     previous.assert_called_once_with("v0.3.7")
     calls = [call.args[1:] for call in run.call_args_list]
@@ -535,7 +535,7 @@ def test_publish_failures_never_publish(
     elif failure == "extra":
         (artifacts / "unexpected.txt").write_text("must not publish")
     elif failure == "universal":
-        (artifacts / "txncount-0.3.7.apk").write_bytes(b"old universal APK")
+        (artifacts / "textmoney-0.3.7.apk").write_bytes(b"old universal APK")
     with pytest.raises(RuntimeError):
         release.publish_release(artifacts.parent, artifacts, "v0.3.7")
     assert not any(call.args[1:4] == ("gh", "release", "edit") for call in run.call_args_list)
@@ -545,7 +545,7 @@ def test_publish_failures_never_publish(
 def test_missing_any_architecture_prevents_all_publication(
     artifacts: Path, monkeypatch: pytest.MonkeyPatch, abi: str
 ) -> None:
-    (artifacts / f"txncount-0.3.7-{abi}.apk").unlink()
+    (artifacts / f"textmoney-0.3.7-{abi}.apk").unlink()
     run = publication_commands(monkeypatch, artifacts)
     with pytest.raises(RuntimeError, match="three architecture APKs"):
         release.publish_release(artifacts.parent, artifacts, "v0.3.7")
@@ -560,9 +560,9 @@ def test_single_release_workflow_gates_publication_on_all_platforms() -> None:
     assert "build-android-release" in workflow and "validate-linux-appimage" in workflow
     for abi in ("arm64-v8a", "armeabi-v7a", "x86_64"):
         assert (
-            f"dist/android/txncount-${{{{ needs.prepare.outputs.version }}}}-{abi}.apk" in workflow
+            f"dist/android/textmoney-${{{{ needs.prepare.outputs.version }}}}-{abi}.apk" in workflow
         )
-    assert "path: build/apk/txncount-" not in workflow
+    assert "path: build/apk/textmoney-" not in workflow
     assert "smoke-linux-appimage" in workflow and "uv run inv check" in workflow
     assert workflow.count("contents: write") == 1
     assert "group: all-platform-release" in workflow

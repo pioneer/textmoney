@@ -93,7 +93,7 @@ def _sha256(path: Path) -> str:
 
 def ensure_toolchain(tool_dir: Path) -> tuple[Path, Path, Path]:
     if platform_architecture() != "x86_64":
-        raise RuntimeError("TxnCount AppImage packaging currently supports Linux x86_64 only.")
+        raise RuntimeError("TextMoney AppImage packaging currently supports Linux x86_64 only.")
     if not shutil.which("mksquashfs") or not shutil.which("unsquashfs"):
         raise RuntimeError("Install squashfs-tools (mksquashfs and unsquashfs) to build AppImages.")
     if not shutil.which("desktop-file-validate"):
@@ -159,7 +159,7 @@ def _runtime_from_tool(appimagetool: Path, runtime_path: Path) -> None:
 
 
 def _write_appdir(build_dir: Path, app_dir: Path, icon: Path) -> tuple[Path, Path]:
-    binary = build_dir / "txncount"
+    binary = build_dir / "textmoney"
     if not binary.is_file() or not os.access(binary, os.X_OK):
         raise RuntimeError(f"Flet Linux executable is missing or not executable: {binary}")
     if not icon.is_file():
@@ -172,21 +172,21 @@ def _write_appdir(build_dir: Path, app_dir: Path, icon: Path) -> tuple[Path, Pat
     executable_dir = app_dir / "usr/bin"
     executable_dir.parent.mkdir(parents=True)
     shutil.copytree(build_dir, executable_dir)
-    shutil.copyfile(icon, app_dir / "com.pioneer.txncount.png")
-    desktop_file = app_dir / "com.pioneer.txncount.desktop"
+    shutil.copyfile(icon, app_dir / "com.pioneer.textmoney.png")
+    desktop_file = app_dir / "com.pioneer.textmoney.desktop"
     desktop_file.write_text(
         "[Desktop Entry]\n"
-        "Name=TxnCount\n"
+        "Name=TextMoney\n"
         "Comment=Offline-first personal finance journal\n"
-        "Exec=txncount\n"
-        "Icon=com.pioneer.txncount\n"
+        "Exec=textmoney\n"
+        "Icon=com.pioneer.textmoney\n"
         "Terminal=false\n"
         "Type=Application\n"
         "Categories=Office;Utility;\n"
-        "StartupWMClass=com.pioneer.txncount\n",
+        "StartupWMClass=com.pioneer.textmoney\n",
         encoding="utf-8",
     )
-    return executable_dir / "txncount", desktop_file
+    return executable_dir / "textmoney", desktop_file
 
 
 def build_appimage(
@@ -201,7 +201,7 @@ def build_appimage(
     runtime_path = tool_dir / "runtime-x86_64"
     dist_dir.mkdir(parents=True, exist_ok=True)
     linuxdeploy, appimagetool, gtk_plugin = ensure_toolchain(tool_dir)
-    icon = build_dir / "share/icons/hicolor/512x512/apps/com.pioneer.txncount.png"
+    icon = build_dir / "share/icons/hicolor/512x512/apps/com.pioneer.textmoney.png"
     executable, desktop_file = _write_appdir(build_dir, app_dir, icon)
 
     validation = run_command("desktop-file-validate", str(desktop_file), capture=True)
@@ -222,7 +222,7 @@ def build_appimage(
         "--desktop-file",
         str(desktop_file),
         "--icon-file",
-        str(app_dir / "com.pioneer.txncount.png"),
+        str(app_dir / "com.pioneer.textmoney.png"),
         "--plugin",
         "gtk",
         env=tool_env,
@@ -233,7 +233,7 @@ def build_appimage(
         raise RuntimeError("linuxdeploy did not create an AppRun launcher.")
 
     _runtime_from_tool(appimagetool, runtime_path)
-    artifact = dist_dir / f"TxnCount-{version}-x86_64.AppImage"
+    artifact = dist_dir / f"TextMoney-{version}-x86_64.AppImage"
     artifact.unlink(missing_ok=True)
     packaging = run_command(
         str(appimagetool),
@@ -251,7 +251,7 @@ def build_appimage(
 
 
 def validate_appimage(artifact: Path, *, version: str, project_root: Path) -> Path:
-    expected_name = f"TxnCount-{version}-x86_64.AppImage"
+    expected_name = f"TextMoney-{version}-x86_64.AppImage"
     if artifact.name != expected_name or not artifact.is_file() or artifact.stat().st_size == 0:
         raise RuntimeError(f"Expected nonempty AppImage artifact {expected_name}.")
     if not os.access(artifact, os.X_OK):
@@ -300,19 +300,19 @@ def validate_appimage(artifact: Path, *, version: str, project_root: Path) -> Pa
     app_dir = extracted
     required = (
         app_dir / "AppRun",
-        app_dir / "com.pioneer.txncount.desktop",
-        app_dir / "com.pioneer.txncount.png",
-        app_dir / "usr/bin/txncount",
+        app_dir / "com.pioneer.textmoney.desktop",
+        app_dir / "com.pioneer.textmoney.png",
+        app_dir / "usr/bin/textmoney",
         app_dir / "usr/bin/lib/libflutter_linux_gtk.so",
         app_dir / "usr/bin/lib/libpython3.14.so.1.0",
         app_dir / "usr/bin/app/app/.release.json",
-        app_dir / "usr/bin/app/app/locale/en/LC_MESSAGES/txncount.mo",
+        app_dir / "usr/bin/app/app/locale/en/LC_MESSAGES/textmoney.mo",
     )
     missing = [str(path.relative_to(app_dir)) for path in required if not path.is_file()]
     if missing:
         raise RuntimeError(f"Extracted AppImage is missing required files: {', '.join(missing)}")
     desktop_check = run_command(
-        "desktop-file-validate", str(app_dir / "com.pioneer.txncount.desktop"), capture=True
+        "desktop-file-validate", str(app_dir / "com.pioneer.textmoney.desktop"), capture=True
     )
     if desktop_check.returncode:
         raise RuntimeError("Extracted AppImage desktop entry failed desktop-file-validate.")

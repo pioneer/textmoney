@@ -54,11 +54,11 @@ def test_new_records_use_explicit_dates_and_infer_supported_transaction_kinds(
             "opening",
             "expense",
         ]
-        assert "txncount-kind:" not in journal.source
-        assert "txncount-active:" not in journal.source
+        assert "textmoney-kind:" not in journal.source
+        assert "textmoney-active:" not in journal.source
 
         await journal.edit_account("Assets:Cash", "Wallet", "100", True, journal.source)
-        assert "txncount-active:" not in journal.source
+        assert "textmoney-active:" not in journal.source
 
     asyncio.run(scenario())
 
@@ -103,9 +103,9 @@ def test_unmatched_transaction_stays_external_and_legacy_kind_is_uninterpreted(
         legacy_source = journal.source.replace(
             f'  time: "{transaction_time(expense.timestamp)}"',
             f'  time: "{transaction_time(expense.timestamp)}"\n'
-            '  txncount-kind: "external"\n  id: 123\n'
-            "  timestamp: FALSE\n  txncount-fee-mode: FALSE\n"
-            "  txncount-expense-id: 456",
+            '  textmoney-kind: "external"\n  id: 123\n'
+            "  timestamp: FALSE\n  textmoney-fee-mode: FALSE\n"
+            "  textmoney-expense-id: 456",
         )
         assert codec.parse(legacy_source).transactions[-1].kind == "expense"
 
@@ -242,7 +242,7 @@ def test_handwritten_user_metadata_and_arbitrary_links_survive_linked_reimbursem
         refund = journal.ledger.transactions[-1]
         assert refund.related_expense == expense.id
         assert refund.links == ("receipt",)
-        assert "txncount-expense-id:" not in journal.source
+        assert "textmoney-expense-id:" not in journal.source
         assert journal.source.count('id: "owned-by-user"') == 1
         expense = journal.ledger.transactions[0]
         await journal.edit_expense(
@@ -271,7 +271,7 @@ def test_link_is_generated_only_for_a_linked_refund_and_reused_losslessly(tmp_pa
         await journal.create_account("Cash", "Wallet", "UAH", opened=ACCOUNT_OPENED)
         await journal.create_category("Food", "Food", opened=ACCOUNT_OPENED)
         await journal.add_expense("Assets:Cash", "Expenses:Food", "10", "", ENTRY_DATE.isoformat())
-        assert "^txncount-" not in journal.source
+        assert "^textmoney-" not in journal.source
         expense = journal.ledger.transactions[-1]
         prefix = journal.source.split("2026-01-03 *")[0]
         for _ in range(2):
@@ -286,7 +286,7 @@ def test_link_is_generated_only_for_a_linked_refund_and_reused_losslessly(tmp_pa
                 expected_source=journal.source,
             )
         assert journal.source.startswith(prefix)
-        assert journal.source.count("^txncount-") == 3
+        assert journal.source.count("^textmoney-") == 3
         transactions = journal.ledger.transactions
         assert transactions[0].links == transactions[1].links == transactions[2].links
         assert all(t.related_expense == transactions[0].id for t in transactions[1:])
@@ -400,7 +400,7 @@ def test_ambiguous_user_links_get_a_unique_refund_link_without_losing_annotation
         )
         first, second, refund = journal.ledger.transactions
         assert refund.related_expense == first.id
-        assert refund.links[0].startswith("txncount-")
+        assert refund.links[0].startswith("textmoney-")
         assert set(first.links) == {"shared", refund.links[0]}
         assert second.links == ("shared",)
         assert "#food" in journal.source and "; receipt comment" in journal.source
@@ -440,11 +440,11 @@ def test_legacy_metadata_is_preserved_but_not_interpreted_or_migrated(tmp_path: 
     async def scenario() -> None:
         source = (
             '2026-01-01 open Assets:Cash UAH\n  display-name: "Old wallet"\n'
-            "2026-01-01 open Expenses:Food\n  txncount-default-transfer-fee: TRUE\n"
+            "2026-01-01 open Expenses:Food\n  textmoney-default-transfer-fee: TRUE\n"
             '\n2026-01-03 * "Legacy"\n  id: "user-owned"\n'
             '  timestamp: "2026-01-03T21:45:00+09:00"\n'
-            '  txncount-kind: "income"\n  txncount-expense-id: "unresolved"\n'
-            '  txncount-fee-mode: "deducted"\n'
+            '  textmoney-kind: "income"\n  textmoney-expense-id: "unresolved"\n'
+            '  textmoney-fee-mode: "deducted"\n'
             "  Expenses:Food 10 UAH\n  Assets:Cash -10 UAH\n"
         )
         path = tmp_path / FILENAME

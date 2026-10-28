@@ -55,12 +55,12 @@ from app.ui.datetime_fields import DateTimeFields
 from app.version import release_identity
 
 logger = logging.getLogger(__name__)
-FOLDER_KEY = "txncount.folder.v1"
-LANGUAGE_KEY = "txncount.language.v1"
-THEME_KEY = "txncount.theme.v1"
-TIMEZONE_KEY = "txncount.timezone.v1"
-BACKUP_CLEANUP_KEY = "txncount.backup-cleanup.v1"
-DEFAULT_FEE_KEY = "txncount.default-fee-category.v1"
+FOLDER_KEY = "textmoney.folder.v1"
+LANGUAGE_KEY = "textmoney.language.v1"
+THEME_KEY = "textmoney.theme.v1"
+TIMEZONE_KEY = "textmoney.timezone.v1"
+BACKUP_CLEANUP_KEY = "textmoney.backup-cleanup.v1"
+DEFAULT_FEE_KEY = "textmoney.default-fee-category.v1"
 COMPACT_MAX_WIDTH = 599
 MEDIUM_MAX_WIDTH = 1023
 MAX_CONTENT_WIDTH = 1180

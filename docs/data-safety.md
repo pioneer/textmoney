@@ -2,7 +2,7 @@
 
 This is the current local-save contract. Keep independent backups and use one
 writer at a time: finish editing and wait for the external synchronization tool
-before opening another device. TxnCount does not synchronize, merge journals or
+before opening another device. TextMoney does not synchronize, merge journals or
 certify cloud completion. See [Sequential editing](synchronization.md).
 
 ## Validation and conflicts
@@ -51,7 +51,7 @@ confirmation. Confirmation recomputes retention and cannot expand the approved
 deletion set. Cleanup verifies the current baseline and never rewrites the journal.
 It is not an atomic snapshot of the directory.
 
-New names start as `txncount-<timestamp>-<uuid>-pending.beancount` and become
+New names start as `textmoney-<timestamp>-<uuid>-pending.beancount` and become
 `-committed.beancount` only after successful journal verification. Failed,
 conflicting, cancelled or uncertain writes leave protected pending recovery
 copies, including across restart. Explicit diagnostic/manual backups are also

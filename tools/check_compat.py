@@ -241,7 +241,7 @@ def main() -> int:
     args = parser.parse_args()
 
     source = FIXTURE.read_text(encoding="utf-8")
-    with tempfile.TemporaryDirectory(prefix="txncount-check-compat-") as directory:
+    with tempfile.TemporaryDirectory(prefix="textmoney-check-compat-") as directory:
         path = Path(directory) / FIXTURE.name
         path.write_text(source, encoding="utf-8", newline="")
 
@@ -259,7 +259,8 @@ def main() -> int:
         app_rows, ledger, app = app_postings(source)
         if app_rows != official_rows or app != official or app != EXPECTED_BALANCES:
             raise CompatibilityFailure(
-                "TxnCount and official Beancount disagree on explicit posting or currency balances."
+                "TextMoney and official Beancount disagree on explicit posting "
+                "or currency balances."
             )
         totals = ledger.period_totals(date(2026, 1, 1), date(2026, 12, 31))
         expected_totals = {
@@ -267,10 +268,10 @@ def main() -> int:
             "expenses": {"UAH": Decimal("84.25"), "USD": Decimal("1")},
         }
         if totals != expected_totals:
-            raise CompatibilityFailure(f"Unexpected TxnCount period totals: {totals}.")
+            raise CompatibilityFailure(f"Unexpected TextMoney period totals: {totals}.")
         print(f"PASS official Beancount {official_version} ({Path(loader.__file__).resolve()})")
         print(
-            f"PASS TxnCount: {len(app_rows)} explicit postings and {len(app)} "
+            f"PASS TextMoney: {len(app_rows)} explicit postings and {len(app)} "
             "currency-specific balances match the golden results"
         )
         print("PASS period totals: income 500 UAH; expenses 84.25 UAH and 1 USD")

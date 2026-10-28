@@ -199,7 +199,7 @@ def test_expense_edit_preserves_id_metadata_tags_comments_and_unrelated_bytes(
                 f'  time: "{transaction_time(transaction.timestamp)}"',
                 f'  time: "{transaction_time(transaction.timestamp)}"\n'
                 '  id: "user-owned-id"\n'
-                '  txncount-kind: "expense"\n'
+                '  textmoney-kind: "expense"\n'
                 '  receipt: "synthetic"\n'
                 "  ; private annotation",
             ).replace(' "Expense"\n', ' "Expense" #food ^receipt ; inline\n'),
@@ -254,7 +254,7 @@ def test_expense_delete_physically_removes_entry_but_keeps_comments(tmp_path: Pa
         ).replace(
             f'  time: "{transaction_time(transaction.timestamp)}"',
             f'  time: "{transaction_time(transaction.timestamp)}"\n'
-            '  txncount-kind: "expense" ; keep inline',
+            '  textmoney-kind: "expense" ; keep inline',
         )
         (tmp_path / FILENAME).write_text(source, newline="")
         await review_external_fixture(journal)
@@ -416,7 +416,7 @@ def test_account_opening_changes_keep_economics_and_warn_for_negative_running_ba
             await journal.delete_account("Assets:Cash", journal.source)
         await journal.edit_account("Assets:Cash", "Renamed", "120", True, journal.source)
         assert journal.ledger.accounts[0].active
-        assert "txncount-active: TRUE" in journal.source
+        assert "textmoney-active: TRUE" in journal.source
         assert_official(journal.source)
 
     asyncio.run(scenario())
@@ -437,7 +437,7 @@ def test_category_hierarchy_lifecycle_and_unused_deletion(tmp_path: Path) -> Non
             await journal.delete_category("Expenses:Food:Groceries", journal.source)
         await journal.edit_category("Expenses:Food", "Meals", True, journal.source)
         assert journal.ledger.category_active("Expenses:Food:Groceries")
-        assert "txncount-active: TRUE" in journal.source
+        assert "textmoney-active: TRUE" in journal.source
         await journal.create_account("Unused", "Unused", "USD")
         await journal.delete_account("Assets:Unused", journal.source)
         await journal.create_category("Unused", "Unused")

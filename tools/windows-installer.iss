@@ -17,7 +17,7 @@ MinVersion=10.0.17763
 OutputDir={#OutputDir}
 OutputBaseFilename={#OutputName}
 SetupIconFile={#SetupIcon}
-UninstallDisplayIcon={app}\txncount.exe
+UninstallDisplayIcon={app}\textmoney.exe
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -32,8 +32,8 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\txncount.exe"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\txncount.exe"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\textmoney.exe"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\textmoney.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\txncount.exe"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\textmoney.exe"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent

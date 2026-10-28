@@ -11,7 +11,7 @@ from app.domain.storage import ConflictError, digest
 
 logger = logging.getLogger(__name__)
 SAMPLE = (
-    '; Synthetic storage diagnostics only\noption "title" "txncount"\n'
+    '; Synthetic storage diagnostics only\noption "title" "textmoney"\n'
     "2026-01-01 open Assets:Test USD\n"
     "2026-01-01 open Equity:Test USD\n"
     '2026-01-02 * "Synthetic test"\n'

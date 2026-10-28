@@ -96,10 +96,12 @@ and action buttons. Home recent activity never has separators, even on desktop.
 Narrower layouts have no separators. Resize across 1023/1024px in both directions
 and switch between Home and Transactions; date headings must never be underlined.
 Check light and dark themes.
-The dedicated Transactions view reserves 96px of scrollable space after its
-list for the floating Add button. With a long list, scroll fully to the bottom
+Home and the dedicated Transactions view reserve 96px of scrollable space after
+their content for the floating Add button. With a long list, scroll fully to the bottom
 at phone and desktop widths and check that the final amount and Edit/Delete
-actions sit above the button and remain clickable. Empty lists still show their
+actions sit above the button and remain clickable. Recheck Home after navigation,
+resizing and label refreshes; the clearance must not disappear or accumulate.
+Empty lists still show their
 normal message. Transfers retain exchange/fee details above their account movement;
 blank descriptions do not add an empty summary line.
 

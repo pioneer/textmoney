@@ -775,7 +775,7 @@ class FinanceView(ft.Row):
         self._update_transaction_separators()
         self.screen_host.padding = (
             ft.Padding.only(bottom=96)
-            if self.current_screen == "accounts"
+            if self.current_screen in {"home", "accounts"}
             or (self.current_screen == "reports" and self.report_tabs.selected_index == 1)
             or (self.current_screen == "settings" and self.screen_class != ScreenClass.COMPACT)
             else None

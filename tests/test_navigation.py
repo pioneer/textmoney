@@ -149,6 +149,23 @@ def test_rail_settings_resizes_into_mobile_settings_with_back_navigation(
 
 
 @pytest.mark.parametrize("width", [390, 599, 600, 800, 1366])
+def test_home_keeps_scroll_clearance_for_floating_action(
+    navigation: tuple[FinanceView, MagicMock], width: int
+) -> None:
+    view, page = navigation
+    page.width = width
+    activity = ft.Text("Final synthetic transaction")
+    view.home_activity.controls = [activity]
+    for screen in ("home", "transactions", "settings", "home"):
+        view._navigate(screen)
+    assert view.screen_host.content is view.home_screen
+    assert view.screen_host.padding == ft.Padding.only(bottom=96)
+    assert view.body.scroll == ft.ScrollMode.AUTO
+    assert page.floating_action_button is view.fab
+    assert view.home_activity.controls == [activity]
+
+
+@pytest.mark.parametrize("width", [390, 599, 600, 800, 1366])
 @pytest.mark.parametrize("tab", [0, 1])
 def test_accounting_keeps_scroll_clearance_for_both_tabs(
     navigation: tuple[FinanceView, MagicMock], width: int, tab: int
@@ -200,7 +217,7 @@ def test_screen_clearance_updates_on_resize_and_does_not_accumulate(
             view._refresh_labels()
             expected = (
                 ft.Padding.only(bottom=96)
-                if screen == "accounts" or (screen == "settings" and width >= 600)
+                if screen in {"home", "accounts"} or (screen == "settings" and width >= 600)
                 else None
             )
             assert view.screen_host.padding == expected

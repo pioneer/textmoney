@@ -214,6 +214,9 @@ msgstr "Разом із підкатегоріями"
 msgid "ui.budget_transactions"
 msgstr "Транзакції розрахунку"
 
+msgid "ui.budget_view_report"
+msgstr "Переглянути у звітах"
+
 msgid "ui.budget_change"
 msgstr "Змінити з дати"
 

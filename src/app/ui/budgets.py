@@ -35,6 +35,9 @@ class BudgetView(ft.Column):
         self.model_key: tuple[object, ...] | None = None
         self.filter_key: tuple[object, ...] | None = None
         self.expanded: dict[tuple[date, str], bool] = {}
+        self.highlighted: tuple[date, str] | None = None
+        self.reveal_requested = False
+        self.scroll_target: ft.ExpansionTile | None = None
         self.month = host._today().replace(day=1)
         self.category_id = ""
         self.account_id = ""
@@ -248,6 +251,9 @@ class BudgetView(ft.Column):
         await self._refresh_filters()
 
     async def _refresh_filters(self) -> None:
+        self.highlighted = None
+        self.reveal_requested = False
+        self.scroll_target = None
         self.cancel()
         await self.refresh()
 
@@ -281,12 +287,14 @@ class BudgetView(ft.Column):
     async def refresh(self) -> None:
         self.generation += 1
         generation = self.generation
+        self.scroll_target = None
         self.sync()
         key = self._key()
         self.cache_key = key
         self.error.visible = False
         journal = self.host.journal
         if journal is None or not journal.ready:
+            self.reveal_requested = False
             self.report_rows = ()
             self.currency.visible = False
             self.results.controls = [ft.Text(self.host.tr("report_unavailable"))]
@@ -331,9 +339,11 @@ class BudgetView(ft.Column):
             self._sync_filters()
             self._render(self.report_rows)
         except LedgerError as exc:
+            self.reveal_requested = False
             self.error.value = localized_error(self.host.language, str(exc))
             self.error.visible = True
         except Exception as exc:
+            self.reveal_requested = False
             self.host._error(exc, notify=True)
             self.cache_key = None
         finally:
@@ -342,8 +352,7 @@ class BudgetView(ft.Column):
                 self.host.page.update()
 
     async def _changed(self, event: ft.Event[ft.Dropdown] | ft.Event[ft.Checkbox]) -> None:
-        self.cancel()
-        await self.refresh()
+        await self._refresh_filters()
 
     async def _month(self, offset: int) -> None:
         try:
@@ -357,8 +366,7 @@ class BudgetView(ft.Column):
             self.error.visible = True
             self.host.page.update()
             return
-        self.cancel()
-        await self.refresh()
+        await self._refresh_filters()
 
     async def _current_month(self, event: ft.Event[ft.TextButton]) -> None:
         self.month = self.host._today().replace(day=1)
@@ -576,7 +584,9 @@ class BudgetView(ft.Column):
                     else []
                 )
 
-                return ft.ExpansionTile(
+                highlighted = self.highlighted == key
+                tile = ft.ExpansionTile(
+                    key=ft.ScrollKey(f"budget-report:{begin.isoformat()}:{account}"),
                     title=ft.Column(
                         [
                             ft.Row(
@@ -608,13 +618,59 @@ class BudgetView(ft.Column):
                     expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
                     controls_padding=12,
                     maintain_state=True,
+                    bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
+                    collapsed_bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
                 )
+                if highlighted and self.reveal_requested:
+                    # The client must lay out the target before scroll_to can find its key.
+                    tile.on_size_change = self._reveal_report
+                    self.scroll_target = tile
+                return tile
 
             roots = [
                 account for account in by_account if account.rpartition(":")[0] not in by_account
             ]
             controls.extend(node(root) for root in roots)
         self.results.controls = controls or [ft.Text(tr("budget_report_empty"))]
+
+    def _show_report(self, event: ft.Event[ft.TextButton]) -> None:
+        budget = event.control.data
+        assert isinstance(budget, Budget)
+        journal = self.host.journal
+        if journal is None or not journal.ready or budget not in journal.ledger.budgets:
+            self.host._error(LedgerError("crud_stale"), notify=True)
+            return
+        self.cancel()
+        self.month = budget.date.replace(day=1)
+        self.category_id = self.account_id = ""
+        self.currency.value = budget.currency
+        self.overspent.value = False
+        self.highlighted = (self.month, budget.account)
+        self.reveal_requested = True
+        parts = budget.account.split(":")
+        for length in range(1, len(parts)):
+            self.expanded[(self.month, ":".join(parts[:length]))] = True
+        self.cache_key = None
+        self.host.report_tabs.selected_index = 1
+        self.host.report_overview.visible = False
+        self.visible = True
+        self.host._navigate("reports")
+
+    async def _reveal_report(self, event: ft.LayoutSizeChangeEvent[ft.LayoutControl]) -> None:
+        if (
+            event.control is not self.scroll_target
+            or not self.reveal_requested
+            or self.host.current_screen != "reports"
+            or self.host.report_tabs.selected_index != 1
+        ):
+            return
+        self.reveal_requested = False
+        self.scroll_target = None
+        try:
+            await self.host.body.scroll_to(scroll_key=event.control.key, duration=350)
+        except Exception as exc:
+            self.host._error(exc, notify=True)
+            self.host.page.update()
 
     def _active_budget(self, account: str, end: date) -> Budget | None:
         journal = self.host.journal
@@ -714,6 +770,12 @@ class BudgetView(ft.Column):
                 ),
                 ft.Row(
                     [
+                        ft.TextButton(
+                            tr("budget_view_report"),
+                            icon=ft.Icons.BAR_CHART_OUTLINED,
+                            data=budget,
+                            on_click=self._show_report,
+                        ),
                         ft.TextButton(
                             tr("budget_change"), on_click=lambda _: self._form(budget, new=True)
                         ),

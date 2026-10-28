@@ -22,6 +22,13 @@ MIT algorithms and their complete license notice are shipped in
 - Use **+ Create budget** at the top of **Accounting → Budgets** for new
   definitions. Existing definitions use the same CRUD affordances as Accounts
   and Categories: pencil for edit and trash for delete.
+- Each definition has **View in reports**. It opens **Reports → Budgets** at the
+  month the definition starts, selects its currency and clears category, account
+  and overspending filters. Parent budget rows expand so the category is visible;
+  the report scrolls to it and highlights it. Changing the month or filters clears
+  the highlight. Reports remain monthly category totals, not a separate report
+  for each definition: other definitions effective during that month contribute
+  normally.
 - Budget lists, reports and dialogs show category display names from `name`
   metadata on `open`, with the raw account code in a tooltip. Without a display
   name, the account code remains the fallback. Journal directives still use the

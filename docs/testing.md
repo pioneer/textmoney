@@ -118,6 +118,13 @@ With a disposable synthetic journal, check:
 6. Check tabs, dialogs, scrolling and navigation at 320, 390 and 1366 pixels,
    in maintained languages and both themes. Native Android SAF and full
    interactive Windows budgeting still need their own platform runs.
+7. In **Accounting → Budgets**, use **View in reports** on a past, future and
+   explicit-zero definition, including a nested category with a budgeted parent.
+   Check **Reports → Budgets** opens at its start month and currency, clears
+   hiding filters, expands parents, scrolls to the category and highlights it.
+   Repeat for another definition and then the same one; only the chosen row is
+   highlighted. Changing the month/filters clears the highlight. A delayed layout
+   event after navigating elsewhere must not scroll the new screen.
 
 ## Transaction list density
 

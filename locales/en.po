@@ -213,6 +213,9 @@ msgstr "Including children"
 msgid "ui.budget_transactions"
 msgstr "Contributing transactions"
 
+msgid "ui.budget_view_report"
+msgstr "View in reports"
+
 msgid "ui.budget_change"
 msgstr "Change from a date"
 

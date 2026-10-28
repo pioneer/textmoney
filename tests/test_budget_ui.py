@@ -5,12 +5,13 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from typing import cast
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
 
-from app.domain.budgets import BudgetFilter, BudgetRow
+from app.domain.budgets import Budget, BudgetFilter, BudgetRow
+from app.domain.ledger import LedgerError
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import date_input
@@ -1056,3 +1057,241 @@ def test_budget_controls_initialize_before_a_page_is_attached() -> None:
     host = FinanceView()
     assert host.budgets.category_id == ""
     assert not host.budgets.active_filters.visible
+
+
+def report_button(host: FinanceView, budget: Budget) -> ft.TextButton:
+    return next(
+        item
+        for item in walk(host.budgets.definitions)
+        if isinstance(item, ft.TextButton)
+        and item.data == budget
+        and item.content == host.tr("budget_view_report")
+    )
+
+
+def click_report(host: FinanceView, budget: Budget) -> None:
+    button = report_button(host, budget)
+    assert button.on_click is not None
+    cast(Callable[[object], None], button.on_click)(MagicMock(control=button))
+
+
+@pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
+@pytest.mark.parametrize(
+    "effective,amount",
+    [
+        (date(2024, 2, 15), Decimal(20)),
+        (date(2026, 1, 1), Decimal(0)),
+        (date(2027, 5, 9), Decimal(30)),
+    ],
+)
+def test_definition_opens_its_month_and_currency_then_reveals_highlighted_nested_report(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    language: str,
+    width: int,
+    effective: date,
+    amount: Decimal,
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        host.language = language
+        page.width = width
+        journal = await load(host, tmp_path, MULTI_CURRENCY)
+        original = journal.ledger.budgets[0]
+        budget = replace(
+            original,
+            id="child",
+            account="Expenses:Food:Meals",
+            date=effective,
+            currency="EUR",
+            amount=amount,
+        )
+        parent = replace(original, date=date(2000, 1, 1), currency="EUR")
+        journal.ledger = replace(journal.ledger, budgets=(parent, budget))
+        host._refresh()
+        host._navigate("accounts")
+        host.budgets.category_id = "Income:Other"
+        host.budgets.account_id = "Assets:Cash"
+        host.budgets.currency.value = "USD"
+        host.budgets.overspent.value = True
+        host.budgets.expanded[(effective.replace(day=1), parent.account)] = False
+        scroll = AsyncMock()
+        monkeypatch.setattr(host.body, "scroll_to", scroll)
+        worker = MagicMock()
+        host.budgets.worker = worker
+        page.run_task.reset_mock()
+        click_report(host, budget)
+        worker.cancel.assert_called_once()
+        page.run_task.assert_called_once_with(host.budgets.refresh)
+        assert host.current_screen == "reports" and host._selected_index() == 3
+        assert host.report_tabs.selected_index == 1
+        assert host.budgets.visible and not host.report_overview.visible
+        assert host.budgets.month == effective.replace(day=1)
+        assert host.budgets.category_id == host.budgets.account_id == ""
+        assert host.budgets.currency.value == "EUR" and not host.budgets.overspent.value
+        await host.budgets.refresh()
+        tiles = [item for item in walk(host.budgets.results) if isinstance(item, ft.ExpansionTile)]
+        target = next(item for item in tiles if item.data.account == budget.account)
+        ancestor = next(item for item in tiles if item.data.account == parent.account)
+        assert ancestor.expanded
+        assert ancestor.bgcolor is None and ancestor.collapsed_bgcolor is None
+        assert target.bgcolor == target.collapsed_bgcolor == ft.Colors.SECONDARY_CONTAINER
+        assert target.key == ft.ScrollKey(
+            f"budget-report:{effective.replace(day=1).isoformat()}:{budget.account}"
+        )
+        assert target.on_size_change is not None
+        scroll.assert_not_awaited()
+        await host.budgets._reveal_report(MagicMock(control=ancestor))
+        scroll.assert_not_awaited()
+        await host.budgets._reveal_report(MagicMock(control=target))
+        scroll.assert_awaited_once_with(scroll_key=target.key, duration=350)
+        await host.budgets._reveal_report(MagicMock(control=target))
+        scroll.assert_awaited_once()
+        assert not host.budgets.reveal_requested
+        await host.budgets.refresh()
+        refreshed = next(
+            item
+            for item in walk(host.budgets.results)
+            if isinstance(item, ft.ExpansionTile) and item.data.account == budget.account
+        )
+        assert refreshed.bgcolor == ft.Colors.SECONDARY_CONTAINER
+        assert refreshed.on_size_change is None and host.budgets.scroll_target is None
+        scroll.assert_awaited_once()
+        assert not host.budgets.account_warning.visible
+        assert {item.data for item in host.budgets.active_filters.controls} == {"currency"}
+        assert (tmp_path / FILENAME).read_text() == MULTI_CURRENCY
+
+    asyncio.run(scenario())
+
+
+def test_reopening_same_budget_rebuilds_target_and_ignores_old_layout_events(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        journal = await load(host, tmp_path)
+        budget = journal.ledger.budgets[0]
+        scroll = AsyncMock()
+        monkeypatch.setattr(host.body, "scroll_to", scroll)
+        click_report(host, budget)
+        await host.budgets.refresh()
+        old_target = host.budgets.scroll_target
+        assert old_target is not None
+        host._navigate("accounts")
+        await host.budgets._reveal_report(MagicMock(control=old_target))
+        scroll.assert_not_awaited()
+        click_report(host, budget)
+        await host.budgets.refresh()
+        target = host.budgets.scroll_target
+        assert target is not None and target is not old_target
+        await host.budgets._reveal_report(MagicMock(control=old_target))
+        scroll.assert_not_awaited()
+        await host.budgets._reveal_report(MagicMock(control=target))
+        scroll.assert_awaited_once()
+        host._navigate("accounts")
+        click_report(host, budget)
+        await host.budgets.refresh()
+        assert host.budgets.scroll_target is not None
+        await host.budgets._reveal_report(MagicMock(control=host.budgets.scroll_target))
+        assert scroll.await_count == 2
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("change", ["month", "filters"])
+def test_changing_report_context_clears_the_highlight_and_pending_scroll(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    change: str,
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        journal = await load(host, tmp_path)
+        scroll = AsyncMock()
+        monkeypatch.setattr(host.body, "scroll_to", scroll)
+        click_report(host, journal.ledger.budgets[0])
+        await host.budgets.refresh()
+        target = host.budgets.scroll_target
+        assert target is not None
+        if change == "month":
+            await host.budgets._next(MagicMock())
+        else:
+            await host.budgets._changed(MagicMock())
+        assert host.budgets.highlighted is None
+        assert not host.budgets.reveal_requested and host.budgets.scroll_target is None
+        await host.budgets._reveal_report(MagicMock(control=target))
+        scroll.assert_not_awaited()
+        assert all(
+            item.bgcolor is None and item.collapsed_bgcolor is None
+            for item in walk(host.budgets.results)
+            if isinstance(item, ft.ExpansionTile)
+        )
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("unavailable", ["removed", "not-ready", "no-journal"])
+def test_stale_definition_action_reports_error_without_changing_screen_or_filters(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, unavailable: str
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        journal = await load(host, tmp_path)
+        budget = journal.ledger.budgets[0]
+        host._navigate("accounts")
+        host.budgets.account_id = "Assets:Cash"
+        if unavailable == "removed":
+            journal.ledger = replace(journal.ledger, budgets=())
+        elif unavailable == "not-ready":
+            journal.ready = False
+        else:
+            host.journal = None
+        click_report(host, budget)
+        assert host.current_screen == "accounts"
+        assert host.budgets.account_id == "Assets:Cash"
+        assert host.error_message == "crud_stale"
+        page.show_dialog.assert_called_once()
+        assert not host.budgets.reveal_requested
+
+    asyncio.run(scenario())
+
+
+def test_failed_report_calculation_never_schedules_a_scroll(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        journal = await load(host, tmp_path)
+        click_report(host, journal.ledger.budgets[0])
+        monkeypatch.setattr(
+            "app.ui.budgets.rows", MagicMock(side_effect=LedgerError("budget_month_error"))
+        )
+        await host.budgets.refresh()
+        assert host.budgets.error.visible
+        assert not host.budgets.reveal_requested and host.budgets.scroll_target is None
+
+    asyncio.run(scenario())
+
+
+def test_scroll_failure_is_reported_without_discarding_the_budget_highlight(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        journal = await load(host, tmp_path)
+        click_report(host, journal.ledger.budgets[0])
+        await host.budgets.refresh()
+        target = host.budgets.scroll_target
+        assert target is not None
+        monkeypatch.setattr(
+            host.body, "scroll_to", AsyncMock(side_effect=LedgerError("budget_month_error"))
+        )
+        await host.budgets._reveal_report(MagicMock(control=target))
+        assert host.error_message == "budget_month_error"
+        page.show_dialog.assert_called_once()
+        assert target.bgcolor == target.collapsed_bgcolor == ft.Colors.SECONDARY_CONTAINER
+        assert not host.budgets.reveal_requested and host.budgets.scroll_target is None
+
+    asyncio.run(scenario())

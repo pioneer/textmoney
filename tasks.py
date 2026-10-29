@@ -381,58 +381,13 @@ def previous_release_build_number(tag: str) -> int:
     if not isinstance(build_number, int) or build_number < 1:
         raise Exit(f"Prior release {previous_tag} has an invalid Android version code.", code=1)
     current_bundle_id, _, _ = android_release_configuration()
-    if previous_bundle_id != current_bundle_id and not (
-        previous_tag == "v0.3.15"
-        and previous_bundle_id == "com.pioneer.txncount"
-        and current_bundle_id == "com.pioneer.textmoney"
-        and build_number == 38
-        and previous_project.get("tool", {}).get("txncount", {}).get("android_release", {})
-        == tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["tool"][
-            "textmoney"
-        ]["android_release"]
-    ):
+    if previous_bundle_id != current_bundle_id:
         raise Exit(
             f"Android application ID changed since prior release {previous_tag}; "
             "in-place updates cannot be verified.",
             code=1,
         )
     return build_number
-
-
-@task
-def migrate_txncount(context: Context, source: str, destination: str) -> None:
-    """Copy an explicitly selected legacy journal to a new TextMoney folder."""
-    execute(
-        sys.executable,
-        "-m",
-        "tools.migrate_txncount",
-        "journal",
-        "--source",
-        source,
-        "--destination",
-        destination,
-        env={"PYTHONPATH": str(ROOT / "src")},
-    )
-
-
-@task
-def migrate_txncount_preferences(
-    context: Context, source: str, destination: str, journal_folder: str
-) -> None:
-    """Copy legacy desktop preferences explicitly; never inherit a folder grant."""
-    execute(
-        sys.executable,
-        "-m",
-        "tools.migrate_txncount",
-        "preferences",
-        "--source",
-        source,
-        "--destination",
-        destination,
-        "--journal-folder",
-        journal_folder,
-        env={"PYTHONPATH": str(ROOT / "src")},
-    )
 
 
 def validate_android_release_version(tag: str) -> None:

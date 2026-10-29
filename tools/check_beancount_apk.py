@@ -202,7 +202,6 @@ def main() -> None:
         assert "babel/locale-data/en.dat" in extracted.namelist()
         for language in ("en", "uk", "ru"):
             assert f"app/locale/{language}/LC_MESSAGES/textmoney.mo" in app.namelist()
-            assert f"app/locale/{language}/LC_MESSAGES/txncount.mo" not in app.namelist()
         for package in PACKAGES:
             assert any(n.startswith(f"{package}/") for n in extracted.namelist())
             assert not any(n.startswith(f"{package}/") for n in site.namelist())

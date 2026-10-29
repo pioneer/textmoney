@@ -86,18 +86,11 @@ class DesktopFolder:
     def _target(self) -> Path:
         if not self.root.is_dir():
             raise StorageError("Selected folder is unavailable. Select Folder again.")
-        if self.filename == "textmoney.beancount":
-            if (self.root / ".textmoney-migration-incomplete").exists():
-                raise StorageError(
-                    "Incomplete migration. Review the migration output before opening."
-                )
-            if (
-                not (self.root / self.filename).exists()
-                and (self.root / "txncount.beancount").exists()
-            ):
-                raise StorageError(
-                    "Legacy TxnCount journal found. Migrate a copy before opening in TextMoney."
-                )
+        if (
+            self.filename == "textmoney.beancount"
+            and (self.root / ".textmoney-migration-incomplete").exists()
+        ):
+            raise StorageError("Incomplete migration. Review the migration output before opening.")
         target = self.root / self.filename
         if target.is_symlink():
             raise StorageError("Refusing a symlink test file; use a regular synthetic file.")

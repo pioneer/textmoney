@@ -27,6 +27,71 @@ def test_sha256_and_missing_baseline() -> None:
     assert digest(b"") != digest(None)
 
 
+@pytest.mark.parametrize("filename", ["textmoney.beancount", TARGET])
+def test_storage_targets_only_the_selected_filename(tmp_path: Path, filename: str) -> None:
+    async def scenario() -> None:
+        unrelated = tmp_path / "other.beancount"
+        unrelated.write_bytes(b"unrelated journal")
+        folder = DesktopFolder(str(tmp_path), filename)
+        assert await folder.read() is None
+        session = StorageSession(folder)
+        await session.read()
+        await session.write()
+        assert (tmp_path / filename).read_text() == SAMPLE
+        assert unrelated.read_bytes() == b"unrelated journal"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("filename", ["other.beancount", "../textmoney.beancount"])
+def test_storage_rejects_unsupported_filenames(tmp_path: Path, filename: str) -> None:
+    with pytest.raises(StorageError, match="Unsupported journal filename"):
+        DesktopFolder(str(tmp_path), filename)
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("operation", ["read", "status", "write"])
+@pytest.mark.parametrize("present", [False, True])
+def test_incomplete_transfer_marker_still_blocks_journal_access(
+    tmp_path: Path, operation: str, present: bool
+) -> None:
+    async def scenario() -> None:
+        marker = tmp_path / ".textmoney-migration-incomplete"
+        marker.write_bytes(b"incomplete")
+        target = tmp_path / "textmoney.beancount"
+        original = b"synthetic journal"
+        if present:
+            target.write_bytes(original)
+        folder = DesktopFolder(str(tmp_path), target.name)
+        with pytest.raises(StorageError, match="Incomplete migration"):
+            if operation == "write":
+                await folder.write(
+                    b"replacement", expected_hash=digest(original) if present else None
+                )
+            elif operation == "status":
+                await folder.status()
+            else:
+                await folder.read()
+        assert marker.read_bytes() == b"incomplete"
+        if present:
+            assert target.read_bytes() == original
+        else:
+            assert not target.exists()
+        assert not (tmp_path / "backups").exists()
+
+    asyncio.run(scenario())
+
+
+def test_android_bridge_uses_the_same_storage_identity_and_incomplete_guard() -> None:
+    root = Path(__file__).resolve().parents[1]
+    bridge = (
+        root / "extensions/finance-saf/src/flutter/finance_saf/lib/src/extension.dart"
+    ).read_text()
+    assert "target != 'storage-test.beancount' && target != 'textmoney.beancount'" in bridge
+    assert ".textmoney-migration-incomplete" in bridge
+    assert "Incomplete migration. Review the migration output before opening." in bridge
+
+
 def test_storage_diagnostics_never_touch_legacy_test_or_journal(tmp_path: Path) -> None:
     async def scenario() -> None:
         legacy = tmp_path / "poc-test.beancount"

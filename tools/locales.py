@@ -143,7 +143,6 @@ def compile_catalogs(
         destination.parent.mkdir(parents=True, exist_ok=True)
         with destination.open("wb") as stream:
             write_mo(stream, catalog)
-        destination.with_name("txncount.mo").unlink(missing_ok=True)
 
 
 def update_template() -> None:

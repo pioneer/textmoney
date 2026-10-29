@@ -164,8 +164,7 @@ implement the whole Beancount engine.
 
 ## Verification
 
-Budgeting was first published as **TxnCount v0.3.15**, alongside Android, Linux and
-Windows packaging, before the [TextMoney rename](rename-migration.md).
+Budgeting was implemented alongside Android, Linux and Windows packaging.
 The observations below distinguish earlier development
 checks from device verification; published binaries are available from
 [GitHub Releases](https://github.com/pioneer/textmoney/releases/latest).

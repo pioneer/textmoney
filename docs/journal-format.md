@@ -1,9 +1,5 @@
 # Supported journal format and editing
 
-For existing TxnCount development data, use the [copy-only migration](rename-migration.md).
-Do not just rename the old journal: its visibility metadata and recovery
-namespace also need explicit handling.
-
 This is the current format contract, not the original MVP profile. TextMoney uses
 `autobean-refactor` for lossless parsing and targeted edits, with its own bounded
 accounting model. It is not a full Beancount loader or booking engine.

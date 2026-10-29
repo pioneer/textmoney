@@ -1,4 +1,4 @@
-# TxnCount MVP 0.1 - milestone archive
+# TextMoney MVP 0.1 - milestone archive
 
 This is a historical development report, not a current format guide or device
 checklist. Use [Supported journal format and editing](journal-format.md),
@@ -68,7 +68,7 @@ repository framework or new runtime dependency.
 
 ## Historical synchronized format
 
-The selected folder contains **`txncount.beancount`** (UTF-8). Account definitions,
+The selected folder contains one UTF-8 Beancount journal. Account definitions,
 display names and entries share one file, avoiding multi-file write transactions.
 An abbreviated example:
 
@@ -120,13 +120,13 @@ External explicit single-currency balanced transactions can be read; absent app
 IDs use source-line identities for display only, without rewriting their metadata.
 
 New transactions store their stable `id` and creation `timestamp`, but no longer
-serialize the redundant `txncount-kind` field. The reader honors an explicit
-legacy kind first, otherwise infers only supported posting patterns using the
+serialize the redundant app-specific transaction-kind field. The reader honors
+an explicit legacy kind first, otherwise infers only supported posting patterns using the
 ordinary account/category roots and reserved equity accounts. Ambiguous or
 unmatched entries stay external/read-only. Transfer fee mode remains explicit
 because postings alone cannot distinguish same-currency added versus deducted
 fees; reimbursement links retain the original expense ID. Missing
-`txncount-active` means active, so edits do not add redundant `TRUE`; explicit
+visibility metadata means active, so edits do not add redundant `TRUE`; explicit
 legacy `TRUE` and `FALSE` remain understood.
 
 This is a **dedicated, single-file journal**, not a general Beancount book importer.
@@ -141,8 +141,8 @@ The official engine remains a desktop test oracle, not an Android dependency.
 
 ## Save and recovery limits
 
-- Existing contents are backed up under
-  `backups/txncount-<unique-UUID-hex>.beancount`, verified before modification.
+- Existing contents are backed up under `backups/`, with unique UUID-based
+  filenames, verified before modification.
   The separate PoC keeps its `poc-test-...` namespace.
 - Hashes are checked before backup and again before writing. A conflict refuses
   the save and retains form input. Reload and review the new balance/history
@@ -163,15 +163,16 @@ The official engine remains a desktop test oracle, not an Android dependency.
 - Invalid external data hides stale balances/history and disables saves.
   Disappearance of an already loaded journal blocks reset in that session.
 - Folder access is remembered; unsaved forms/baselines are memory-only and do
-  **not** survive app termination. External sync belongs to Dropsync/Dropbox or
-  another user-managed tool; the app does not schedule or certify synchronization.
+  **not** survive app termination. Optional synchronization belongs to an external
+  client providing a [fully accessible local copy](synchronization.md#local-folders-and-sync-clients);
+  the app does not perform or certify synchronization.
 - Whole-file parsing, backups and history are deliberately unoptimized for this
   first slice. No account editing/deletion, expense editing, income, transfers,
   FX, loans, budgets, reports, import, database or backend.
 
 ## Verification
 
-Commands executed:
+Commands executed (host-specific SDK executable paths omitted):
 
 | Command | Result |
 | --- | --- |
@@ -181,8 +182,8 @@ Commands executed:
 | `GDK_BACKEND=x11 WAYLAND_DISPLAY= xvfb-run -a -s '-screen 0 1600x1200x24' uv run inv run` | Expanded Linux UI rendered without a NavigationRail error; native folder-picker flow was not completed |
 | `uv run inv build-android` | Successful, version code 6; ARM64, ARMv7 and x86_64 |
 | `uv run inv check-beancount-apk` | Exact APK Python payload passed parser fixtures and account/category/expense/backup/reload smoke on host CPython 3.14.7; this is not Android runtime verification |
-| `/home/pioneer/Android/sdk/build-tools/35.0.0/aapt dump badging build/apk/txncount.apk` | Identity, version code, target SDK and packaged ABIs verified |
-| `/home/pioneer/Android/sdk/build-tools/35.0.0/apksigner verify --print-certs build/apk/txncount.apk` | APK signature verified; same existing debug certificate |
+| `aapt dump badging build/apk/*.apk` | Identity, version code, target SDK and packaged ABIs verified |
+| `apksigner verify --print-certs build/apk/*.apk` | APK signature verified; same existing debug certificate |
 
 Tests cover exact Decimal accounting and negative/backdated balances, timezone
 ordering, account/category creation, metadata/UUIDs, hierarchy, supported external
@@ -204,7 +205,7 @@ picker-driven workflow and Windows execution remain unverified.
 
 ## APK and physical-device checklist
 
-**Historical local output:** `build/apk/txncount.apk`,
+**Historical local APK:** produced in `build/apk/`,
 141,057,234 bytes (about 135 MiB). Identity remains `com.pioneer.financepoc`,
 version 0.1.0, build **6**, Android 7.0+ (target API 36), with `arm64-v8a`,
 `armeabi-v7a` and `x86_64` ABIs. `apksigner` verified the same existing debug
@@ -222,11 +223,11 @@ The following checklist belongs to build 6 and contains superseded expectations,
 including insufficient-funds rejection and IDs/timestamps. Do not use it to
 validate current builds; use [the maintained checklist](testing.md#transaction-and-device-checklist).
 
-1. Open **txncount** and select a dedicated synthetic/synchronized test folder.
+1. Open **TextMoney** and select a dedicated synthetic local test folder.
    Expect the new-journal prompt and retained read/write access. Do not use real
    financial files.
 2. Create `Cash`, display name `Wallet`, currency `UAH`, opening `100`.
-   Expect `100.00 UAH` and `txncount.beancount` in that exact selected folder.
+   Expect `100.00 UAH` and the Beancount journal in that exact selected folder.
    Optionally create an unfunded USD/EUR account; spending from it must fail.
 3. Create category `Food:Groceries`, display name `Groceries`. Verify the parent
    `Food` and leaf are both listed.

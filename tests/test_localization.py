@@ -133,14 +133,20 @@ def test_compiled_catalogs_are_available_as_runtime_resources() -> None:
         assert localization._translations(language).gettext("ui.language_name")
 
 
-def test_compilation_retires_only_the_previous_generated_domain(tmp_path: Path) -> None:
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_incomplete_transfer_remains_actionable_in_each_language(language: str) -> None:
+    assert localization.localized_error(
+        language, "Incomplete migration. Review the migration output before opening."
+    ) == translate(language, "error_migration_incomplete")
+
+
+def test_compilation_refreshes_its_catalog_and_preserves_unrelated_domains(tmp_path: Path) -> None:
     directory = tmp_path / "en/LC_MESSAGES"
     directory.mkdir(parents=True)
-    (directory / "txncount.mo").write_bytes(b"old generated catalog")
+    (directory / "textmoney.mo").write_bytes(b"stale generated catalog")
     (directory / "other.mo").write_bytes(b"unrelated")
     locale_tools.compile_catalogs(LOCALES_SOURCE, tmp_path)
-    assert (directory / "textmoney.mo").is_file()
-    assert not (directory / "txncount.mo").exists()
+    assert (directory / "textmoney.mo").read_bytes() != b"stale generated catalog"
     assert (directory / "other.mo").read_bytes() == b"unrelated"
 
 

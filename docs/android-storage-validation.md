@@ -19,7 +19,7 @@ were supplied, and this is not a claim of independent observation, reboot testin
 or compatibility with every document provider. The tested storage implementation
 is preserved for Stage 2. At the start of Stage 3 the user reaffirmed both PoCs
 passed. MVP 0.1 reuses this policy/bridge, extending only the filename allowlist
-to a separate `txncount.beancount` journal and backup prefix. The
+to a separate financial journal and backup prefix. The
 [MVP report](mvp-0.1.md) also records a historical build; neither report is a
 current download guide. Today's diagnostic filename is `storage-test.beancount`,
 not the Stage 1 `poc-test.beancount`.
@@ -38,26 +38,26 @@ not the Stage 1 `poc-test.beancount`.
   conflict warning with a **Keep editing** action, and queues a user operation
   behind polling instead of discarding it. A conflict does not misreport folder
   permission failure. Dismissing the warning does not reload or discard the draft.
-- App name is now **txncount**, as requested. At this stage the package ID
-  `com.pioneer.financepoc` and preference key were retained between PoC builds.
+- At this stage the package ID `com.pioneer.financepoc` and preference key were
+  retained between PoC builds.
 - `uv run inv test` first reproduced both failures. After the fix, `uv sync`
   and `uv run inv format check` passed: **66 tests**, including the normal and
   polling-overlap conflict dialog/draft regression. Flet MCP verified
   `BasePage.show_dialog/pop_dialog`, `AlertDialog`, and `TextButton`.
 - `uv run inv build-android` succeeded for build 2, followed by another
   successful `uv run inv check` (66 passed). `aapt dump badging` confirmed
-  label `txncount`, version code 2 and unchanged package ID; `apksigner verify
+  app label, version code 2 and unchanged package ID; `apksigner verify
   --print-certs` confirmed the same signing-certificate fingerprint as build 1.
   The build 2 APK checksum is below. Its phone retest subsequently passed
   (user-confirmed at the start of Stage 2).
-- Phone retest of build 2: open **txncount**, Read, enter a draft, change the
+- Phone retest of build 2: open **TextMoney**, Read, enter a draft, change the
   test file externally, then tap Write. Expect the
   modal warning, unchanged external file and retained draft. Dismiss with
   **Keep editing** and confirm the draft is still present.
 
 ## Implementation
 
-- txncount (`com.pioneer.financepoc`), from the requested template archive,
+- Storage PoC (`com.pioneer.financepoc`), from the requested template archive,
   without Git history. Original minimal folder/document icon.
 - One imperative Flet screen: Select Folder, Read, editable synthetic draft,
   Write, Backup, access/results, last-read SHA-256 and external-change status.
@@ -113,7 +113,7 @@ official service-extension pattern but needs compatibility review on upgrades.
 Run from the project root. Final verification used Python 3.13.15; the APK
 packager selected CPython 3.14.7 and Flutter 3.44.8.
 
-| Exact command | Result |
+| Command (host-specific SDK/Flutter paths omitted) | Result |
 | --- | --- |
 | `uv sync` | Successful, including local `finance-saf`; retained `uv.lock` |
 | `uv run inv --help build-android` | Task exists, no task options |
@@ -124,11 +124,11 @@ packager selected CPython 3.14.7 and Flutter 3.44.8.
 | `uv run inv build-android` (attempt 1) | Failed: local dev-package path was relative to the wrong root; corrected |
 | `uv run inv build-android` (attempt 2) | Failed: Flet shell pinned JNI 1.0.0 while current SharedPreferences bindings require 1.1 |
 | `uv run inv build-android` (attempt 3) | **Succeeded** after persistent `tool.flet.flutter.pubspec.dependency_overrides.jni = "1.1.0"` |
-| `/home/pioneer/Android/sdk/platform-tools/adb devices -l` | No attached Android devices |
-| `/home/pioneer/flutter/3.44.8/bin/flutter devices --machine` | Linux desktop only; no functional Android emulator available |
-| `/home/pioneer/Android/sdk/build-tools/35.0.0/aapt dump badging build/apk/*.apk` | Correct package/name/version; min API 24, target API 36 |
-| `/home/pioneer/Android/sdk/build-tools/35.0.0/apksigner verify --print-certs build/apk/*.apk` | Signature valid; Android Debug certificate |
-| `/home/pioneer/flutter/3.44.8/bin/dart analyze build/flutter/lib` | No errors; one warning and four informational findings in generated Flet shell imports (exit 2), not bridge failures |
+| `adb devices -l` | No attached Android devices |
+| `flutter devices --machine` | Linux desktop only; no functional Android emulator available |
+| `aapt dump badging build/apk/*.apk` | Correct package/name/version; min API 24, target API 36 |
+| `apksigner verify --print-certs build/apk/*.apk` | Signature valid; Android Debug certificate |
+| `dart analyze build/flutter/lib` | No errors; one warning and four informational findings in generated Flet shell imports (exit 2), not bridge failures |
 | `sha256sum build/apk/*.apk` | Digest below |
 
 Read-only source/docs/tool discovery commands were also used. No emulator was
@@ -142,7 +142,7 @@ The local output below is not retained as a downloadable artifact. Use
 current downloads/checksums; the [Stage 2 report](beancount-compatibility.md#stage-2-history)
 records a different historical build.
 
-- Historical local output: `build/apk/txncount.apk`, approximately
+- Historical local APK: produced in `build/apk/`, approximately
   134 MiB, debug-key signed, version 0.1.0 / build 2. This replaces the build 1
   output formerly named `finance-poc.apk`.
 - Bundles ARM64, ARMv7 and x86_64; Android 7.0 / API 24 or newer.
@@ -154,9 +154,9 @@ Enable USB debugging on the phone, connect USB, and approve the computer:
 adb devices -l
 ```
 
-On this host adb is installed at
-`/home/pioneer/Android/sdk/platform-tools/adb` if it is not on PATH. Open
-**txncount** from the launcher. Alternatively transfer the APK to the phone,
+If `adb` is not on `PATH`, use `"$ANDROID_HOME/platform-tools/adb"` with
+`ANDROID_HOME` set to your SDK directory. Open
+**TextMoney** from the launcher. Alternatively transfer the APK to the phone,
 allow installation from the chosen file-manager/browser source, then open it.
 Do not uninstall/clear data when testing restart persistence: that removes grants.
 
@@ -174,16 +174,19 @@ unsaved editor preservation; mocked Android transport/permission error handling;
 APK compilation, embedded extension registration, identity, ABIs and signature.
 
 **Still unverified:** reboot grant retention specifically, detailed Android
-polling/resume behavior, Dropsync interaction, Linux GUI folder selection
-and Windows runtime. Android core-scenario results are user-reported successes,
+polling/resume behavior, external sync-client interaction, Linux GUI folder
+selection and Windows runtime. Android core-scenario results are user-reported successes,
 not locally observed runs. No remaining compile blocker in the original build.
 
 ## Limitations
 
 - SAF grants access only to the chosen tree. On Android 11+, storage roots,
   Download root and `Android/data` / `Android/obb` are restricted. Choose an
-  existing local subfolder, e.g. `Documents/FinancePoCTest`, that Dropsync can
-  independently access. This is not a request for `MANAGE_EXTERNAL_STORAGE`.
+  existing local subfolder, e.g. `Documents/FinancePoCTest`. If synchronizing,
+  your external client must independently access that same folder. It must provide a
+  [fully accessible local copy](synchronization.md#local-folders-and-sync-clients);
+  SAF selection does not establish cloud-provider or offline compatibility.
+  This is not a request for `MANAGE_EXTERNAL_STORAGE`.
 - No atomic write/compare-and-swap guarantee: another process can change a file
   between the final check and provider write. Partial/truncated writes remain
   possible on I/O failure; retain the verified backup for manual recovery.
@@ -196,7 +199,7 @@ not locally observed runs. No remaining compile blocker in the original build.
 - The original PoC had no file-size cap, streaming UI, merge, background service
   or crash recovery. Current journal recovery is described below.
   Unsaved input survives conflicts/errors within the session, not process death.
-- No real Dropbox/Dropsync sync was tested. File relocation, revoked grants,
+- No real external synchronization was tested. File relocation, revoked grants,
   uninstall or clearing app data can invalidate remembered access.
 - Flet target resolution is not fully locked by `uv.lock`; the JNI override is
   necessary for the tested build. Debug signing is for sideloaded testing only.
@@ -209,11 +212,12 @@ upgrade its device-testing results into evidence for the new recovery behavior.
 ### External synchronization
 
 The bridge lists sibling names for an advisory possible-conflict notice. It
-does not read those financial documents or scan/create `.txncount-sync/`.
+does not read those financial documents or scan/create auxiliary sync evidence.
 There is no sibling/evidence inventory comparison or distributed merge.
 The main-file hash guard and the complete prepared/completed recovery sequence
 below remain unchanged. Edit sequentially and let external synchronization
-finish between devices. No native API can certify that Dropsync has finished.
+finish between devices. TextMoney cannot certify that an external client has
+finished.
 See [synchronization behavior and test limits](synchronization.md).
 Mocked SAF tests are not evidence of real-provider behavior or durability.
 
@@ -307,9 +311,9 @@ cannot be guaranteed. Pending-backup inventory catches some missing/rolled-back
 intent cases, not every multi-document storage failure. A checksum detects
 corruption, not malicious tampering.
 
-The final comparison cannot eliminate TOCTOU. Dropbox/Dropsync and multiple app
-processes still require independent coordination; metadata should be synchronized
-with the folder, not manually removed to dismiss a warning. Completed records
+The final comparison cannot eliminate TOCTOU. External sync clients and multiple
+app processes still require independent coordination; metadata should be
+synchronized with the folder, not manually removed to dismiss a warning. Completed records
 do not classify every later legitimate external edit as an interrupted save.
 Unsaved form contents remain memory-only; the record does not preserve the
 candidate's bytes or replay operations.
@@ -321,7 +325,7 @@ Verification performed on Linux:
 - `uv run inv format`, `lint`, `typecheck` and focused `test` runs: Python
   implementation and fault-injected transport/provider-model regressions.
 - `uv run inv build-android`: APK compilation of the updated Flutter bridge;
-  output remains `build/apk/txncount-0.2.3.apk` (development build, no release).
+  output was produced in `build/apk/` (development build, no release).
 - `uv run inv check`: formatting, lint and Pyright passed; **574 tests passed**.
 
 The automated provider model covers successful/first saves, failed metadata
@@ -342,7 +346,8 @@ New physical-device checklist (disposable synthetic journal only):
 4. Cancel review and confirm no file changed. Keep a reviewed version and inspect
    the protected snapshot/archive; verify no duplicate transaction was replayed.
 5. Restore externally, Reload and explicitly review. Change the journal through
-   an editor/Dropsync during confirmation; it must not overwrite that version.
+   an editor or external sync client during confirmation; it must not overwrite
+   that version.
 6. Exercise slow-provider timeout, background/resume, low space and revoked
    access. Check that recovery waits for outstanding I/O and remains blocked
    while access/outcomes cannot be established.
@@ -354,8 +359,8 @@ filename. Current diagnostics use `storage-test.beancount`; use the
 [current transaction/device checklist](testing.md#transaction-and-device-checklist)
 and [recovery checklist](#limits-and-verification) for current builds.
 
-1. Create an **empty disposable** local folder, optionally the Dropsync-managed
-   test folder. Install/open **txncount**; Select Folder and choose **Use this folder**
+1. Create an **empty disposable** local folder, optionally managed by an external
+   sync client. Install/open **TextMoney**; Select Folder and choose **Use this folder**
    / Allow. Confirm a content URI and persistent read+write grant status.
 2. Read with no file present: expect "missing". Write the sample; verify in an
    independent editor/file manager that `poc-test.beancount` is in that exact
@@ -366,8 +371,8 @@ and [recovery checklist](#limits-and-verification) for current builds.
 4. Force-stop and reopen the app, then Read **without selecting again**. Confirm
    the same folder/grant/content. Repeat after reboot if practical.
 5. Enter an unsaved draft. Modify the test file in another Android editor (or
-   allow a controlled Dropsync change), return and wait at least five seconds.
-   Expect external-change detection.
+   allow a controlled external sync-client change), return and wait at least
+   five seconds. Expect external-change detection.
 6. Tap Write without Read: expect conflict refusal, external contents unchanged,
    and your unsaved draft still visible. Copy draft elsewhere before Read,
    because Read intentionally reloads the external version.
@@ -382,7 +387,7 @@ and [recovery checklist](#limits-and-verification) for current builds.
 ## Remaining effort
 
 No remaining core-scenario blocker after user-confirmed testing. Broader
-provider/reboot/Dropsync validation remains optional future work, not a condition
+provider/reboot/sync-client validation remains optional future work, not a condition
 for this narrowly scoped PASS. This result does not certify production write
 safety beyond the documented race and non-atomic-write limitations.
 

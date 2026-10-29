@@ -792,6 +792,11 @@ def test_delete_with_history_offers_deactivation_instead_of_destroying_records(
         source = view.journal.source
         view._delete_entity(event)
         dialog = page.show_dialog.call_args.args[0]
+        assert dialog.title == "Cannot delete"
+        assert not any(isinstance(c, ft.Checkbox) for c in dialog.content.controls)
+        assert view.tr("crud_has_history") in [c.value for c in dialog.content.controls]
+        dialog.actions[-1].on_click(MagicMock())
+        dialog = page.show_dialog.call_args.args[0]
         assert dialog.title == "Edit"
         assert "cannot change" in dialog.content.controls[1].value
         active = dialog.content.controls[3]

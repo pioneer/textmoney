@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TextMoney 0.3.16\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-10-29 01:42+0200\n"
-"PO-Revision-Date: 2026-10-29 01:42+0200\n"
+"POT-Creation-Date: 2026-10-29 02:54+0200\n"
+"PO-Revision-Date: 2026-10-29 02:54+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -14,9 +14,6 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 msgid "ui.error_migration_incomplete"
-msgstr ""
-
-msgid "ui.error_migration_required"
 msgstr ""
 
 msgid "ui.budget_title"
@@ -1672,6 +1669,11 @@ msgstr ""
 
 #. Stable TextMoney key: ui.crud_confirm; do not translate this identifier.
 msgid "ui.crud_confirm"
+msgstr ""
+
+#. Stable TextMoney key: ui.crud_delete_blocked; do not translate this
+#. identifier.
+msgid "ui.crud_delete_blocked"
 msgstr ""
 
 #. Stable TextMoney key: ui.crud_confirm_body; do not translate this

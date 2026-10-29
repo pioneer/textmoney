@@ -19,9 +19,6 @@ msgstr ""
 msgid "ui.error_migration_incomplete"
 msgstr "Перенесення даних не завершено. Не редагуйте цю папку. Збережіть оригінал і повторіть перенесення в нову папку."
 
-msgid "ui.error_migration_required"
-msgstr "У цій папці є журнал TxnCount. Закрийте старий застосунок і командою перенесення скопіюйте журнал у нову папку TextMoney."
-
 msgid "ui.budget_title"
 msgstr "Бюджети"
 
@@ -1745,6 +1742,10 @@ msgstr ""
 #. Stable TextMoney key: ui.crud_confirm; do not translate this identifier.
 msgid "ui.crud_confirm"
 msgstr "Видалити назавжди?"
+
+#. Stable TextMoney key: ui.crud_delete_blocked; do not translate this identifier.
+msgid "ui.crud_delete_blocked"
+msgstr "Неможливо видалити"
 
 #. Stable TextMoney key: ui.crud_confirm_body; do not translate this identifier.
 msgid "ui.crud_confirm_body"

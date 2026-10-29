@@ -44,10 +44,7 @@ variables in your shell/IDE; keep local `.env` files out of version control.
 
 ## Packaging
 
-TextMoney releases start with v0.3.16/build 39. Earlier release downloads are
-retired; historical Git tags retain the original identity and artifact names.
-See the [migration guide](rename-migration.md) before transferring development
-data. Do not reset version/build numbers.
+Keep version/build numbers increasing; do not reset them between releases.
 
 All builds go through Invoke so asset staging, icon validation, host checks, and
 release debug-marker removal happen consistently. `build-local` maps Linux to

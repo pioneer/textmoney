@@ -33,7 +33,7 @@ see [development](development.md).
 
 The following observations and test count record the icon-development milestone,
 not the current release's full validation.
-Native X11 smoke testing verified the TxnCount
+Native X11 smoke testing verified the
 window title, development WM_CLASS and app icon pixels. After the transparent
 Linux derivative change, a real `uv run inv build-linux` and an isolated X11
 launch verified the packaged window's 256-square `_NET_WM_ICON`: corner alpha
@@ -41,19 +41,15 @@ is zero and visible artwork spans 91.4% of the icon. `uv run inv check` passed
 all 488 tests, including transparent framing, unchanged Android source/staging,
 Linux-only packaging selection, desktop-entry cache invalidation and development
 client selection with a packaged Linux build present. A native Wayland smoke
-test of `uv run inv run` with isolated preferences verified
-`xdg_toplevel.set_app_id("io.txncount.local")`; GNOME's desktop-entry API resolved
-that identity to the existing generated icon. Alt-Tab's final visual presentation
+test of `uv run inv run` with isolated preferences verified the development
+application ID; GNOME's desktop-entry API resolved that identity to the existing
+generated icon. Alt-Tab's final visual presentation
 still needs confirmation in the user's session.
 
 ## Current release identity
 
 Product name: **TextMoney**. Package/bundle: `com.pioneer.textmoney`.
-The old `com.pioneer.txncount` identity was introduced in version 0.1.1
-(build 13); releases through v0.3.15/build 38 used it. TextMoney starts with
-v0.3.16/build 39 and creates a separate installation; see the
-[migration guide](rename-migration.md). Future TextMoney releases must retain
-the new ID and maintained production Android signing key.
+Releases must retain this ID and the maintained production Android signing key.
 The [release workflow](development.md#one-command-releases) prepares
 production-signed Android APKs, a Linux AppImage and a Windows installer.
 Windows installers are currently unsigned; production Android signing is not a

@@ -69,9 +69,6 @@ _ERROR_KEYS: Final = {
     (
         "Incomplete migration. Review the migration output before opening."
     ): "error_migration_incomplete",
-    (
-        "Legacy TxnCount journal found. Migrate a copy before opening in TextMoney."
-    ): "error_migration_required",
     "Reload a valid journal first. Unsaved form input is retained.": "error_reload",
     "Folder service is starting. Try again shortly.": "error_folder_starting",
     "Select a folder first.": "error_select_folder_first",

@@ -1,9 +1,12 @@
 # Data safety, backups and recovery
 
-This is the current local-save contract. Keep independent backups and use one
-writer at a time: finish editing and wait for the external synchronization tool
-before opening another device. TextMoney does not synchronize, merge journals or
-certify cloud completion. See [Sequential editing](synchronization.md).
+This is the current local-save contract for ordinary local Beancount files,
+usable fully offline. Any external synchronization client must provide a
+[fully accessible local copy](synchronization.md#local-folders-and-sync-clients).
+Keep independent backups and use one writer at a time: finish editing and wait
+for that client before opening another device. TextMoney does not synchronize,
+access cloud APIs, merge changes, resolve conflicts or certify cloud completion.
+See [Sequential editing](synchronization.md).
 
 ## Validation and conflicts
 
@@ -26,7 +29,7 @@ some or all bytes: inspect the journal and backup before reloading or retrying,
 to avoid duplicate submission. There is no automatic restoration or retry.
 
 Neither adapter provides cross-process locking or compare-and-swap. Another
-writer can still change the journal after the final check. No `.txncount-sync/`
+writer can still change the journal after the final check. No auxiliary sync-evidence
 directory is created, read or required; legacy contents are ignored and never
 automatically deleted. These protections do not detect every rollback while
 the app was closed.

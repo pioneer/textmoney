@@ -162,7 +162,7 @@ engine, include resolver or generic persistence framework. See the
 Folder/language/theme/timezone preferences use Flet SharedPreferences on Android and a
 local configuration file on desktop; Android's grant is separately retained by
 SAF. Main and diagnostic folder choices use independent preference keys.
-Operating currencies and active-state metadata are synchronized in the
+Operating currencies and active-state metadata are stored in the
 Beancount journal. Edit dialogs capture the journal instance and source baseline:
 poll/reload/folder changes cannot silently rebase an old draft. File contents are accessed directly through
 the chosen adapter, never mirrored into app-private storage. Unsaved drafts and
@@ -170,15 +170,18 @@ desktop hash baselines are in memory only; Android additionally stores save hash
 and backup identifiers for crash review, never a second ledger. See the [report](android-storage-validation.md) for
 backup safety, provider limitations, and device verification status. The same
 adapters allow only `storage-test.beancount` and `textmoney.beancount`, with separate
-backup namespaces. Cloud transport still belongs to the user's external folder
-tool; external-change notices are described below. No
-analytics or authentication is included.
+backup namespaces. TextMoney is local-first and works fully offline with ordinary
+local Beancount files. An optional external synchronization client must provide a
+[fully accessible local copy](synchronization.md#local-folders-and-sync-clients);
+SAF access does not imply support for cloud-only providers. TextMoney does not
+synchronize, access cloud APIs, merge changes or resolve conflicts.
+No analytics or authentication is included.
 
 External synchronization is deliberately sequential: finish editing and let the
 external tool finish syncing before opening another device. TextMoney does not
 know whether synchronization is complete. Polling observes the main journal
 and lists sibling names for a nonblocking possible-conflict notice; it never
-reads sibling contents automatically or scans `.txncount-sync/`. No ancestry,
+reads sibling contents automatically or scans auxiliary sync evidence. No ancestry,
 merge, acknowledgement, or auxiliary evidence inventory gates a save.
 Stale form baselines still refuse saving, retain input, and require explicit
 review/reload rather than automatic rebasing. Read-only source differences help

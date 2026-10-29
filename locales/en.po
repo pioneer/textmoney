@@ -18,9 +18,6 @@ msgstr ""
 msgid "ui.error_migration_incomplete"
 msgstr "The data migration did not finish. Do not edit this folder. Keep the original and retry the migration into a new folder."
 
-msgid "ui.error_migration_required"
-msgstr "This folder contains a TxnCount journal. Close the old app and use the migration command to copy it into a new TextMoney folder."
-
 msgid "ui.budget_title"
 msgstr "Budgets"
 
@@ -1746,6 +1743,10 @@ msgstr ""
 #. Stable TextMoney key: ui.crud_confirm; do not translate this identifier.
 msgid "ui.crud_confirm"
 msgstr "Permanently delete?"
+
+#. Stable TextMoney key: ui.crud_delete_blocked; do not translate this identifier.
+msgid "ui.crud_delete_blocked"
+msgstr "Cannot delete"
 
 #. Stable TextMoney key: ui.crud_confirm_body; do not translate this identifier.
 msgid "ui.crud_confirm_body"

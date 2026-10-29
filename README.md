@@ -1,8 +1,8 @@
 # TextMoney
 
-An offline-first personal expense tracker that keeps your data in
-plain-text [Beancount](https://beancount.github.io/) files in a folder you choose.
-No sign-up, backend service, or app-managed cloud storage.
+A local-first personal expense tracker and UI frontend to an ordinary local
+plain-text [Beancount](https://beancount.github.io/) file in a folder you choose.
+Works fully offline, with no sign-up, backend service, or app-managed cloud storage.
 
 **Alpha software:** features and file support are still limited, and bugs are
 possible. Keep independent backups of important financial data.
@@ -62,11 +62,10 @@ may change during alpha, with no release dates promised.
 
 ### Editing and synchronization
 
-Use one writer at a time. Save and close the editing session, let
-Dropbox, Google Drive or Syncthing (or your chosen tool) finish uploading, and wait
-for it to finish downloading on the next device before editing there. TextMoney
-does not contact cloud APIs, synchronize files, merge journals or resolve cloud
-conflicts.
+Use one writer at a time. Save and close the editing session, let your external
+synchronization client finish uploading, and wait for it to finish downloading on
+the next device before editing there. TextMoney does not access cloud APIs,
+synchronize files, merge changes or resolve conflicts.
 A possible-conflict filename notice is advisory, not proof that synchronization
 has completed or that every conflicting copy has been found.
 Hash checks, verified backups and Android interrupted-save review protect local
@@ -193,6 +192,10 @@ with a summary of saved fees, payee and time when editing. Date remains visible;
 time and optional counterparty are under Advanced. Opening balances can
 be edited from either the account or its opening transaction. Accounts and
 categories with history can be deactivated and reactivated; their records remain.
+Deleting an account/category with history, or a category with children, opens an
+explanation instead of the editor. Choose **Edit** there to change its Active
+checkbox; Cancel or Escape leaves it unchanged. Unused items still have a
+permanent-deletion confirmation.
 
 <img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense in TextMoney's compact phone layout" width="360">
 
@@ -223,11 +226,18 @@ records. TextMoney accesses these files directly; it does not upload
 them or maintain a separate database. Edits preserve unrelated comments,
 metadata, tags and links.
 
-Dropbox, Google Drive or Syncthing (or another folder synchronization tool) can
-synchronize the folder separately, **including hidden recovery files**. Cloud
-synchronization is not built into TextMoney. Let it finish before editing on
-another device, and avoid simultaneous edits. Local checks cannot establish
-that uploading/downloading is finished.
+Dropbox, Google Drive, Syncthing and other synchronization tools are supported
+only when they provide a **fully accessible local copy** on each device, readable
+and writable while offline. Cloud-only files and placeholders are not enough.
+Google Drive requires an appropriate local synchronization client; its official
+Android app alone does not provide the local folder TextMoney needs. On Android,
+select the local folder through the system folder picker, not a cloud-only provider.
+See [local-folder requirements](docs/synchronization.md#local-folders-and-sync-clients).
+
+Your external client must synchronize the folder separately, **including backups
+and hidden recovery files**. Let it finish before editing on another device, and
+avoid simultaneous edits. Local checks cannot establish that uploading/downloading
+is finished.
 
 While open, the app polls for external changes roughly every five seconds.
 Valid changes are reloaded without merging; invalid or unsupported journals
@@ -461,15 +471,13 @@ comparisons use its BQL query interface instead.
 The rustfava AppImage is searched in `RUSTFAVA_APPIMAGE`, `~/Applications` and
 `~/AppImages`. Its `--appimage-version` flag reports the AppImage runtime, not
 the rustfava application version. It requires GTK for launch; `--help` and
-`--version` are not usable as headless validation commands. The current machine
-has an executable at `~/AppImages/rustfava.appimage`. The user has manually
+`--version` are not usable as headless validation commands. The user has manually
 opened the real journal with no visible errors, which is evidence of basic
 loading only—not report equivalence. Follow the GUI checklist in
 [the compatibility report](docs/beancount-compatibility.md) before claiming
 Accounts, Journal, Balance Sheet or Income Statement GUI compatibility.
 
-Always validate a **disposable copy**, never a live journal synchronized by
-Dropbox, Google Drive or Syncthing.
+Always validate a **disposable copy**, never a live or actively synchronized journal.
 For local tests:
 
 ```sh

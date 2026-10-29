@@ -87,6 +87,10 @@ With a disposable journal on a desktop:
 1. Open new/edit/delete transaction, account, category and budget popups. Focus
    an input and each action button, then use Escape and compare with **Cancel**;
    no journal write or backup should be created.
+   For accounts/categories with history (including opening balances) or categories
+   with children, Delete must explain why it is blocked, not open Edit implicitly.
+   Only the explicit Edit action opens the editor. Check both Cancel and Escape
+   on the explanation; unused items must retain their deletion confirmation.
 2. From a transaction, open **Create category**, or trigger a conflict. Escape
    closes only that popup and keeps the transaction draft intact. After it
    closes, another Escape cancels the parent form.
@@ -99,7 +103,7 @@ With a disposable journal on a desktop:
 ## AppImage native GTK theme
 
 The Linux Bash hook tests execute the generated hook with controlled GNOME
-settings, including Orchis with `color-scheme=default`, Adwaita, dark themes,
+settings, including custom themes with `color-scheme=default`, Adwaita, dark themes,
 explicit variants, both environment overrides, unavailable/failing `gsettings`,
 missing color-scheme support, and non-GNOME sessions. They check host data paths
 and preserved bundled module setup. Packaging tests check that the replacement
@@ -114,19 +118,19 @@ checks startup, not visual theme correctness.
 For the GTK integration fix, additional Linux/Xvfb probes loaded the actual
 extracted AppImage's GTK library and compared its resolved CSS and headerbar
 foreground with host GTK. All 12 scenarios matched: real GNOME settings,
-Orchis/default, Adwaita/default, Orchis's dark variant, a dark theme name, both
-overrides, no `gsettings`, a missing theme, and custom themes in data-home,
+custom-theme/default, Adwaita/default, a custom theme's dark variant, a dark theme
+name, both overrides, no `gsettings`, a missing theme, and custom themes in data-home,
 legacy-home and data-directory locations. The custom theme probes exercised CSS
 imports and checked a distinctive resolved widget color, not just `GTK_THEME`.
-Orchis's CSS differed from Adwaita and its own dark variant; missing themes
-loaded the built-in Adwaita CSS. These are local runtime results, not a
+The custom theme's CSS differed from Adwaita and its own dark variant; missing
+themes loaded the built-in Adwaita CSS. These are local runtime results, not a
 cross-distribution visual certification.
 
 Before release, compare the native title bar in `uv run inv run` and the rebuilt
 AppImage on the same real desktop:
 
-1. With no theme environment overrides, check GNOME using Orchis (or another
-   installed custom GTK3 theme) and `color-scheme=default`, then Adwaita.
+1. With no theme environment overrides, check GNOME using an installed custom
+   GTK3 theme and `color-scheme=default`, then Adwaita.
 2. Check a dark GTK theme and `prefer-dark`, restarting both launches after each
    settings change. Do not equate `default` with a forced light theme.
 3. Set `APPIMAGE_GTK_THEME` and `GTK_THEME` independently, then together with
@@ -298,6 +302,12 @@ Use only a disposable synthetic journal:
 9. On Android, exercise interrupted-save review, retained provider grants and
    permission failures. Confirm backup/read-back failures still block unsafe
    retries. This requires physical-device testing, not just an APK build.
+
+Before a two-device test, verify that each external client provides a
+[fully accessible local copy](synchronization.md#local-folders-and-sync-clients):
+disconnect the network and confirm folder access, journal reads/writes, backups
+and Android recovery operations using disposable data. A cloud-only picker entry
+or an app's offline document cache is not sufficient.
 
 The two-device operating rule remains manual: wait for the external sync tool
 before editing elsewhere. Unit tests cannot certify that tool's completion.

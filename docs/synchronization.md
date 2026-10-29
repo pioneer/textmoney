@@ -1,8 +1,31 @@
 # Sequential editing and external synchronization
 
-`textmoney.beancount` is the sole active financial journal. TextMoney does not
-contact cloud APIs, merge divergent versions, or certify synchronization.
-Dropbox/Dropsync or another user-managed tool transports the folder.
+TextMoney is a local-first UI frontend to an ordinary local Beancount file and
+works fully offline. `textmoney.beancount` is the sole active financial journal.
+TextMoney does not perform synchronization, access cloud APIs, merge changes,
+resolve conflicts or certify synchronization completion.
+
+## Local folders and sync clients
+
+Dropbox, Google Drive, Syncthing and other synchronization tools are supported
+only when an appropriate local client provides a **fully accessible local copy**
+on each device. The journal and its folder must support offline reads, writes,
+backup creation and recovery-file operations. Cloud-only documents, placeholders
+and on-demand access without a complete local copy are not sufficient.
+
+Google Drive requires an appropriate local synchronization client. Its official
+Android app alone does not provide the accessible local folder required by
+TextMoney; marking a document available offline in that app is not a substitute.
+
+On desktop, TextMoney uses filesystem paths. On Android, select the local folder
+through SAF and grant read/write access. A `content://` URI is a provider
+capability, not a filesystem path or proof that the files are local. A cloud
+provider appearing in the picker does not establish offline folder access.
+TextMoney does not download a private working copy.
+
+Configure the external client to synchronize the whole folder, including
+`backups/` and hidden recovery files. This is a local-file workflow, not a native
+integration with or certification of any synchronization service or client.
 
 ## Operating rule
 
@@ -31,9 +54,9 @@ conflict exists. Arbitrarily renamed copies are not reliably detectable.
 Compare versions externally before deciding which journal to use. The app
 never merges, deletes, or automatically activates a sibling.
 
-No `.txncount-sync/` directory is created, read, or required. Old evidence is
-ignored and is not automatically deleted: it may contain full private snapshots.
-Archive or remove an old directory yourself only after reviewing its contents.
+No auxiliary synchronization-evidence directory is created, read, or required.
+Existing evidence is ignored and is not automatically deleted: it may contain
+full private snapshots. Archive or remove it only after reviewing its contents.
 
 ## Local save protection retained
 
@@ -85,19 +108,19 @@ current profile, including readable versus editable transaction shapes.
 
 ## Validation of this simplification
 
-On the Linux development host, 2026-10-25:
+On the Linux development host, 2026-10-25 (host-specific paths shown portably):
 
 - `uv run inv check`: format, lint, Pyright, catalogs and **669 tests passed**.
-- `uv run inv check-compat --strict --rustfava-appimage=/home/pioneer/AppImages/rustfava.appimage`:
+- `uv run inv check-compat --strict --rustfava-appimage="$HOME/AppImages/rustfava.appimage"`:
   synthetic Beancount/Beanquery/Fava/RustLedger comparisons passed; rustfava
   runtime discovery passed, not its GUI.
 - `uv run inv build-android` and `uv run inv check-beancount-apk`: passed.
-  APK output: `build/apk/txncount-0.3.1.apk`. The payload check runs on host
-  CPython, not an Android device.
+  The APK was produced in `build/apk/`. The payload check runs on host CPython,
+  not an Android device.
 - `uv run inv build-linux-appimage`, `uv run inv validate-linux-appimage`, and
   `uv run inv smoke-linux-appimage`: passed; the AppImage remained running for
   the 20-second Xvfb startup test.
-  Output: `dist/linux/TxnCount-0.3.1-x86_64.AppImage`.
+  The AppImage was produced in `dist/linux/`.
 
 These are unpublished development builds under the unchanged project version,
 not replacements for the published production-signed release. No Android

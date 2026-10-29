@@ -222,6 +222,47 @@ async def finance_session(
     return session, view, journal
 
 
+@pytest.mark.parametrize("category", [False, True])
+@pytest.mark.parametrize("edit", [False, True])
+def test_blocked_delete_escape_cancels_without_opening_or_saving_an_editor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, category: bool, edit: bool
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        await journal.add_expense(
+            "Assets:Bank", "Expenses:Food", "10", "", "2026-10-18", "Synthetic"
+        )
+        original = (tmp_path / FILENAME).read_bytes()
+        backups = set((tmp_path / "backups").iterdir())
+        view._delete_entity(
+            MagicMock(
+                control=ft.IconButton(
+                    data=("category", "Expenses:Food") if category else ("account", "Assets:Bank")
+                )
+            )
+        )
+        blocked = session.page._dialogs.controls[-1]
+        assert isinstance(blocked, ft.AlertDialog)
+        assert blocked.title == view.tr("crud_delete_blocked")
+        if edit:
+            action = blocked.actions[-1]
+            assert isinstance(action, ft.KeyboardListener)
+            await session.dispatch_event(action.content._i, "click", None)
+            editor = session.page._dialogs.controls[-1]
+            assert isinstance(editor, ft.AlertDialog) and editor is not blocked
+            assert not blocked.open and editor.open and editor.title == view.tr("crud_edit")
+            await press(session)
+            assert not editor.open
+        else:
+            await press(session)
+            assert not blocked.open
+            assert session.page._dialogs.controls[-1] is blocked
+        assert (tmp_path / FILENAME).read_bytes() == original
+        assert set((tmp_path / "backups").iterdir()) == backups
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("editing", [False, True])
 @pytest.mark.parametrize("nested", ["category", "conflict"])
 def test_real_transaction_escape_preserves_parent_draft_without_saving(

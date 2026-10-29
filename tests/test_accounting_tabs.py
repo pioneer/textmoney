@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
+from form_controls import click
 
 from app.domain.ledger import EPOCH
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -228,6 +229,118 @@ def test_entity_edit_codes_are_bold_and_fields_fill_the_form(
             assert isinstance(date_row, ft.Row) and date_row.width is None
         view._dismiss(MagicMock())
         assert journal.source == before
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "kind,reason",
+    [
+        ("account", "opening"),
+        ("account", "history"),
+        ("category", "history"),
+        ("category", "children"),
+        ("category", "both"),
+    ],
+)
+@pytest.mark.parametrize(
+    "language,title",
+    [("en", "Cannot delete"), ("uk", "Неможливо видалити"), ("ru", "Невозможно удалить")],
+)
+@pytest.mark.parametrize("edit", [False, True])
+def test_protected_delete_explains_the_reason_before_explicit_edit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    reason: str,
+    language: str,
+    title: str,
+    edit: bool,
+) -> None:
+    async def scenario() -> None:
+        view, page = setup_view(monkeypatch)
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_account(
+            "Cash",
+            "Cash",
+            "UAH",
+            "100" if reason == "opening" else "",
+            opened=EPOCH,
+            opening_date=EPOCH,
+        )
+        await journal.create_category("Food", "Food", opened=EPOCH)
+        if reason in {"history", "both"}:
+            await journal.add_expense("Assets:Cash", "Expenses:Food", "10", "", "2026-10-18")
+        if reason in {"children", "both"}:
+            await journal.create_category("Food:Meals", "Meals", opened=EPOCH)
+        view.journal = journal
+        view.language = language
+        identifier = "Expenses:Food" if kind == "category" else "Assets:Cash"
+        original = journal.source
+        backups = set((tmp_path / "backups").iterdir())
+        view._delete_entity(MagicMock(control=ft.IconButton(data=(kind, identifier))))
+        dialog = page.show_dialog.call_args.args[0]
+        assert dialog.title == title and dialog.modal and dialog.scrollable
+        assert isinstance(dialog.content, ft.Column)
+        assert all(isinstance(control, ft.Text) for control in dialog.content.controls)
+        text = [c.value for c in dialog.content.controls if isinstance(c, ft.Text)]
+        assert identifier in text
+        assert (view.tr("crud_has_history") in text) == (reason in {"opening", "history", "both"})
+        assert (view.tr("crud_children") in text) == (reason in {"children", "both"})
+        assert [button.content for button in dialog.actions] == [
+            view.tr("crud_cancel"),
+            view.tr("crud_edit"),
+        ]
+        page.show_dialog.assert_called_once()
+        click(dialog.actions[1 if edit else 0])
+        page.pop_dialog.assert_called_once()
+        if edit:
+            editor = page.show_dialog.call_args.args[0]
+            assert editor is not dialog and editor.title == view.tr("crud_edit")
+            assert isinstance(editor.content, ft.Column)
+            active = next(c for c in editor.content.controls if isinstance(c, ft.Checkbox))
+            assert active.value is True
+        else:
+            page.show_dialog.assert_called_once()
+        assert journal.source == original == (tmp_path / FILENAME).read_text()
+        assert set((tmp_path / "backups").iterdir()) == backups
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("category", [False, True])
+@pytest.mark.parametrize("cancel", [False, True])
+def test_unused_entity_still_gets_a_real_delete_confirmation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, category: bool, cancel: bool
+) -> None:
+    async def scenario() -> None:
+        view, page = setup_view(monkeypatch)
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_account("Cash", "Cash", "UAH", opened=EPOCH)
+        await journal.create_category("Food", "Food", opened=EPOCH)
+        view.journal = journal
+        identifier = "Expenses:Food" if category else "Assets:Cash"
+        original = journal.source
+        view._delete_entity(
+            MagicMock(
+                control=ft.IconButton(data=("category" if category else "account", identifier))
+            )
+        )
+        dialog = page.show_dialog.call_args.args[0]
+        assert dialog.title == view.tr("crud_confirm")
+        assert dialog.actions[-1].content == view.tr("crud_delete")
+        if cancel:
+            click(dialog.actions[0])
+            assert journal.source == original
+        else:
+            await submit(dialog)
+            items = journal.ledger.categories if category else journal.ledger.accounts
+            assert all(item.id != identifier for item in items)
+            assert any(p.read_text() == original for p in (tmp_path / "backups").iterdir())
+        page.pop_dialog.assert_called_once()
+        assert view.error_message is None
 
     asyncio.run(scenario())
 

@@ -96,7 +96,7 @@ not changed.
 
 Real-journal regression remains a manual, disposable-copy procedure from the
 prior audit. The private journal is not part of the compatibility command or
-public CI. Never point checks at a live Dropbox/Dropsync journal; see the
+public CI. Never point checks at a live or actively synchronized journal; see the
 [safe-copy instructions](../README.md#beancount-ecosystem-compatibility-testing).
 
 ## Stage 2 history
@@ -220,6 +220,7 @@ expenses. These are **unit balances/movements**, not a converted net-worth repor
 ## Commands and results
 
 All project commands ran through uv/Invoke; package additions used `uv add`.
+Host-specific SDK executable paths are omitted below.
 
 | Command | Result |
 | --- | --- |
@@ -232,8 +233,8 @@ All project commands ran through uv/Invoke; package additions used `uv add`.
 | `uv run inv format check` / `uv run inv check` | Final format/lint/Pyright pass; **94 tests passed**, including 28 new parser/packaging tests and existing storage regressions |
 | `uv run inv build-android` | Build 3 succeeded; then rebuilt with grammar-resource extraction (below) |
 | `uv run inv check-beancount-apk` | Initial APK failed grammar-extraction check; final APK passed and its exact Python payload executed successfully on host CPython 3.14.7 |
-| `aapt dump badging`, `apksigner verify --print-certs`, `sha256sum` on final APK | Correct txncount identity/build 3, same debug signing certificate, checksum below |
-| `/home/pioneer/Android/sdk/platform-tools/adb devices -l` | No connected Android device; no phone parser run |
+| `aapt dump badging`, `apksigner verify --print-certs`, `sha256sum` on final APK | App identity/build 3 verified, same debug signing certificate, checksum below |
+| `adb devices -l` | No connected Android device; no phone parser run |
 
 Flet MCP verified Button/Text APIs and build CLI; documentation search for async
 handlers had no indexed results, so the pinned imperative event pattern was reused.
@@ -287,11 +288,11 @@ newer builds. [MVP 0.1](mvp-0.1.md) is another historical report, not the curren
 APK guide. Use [published releases](https://github.com/pioneer/textmoney/releases/latest)
 and [current device checks](testing.md#transaction-and-device-checklist).
 
-- Historical local output `build/apk/txncount.apk`, approximately 135 MiB.
-- txncount 0.1.0, build **3**, package `com.pioneer.financepoc`, Android 7.0+.
+- Historical local APK produced in `build/apk/`, approximately 135 MiB.
+- Version 0.1.0, build **3**, package `com.pioneer.financepoc`, Android 7.0+.
 - SHA-256: `d1dde3d771bc5df82d08e840dfccba5e5f97128110264760f4971761dd1ef8a7`.
 
-1. Open txncount and tap **Run Beancount diagnostics** (under **Technical diagnostics** in MVP).
+1. Open TextMoney and tap **Run Beancount diagnostics** (under **Technical diagnostics** in MVP).
    No folder selection
    or real files are needed. Allow several seconds for parser construction.
 2. Expect **PASS: bounded Beancount fixture experiment**, versions, 4 files /

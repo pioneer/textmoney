@@ -3086,7 +3086,33 @@ class FinanceView(ft.Row):
                 category.id.startswith(identifier + ":") for category in journal.ledger.categories
             )
             if has_history or has_children:
-                self._edit_entity(event)
+
+                def edit(edit_event: ft.Event[ft.TextButton]) -> None:
+                    self._dismiss(edit_event)
+                    self._edit_entity(event)
+
+                show_dialog(
+                    self.page,
+                    ft.AlertDialog(
+                        modal=True,
+                        scrollable=True,
+                        title=self.tr("crud_delete_blocked"),
+                        content=ft.Column(
+                            [
+                                ft.Text(identifier, selectable=True, weight=ft.FontWeight.BOLD),
+                                *([ft.Text(self.tr("crud_has_history"))] if has_history else []),
+                                *([ft.Text(self.tr("crud_children"))] if has_children else []),
+                            ],
+                            tight=True,
+                            spacing=12,
+                            width=360,
+                        ),
+                        actions=[
+                            ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss),
+                            ft.TextButton(self.tr("crud_edit"), on_click=edit),
+                        ],
+                    ),
+                )
                 return
             source = journal.source
 

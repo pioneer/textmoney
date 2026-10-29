@@ -184,10 +184,6 @@ class FinanceSafService extends FletService {
       if (await _util.child(uri, ['.textmoney-migration-incomplete']) != null) {
         throw StateError('Incomplete migration. Review the migration output before opening.');
       }
-      if (await _util.child(uri, [target]) == null &&
-          await _util.child(uri, ['txncount.beancount']) != null) {
-        throw StateError('Legacy TxnCount journal found. Migrate a copy before opening in TextMoney.');
-      }
     }
     final pendingName = RegExp(
       '^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-pending\\.beancount\$',

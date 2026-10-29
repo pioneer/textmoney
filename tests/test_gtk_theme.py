@@ -68,7 +68,7 @@ def run_hook(
         "HOME": str(tmp_path),
         "APPDIR": str(hook.parent.parent),
         "XDG_CURRENT_DESKTOP": "GNOME",
-        "MOCK_GTK_THEME": "'Orchis'",
+        "MOCK_GTK_THEME": "'ExampleTheme'",
         "MOCK_COLOR_SCHEME": "'default'",
     } | overrides
     names = ("GTK_THEME", "GTK_DATA_PREFIX", "XDG_DATA_DIRS", "GTK_PATH", "GDK_BACKEND")
@@ -92,14 +92,14 @@ def run_hook(
 @pytest.mark.parametrize(
     "theme,scheme,expected",
     [
-        ("'Orchis'", "'default'", "Orchis"),
+        ("'ExampleTheme'", "'default'", "ExampleTheme"),
         ("'Adwaita'", "'default'", "Adwaita"),
         ("'Other Custom Theme'", "'default'", "Other Custom Theme"),
         ('"Theme\'s name"', "'default'", "Theme's name"),
-        ("'Orchis-Dark'", "'default'", "Orchis-Dark"),
-        ("'Orchis'", "'prefer-dark'", "Orchis:dark"),
-        ("'Orchis:dark'", "'default'", "Orchis:dark"),
-        ("'Orchis-Dark'", "'prefer-light'", "Orchis-Dark"),
+        ("'ExampleTheme-Dark'", "'default'", "ExampleTheme-Dark"),
+        ("'ExampleTheme'", "'prefer-dark'", "ExampleTheme:dark"),
+        ("'ExampleTheme:dark'", "'default'", "ExampleTheme:dark"),
+        ("'ExampleTheme-Dark'", "'prefer-light'", "ExampleTheme-Dark"),
         ("", "'default'", ""),
         ("invalid-output", "'default'", ""),
     ],
@@ -129,12 +129,12 @@ def test_explicit_overrides_take_precedence(
 def test_missing_color_scheme_does_not_discard_the_selected_theme(
     hook: Path, tmp_path: Path
 ) -> None:
-    assert run_hook(hook, tmp_path, MOCK_SCHEME_FAIL="1")["GTK_THEME"] == "Orchis"
+    assert run_hook(hook, tmp_path, MOCK_SCHEME_FAIL="1")["GTK_THEME"] == "ExampleTheme"
 
 
 def test_gnome_session_name_can_supply_desktop_detection(hook: Path, tmp_path: Path) -> None:
     values = run_hook(hook, tmp_path, XDG_CURRENT_DESKTOP="", XDG_SESSION_DESKTOP="gnome")
-    assert values["GTK_THEME"] == "Orchis"
+    assert values["GTK_THEME"] == "ExampleTheme"
 
 
 @pytest.mark.parametrize(

@@ -3,6 +3,7 @@ import math
 import shutil
 import subprocess
 import sys
+import tomllib
 from base64 import b64encode
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -468,52 +469,45 @@ def test_previous_release_build_number_rejects_invalid_base64(
 
 
 @pytest.mark.parametrize(
-    "prior_tag,old_id,new_id,build,certificate_changed,allowed",
+    "prior_tag,previous_id",
     [
-        ("v0.3.15", "com.pioneer.txncount", "com.pioneer.textmoney", 38, False, True),
-        ("v0.3.13", "com.pioneer.txncount", "com.pioneer.textmoney", 38, False, False),
-        ("v0.3.15", "com.pioneer.txncount", "com.pioneer.textmoney", 37, False, False),
-        ("v0.3.15", "com.pioneer.other", "com.pioneer.textmoney", 38, False, False),
-        ("v0.3.15", "com.pioneer.txncount", "com.pioneer.other", 38, False, False),
-        ("v0.3.15", "com.pioneer.txncount", "com.pioneer.textmoney", 38, True, False),
+        ("v0.3.15", "com.pioneer.textmoney"),
+        ("v0.3.13", "com.pioneer.textmoney"),
+        ("v0.3.15", "com.example.other"),
+        ("v0.3.13", "com.example.other"),
     ],
 )
-def test_only_the_approved_clean_break_can_change_android_identity(
-    tmp_path: Path,
+def test_android_release_requires_the_same_application_id(
     monkeypatch: pytest.MonkeyPatch,
     prior_tag: str,
-    old_id: str,
-    new_id: str,
-    build: int,
-    certificate_changed: bool,
-    allowed: bool,
+    previous_id: str,
 ) -> None:
-    certificate = tasks.android_release_configuration()[2]
-    current = (
-        f'[tool.flet]\nbundle_id = "{new_id}"\n'
-        '[tool.textmoney.android_release]\nsigning_alias = "android-release"\n'
-        f'certificate_sha256 = "{certificate}"\n'
-    )
-    (tmp_path / "pyproject.toml").write_text(current)
-    previous = (
-        f'[tool.flet]\nbundle_id = "{old_id}"\nbuild_number = {build}\n'
-        '[tool.txncount.android_release]\nsigning_alias = "android-release"\n'
-        f'certificate_sha256 = "{"0" * 64 if certificate_changed else certificate}"\n'
-    )
+    previous = f'[tool.flet]\nbundle_id = "{previous_id}"\nbuild_number = 38\n'
     responses = iter(
         [
             json.dumps([{"tagName": prior_tag, "isDraft": False, "isPrerelease": False}]),
             b64encode(previous.encode()).decode(),
         ]
     )
-    monkeypatch.setattr(tasks, "ROOT", tmp_path)
     monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/textmoney")
     monkeypatch.setattr(tasks, "capture_command", lambda *args: next(responses))
-    if allowed:
+    if previous_id == "com.pioneer.textmoney":
         assert tasks.previous_release_build_number("v0.3.16") == 38
     else:
         with pytest.raises(Exit, match="application ID changed"):
             tasks.previous_release_build_number("v0.3.16")
+
+
+def test_linux_development_id_fits_existing_binary_slot() -> None:
+    assert len(tasks.LINUX_DEV_APP_ID) == len(tasks.STOCK_CLIENT_APP_ID)
+    assert "textmoney" in tasks.LINUX_DEV_APP_ID
+
+
+def test_apk_smoke_mirrors_every_package_extracted_at_runtime() -> None:
+    from tools.check_beancount_apk import PACKAGES
+
+    project = tomllib.loads((tasks.ROOT / "pyproject.toml").read_text())
+    assert set(project["tool"]["flet"]["android"]["extract_packages"]) == PACKAGES
 
 
 def test_previous_release_build_number_refuses_an_already_published_tag(

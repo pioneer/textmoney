@@ -87,6 +87,8 @@ string but supplies no directory document
 operations or persisted-grant inspection API. Android therefore uses the local
 extension instead, with provider operations delegated to existing Flutter SAF
 libraries. See [the storage report](android-storage-validation.md).
+SAF grants access, not synchronization or offline availability; the selected tree
+must meet the [local-folder requirements](synchronization.md#local-folders-and-sync-clients).
 
 ## Beancount action
 

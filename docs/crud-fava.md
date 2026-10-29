@@ -56,7 +56,7 @@ does not submit that transaction.
 Release 0.2.2 (Android build 19): `uv run inv check` passed formatting, Ruff,
 Pyright and 481 tests. Transaction form tests use a fixed clock consistent with
 their journal fixtures, avoiding wall-clock-dependent date failures.
-`uv run inv build-android` produced `build/apk/txncount-0.2.2.apk`, and
+`uv run inv build-android` produced the APK in `build/apk/`, and
 `uv run inv check-beancount-apk` passed. Interactive browser validation remained
 blocked by a blank integrated browser; native Android/Windows/macOS runtime
 checks were not performed.
@@ -64,13 +64,13 @@ checks were not performed.
 ### Backup retention
 
 The maintained [backup-retention contract](data-safety.md#backup-retention) is
-separate from these milestone results. No `.txncount-sync/` snapshots are created,
-read or required; legacy contents are ignored and not automatically deleted.
+separate from these milestone results. No auxiliary sync snapshots are created,
+read or required; existing contents are ignored and not automatically deleted.
 
 Release 0.2.1 (Android build 18): `uv run inv check` passed formatting, Ruff, Pyright and 476 tests,
 including exact tier boundaries, overlap, failure/cancellation protection,
 restart, settings persistence, confirmation and Android transport validation.
-`uv run inv build-android` produced `build/apk/txncount-0.2.1.apk` and
+`uv run inv build-android` produced the APK in `build/apk/` and
 `uv run inv check-beancount-apk` passed. A browser
 smoke server loaded the synthetic journal, but the integrated browser remained
 blank, so visual interaction was not verified. Native SAF retention operations
@@ -180,14 +180,14 @@ Unmarked/ambiguous split entries remain read-only rather than being reduced to
 two postings.
 
 At this milestone, Settings selected an active expense category as the default
-fee category and stored `txncount-default-transfer-fee: TRUE` on its `open`.
+fee category and stored an app-specific default-fee flag on its `open`.
 **Superseded:** current defaults are local device preferences, not synchronized
 journal metadata; see [current transfers](journal-format.md#transfers-and-exchange-precision).
 In the absence of a marked category, this milestone used
 `Expenses:Bank-Fees`, created with a localized display name only on
 the first nonzero fee, in the same backed-up save as the transfer. An inactive
 default must be reactivated or replaced; it is never silently bypassed.
-This milestone stored `txncount-fee-mode: "added"` or `"deducted"` metadata;
+This milestone stored an app-specific fee-mode key with `"added"` or `"deducted"` values;
 current writes reconstruct fee presentation from postings without this field.
 Unrelated transaction/posting metadata and comments survive edits. If an
 annotated fee posting is removed, a zero-amount posting retains its annotations;
@@ -278,7 +278,7 @@ Automated tests also cover fee defaults, currency/amount rejection, backup and
 conflict failures, metadata preservation and Beancount/Fava validation.
 For release 0.2.0 (Android build 17), `uv run inv check` passed formatting, Ruff,
 Pyright and all 443 tests. `uv run inv build-android` produced
-`build/apk/txncount-0.2.0.apk`; `uv run inv check-beancount-apk` passed the
+the APK in `build/apk/`; `uv run inv check-beancount-apk` passed the
 packaged Python checks for transfers, cross-currency exchanges, fees,
 liabilities, editing and deletion. These checks are not native Android/Windows
 runtime verification; no physical Android device was tested.
@@ -327,7 +327,7 @@ An optional original-expense selection fills category and full original amount;
 change the amount for partial reimbursements and choose any same-currency
 receiving account. Linked creation checks category/currency and that the receipt
 does not predate the selected expense. At this milestone links were stored as
-`txncount-expense-id` string metadata. **Superseded:** current writes use native
+app-specific expense-reference string metadata. **Superseded:** current writes use native
 shared links, not that field; see [current transactions](journal-format.md#transactions-and-editing).
 Only ordinary app-editable expenses appear in
 the chooser; unlinked receipts remain supported. There is no remaining-amount
@@ -362,10 +362,10 @@ balance correctly. The form stayed scrollable with Save/Cancel accessible.
 The APK smoke script also covers income, reimbursement, equity adjustment,
 per-currency totals and incoming edit/delete. Release 0.1.3 (Android build 15)
 passed `uv run inv check` (321 tests, Ruff and Pyright), `uv run inv build-android`
-and `uv run inv check-beancount-apk`. The output is
-`build/apk/txncount-0.1.3.apk`, with SHA-256
+and `uv run inv check-beancount-apk`. The APK was produced in
+`build/apk/`, with SHA-256
 `d4f93e9e4a64c17ef84f8650bbe8821e8da91348f36d0b1d80b58ec40f094c2d`.
-Its application ID and signing certificate match the preceding TxnCount releases.
+Its application ID and signing certificate match the preceding releases.
 The packaged smoke executes on host CPython, not Android; no native
 Android/Windows run is claimed for this release.
 
@@ -373,7 +373,7 @@ This milestone extends the existing app, parser, desktop/SAF adapters and
 backup/conflict policy. No real financial files were used during development.
 **At the user's explicit choice, journals remain single-file.** Yearly files,
 cross-file moves and migration are deferred. Changing a date across a year
-boundary changes the date in `txncount.beancount`, retaining the ID.
+boundary changes the date in the same journal, retaining the ID.
 
 The following legacy editing rules predate source-bound editing of recognized
 hand-written transactions; use the [current editing contract](journal-format.md#transactions-and-editing).
@@ -402,12 +402,12 @@ hand-written transactions; use the [current editing contract](journal-format.md#
   deletion. No historical transactions are removed when deactivating an item.
 
 This historical example uses the superseded `display-name` key. Current output
-uses `name`; boolean `txncount-active` remains the visibility preference:
+uses `name`; boolean `textmoney-active` is the visibility preference:
 
 ```beancount
 1970-01-01 open Assets:Cash UAH
   display-name: "Wallet"
-  txncount-active: FALSE
+  textmoney-active: FALSE
 ```
 
 An inactive account is not a Beancount `close`: historical or externally edited
@@ -584,10 +584,9 @@ testing. SAF storage behavior is unchanged.
 
 ## APK
 
-### Release identity cleanup: 0.1.1 (13)
+### Release packaging: 0.1.1 (13)
 
-- Application ID is now `com.pioneer.txncount`, label `TxnCount`, version
-  0.1.1, Android version code 13.
+- Version 0.1.1, Android version code 13.
 - Project version/build in `pyproject.toml` now drives the About display,
   generated packaged metadata and versioned APK filename.
 - Active parser module/action/task names now use `beancount_diagnostics` /
@@ -605,10 +604,10 @@ testing. SAF storage behavior is unchanged.
 - Final `uv run inv check-beancount-apk check`: packaged release identity,
   absence of the old module, parser/CRUD/timezone payload checks passed on host
   CPython; **265 tests passed**, Ruff/Pyright clean.
-- SDK `aapt dump badging` and `apksigner verify --print-certs` verified the new
+- SDK `aapt dump badging` and `apksigner verify --print-certs` verified the
   package, version and unchanged debug signing certificate. `adb devices`
   listed no devices; this build has not been run on Android or Windows.
-- Historical local output: `build/apk/txncount-0.1.1.apk`,
+- Historical local APK produced in `build/apk/`,
   **141,273,366 bytes**. SHA-256:
   `10d3b93bfa6335fca1371ff49febb559b1b3e23c4ddedab9a15278c89c68e5dc`.
 - Nothing was committed, pushed or published. The existing GitHub v0.1.0
@@ -656,7 +655,7 @@ checked: `locales` comes from `PlatformDispatcher.instance.locales`.
   metadata preservation and stale-source/conflict protection. Account and
   currency cannot be reassigned here; multiple/complex openings stay read-only.
   Account editing remains available as before.
-- The small TxnCount label above page titles is removed; the window/app title
+- The small app-name label above page titles is removed; the window/app title
   remains. Settings has only the shared page title, without a duplicate heading.
 - Manual checks: edit an opening amount from both Transactions and Accounts,
   verify immediate balances/history, inspect Details, try an insufficient
@@ -698,9 +697,9 @@ to/from an explicit app language on Android.
 
 ### Historical build 12
 
-Historical local output `build/apk/txncount.apk`, **build 12**, 141,395,218
-bytes (about 135 MiB). Package remains `com.pioneer.financepoc`, label
-`TxnCount`, version 0.1.0; Android 7.0+ (target API 36). Packaged ABIs:
+Historical local APK produced in `build/apk/`, **build 12**, 141,395,218
+bytes (about 135 MiB). Package remains `com.pioneer.financepoc`,
+version 0.1.0; Android 7.0+ (target API 36). Packaged ABIs:
 `arm64-v8a`, `armeabi-v7a`, `x86_64`.
 
 APK SHA-256:

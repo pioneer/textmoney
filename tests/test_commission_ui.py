@@ -31,7 +31,7 @@ SOURCE = """option "operating_currency" "USD"
 async def setup(
     path: Path, monkeypatch: pytest.MonkeyPatch, language: str = "en"
 ) -> tuple[FinanceView, MagicMock, Journal]:
-    (path / FILENAME).write_text(SOURCE)
+    (path / FILENAME).write_text(SOURCE, newline="")
     journal = Journal(DesktopFolder(str(path), FILENAME))
     await journal.load()
     await journal.set_default_fee_category("Expenses:Other-Fees", journal.source)
@@ -190,7 +190,7 @@ def test_commission_save_failure_keeps_every_draft_field(
         disk = before
         if failure == "conflict":
             disk += "\n; external\n"
-            (tmp_path / FILENAME).write_text(disk)
+            (tmp_path / FILENAME).write_text(disk, newline="")
         elif failure == "backup":
             journal.storage.folder.backup = AsyncMock(side_effect=StorageError("Synthetic"))
         await click_async(dialog.actions[-1])
@@ -200,7 +200,7 @@ def test_commission_save_failure_keeps_every_draft_field(
         assert form.fee.value == ("100" if failure == "invalid" else "5")
         assert form.fee_mode.value == "deducted" and form.fee_enabled.value
         assert journal.source == before
-        assert (tmp_path / FILENAME).read_text() == disk
+        assert (tmp_path / FILENAME).read_text(newline="") == disk
         page.pop_dialog.assert_not_called()
 
     asyncio.run(scenario())

@@ -42,7 +42,7 @@ SOURCE = """option "operating_currency" "USD"
 async def setup(
     path: Path, monkeypatch: pytest.MonkeyPatch, *, restricted: bool = True
 ) -> tuple[FinanceView, MagicMock, Journal]:
-    (path / FILENAME).write_text(SOURCE)
+    (path / FILENAME).write_text(SOURCE, newline="")
     journal = Journal(DesktopFolder(str(path), FILENAME))
     await journal.load()
     page = MagicMock(spec=ft.Page)
@@ -236,7 +236,7 @@ def test_unsaved_branches_survive_poll_resize_and_language_changes_without_rebas
             assert view.fee_branches_draft == (BRANCH,)
             assert view.default_fee.value == CHILD
             assert view.default_fee_source == original_source
-        (tmp_path / FILENAME).write_text(SOURCE + "\n; external\n")
+        (tmp_path / FILENAME).write_text(SOURCE + "\n; external\n", newline="")
         await view._poll_journal()
         assert journal.source != original_source
         assert view.fee_branches_draft == (BRANCH,) and view.default_fee.value == CHILD
@@ -330,7 +330,7 @@ def test_startup_migrates_or_restores_fee_policy_without_journal_writes(
         monkeypatch.setenv("APPDATA", str(tmp_path / "config"))
         journal_path = tmp_path / "journal"
         journal_path.mkdir()
-        (journal_path / FILENAME).write_text(SOURCE)
+        (journal_path / FILENAME).write_text(SOURCE, newline="")
         preferences = DesktopPreferences()
         await preferences.set("textmoney.folder.v1", str(journal_path))
         await preferences.set(DEFAULT_FEE_KEY, "Expenses:Food")
@@ -365,6 +365,6 @@ def test_startup_migrates_or_restores_fee_policy_without_journal_writes(
                 if (mode == "combined")
                 else persisted is None
             )
-        assert (journal_path / FILENAME).read_text() == SOURCE
+        assert (journal_path / FILENAME).read_text(newline="") == SOURCE
 
     asyncio.run(scenario())

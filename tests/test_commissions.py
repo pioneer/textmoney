@@ -92,7 +92,7 @@ def test_commission_accounting_roundtrip_beancount_fava_and_reports(
         assert details.fee == 5 and details.fee_category == BANK_FEES
         assert len(transaction.postings) == 3
         assert journal.transaction_for_edit(transaction.id) == transaction
-        assert backup and (tmp_path / backup).read_text() == before
+        assert backup and (tmp_path / backup).read_text(newline="") == before
         assert not loader.load_string(journal.source)[1]
         assert not list(FavaLedger(str(tmp_path / FILENAME)).errors)
         totals = journal.ledger.period_totals(date(2026, 1, 1), date(2026, 1, 31))
@@ -134,7 +134,7 @@ def test_commission_edit_remove_restore_and_delete_preserve_user_annotations(
                 f"    {BANK_FEES} 5 USD",
                 f'    {BANK_FEES} 5 USD ; fee note\n      receipt: "fee"',
             )
-        (tmp_path / FILENAME).write_text(text)
+        (tmp_path / FILENAME).write_text(text, newline="")
         await review_external_fixture(journal)
         original = journal.ledger.transactions[-1]
         category = "Expenses:Food" if kind == "expense" else "Income:Salary"
@@ -156,7 +156,7 @@ def test_commission_edit_remove_restore_and_delete_preserve_user_annotations(
                 fee=fee,
                 fee_category=fee_category,
             )
-            assert backup and (tmp_path / backup).read_text() == before
+            assert backup and (tmp_path / backup).read_text(newline="") == before
             original = journal.ledger.transactions[-1]
             details = journal.ledger.cashflow_details(original)
             assert details.fee == Decimal(fee) and details.fee_currency == "EUR"
@@ -169,7 +169,7 @@ def test_commission_edit_remove_restore_and_delete_preserve_user_annotations(
             assert not loader.load_string(journal.source)[1]
         before = journal.source
         backup = await journal.delete_transaction(original.id, before)
-        assert backup and (tmp_path / backup).read_text() == before
+        assert backup and (tmp_path / backup).read_text(newline="") == before
         assert not journal.ledger.transactions
         assert not loader.load_string(journal.source)[1]
 
@@ -188,7 +188,7 @@ def test_commission_failure_never_saves_fee_or_declaration_separately(
         error = StorageError
         if failure == "conflict":
             disk += "\n; external\n"
-            (tmp_path / FILENAME).write_text(disk)
+            (tmp_path / FILENAME).write_text(disk, newline="")
             error = ConflictError
         else:
             setattr(
@@ -199,7 +199,7 @@ def test_commission_failure_never_saves_fee_or_declaration_separately(
         with pytest.raises(error):
             await save(journal, kind)
         assert journal.source == before
-        assert (tmp_path / FILENAME).read_text() == disk
+        assert (tmp_path / FILENAME).read_text(newline="") == disk
         assert BANK_FEES not in {c.id for c in journal.ledger.categories}
 
     asyncio.run(scenario())
@@ -217,7 +217,7 @@ def test_invalid_commission_never_changes_journal(
         before = journal.source
         with pytest.raises(LedgerError):
             await save(journal, kind, fee=fee, mode=mode)
-        assert journal.source == before and (tmp_path / FILENAME).read_text() == before
+        assert journal.source == before and (tmp_path / FILENAME).read_text(newline="") == before
 
     asyncio.run(scenario())
 
@@ -241,7 +241,7 @@ def test_custom_commissions_follow_posting_order_and_larger_splits_stay_readonly
             "    Assets:Cash -25 USD\n"
             "    Expenses:Food 5 USD\n"
         )
-        (tmp_path / FILENAME).write_text(text)
+        (tmp_path / FILENAME).write_text(text, newline="")
         await review_external_fixture(journal)
         transaction = journal.ledger.transactions[-1]
         assert transaction.kind == "expense"
@@ -256,7 +256,7 @@ def test_custom_commissions_follow_posting_order_and_larger_splits_stay_readonly
             "    Expenses:Other-Fees 10 USD\n"
             f"    {BANK_FEES} 5 USD\n"
         )
-        (tmp_path / FILENAME).write_text(text)
+        (tmp_path / FILENAME).write_text(text, newline="")
         await review_external_fixture(journal)
         split = journal.ledger.transactions[-1]
         assert split.kind == "external"
@@ -353,7 +353,7 @@ def test_same_category_and_equal_postings_keep_distinct_roles_and_annotations(
             '    Expenses:Food 5 USD ; commission\n      receipt: "fee"',
             1,
         )
-        (tmp_path / FILENAME).write_text(text)
+        (tmp_path / FILENAME).write_text(text, newline="")
         await review_external_fixture(journal)
         original = journal.ledger.transactions[-1]
         for fee in ("7", "0"):
@@ -407,7 +407,7 @@ def test_linked_reimbursement_matches_purchase_not_commission(tmp_path: Path) ->
         assert refund.related_expense == expense.id
         text = journal.source.replace("Expenses:Food -10 USD", f"{BANK_FEES} -10 USD")
         assert text != journal.source
-        (tmp_path / FILENAME).write_text(text)
+        (tmp_path / FILENAME).write_text(text, newline="")
         await review_external_fixture(journal)
         assert journal.ledger.transactions[-1].related_expense is None
 

@@ -2819,6 +2819,10 @@ class FinanceView(ft.Row):
                     code_manual = False
                 regenerate.disabled = not (code_manual and (category_name.value or "").strip())
                 root = "Income" if operation() == "income" else "Expenses"
+                parent_options = self._category_parent_options(journal.ledger.categories, root)
+                category_parent.options = parent_options
+                if category_parent.value not in {item.key for item in parent_options}:
+                    category_parent.value = ""
                 if not (category_name.value or "").strip():
                     if not code_manual:
                         category_path.value = ""
@@ -2828,18 +2832,6 @@ class FinanceView(ft.Row):
                     category_alternatives.visible = False
                     return
                 existing_ids = self._existing_identifiers(journal)
-                parents = [
-                    item
-                    for item in journal.ledger.categories
-                    if item.active and item.id.startswith(f"{root}:")
-                ]
-                parent_options = [
-                    ft.DropdownOption(key="", text=self.tr("category_parent_none")),
-                    *[ft.DropdownOption(key=item.id, text=item.id) for item in parents],
-                ]
-                category_parent.options = parent_options
-                if category_parent.value not in {item.key for item in parent_options}:
-                    category_parent.value = ""
                 suggestions = suggest_category_code(
                     category_name.value or "",
                     root,
@@ -3423,6 +3415,28 @@ class FinanceView(ft.Row):
         if self.page:
             self.page.update()
 
+    def _category_parent_options(
+        self, categories: tuple[Category, ...], root: str
+    ) -> list[ft.DropdownOption]:
+        options = [ft.DropdownOption(key="", text=self.tr("category_parent_none"))]
+        options.extend(
+            ft.DropdownOption(
+                key=item.id,
+                text=f"{item.name} ({item.id})",
+                content=ft.Container(
+                    ft.Text(
+                        item.name,
+                        size=16,
+                        spans=[ft.TextSpan(f" ({item.id})", style=ft.TextStyle(size=12))],
+                    ),
+                    padding=ft.Padding.only(left=16 * (item.id.count(":") - 1)),
+                ),
+            )
+            for item in sorted(categories, key=lambda item: item.id.split(":"))
+            if item.active and item.id.startswith(f"{root}:")
+        )
+        return options
+
     def _refresh_category_parent_options(self) -> None:
         root = self.category_root.value or "Expenses"
         categories = (
@@ -3430,12 +3444,7 @@ class FinanceView(ft.Row):
             if self.journal is not None and self.journal.ready
             else ()
         )
-        options = [ft.DropdownOption(key="", text=self.tr("category_parent_none"))]
-        options.extend(
-            ft.DropdownOption(key=item.id, text=item.id)
-            for item in categories
-            if item.active and item.id.startswith(f"{root}:")
-        )
+        options = self._category_parent_options(categories, root)
         self.category_parent.options = options
         if self.category_parent.value and self.category_parent.value not in {
             option.key for option in options

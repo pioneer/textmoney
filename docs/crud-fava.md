@@ -41,7 +41,11 @@ unchanged, as are category selection labels in the transaction form.
 New-account and new-category forms suggest Beancount identifiers from the
 display name, account type/currency, existing account conventions, and optional
 category parent. The offline normalization includes predictable Cyrillic
-transliteration and a small set of unambiguous common terms. Existing entities
+transliteration and a small set of unambiguous common terms. The parent selector
+shows display names first, followed by their full code in
+parentheses in smaller text. Indentation and parent-first ordering show the
+hierarchy in both standalone and inline category creation; parents can be chosen
+before entering the new category's name. Existing entities
 are not renamed when their display names change. Suggested identifiers remain
 editable; after a manual edit, attribute changes do not replace the entered code.
 **Restore suggested code** applies the current suggestion again and restores

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import flet as ft
 import pytest
+from form_controls import change, click, transaction_form
 
 from app.domain.ledger import Category
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -151,5 +152,106 @@ def test_expansion_state_survives_refresh_language_resize_and_accounting_is_unch
         assert label(rebuilt).value == "Витрати"
         assert journal.source == original
         assert (tmp_path / FILENAME).read_text() == original
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+@pytest.mark.parametrize("width", [390, 1366])
+@pytest.mark.parametrize("root", ["Expenses", "Income"])
+@pytest.mark.parametrize("inline", [False, True])
+def test_parent_selectors_show_names_smaller_codes_and_contiguous_hierarchy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    language: str,
+    width: int,
+    root: str,
+    inline: bool,
+) -> None:
+    async def scenario() -> None:
+        source = ""
+        for kind in ("Income", "Expenses"):
+            for path, name in [
+                ("Food:Shops:Market", "Market"),
+                ("Food-Other", "Food"),
+                ("Food:Shops", "Shops"),
+                ("Food", "Food"),
+                ("Hidden", "Hidden"),
+            ]:
+                source += f'2000-01-01 open {kind}:{path}\n    name: "{name}"\n'
+                if path == "Hidden":
+                    source += "    textmoney-active: FALSE\n"
+            source += f'2000-01-02 open {kind}:Hidden:Child\n    name: "Child"\n'
+        (tmp_path / FILENAME).write_text(source, newline="")
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        page = MagicMock(spec=ft.Page)
+        page.width = width
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view = FinanceView()
+        view.journal, view.language = journal, language
+        view._refresh()
+        transaction = None
+        if inline:
+            view._new_transaction(MagicMock())
+            transaction = transaction_form(page.show_dialog.call_args.args[0])
+            transaction.description.value = "Unsaved transaction"
+            transaction.sign.selected = ["+" if root == "Income" else "-"]
+            change(transaction.sign)
+            click(transaction.category_create)
+            dialog = page.show_dialog.call_args.args[0]
+            assert isinstance(dialog.content, ft.Column)
+            parent = next(
+                child
+                for control in dialog.content.controls
+                if isinstance(control, ft.Row)
+                for child in control.controls
+                if isinstance(child, ft.Dropdown) and child.data == "quick_category_parent"
+            )
+            name, code = (
+                next(
+                    control
+                    for control in dialog.content.controls
+                    if isinstance(control, ft.TextField) and control.data == key
+                )
+                for key in ("quick_category_name", "quick_category_path")
+            )
+        else:
+            view.category_root.value = root
+            view._category_type_changed(MagicMock())
+            view._create_category(MagicMock())
+            dialog = page.show_dialog.call_args.args[0]
+            parent, name, code = view.category_parent, view.category_name, view.category_id
+        assert not name.value
+        assert [(option.key, option.text) for option in parent.options] == [
+            ("", view.tr("category_parent_none")),
+            (f"{root}:Food", f"Food ({root}:Food)"),
+            (f"{root}:Food:Shops", f"Shops ({root}:Food:Shops)"),
+            (f"{root}:Food:Shops:Market", f"Market ({root}:Food:Shops:Market)"),
+            (f"{root}:Food-Other", f"Food ({root}:Food-Other)"),
+            (f"{root}:Hidden:Child", f"Child ({root}:Hidden:Child)"),
+        ]
+        for option, depth in zip(parent.options[1:], [0, 1, 2, 0, 1], strict=True):
+            content = option.content
+            assert isinstance(content, ft.Container)
+            assert content.padding == ft.Padding.only(left=16 * depth)
+            label = content.content
+            assert isinstance(label, ft.Text) and label.size == 16
+            assert label.spans and len(label.spans) == 1
+            span = label.spans[0]
+            assert span.text == f" ({option.key})"
+            assert span.style and span.style.size == 12
+            assert f"{label.value}{span.text}" == option.text
+        parent.value = f"{root}:Food:Shops"
+        change(parent)
+        name.value = "Synthetic child"
+        change(name)
+        assert code.value and code.value.startswith(f"{parent.value}:")
+        click(dialog.actions[0])
+        assert journal.source == source
+        assert (tmp_path / FILENAME).read_text(newline="") == source
+        assert not (tmp_path / "backups").exists()
+        if transaction is not None:
+            assert transaction.description.value == "Unsaved transaction"
 
     asyncio.run(scenario())

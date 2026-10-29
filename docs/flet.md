@@ -39,35 +39,50 @@ Sources: [Flet documentation](https://flet.dev/docs/),
 [publishing](https://flet.dev/docs/publish/),
 [MCP cookbook](https://flet.dev/docs/cookbook/flet-mcp).
 
-## Required popup and Escape convention
+## Required popup keyboard convention
 
-Every new or changed popup must preserve desktop **Escape = Cancel** behavior.
-This is a requirement for future features, not only the current transaction
-forms:
+Every new or changed popup must preserve desktop **Escape = Cancel** and
+**Enter = Submit** behavior. This is a requirement for future features, not only
+the current transaction forms:
 
-- Present application-owned modal `AlertDialog` controls through
+- Present all application-owned `AlertDialog` controls through
   `app.ui.dialogs.show_dialog`, not directly through `page.show_dialog`.
 - Put the non-destructive **Cancel**, **Close**, or **Keep editing** `TextButton`
   first in `actions`, with its normal click handler. Escape must invoke that
   same handler; it must never choose Save, Delete, or another destructive action.
-- If an operation disables cancellation, disable that button so Escape is
-  disabled too. Do not bypass validation, busy-state guards, or draft handling.
-- Escape must affect only the active popup/menu/picker. Closing a nested popup
-  must preserve the parent form and its unsaved input.
-- Nonmodal dialogs and native date/time pickers may use Flutter's native
-  dismissal, but verify the same active-popup-only behavior. Do not install a
-  page-wide hardware-key handler for popup cancellation.
+- Put the **Save**, **Create**, **Delete**, or other primary `TextButton` second.
+  Enter (including keypad Enter) must invoke its existing click handler, never a
+  separate validation or persistence path. A single-action popup uses its
+  Close/Keep editing action for Enter too. Dialogs with more actions need an
+  explicit keyboard policy before extending the helper.
+- The helper focuses the first input unless an input already requests autofocus.
+  In multiline inputs, Enter submits and **Shift+Enter inserts a newline**.
+  Reserve their `on_submit` handler for the shared helper.
+- Disabled or hidden actions and disabled inputs must not be submitted. If an
+  operation disables cancellation, disable that button so Escape is disabled
+  too. Preserve validation, busy-state guards, conflicts and unsaved drafts;
+  repeated keyboard events must not duplicate an in-flight submission.
+- Both keys affect only the active popup. Closing or submitting a nested popup
+  must preserve its parent form and unsaved input. Dropdowns, searchable trees,
+  native date/time pickers and focused buttons keep their own keyboard
+  activation; selecting an option must not also submit the parent form.
+- Native date/time pickers retain Flutter's keyboard behavior. Do not install
+  a page-wide hardware-key handler for popup shortcuts.
 - Add focused regression coverage and run the
-  [desktop popup checklist](testing.md#desktop-popup-cancellation), including
-  keyboard focus in inputs and action buttons, nesting, and disabled Cancel.
+  [desktop popup checklist](testing.md#desktop-popup-keyboard-shortcuts), including
+  valid/invalid inputs, action-button focus, nesting and disabled actions.
 
 The shared helper adds `KeyboardListener` controls around content and actions.
 Listeners follow the dialog's focus tree, so dropdown menus and nested pickers
-can consume Escape without also closing the parent. Cancellation preserves the
-button's disabled state and normal Flet click lifecycle. Flet 1.0.1 has no public
-programmatic button-click dispatch; the helper uses `button._trigger_event`.
-Regression tests exercise real sessions and protocol serialization; recheck
-this compatibility boundary on a Flet upgrade.
+can consume keys without also closing/submitting the parent. Action-button Enter
+uses native activation, not a second synthetic click. The pinned Material
+TextField client emits `submit` only with `shift_enter=True`: multiline fields
+use that event; single-line fields use the focus-scoped listener. Input discovery
+follows Flet's dataclass control fields, excluding Python-only state.
+Flet 1.0.1 has no public programmatic button-click dispatch; the helper uses
+`button._trigger_event` and checks the active dialog stack. Regression tests
+exercise real sessions and protocol serialization; recheck these compatibility
+boundaries and actual keyboard delivery on a Flet upgrade.
 
 ## storage diagnostics verification
 

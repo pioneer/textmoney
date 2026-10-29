@@ -74,13 +74,15 @@ the available horizontal space.
   Custom date ranges, wrapped amount metrics, and bottom scroll clearance remain
   usable on narrow displays.
 
-## Desktop popup cancellation
+## Desktop popup keyboard shortcuts
 
 Escape must behave like the active popup's **Cancel** (or **Keep editing**)
-button, without saving. Automated tests cover the actual Flet keyboard/click
-event path on desktop platforms, nested popup dismissal, retained parent drafts,
-disabled cancellation while saving, native-picker/nonmodal pass-through, and
-traceback logging when a callback fails. Mobile shortcuts remain unchanged.
+button, without saving. Enter must invoke the primary action through the same
+validation and save handler as clicking it; a single-action popup uses Close/Keep
+editing. Multiline inputs use Shift+Enter for newlines. Automated tests cover
+real Flet keyboard/click events, valid/invalid and stale drafts, nested popups,
+disabled actions/inputs, repeat protection, native pickers and callback failures.
+Mobile shortcuts remain unchanged.
 
 With a disposable journal on a desktop:
 
@@ -89,14 +91,25 @@ With a disposable journal on a desktop:
    no journal write or backup should be created.
    For accounts/categories with history (including opening balances) or categories
    with children, Delete must explain why it is blocked, not open Edit implicitly.
-   Only the explicit Edit action opens the editor. Check both Cancel and Escape
-   on the explanation; unused items must retain their deletion confirmation.
+   The explicit Edit action (or Enter) opens the editor. Check both Cancel and
+   Escape on the explanation; unused items must retain their deletion confirmation.
 2. From a transaction, open **Create category**, or trigger a conflict. Escape
    closes only that popup and keeps the transaction draft intact. After it
    closes, another Escape cancels the parent form.
 3. Open calendar/clock pickers, dropdown menus, month selection and searchable
    budget trees. Escape must close only the active picker/menu, not its parent.
-4. While a save/cleanup disables **Cancel**, Escape must also remain disabled.
+4. Enter must save valid new/edit transaction, account, category and budget
+   forms exactly once. Invalid amounts, names, dates, times, selections and
+   stale sources must follow click validation and preserve unsaved input.
+   Check Enter in nested date/time inputs, keypad Enter, and multiline
+   descriptions; Shift+Enter must add a newline without saving.
+5. Test Enter in delete/cleanup/recovery confirmations and single-action notices.
+   A disabled or hidden confirm action must never run. Check report month
+   selection with invalid/valid years and searchable-tree keyboard selection.
+6. Focus action buttons and dropdowns: Enter must activate the focused control,
+   not also submit its parent. A nested popup's Enter must never save a parent.
+7. While a save/cleanup disables **Cancel**, Escape must also remain disabled;
+   repeated Enter must not submit again while an operation is pending.
    Check Linux and Windows keyboard behavior; headless tests do not certify
    native input delivery.
 

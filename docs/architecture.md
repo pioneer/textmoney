@@ -15,7 +15,7 @@ src/app/ui/home.py         home composition and preserved storage diagnostics
 src/app/localization.py    gettext catalog loading, runtime language discovery and locale formatting
 src/app/timekeeping.py     default clock and native date-picker timezone transport
 src/app/ui/datetime_fields.py shared manual/date-picker/time-picker controls
-src/app/ui/dialogs.py       shared desktop modal Escape/Cancel behavior
+src/app/ui/dialogs.py       shared desktop popup Escape/Cancel and Enter/Submit behavior
 src/app/ui/beancount.py    separate bundled-fixture action; lazy parser import
 src/app/beancount_diagnostics.py   pure-Python syntax/editing/quantity experiment, not a full engine
 src/app/fixtures/beancount/ synthetic bundled books, never user storage
@@ -44,10 +44,11 @@ base classes in anticipation of features.
 
 UI owns controls and navigation, not business decisions or raw HTTP/database
 calls. Every new or changed popup must follow the
-[popup and Escape convention](flet.md#required-popup-and-escape-convention):
-desktop Escape invokes Cancel, respects disabled cancellation, and closes only
-the active popup without losing a parent draft. Application-owned modal dialogs
-must use the shared `app.ui.dialogs.show_dialog` helper.
+[popup keyboard convention](flet.md#required-popup-keyboard-convention):
+desktop Escape invokes Cancel and Enter invokes the existing submit action,
+respecting validation and disabled states. Shortcuts affect only the active popup
+without losing a parent draft; Shift+Enter inserts multiline text.
+Application-owned dialogs must use the shared `app.ui.dialogs.show_dialog` helper.
 
 GNU gettext PO files in `locales/` are the editable translation source;
 Invoke compiles them to packaged MO catalogs in `src/app/locale/`. Runtime

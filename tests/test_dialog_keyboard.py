@@ -1,5 +1,7 @@
 import asyncio
 import logging
+from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -14,6 +16,7 @@ from app.domain.ledger import EPOCH
 from app.domain.storage import ConflictError
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
+from app.localization import date_input
 from app.ui.dialogs import show_dialog
 from app.ui.finance import FinanceView
 
@@ -70,7 +73,7 @@ def test_escape_dispatches_the_cancel_button_event(
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("key", ["Enter", "Tab", "a"])
+@pytest.mark.parametrize("key", ["Tab", "a"])
 def test_other_keys_do_not_cancel(key: str) -> None:
     async def scenario() -> None:
         session = keyboard_session()
@@ -157,7 +160,7 @@ def test_disabled_cancel_does_not_close_or_fall_through(disabled_target: str) ->
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("kind", ["nonmodal", "date", "time"])
+@pytest.mark.parametrize("kind", ["date", "time"])
 def test_native_dismissal_does_not_also_cancel_the_parent(kind: str) -> None:
     async def scenario() -> None:
         session = keyboard_session()
@@ -165,22 +168,10 @@ def test_native_dismissal_does_not_also_cancel_the_parent(kind: str) -> None:
         cancel = ft.TextButton("Parent cancel", on_click=callback)
         parent = ft.AlertDialog(modal=True, actions=[cancel])
         show_dialog(session.page, parent)
-        native_cancel = MagicMock()
-        child = (
-            ft.DatePicker()
-            if kind == "date"
-            else ft.TimePicker()
-            if kind == "time"
-            else ft.AlertDialog(actions=[ft.TextButton("Cancel", on_click=native_cancel)])
-        )
-        if isinstance(child, ft.AlertDialog):
-            show_dialog(session.page, child)
-            assert not isinstance(child.content, ft.KeyboardListener)
-        else:
-            session.page.show_dialog(child)
+        child = ft.DatePicker() if kind == "date" else ft.TimePicker()
+        session.page.show_dialog(child)
         assert session.page.on_keyboard_event is None
         callback.assert_not_called()
-        native_cancel.assert_not_called()
         assert child.open and parent.open
 
     asyncio.run(scenario())
@@ -332,5 +323,310 @@ def test_real_edit_dialog_cannot_be_cancelled_during_save(
             await saving
         assert not dialog.open
         assert not cancel.disabled
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("key", ["Enter", "Numpad Enter"])
+@pytest.mark.parametrize("modal", [False, True])
+def test_enter_dispatches_the_primary_button_event(
+    asynchronous: bool, key: str, modal: bool
+) -> None:
+    async def scenario() -> None:
+        session = keyboard_session()
+        cancel_callback = MagicMock()
+        callback = AsyncMock() if asynchronous else MagicMock()
+        cancel = ft.TextButton("Cancel", on_click=cancel_callback)
+        submit = ft.TextButton("Confirm", on_click=callback)
+        show_dialog(session.page, ft.AlertDialog(modal=modal, actions=[cancel, submit]))
+        await press(session, key)
+        callback.assert_called_once()
+        if asynchronous:
+            callback.assert_awaited_once()
+        event = callback.call_args.args[0]
+        assert event.control is submit and event.name == "click"
+        assert event.page is session.page
+        cancel_callback.assert_not_called()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("editing", [False, True])
+def test_transaction_enter_uses_existing_validation_and_preserves_invalid_draft(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, editing: bool
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        if editing:
+            await journal.add_expense(
+                "Assets:Bank", "Expenses:Food", "10", "", "2026-10-18", "Synthetic"
+            )
+        original = (tmp_path / FILENAME).read_bytes()
+        backups = set((tmp_path / "backups").iterdir())
+        view._transaction_dialog(journal, journal.ledger.transactions[-1] if editing else None)
+        parent = session.page._dialogs.controls[-1]
+        assert isinstance(parent, ft.AlertDialog)
+        form = transaction_form(parent)
+        form.description.value = "Unfinished draft"
+        form.amount.value = "not an amount"
+        await session.dispatch_event(form.amount._i, "focus", None)
+        await press(session, "Enter")
+        error = session.page._dialogs.controls[-1]
+        assert error is not parent and error.open and parent.open
+        assert form.description.value == "Unfinished draft"
+        assert form.amount.value == "not an amount"
+        assert (tmp_path / FILENAME).read_bytes() == original
+        assert set((tmp_path / "backups").iterdir()) == backups
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.MACOS]
+)
+def test_enter_uses_the_only_close_action(platform: ft.PagePlatform) -> None:
+    async def scenario() -> None:
+        session = keyboard_session(platform)
+        callback = MagicMock()
+        show_dialog(
+            session.page,
+            ft.AlertDialog(modal=True, actions=[ft.TextButton("Keep editing", on_click=callback)]),
+        )
+        await press(session, "Enter")
+        callback.assert_called_once()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("multiline", [False, True])
+@pytest.mark.parametrize("disabled_target", ["button", "dialog", "input", "container", "hidden"])
+def test_enter_respects_disabled_and_hidden_actions_or_inputs(
+    multiline: bool, disabled_target: str
+) -> None:
+    async def scenario() -> None:
+        session = keyboard_session()
+        callback = MagicMock()
+        field = ft.TextField(multiline=multiline, disabled=disabled_target == "input")
+        container = ft.Column([field], disabled=disabled_target == "container")
+        submit = ft.TextButton(
+            "Save",
+            disabled=disabled_target == "button",
+            visible=disabled_target != "hidden",
+            on_click=callback,
+        )
+        dialog = ft.AlertDialog(
+            modal=True,
+            disabled=disabled_target == "dialog",
+            content=container,
+            actions=[ft.TextButton("Cancel", on_click=MagicMock()), submit],
+        )
+        show_dialog(session.page, dialog)
+        await session.dispatch_event(field._i, "focus", None)
+        if multiline:
+            await session.dispatch_event(field._i, "submit", None)
+        else:
+            await press(session, "Enter")
+        callback.assert_not_called()
+        assert dialog.open
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("multiline", [False, True])
+def test_enter_submits_once_from_nested_inputs_and_keeps_native_controls(
+    multiline: bool,
+) -> None:
+    async def scenario() -> None:
+        session = keyboard_session()
+        callback = MagicMock()
+        original_focus, original_blur = AsyncMock(), MagicMock()
+        field = ft.TextField(multiline=multiline, on_focus=original_focus, on_blur=original_blur)
+        dialog = ft.AlertDialog(
+            modal=True,
+            content=ft.Container(ft.Column([ft.Row([field])])),
+            actions=[
+                ft.TextButton("Cancel", on_click=MagicMock()),
+                ft.TextButton("Save", on_click=callback),
+            ],
+        )
+        show_dialog(session.page, dialog)
+        assert field.autofocus
+        assert field.shift_enter is multiline
+        await session.dispatch_event(field._i, "focus", None)
+        original_focus.assert_awaited_once()
+        await press(session, "Enter")
+        if multiline:
+            callback.assert_not_called()
+            await session.dispatch_event(field._i, "submit", None)
+        callback.assert_called_once()
+        await session.dispatch_event(field._i, "blur", None)
+        original_blur.assert_called_once()
+        callback.reset_mock()
+        await press(session, "Enter")
+        callback.assert_not_called()
+        for action in dialog.actions:
+            assert isinstance(action, ft.KeyboardListener)
+            await session.dispatch_event(action._i, "key_down", {"key": "Enter"})
+        callback.assert_not_called()
+
+    asyncio.run(scenario())
+
+
+def test_enter_does_not_submit_a_parent_or_closed_dialog() -> None:
+    async def scenario() -> None:
+        session = keyboard_session()
+        parent_callback = MagicMock()
+        parent = ft.AlertDialog(
+            modal=True,
+            actions=[
+                ft.TextButton("Cancel", on_click=MagicMock()),
+                ft.TextButton("Save", on_click=parent_callback),
+            ],
+        )
+        show_dialog(session.page, parent)
+        child_callback = MagicMock(side_effect=lambda _: session.page.pop_dialog())
+        child = ft.AlertDialog(
+            modal=True, actions=[ft.TextButton("Close", on_click=child_callback)]
+        )
+        show_dialog(session.page, child)
+        assert isinstance(parent.content, ft.KeyboardListener)
+        await session.dispatch_event(parent.content._i, "key_down", {"key": "Enter"})
+        parent_callback.assert_not_called()
+        await press(session, "Enter")
+        assert not child.open and parent.open
+        child_callback.assert_called_once()
+        await press(session, "Enter")
+        child_callback.assert_called_once()
+        parent_callback.assert_not_called()
+        await session.dispatch_event(child._i, "dismiss", None)
+        await press(session, "Enter")
+        parent_callback.assert_called_once()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("editing", [False, True])
+@pytest.mark.parametrize("focus", ["amount", "description"])
+def test_transaction_enter_saves_through_the_existing_action(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, editing: bool, focus: str
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        if editing:
+            await journal.add_expense(
+                "Assets:Bank", "Expenses:Food", "10", "", "2026-10-18", "Synthetic"
+            )
+        view._transaction_dialog(journal, journal.ledger.transactions[-1] if editing else None)
+        parent = session.page._dialogs.controls[-1]
+        assert isinstance(parent, ft.AlertDialog)
+        form = transaction_form(parent)
+        form.account.value, form.category.value = "Assets:Bank", "Expenses:Food"
+        form.description.value = "Submitted description"
+        form.amount.value = "17"
+        form.when.occurred.value = date_input(date(2026, 10, 18), view.language)
+        form.when.clock.value = "12:30"
+        field = form.amount if focus == "amount" else form.description
+        await session.dispatch_event(field._i, "focus", None)
+        if focus == "description":
+            await session.dispatch_event(field._i, "submit", None)
+        else:
+            await press(session, "Enter")
+        assert not parent.open
+        assert len(journal.ledger.transactions) == 1
+        assert journal.ledger.transactions[0].narration == "Submitted description"
+        assert journal.ledger.transactions[0].postings[0].amount == Decimal("17")
+
+    asyncio.run(scenario())
+
+
+def test_enter_and_escape_cannot_repeat_an_inflight_keyboard_submit() -> None:
+    async def scenario() -> None:
+        session = keyboard_session()
+        started, release = asyncio.Event(), asyncio.Event()
+        cancel_callback = MagicMock()
+        calls = 0
+
+        async def submit(event: ft.Event[ft.TextButton]) -> None:
+            nonlocal calls
+            calls += 1
+            started.set()
+            await release.wait()
+            session.page.pop_dialog()
+
+        show_dialog(
+            session.page,
+            ft.AlertDialog(
+                modal=True,
+                actions=[
+                    ft.TextButton("Cancel", on_click=cancel_callback),
+                    ft.TextButton("Save", on_click=submit),
+                ],
+            ),
+        )
+        saving = asyncio.create_task(press(session, "Enter"))
+        try:
+            await asyncio.wait_for(started.wait(), timeout=5)
+            await press(session, "Enter")
+            await press(session, "Escape")
+            assert calls == 1
+            cancel_callback.assert_not_called()
+        finally:
+            release.set()
+            await saving
+
+    asyncio.run(scenario())
+
+
+def test_enter_rejects_a_stale_transaction_without_rebasing_the_draft(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        view._transaction_dialog(journal)
+        parent = session.page._dialogs.controls[-1]
+        assert isinstance(parent, ft.AlertDialog)
+        form = transaction_form(parent)
+        form.account.value, form.category.value = "Assets:Bank", "Expenses:Food"
+        form.description.value, form.amount.value = "Retained draft", "17"
+        external = journal.source + "; external synthetic edit\n"
+        (tmp_path / FILENAME).write_text(external)
+        await session.dispatch_event(form.description._i, "submit", None)
+        assert parent.open
+        assert session.page._dialogs.controls[-1] is not parent
+        assert form.description.value == "Retained draft" and form.amount.value == "17"
+        assert (tmp_path / FILENAME).read_text() == external
+
+    asyncio.run(scenario())
+
+
+def test_report_month_enter_keeps_invalid_year_and_selects_valid_year(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        refresh = AsyncMock()
+        monkeypatch.setattr(view.budgets, "_refresh_filters", refresh)
+        view.budgets._pick_month(MagicMock())
+        dialog = session.page._dialogs.controls[-1]
+        assert isinstance(dialog, ft.AlertDialog)
+        assert isinstance(dialog.content, ft.KeyboardListener)
+        assert isinstance(dialog.content.content, ft.Column)
+        month, year, error = dialog.content.content.controls
+        assert isinstance(month, ft.Dropdown)
+        assert isinstance(year, ft.TextField)
+        assert isinstance(error, ft.Text)
+        original = (tmp_path / FILENAME).read_bytes()
+        year.value = "invalid"
+        await session.dispatch_event(year._i, "focus", None)
+        await press(session, "Enter")
+        assert dialog.open and error.visible and year.value == "invalid"
+        refresh.assert_not_called()
+        year.value, month.value = "2027", "2"
+        await press(session, "Enter")
+        assert not dialog.open
+        assert view.budgets.month == date(2027, 2, 1)
+        refresh.assert_awaited_once()
+        assert (tmp_path / FILENAME).read_bytes() == original
 
     asyncio.run(scenario())

@@ -197,6 +197,11 @@ explanation instead of the editor. Choose **Edit** there to change its Active
 checkbox; Cancel or Escape leaves it unchanged. Unused items still have a
 permanent-deletion confirmation.
 
+On desktop, **Escape** cancels the active popup and **Enter** submits through the
+same checks as its primary button. In multiline descriptions, **Shift+Enter**
+adds a new line. Focused buttons and dropdowns keep their normal keyboard actions;
+disabled actions cannot be submitted.
+
 <img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense in TextMoney's compact phone layout" width="360">
 
 *Editing an expense in the compact layout.*

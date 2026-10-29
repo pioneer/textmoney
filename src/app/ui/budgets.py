@@ -19,6 +19,7 @@ from app.domain.budgets import (
 from app.domain.ledger import LedgerError
 from app.localization import date_input, format_budget_number, format_date, localized_error
 from app.ui.datetime_fields import DateTimeFields
+from app.ui.dialogs import show_dialog
 from app.ui.tree_picker import TreePicker
 
 if TYPE_CHECKING:
@@ -201,7 +202,8 @@ class BudgetView(ft.Column):
         return items
 
     def _pick_category(self, event: ft.Event[ft.Button]) -> None:
-        self.host.page.show_dialog(
+        show_dialog(
+            self.host.page,
             TreePicker(
                 self.host.page,
                 self.host.language,
@@ -210,11 +212,12 @@ class BudgetView(ft.Column):
                 self.category_id,
                 self.host.tr("budget_all"),
                 self._select_category,
-            )
+            ),
         )
 
     def _pick_account(self, event: ft.Event[ft.Button]) -> None:
-        self.host.page.show_dialog(
+        show_dialog(
+            self.host.page,
             TreePicker(
                 self.host.page,
                 self.host.language,
@@ -223,7 +226,7 @@ class BudgetView(ft.Column):
                 self.account_id,
                 self.host.tr("budget_all_accounts"),
                 self._select_account,
-            )
+            ),
         )
 
     async def _select_category(self, identifier: str) -> None:
@@ -400,7 +403,8 @@ class BudgetView(ft.Column):
             self.host.page.pop_dialog()
             await self._refresh_filters()
 
-        self.host.page.show_dialog(
+        show_dialog(
+            self.host.page,
             ft.AlertDialog(
                 title=tr("budget_choose_month"),
                 scrollable=True,
@@ -409,7 +413,7 @@ class BudgetView(ft.Column):
                     ft.TextButton(tr("crud_cancel"), on_click=self.host._dismiss),
                     ft.TextButton(tr("budget_show_month"), on_click=select),
                 ],
-            )
+            ),
         )
 
     async def _previous(self, event: ft.Event[ft.IconButton]) -> None:
@@ -733,7 +737,8 @@ class BudgetView(ft.Column):
 
         search.on_change = render
         render()
-        self.host.page.show_dialog(
+        show_dialog(
+            self.host.page,
             ft.AlertDialog(
                 title=self.host.tr("budget_transactions"),
                 scrollable=True,
@@ -751,7 +756,7 @@ class BudgetView(ft.Column):
                     width=420,
                 ),
                 actions=[ft.TextButton(self.host.tr("crud_cancel"), on_click=self.host._dismiss)],
-            )
+            ),
         )
 
     def _definition(self, budget: Budget) -> ft.Control:

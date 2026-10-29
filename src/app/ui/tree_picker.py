@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 import flet as ft
 
 from app.localization import translate
+from app.ui.tree_style import compact_tree_theme, compact_tree_tile
 
 
 class TreePicker(ft.AlertDialog):
@@ -33,7 +34,7 @@ class TreePicker(ft.AlertDialog):
             [
                 self.search,
                 ft.TextButton(all_label, data="", on_click=self._choose),
-                self.listing,
+                ft.Container(self.listing, theme=compact_tree_theme()),
             ],
             width=420,
             tight=True,
@@ -63,28 +64,34 @@ class TreePicker(ft.AlertDialog):
                 data=key,
                 tooltip=key,
                 on_click=self._choose,
+                style=ft.ButtonStyle(
+                    padding=0,
+                    alignment=ft.Alignment.CENTER_LEFT,
+                    visual_density=ft.VisualDensity.COMPACT,
+                ),
             )
             children = sorted(
                 (item for item in visible if item.rpartition(":")[0] == key),
                 key=lambda item: (self.items[item].casefold(), item),
             )
             if not children:
-                return ft.Container(content=button, padding=ft.Padding.only(left=24))
+                return ft.Container(content=button, padding=0)
 
             def changed(event: ft.Event[ft.ExpansionTile]) -> None:
                 self.expanded[key] = event.data is True
 
-            return ft.ExpansionTile(
-                title=button,
-                data=key,
-                expanded=bool(query)
-                or self.expanded.get(key, self.selected.startswith(key + ":") or ":" not in key),
-                on_change=changed,
-                controls=[node(child) for child in children],
-                controls_padding=ft.Padding.only(left=16),
-                expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
-                maintain_state=True,
-                dense=True,
+            return compact_tree_tile(
+                ft.ExpansionTile(
+                    title=button,
+                    data=key,
+                    expanded=bool(query)
+                    or self.expanded.get(
+                        key, self.selected.startswith(key + ":") or ":" not in key
+                    ),
+                    on_change=changed,
+                    controls=[node(child) for child in children],
+                    maintain_state=True,
+                )
             )
 
         roots = sorted(

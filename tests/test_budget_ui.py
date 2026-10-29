@@ -287,6 +287,19 @@ def test_explicit_parent_budget_remains_visible(
         parent = next(row for row in displayed if row.account == "Expenses")
         assert parent.direct_budget == {"USD": Decimal(31)}
         assert parent.actual == {"USD": Decimal(12)}
+        listing = host.budgets.controls[-1]
+        assert isinstance(listing, ft.Container) and listing.content is host.budgets.results
+        assert listing.theme is not None
+        assert listing.theme.list_tile_theme == ft.ListTileTheme(
+            horizontal_spacing=8, min_leading_width=24
+        )
+        for tile in walk(host.budgets.results):
+            if isinstance(tile, ft.ExpansionTile):
+                assert tile.affinity == ft.TileAffinity.LEADING
+                assert tile.dense and tile.min_tile_height == 40
+                assert tile.tile_padding == 0
+                assert tile.controls_padding == ft.Padding.only(left=16)
+                assert tile.shape == tile.collapsed_shape == ft.RoundedRectangleBorder()
 
     asyncio.run(scenario())
 
@@ -822,12 +835,38 @@ def test_tree_pickers_have_branches_friendly_names_search_and_clear(
         host.budgets._pick_category(MagicMock())
         picker = page.show_dialog.call_args.args[0]
         assert isinstance(picker, TreePicker)
+        assert isinstance(picker.content, ft.Column)
+        listing = picker.content.controls[-1]
+        assert isinstance(listing, ft.Container) and listing.content is picker.listing
+        assert listing.theme is not None
+        assert listing.theme.list_tile_theme == ft.ListTileTheme(
+            horizontal_spacing=8, min_leading_width=24
+        )
         assert picker.items["Expenses:Food"] == "Groceries"
         assert "Expenses:Food:Meals" in picker.items
         branches = {
             item.data: item for item in walk(picker.listing) if isinstance(item, ft.ExpansionTile)
         }
         assert set(branches) == {"Expenses", "Expenses:Food"}
+        for tile in branches.values():
+            assert tile.affinity == ft.TileAffinity.LEADING
+            assert tile.dense and tile.min_tile_height == 40
+            assert tile.tile_padding == 0
+            assert tile.controls_padding == ft.Padding.only(left=16)
+            assert tile.shape == tile.collapsed_shape == ft.RoundedRectangleBorder()
+            assert isinstance(tile.title, ft.TextButton)
+            assert tile.title.style == ft.ButtonStyle(
+                padding=0,
+                alignment=ft.Alignment.CENTER_LEFT,
+                visual_density=ft.VisualDensity.COMPACT,
+            )
+        leaves = [
+            item
+            for item in walk(picker.listing)
+            if isinstance(item, ft.Container) and isinstance(item.content, ft.TextButton)
+        ]
+        assert leaves
+        assert all(leaf.padding == 0 for leaf in leaves)
         branch = branches["Expenses:Food"]
         assert branch.on_change
         cast(Callable[[object], None], branch.on_change)(MagicMock(data=True))

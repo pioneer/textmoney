@@ -292,6 +292,50 @@ def test_reports_navigation_and_custom_range_validation(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("width", [390, 1366])
+def test_report_category_tree_is_compact_borderless_and_has_no_root_indent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        page.width = width
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        monkeypatch.setattr(FinanceView, "_today", lambda _: date(2026, 1, 31))
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        journal.ledger = report_ledger()
+        view = FinanceView()
+        view.journal = journal
+        view._render_reports()
+        card = view.report_categories.controls[1]
+        assert isinstance(card, ft.Container) and isinstance(card.content, ft.Column)
+        assert card.theme is not None
+        assert card.theme.list_tile_theme == ft.ListTileTheme(
+            horizontal_spacing=8, min_leading_width=24
+        )
+        expenses = card.content.controls[1]
+        assert isinstance(expenses, ft.Column) and expenses.spacing == 0
+        heading, bank_fees, food = expenses.controls
+        assert isinstance(heading, ft.Text)
+        assert isinstance(bank_fees, ft.Container) and bank_fees.padding == 0
+        assert isinstance(food, ft.ExpansionTile)
+        assert food.affinity == ft.TileAffinity.LEADING
+        assert food.dense and food.min_tile_height == 40
+        assert food.tile_padding == 0
+        assert food.controls_padding == ft.Padding.only(left=16)
+        assert food.shape == food.collapsed_shape == ft.RoundedRectangleBorder()
+        assert food.controls and isinstance(food.controls[0], ft.Container)
+        groceries = food.controls[0]
+        assert groceries.padding == 0
+        assert isinstance(groceries.content, ft.Row)
+        inactive = groceries.content.controls[0]
+        assert isinstance(inactive, ft.Column)
+        assert isinstance(inactive.controls[1], ft.Text)
+        assert inactive.controls[1].value == view.tr("crud_inactive_label")
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("width", [390, 800, 1366])
 @pytest.mark.parametrize("state", ["unavailable", "empty", "populated"])
 def test_reports_keep_scroll_clearance_for_floating_action(

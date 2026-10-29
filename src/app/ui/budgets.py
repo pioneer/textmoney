@@ -21,6 +21,7 @@ from app.localization import date_input, format_budget_number, format_date, loca
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
 from app.ui.tree_picker import TreePicker
+from app.ui.tree_style import compact_tree_theme, compact_tree_tile
 
 if TYPE_CHECKING:
     from app.ui.finance import FinanceView
@@ -97,7 +98,7 @@ class BudgetView(ft.Column):
             self.reset,
             self.error,
             self.loading,
-            self.results,
+            ft.Container(self.results, theme=compact_tree_theme()),
         ]
 
     def sync(self) -> None:
@@ -589,42 +590,42 @@ class BudgetView(ft.Column):
                 )
 
                 highlighted = self.highlighted == key
-                tile = ft.ExpansionTile(
-                    key=ft.ScrollKey(f"budget-report:{begin.isoformat()}:{account}"),
-                    title=ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    ft.Text(
-                                        names.get(account, account.rsplit(":", 1)[-1]),
-                                        size=16,
-                                        weight=ft.FontWeight.BOLD,
-                                        tooltip=account,
-                                        expand=True,
-                                    ),
-                                    *actions,
-                                ],
-                                spacing=0,
-                            ),
-                            *(
-                                [ft.Text(tr("budget_subtree"), size=12)]
-                                if row.direct_budget != row.budget
-                                or row.direct_actual != row.actual
-                                else []
-                            ),
-                            *self._figures(row),
-                        ],
-                        spacing=4,
-                    ),
-                    data=row,
-                    expanded=self.expanded.get(key, account in {"Expenses", "Income"}),
-                    on_change=changed,
-                    controls=detail,
-                    expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
-                    controls_padding=12,
-                    maintain_state=True,
-                    bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
-                    collapsed_bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
+                tile = compact_tree_tile(
+                    ft.ExpansionTile(
+                        key=ft.ScrollKey(f"budget-report:{begin.isoformat()}:{account}"),
+                        title=ft.Column(
+                            [
+                                ft.Row(
+                                    [
+                                        ft.Text(
+                                            names.get(account, account.rsplit(":", 1)[-1]),
+                                            size=16,
+                                            weight=ft.FontWeight.BOLD,
+                                            tooltip=account,
+                                            expand=True,
+                                        ),
+                                        *actions,
+                                    ],
+                                    spacing=0,
+                                ),
+                                *(
+                                    [ft.Text(tr("budget_subtree"), size=12)]
+                                    if row.direct_budget != row.budget
+                                    or row.direct_actual != row.actual
+                                    else []
+                                ),
+                                *self._figures(row),
+                            ],
+                            spacing=4,
+                        ),
+                        data=row,
+                        expanded=self.expanded.get(key, account in {"Expenses", "Income"}),
+                        on_change=changed,
+                        controls=detail,
+                        maintain_state=True,
+                        bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
+                        collapsed_bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
+                    )
                 )
                 if highlighted and self.reveal_requested:
                     # The client must lay out the target before scroll_to can find its key.

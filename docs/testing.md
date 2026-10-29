@@ -73,6 +73,14 @@ the available horizontal space.
   available report content width, respecting navigation and page padding.
   Custom date ranges, wrapped amount metrics, and bottom scroll clearance remain
   usable on narrow displays.
+- Category trees in Accounting, report breakdowns and budget pickers use compact,
+  borderless rows. Top-level rows start at the content edge; nested levels
+  add 16 logical pixels, without extra leaf indentation. Expandable rows show
+  an arrow before the title; leaves show only their title, with no arrow space.
+  A tree-local list-tile theme narrows the arrow/title gap without changing
+  other expansion tiles or the native arrow's behavior.
+  Check expanded/collapsed branches, inactive labels, long names,
+  edit/delete buttons, picker search/selection and retained expansion state.
 
 ## Desktop popup keyboard shortcuts
 

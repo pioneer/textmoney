@@ -39,29 +39,41 @@ def toggle(control: ft.ExpansionTile, expanded: bool) -> None:
 def test_income_expense_sections_have_equal_layout_and_nested_actions(language: str) -> None:
     view = FinanceView()
     view.language = language
+    assert view.categories_panel.theme is not None
+    assert view.categories_panel.theme.list_tile_theme == ft.ListTileTheme(
+        horizontal_spacing=8, min_leading_width=24
+    )
+    assert view.accounts_panel.theme is None
     categories = (
         Category("Expenses:Food", "Їжа", date(1970, 1, 1)),
         Category("Expenses:Food:Shops", "Магазини", date(1970, 1, 1)),
         Category("Income:Work", "Робота", date(1970, 1, 1)),
         Category("Income:Work:Salary", "Зарплата", date(1970, 1, 1)),
     )
-    expense, separator, income = view._category_tree(categories)
-    assert isinstance(separator, ft.Divider)
+    expense, income = view._category_tree(categories)
     assert isinstance(expense, ft.ExpansionTile) and isinstance(income, ft.ExpansionTile)
     assert label(expense).value == translate(language, "categories_expenses")
     assert label(income).value == translate(language, "categories_income")
     for section, category in [(expense, categories[0]), (income, categories[2])]:
         assert section.expanded
-        assert section.dense and section.min_tile_height == 48
+        assert section.dense and section.min_tile_height == 40
         assert section.affinity == ft.TileAffinity.LEADING
+        assert section.tile_padding == 0
+        assert section.controls_padding == ft.Padding.only(left=16)
+        assert section.shape == section.collapsed_shape == ft.RoundedRectangleBorder()
         assert section.controls is not None
         parent = section.controls[0]
         assert isinstance(parent, ft.ExpansionTile)
+        assert parent.dense and parent.min_tile_height == 40
+        assert parent.tile_padding == 0
+        assert parent.affinity == ft.TileAffinity.LEADING
+        assert parent.shape == parent.collapsed_shape == ft.RoundedRectangleBorder()
         assert not parent.expanded
         assert label(parent).value == category.name
         assert parent.controls is not None
         leaf = parent.controls[0]
         assert isinstance(leaf, ft.Container)
+        assert leaf.padding == 0
         assert leaf.data == category.id + (
             ":Shops" if category.id.startswith("Expenses") else ":Salary"
         )
@@ -71,11 +83,16 @@ def test_income_expense_sections_have_equal_layout_and_nested_actions(language: 
             assert edit.data == delete.data == ("category", node.data)
             assert edit.on_click == view._edit_entity
             assert delete.on_click == view._delete_entity
+            assert (
+                edit.style
+                == delete.style
+                == ft.ButtonStyle(visual_density=ft.VisualDensity.COMPACT)
+            )
 
 
 def test_missing_parent_nodes_are_visible_but_not_editable_and_inactive_labels_remain() -> None:
     view = FinanceView()
-    expense, _, income = view._category_tree(
+    expense, income = view._category_tree(
         (Category("Income:Work:Remote:Salary", "Salary", date(1970, 1, 1), active=False),)
     )
     assert isinstance(expense, ft.ExpansionTile)

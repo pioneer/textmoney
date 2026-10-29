@@ -53,6 +53,7 @@ from app.timekeeping import local_datetime, named_zone
 from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
+from app.ui.tree_style import compact_tree_theme, compact_tree_tile
 from app.version import release_identity
 
 logger = logging.getLogger(__name__)
@@ -257,6 +258,7 @@ class FinanceView(ft.Row):
             content=self.accounts_panel_content,
         )
         self.categories_panel = ft.Container(
+            theme=compact_tree_theme(),
             padding=16,
             border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
             border_radius=12,
@@ -1064,14 +1066,9 @@ class FinanceView(ft.Row):
                     )
                 title = ft.Row(labels, spacing=8)
                 if children:
-                    return ft.ExpansionTile(
-                        title=title,
-                        controls=children,
-                        expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
-                        controls_padding=ft.Padding.only(left=16),
-                    )
+                    return compact_tree_tile(ft.ExpansionTile(title=title, controls=children))
                 return ft.Container(
-                    padding=ft.Padding.only(left=16),
+                    padding=0,
                     content=title,
                 )
 
@@ -1106,10 +1103,11 @@ class FinanceView(ft.Row):
                 )
             if len(controls) == 1:
                 controls.append(ft.Text(self.tr("report_categories_empty")))
-            return ft.Column(controls, spacing=6)
+            return ft.Column(controls, spacing=0)
 
         self.report_categories.controls = [
             ft.Container(
+                theme=compact_tree_theme(),
                 padding=16,
                 border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
                 border_radius=12,
@@ -1189,27 +1187,23 @@ class FinanceView(ft.Row):
             )
             descendants = sorted(children.get(identifier, ()))
             if descendants or root:
-                return ft.ExpansionTile(
-                    data=identifier,
-                    title=row,
-                    affinity=ft.TileAffinity.LEADING,
-                    dense=True,
-                    min_tile_height=48,
-                    tile_padding=0,
-                    controls_padding=ft.Padding.only(left=16),
-                    expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
-                    expanded=self.category_expansion.get(identifier, root),
-                    on_change=changed,
-                    controls=[node(child) for child in descendants]
-                    or [ft.Text(self.tr("categories_empty"), size=12)],
+                return compact_tree_tile(
+                    ft.ExpansionTile(
+                        data=identifier,
+                        title=row,
+                        expanded=self.category_expansion.get(identifier, root),
+                        on_change=changed,
+                        controls=[node(child) for child in descendants]
+                        or [ft.Text(self.tr("categories_empty"), size=12)],
+                    )
                 )
             return ft.Container(
                 data=identifier,
-                padding=ft.Padding.only(left=40),
+                padding=0,
                 content=row,
             )
 
-        return [node("Expenses"), ft.Divider(), node("Income")]
+        return [node("Expenses"), node("Income")]
 
     def _entity_actions(self, item: Account | Category) -> list[ft.Control]:
         kind = "category" if isinstance(item, Category) else "account"
@@ -1218,12 +1212,18 @@ class FinanceView(ft.Row):
                 icon=ft.Icons.EDIT_OUTLINED,
                 tooltip=self.tr("crud_edit"),
                 data=(kind, item.id),
+                style=ft.ButtonStyle(visual_density=ft.VisualDensity.COMPACT)
+                if kind == "category"
+                else None,
                 on_click=self._edit_entity,
             ),
             ft.IconButton(
                 icon=ft.Icons.DELETE_OUTLINE,
                 tooltip=self.tr("crud_delete"),
                 data=(kind, item.id),
+                style=ft.ButtonStyle(visual_density=ft.VisualDensity.COMPACT)
+                if kind == "category"
+                else None,
                 on_click=self._delete_entity,
             ),
         ]

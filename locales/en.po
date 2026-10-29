@@ -577,7 +577,7 @@ msgstr "Transfer to"
 #. Stable TextMoney key: ui.transfer_fee_enabled; do not translate this
 #. identifier.
 msgid "ui.transfer_fee_enabled"
-msgstr "Include a transfer fee"
+msgstr "Include a fee"
 
 #. Stable TextMoney key: ui.transfer_fee; do not translate this identifier.
 msgid "ui.transfer_fee"
@@ -603,7 +603,23 @@ msgstr "Fee category"
 #. Stable TextMoney key: ui.transfer_default_fee; do not translate this
 #. identifier.
 msgid "ui.transfer_default_fee"
-msgstr "Default transfer fee category"
+msgstr "Default fee category"
+
+#. Stable TextMoney key: ui.fee_categories; do not translate this identifier.
+msgid "ui.fee_categories"
+msgstr "Commission categories"
+
+#. Stable TextMoney key: ui.fee_categories_help; do not translate this identifier.
+msgid "ui.fee_categories_help"
+msgstr "Choose branches for commission selectors; their subcategories are included automatically. Uncheck All expense categories to narrow the list. Choose a default below and save. These settings apply only to this device, not to saved transactions."
+
+#. Stable TextMoney key: ui.fee_categories_all; do not translate this identifier.
+msgid "ui.fee_categories_all"
+msgstr "All expense categories"
+
+#. Stable TextMoney key: ui.fee_categories_invalid; do not translate this identifier.
+msgid "ui.fee_categories_invalid"
+msgstr "Select at least one expense category branch and a default within those branches. If saved settings are invalid, check this device's commission settings."
 
 #. Stable TextMoney key: ui.transfer_bank_fees; do not translate this
 #. identifier.
@@ -628,7 +644,27 @@ msgstr ""
 
 #. Stable TextMoney key: ui.transfer_category; do not translate this identifier.
 msgid "ui.transfer_category"
-msgstr "Choose one expense category as the default transfer fee category."
+msgstr "Choose an expense category as the default fee category."
+
+#. Stable TextMoney key: ui.commission_amount; do not translate this identifier.
+msgid "ui.commission_amount"
+msgstr "Enter a positive amount and a nonnegative fee. A deducted fee must be smaller than the amount."
+
+#. Stable TextMoney key: ui.commission_purchase; do not translate this identifier.
+msgid "ui.commission_purchase"
+msgstr "Purchase before fee"
+
+#. Stable TextMoney key: ui.commission_gross; do not translate this identifier.
+msgid "ui.commission_gross"
+msgstr "Income before fee"
+
+#. Stable TextMoney key: ui.commission_expense_preview; do not translate this identifier.
+msgid "ui.commission_expense_preview"
+msgstr "Purchase: {principal}; total debited: {total}"
+
+#. Stable TextMoney key: ui.commission_income_preview; do not translate this identifier.
+msgid "ui.commission_income_preview"
+msgstr "Gross income: {principal}; net credited: {total}"
 
 #. Stable TextMoney key: ui.transfer_negative; do not translate this identifier.
 msgid "ui.transfer_negative"
@@ -1130,10 +1166,10 @@ msgid "ui.conflict_copy_scan_failed"
 msgstr "Could not check sibling filenames for possible conflict copies. The current journal is still usable."
 
 msgid "ui.default_fee_saved"
-msgstr "Default fee category saved on this device only."
+msgstr "Commission categories and default saved on this device only."
 
 msgid "ui.default_fee_save_failed"
-msgstr "Could not save the local default fee category. The previous setting is unchanged."
+msgstr "Could not save local commission settings. The previous settings are unchanged."
 
 msgid "ui.default_fee_unavailable"
 msgstr "The locally preferred fee category is unavailable or inactive in this journal. Choose an active expense category; the local preference has not been changed."

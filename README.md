@@ -171,6 +171,18 @@ For loans, choose **Loan / credit** when creating the account and enter the
 opening amount owed. Balances use standard Beancount signs: debt is negative;
 a transfer into the loan account reduces it.
 
+Expenses/purchases and income also support a fixed-amount commission under
+Advanced, added on top or deducted from the entered amount. The preview shows the
+purchase/gross income and actual debit/net credit. Fees use the selected account's
+currency; percentages and a third currency are not supported. Choose any active
+expense category for the fee; `Expenses:Bank-Fees` is only the initial default.
+Settings lets you select commission category branches (including descendants) and
+a separate default, saved only on this device. Every fee selector shows hierarchy;
+all expense categories remain available until this list is narrowed.
+Purchases and fees stay in the same transaction, using posting
+order instead of custom metadata. Reimbursements and balance adjustments remain fee-free.
+See the [accounting examples](docs/journal-format.md#purchase-and-income-commissions).
+
 For accounts in different currencies, enter **Total debited** and
 **Actually credited**. Neither amount is calculated or replaced.
 If there is a fee, select its currency: a source-currency fee is included in the

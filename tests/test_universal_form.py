@@ -454,6 +454,7 @@ def test_explicit_transfer_creates_edits_and_reverses_with_source_and_destinatio
                     form.amount.value,
                 )
         form.sign.selected = ["transfer"]
+        change(form.sign)
         form.fee_enabled.value = fee_case != "none"
         form.fee.value = "5"
         form.fee_mode.value = "deducted" if fee_case.endswith("deducted") else "added"
@@ -609,8 +610,8 @@ def test_sign_second_account_and_hidden_controls_preserve_draft_and_infer_only_v
         assert form.description.value == "Draft\ntext" and form.payee.value == "Person"
         assert form.when.values() == original_time
         assert not form.special.visible
-        # Stale hidden transfer and special values must not leak into an expense.
-        form.fee_enabled.value, form.fee.value = True, "not a fee"
+        # Disabled commission and hidden transfer/special values must not leak.
+        form.fee_enabled.value, form.fee.value = False, "not a fee"
         form.fee_currency.value = "XXX"
         form.reference.value = "not a linked expense"
         await dialog.actions[-1].on_click(MagicMock())
@@ -783,8 +784,9 @@ def test_mode_controls_save_semantics_and_retains_hidden_transfer_draft(
         form.account.value, form.second_account.value = "Assets:Dollar", "Assets:Bank"
         form.amount.value, form.second_amount.value = "105", "4200"
         form.sign.selected = ["transfer"]
-        form.fee_enabled.value, form.fee.value, form.fee_currency.value = True, "5", "USD"
         change(form.sign)
+        form.fee_enabled.value, form.fee.value, form.fee_currency.value = True, "5", "USD"
+        change(form.fee_enabled)
         assert form.second_account.visible and form.second_amount.visible
         assert form.fee.visible and form.fee_currency.visible
         for ordinary in ("-", "+"):
@@ -794,7 +796,7 @@ def test_mode_controls_save_semantics_and_retains_hidden_transfer_draft(
             assert not form.fee.visible and not form.fee_currency.visible
             assert not form.preview.visible
             assert form.special.visible == (ordinary == "+")
-            assert form.fee_currency.value == "USD" and form.fee.value == "5"
+            assert not form.fee_enabled.value and form.fee.value == "0"
             assert form.second_account.value == "Assets:Bank"
             assert (form.amount.value, form.second_amount.value) == ("105", "4200")
         form.sign.selected = [mode]

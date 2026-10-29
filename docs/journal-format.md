@@ -113,6 +113,48 @@ local device preferences, not journal settings. Unrelated existing user metadata
 tags, links and comments are preserved; legacy app fields are not globally
 migrated, stripped or used as authoritative transaction identities.
 
+### Purchase and income commissions
+
+Ordinary expenses and income support an optional fixed-amount commission in the
+selected account's currency, in the same transaction. No percentages, separate
+fee currency or fee-mode metadata are used. With amount 100 and fee 5:
+
+| Kind / mode | Primary category | Account movement | Fee expense |
+| --- | --- | --- | --- |
+| Expense / added | Expenses +100 | -105 | +5 |
+| Expense / deducted | Expenses +95 | -100 | +5 |
+| Income / added | Income -105 | +100 | +5 |
+| Income / deducted | Income -100 | +95 | +5 |
+
+Purchase, income and transfer commissions may use any active expense category.
+Settings offers a hierarchical multi-select of commission category branches;
+selecting a parent includes all descendants, including future ones. All expense
+categories remain available until this list is narrowed. The separate default must
+belong to a selected branch; it initially falls back to `Expenses:Bank-Fees`.
+Branches and default are saved together as one local device preference, with no
+journal metadata. Older default-only preferences are read without changing their
+meaning. Fee selectors (including the Settings default) use path order and nesting
+indentation. An existing transaction's fee remains available when editing even if
+later excluded; inactive categories retain the existing save validation.
+A missing `Expenses:Bank-Fees`
+is declared only on first nonzero use, in the same guarded save.
+
+Recognition requires one ordinary account, one primary category, and optionally
+one nonnegative fee posting, balanced in one currency without price annotations.
+The maintainer-approved metadata-free convention identifies the **first expense
+posting as the purchase and the second as its commission**, even if both use the
+same category. Generated purchases place the account posting between them.
+The locally configured category list filters selectors only; it does not change
+posting recognition, reports or budgets, nor rewrite existing transactions.
+Matching hand-written two-category splits are intentionally interpreted this way;
+larger or unsupported splits remain read-only. Keep expense posting order intact
+when editing externally if these UI roles should be preserved. Income and transfer
+fees have distinct accounting roots and do not need this convention. Reopening
+uses canonical Added presentation (purchase principal or net income); the original
+mode cannot be recovered from native postings. Removing an annotated fee retains
+its posting at zero, preserving its role and annotations.
+Reimbursements and balance adjustments do not support commissions.
+
 ### Transfers and exchange precision
 
 Same-currency transfers move principal between accounts; only explicit fee

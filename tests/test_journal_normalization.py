@@ -89,7 +89,8 @@ def test_unmatched_transaction_stays_external_and_legacy_kind_is_uninterpreted(
                 "",
                 "Split category movement",
                 (
-                    Posting("Expenses:Food", Decimal("4"), "UAH"),
+                    Posting("Expenses:Food", Decimal("3"), "UAH"),
+                    Posting("Expenses:Food", Decimal("1"), "UAH"),
                     Posting("Expenses:Food", Decimal("6"), "UAH"),
                     Posting("Assets:Cash", Decimal("-10"), "UAH"),
                 ),

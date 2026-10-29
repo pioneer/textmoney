@@ -379,6 +379,9 @@ class Journal:
         if transaction.kind == "transfer":
             self.transfer_details(transaction)
             return transaction
+        if transaction.kind in {"expense", "income"}:
+            self.ledger.cashflow_details(transaction)
+            return transaction
         if (
             transaction.kind not in {"expense", "income", "reimbursement", "adjustment"}
             or len(transaction.postings) != 2
@@ -406,6 +409,21 @@ class Journal:
 
     def transfer_details(self, transaction: Transaction) -> TransferDetails:
         return self.ledger.transfer_details(transaction)
+
+    @staticmethod
+    def _with_fee_category(
+        ledger: Ledger, fee: Decimal, category_id: str, day: date, name: str
+    ) -> tuple[Ledger, str]:
+        if (
+            fee
+            and category_id == BANK_FEES
+            and not any(c.id == BANK_FEES for c in ledger.categories)
+        ):
+            category = Category(BANK_FEES, display_name(name), day)
+            return replace(ledger, categories=(*ledger.categories, category)), open_category(
+                category
+            )
+        return ledger, ""
 
     async def edit_expense(
         self,
@@ -445,6 +463,11 @@ class Journal:
         timestamp: str,
         description: str,
         expected_source: str,
+        *,
+        fee: str | None = None,
+        fee_category: str | None = None,
+        fee_mode: str = "added",
+        default_fee_name: str = "Bank fees",
     ) -> str | None:
         if expected_source != self.source:
             raise ConflictError("crud_stale")
@@ -459,9 +482,33 @@ class Journal:
             self.ledger,
             transactions=tuple(t for t in self.ledger.transactions if t.id != identifier),
         )
+        original_details = (
+            self.ledger.cashflow_details(original)
+            if original.kind in {"expense", "income"}
+            else None
+        )
+        fee_amount = (
+            money(fee) if fee is not None else original_details.fee if original_details else ZERO
+        )
+        fee_category = fee_category or (
+            original_details.fee_category if original_details else BANK_FEES
+        )
+        ledger, addition = self._with_fee_category(
+            ledger, fee_amount, fee_category, day, default_fee_name
+        )
         updated = (
             ledger.expense(
-                account, category, money(amount), payee, day, stamp, identifier, today=self.today()
+                account,
+                category,
+                money(amount),
+                payee,
+                day,
+                stamp,
+                identifier,
+                today=self.today(),
+                fee=fee_amount,
+                fee_category=fee_category,
+                fee_mode=fee_mode,
             )
             if original.kind == "expense"
             else ledger.incoming(
@@ -474,16 +521,31 @@ class Journal:
                 identifier,
                 original.kind,
                 today=self.today(),
+                fee=fee_amount,
+                fee_category=fee_category,
+                fee_mode=fee_mode,
             )
         )
 
         def edit(document: models.File) -> str:
             entry = self._transaction(document, original.id)
-            original_asset = next(
-                p.account
-                for p in original.postings
-                if p.account in {a.id for a in self.ledger.accounts}
+            old_postings = [p for p in entry.postings if isinstance(p, models.Posting)]
+            asset = next(
+                p for p in old_postings if p.account in {a.id for a in self.ledger.accounts}
             )
+            # Roles follow posting order even when both expense accounts are identical.
+            old_fee = next(
+                (
+                    node
+                    for posting, node in zip(original.postings, old_postings, strict=True)
+                    if original_details and posting is original_details.commission
+                ),
+                None,
+            )
+            primary = next(p for p in old_postings if p is not asset and p is not old_fee)
+            new_asset = next(p for p in updated.postings if p.account == account)
+            new_primary = next(p for p in updated.postings if p.account == category)
+            roles = [(asset, new_asset), (primary, new_primary)]
 
             def update() -> None:
                 entry.date = updated.date
@@ -491,16 +553,31 @@ class Journal:
                 entry.narration = description
                 if updated.timestamp != original.timestamp or updated.date != original.date:
                     entry.meta["time"] = transaction_time(updated.timestamp)
-                for posting in entry.postings:
-                    if not isinstance(posting, models.Posting):
-                        continue
-                    asset = posting.account == original_asset
-                    posting.account = account if asset else category
-                    direction = -1 if original.kind == "expense" else 1
-                    posting.number = money(amount) * (direction if asset else -direction)
-                    posting.currency = updated.postings[0].currency
+                for node, posting in roles:
+                    node.account, node.number, node.currency = (
+                        posting.account,
+                        posting.amount,
+                        posting.currency,
+                    )
+                if fee_amount:
+                    if old_fee is None:
+                        entry.postings.append(
+                            models.Posting.from_value(fee_category, fee_amount, new_asset.currency)
+                        )
+                    else:
+                        old_fee.account, old_fee.number, old_fee.currency = (
+                            fee_category,
+                            fee_amount,
+                            new_asset.currency,
+                        )
+                elif old_fee is not None:
+                    if old_fee.meta or old_fee.inline_comment:
+                        old_fee.number, old_fee.currency = ZERO, new_asset.currency
+                    else:
+                        entry.postings.remove(old_fee)
 
-            return replace_directive(self.source, entry, update)
+            result = replace_directive(self.source, entry, update)
+            return append(result, addition) if addition else result
 
         return await self._change(edit, expected_source)
 
@@ -844,6 +921,11 @@ class Journal:
         timestamp: str | None = None,
         related_expense: str | None = None,
         expected_source: str | None = None,
+        *,
+        fee: str = "0",
+        fee_category: str = BANK_FEES,
+        fee_mode: str = "added",
+        default_fee_name: str = "Bank fees",
     ) -> str | None:
         self._require_ready()
         if expected_source is not None and expected_source != self.source:
@@ -861,9 +943,7 @@ class Journal:
             if kind != "reimbursement":
                 raise LedgerError("incoming_reference")
             original = self.expense_for_edit(related_expense)
-            original_category = next(
-                p for p in original.postings if p.account.startswith("Expenses:")
-            )
+            original_category = self.ledger.cashflow_details(original).category
             receiving = next((a for a in self.ledger.accounts if a.id == account), None)
             if (
                 original_category.account != category
@@ -873,6 +953,10 @@ class Journal:
             ):
                 raise LedgerError("incoming_reference")
         ledger = self.ledger
+        fee_amount = money(fee)
+        ledger, fee_declaration = self._with_fee_category(
+            ledger, fee_amount, fee_category, day, default_fee_name
+        )
         addition = ""
         source = self.source
         if kind == "adjustment" and ledger.adjustments_opened is None:
@@ -895,6 +979,9 @@ class Journal:
             str(uuid4()),
             kind,
             today=self.today(),
+            fee=fee_amount,
+            fee_category=fee_category,
+            fee_mode=fee_mode,
         )
         transaction = replace(
             transaction, narration=description_text(description), related_expense=related_expense
@@ -921,7 +1008,14 @@ class Journal:
             if link not in entry.links:
                 source = replace_directive(source, entry, lambda: entry.links.append(link))
             transaction = replace(transaction, links=(link,))
-        return await self._commit(append(source, addition + transaction_text(transaction)))
+        return await self._commit(
+            append(
+                source,
+                addition
+                + (fee_declaration + "\n" if fee_declaration else "")
+                + transaction_text(transaction),
+            )
+        )
 
     async def save_transfer(
         self,
@@ -957,15 +1051,9 @@ class Journal:
             self.ledger,
             transactions=tuple(t for t in self.ledger.transactions if t.id != identifier),
         )
-        addition = ""
-        if (
-            fee_amount
-            and fee_category == BANK_FEES
-            and not any(c.id == BANK_FEES for c in ledger.categories)
-        ):
-            category = Category(BANK_FEES, display_name(default_fee_name), day)
-            ledger = replace(ledger, categories=(*ledger.categories, category))
-            addition = open_category(category)
+        ledger, addition = self._with_fee_category(
+            ledger, fee_amount, fee_category, day, default_fee_name
+        )
         updated = ledger.transfer(
             source_account,
             destination,
@@ -1077,6 +1165,11 @@ class Journal:
         occurred: str,
         description: str = "Expense",
         timestamp: str | None = None,
+        *,
+        fee: str = "0",
+        fee_category: str = BANK_FEES,
+        fee_mode: str = "added",
+        default_fee_name: str = "Bank fees",
     ) -> str | None:
         self._require_ready()
         try:
@@ -1088,7 +1181,11 @@ class Journal:
             )
         except ValueError as exc:
             raise LedgerError("Date must be YYYY-MM-DD.") from exc
-        transaction = self.ledger.expense(
+        fee_amount = money(fee)
+        ledger, addition = self._with_fee_category(
+            self.ledger, fee_amount, fee_category, day, default_fee_name
+        )
+        transaction = ledger.expense(
             account,
             category,
             money(amount),
@@ -1097,6 +1194,12 @@ class Journal:
             stamp,
             str(uuid4()),
             today=self.today(),
+            fee=fee_amount,
+            fee_category=fee_category,
+            fee_mode=fee_mode,
         )
         description = description_text(description)
-        return await self._save(transaction_text(replace(transaction, narration=description)))
+        return await self._save(
+            (addition + "\n" if addition else "")
+            + transaction_text(replace(transaction, narration=description))
+        )

@@ -591,11 +591,11 @@ msgstr "Способ списания комиссии"
 
 #. Stable TextMoney key: ui.transfer_added; do not translate this identifier.
 msgid "ui.transfer_added"
-msgstr "Сверх суммы перевода"
+msgstr "Сверх суммы"
 
 #. Stable TextMoney key: ui.transfer_deducted; do not translate this identifier.
 msgid "ui.transfer_deducted"
-msgstr "Из суммы перевода"
+msgstr "Из суммы"
 
 #. Stable TextMoney key: ui.transfer_fee_category; do not translate this
 #. identifier.
@@ -605,7 +605,43 @@ msgstr "Категория комиссии"
 #. Stable TextMoney key: ui.transfer_default_fee; do not translate this
 #. identifier.
 msgid "ui.transfer_default_fee"
-msgstr "Категория комиссии перевода по умолчанию"
+msgstr "Категория комиссии по умолчанию"
+
+#. Stable TextMoney key: ui.fee_categories; do not translate this identifier.
+msgid "ui.fee_categories"
+msgstr "Категории комиссий"
+
+#. Stable TextMoney key: ui.fee_categories_help; do not translate this identifier.
+msgid "ui.fee_categories_help"
+msgstr "Выберите ветки для списков комиссий; их подкатегории включаются автоматически. Снимите отметку «Все категории расходов», чтобы сузить список. Ниже выберите категорию по умолчанию и сохраните. Эти настройки действуют только на этом устройстве и не изменяют сохранённые операции."
+
+#. Stable TextMoney key: ui.fee_categories_all; do not translate this identifier.
+msgid "ui.fee_categories_all"
+msgstr "Все категории расходов"
+
+#. Stable TextMoney key: ui.fee_categories_invalid; do not translate this identifier.
+msgid "ui.fee_categories_invalid"
+msgstr "Выберите хотя бы одну ветку категорий расходов и категорию по умолчанию в этих ветках. Если сохранённые параметры некорректны, проверьте настройки комиссий этого устройства."
+
+#. Stable TextMoney key: ui.commission_amount; do not translate this identifier.
+msgid "ui.commission_amount"
+msgstr "Введите положительную сумму и неотрицательную комиссию. Комиссия из суммы должна быть меньше суммы."
+
+#. Stable TextMoney key: ui.commission_purchase; do not translate this identifier.
+msgid "ui.commission_purchase"
+msgstr "Покупка без комиссии"
+
+#. Stable TextMoney key: ui.commission_gross; do not translate this identifier.
+msgid "ui.commission_gross"
+msgstr "Доход до комиссии"
+
+#. Stable TextMoney key: ui.commission_expense_preview; do not translate this identifier.
+msgid "ui.commission_expense_preview"
+msgstr "Покупка: {principal}; всего списано: {total}"
+
+#. Stable TextMoney key: ui.commission_income_preview; do not translate this identifier.
+msgid "ui.commission_income_preview"
+msgstr "Валовой доход: {principal}; фактически зачислено: {total}"
 
 #. Stable TextMoney key: ui.transfer_bank_fees; do not translate this
 #. identifier.
@@ -630,7 +666,7 @@ msgstr ""
 
 #. Stable TextMoney key: ui.transfer_category; do not translate this identifier.
 msgid "ui.transfer_category"
-msgstr "Выберите одну категорию расходов для комиссии перевода по умолчанию."
+msgstr "Выберите категорию расходов для комиссии по умолчанию."
 
 #. Stable TextMoney key: ui.transfer_negative; do not translate this identifier.
 msgid "ui.transfer_negative"
@@ -1133,10 +1169,10 @@ msgid "ui.conflict_copy_scan_failed"
 msgstr "Не удалось проверить имена соседних файлов на возможные конфликтные копии. Текущий журнал остаётся доступным."
 
 msgid "ui.default_fee_saved"
-msgstr "Категория комиссии по умолчанию сохранена только на этом устройстве."
+msgstr "Категории комиссий и категория по умолчанию сохранены только на этом устройстве."
 
 msgid "ui.default_fee_save_failed"
-msgstr "Не удалось сохранить локальную категорию комиссии по умолчанию. Предыдущая настройка не изменена."
+msgstr "Не удалось сохранить локальные настройки комиссий. Предыдущие параметры не изменены."
 
 msgid "ui.default_fee_unavailable"
 msgstr "Локально выбранная категория комиссии отсутствует или неактивна в этом журнале. Выберите активную категорию расходов; локальная настройка не изменена."

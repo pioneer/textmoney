@@ -15,13 +15,13 @@ from journal_fixtures import review_external_fixture
 
 from app.domain.ledger import EPOCH, Account, Category, LedgerError, Posting, Transaction
 from app.infrastructure.desktop_storage import DesktopFolder
-from app.infrastructure.preferences import DesktopPreferences
+from app.infrastructure.preferences import DesktopPreferences, FeePreferences
 from app.journal import FILENAME, Journal
 from app.localization import date_input, format_date, format_timestamp, parse_date_input, translate
 from app.storage import StorageError
 from app.timekeeping import local_datetime, named_zone, picker_timestamp, wall_timestamp
 from app.ui.datetime_fields import DateTimeFields
-from app.ui.finance import DEFAULT_FEE_KEY, TIMEZONE_KEY, FinanceView
+from app.ui.finance import DEFAULT_FEE_KEY, FEE_CATEGORIES_KEY, TIMEZONE_KEY, FinanceView
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
@@ -1066,7 +1066,9 @@ def test_default_fee_is_local_and_persistence_failure_restores_previous_setting(
                 assert view.default_fee.value == previous
         else:
             assert journal.ledger.default_fee_category == "Expenses:Food"
-            view.preferences.set.assert_awaited_once_with(DEFAULT_FEE_KEY, "Expenses:Food")
+            view.preferences.set.assert_awaited_once_with(
+                FEE_CATEGORIES_KEY, FeePreferences(default="Expenses:Food").serialize()
+            )
             assert view.message_key == "default_fee_saved"
             (tmp_path / FILENAME).write_text(original + "\n; changed\n", newline="")
             await view._poll_journal()

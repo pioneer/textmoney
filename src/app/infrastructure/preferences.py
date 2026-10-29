@@ -2,11 +2,60 @@ import asyncio
 import json
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+
+from app.domain.ledger import BANK_FEES, LedgerError, account_path
 
 
 class PreferencesError(RuntimeError):
     pass
+
+
+def fee_category_in_branches(identifier: str, branches: tuple[str, ...]) -> bool:
+    return any(identifier == branch or identifier.startswith(branch + ":") for branch in branches)
+
+
+@dataclass(frozen=True)
+class FeePreferences:
+    branches: tuple[str, ...] = ("Expenses",)
+    default: str = BANK_FEES
+
+    def __post_init__(self) -> None:
+        try:
+            for identifier in (*self.branches, self.default):
+                if identifier != "Expenses" and (
+                    not identifier.startswith("Expenses:")
+                    or account_path(identifier, "Expenses") != identifier
+                ):
+                    raise PreferencesError("fee_categories_invalid")
+        except LedgerError as exc:
+            raise PreferencesError("fee_categories_invalid") from exc
+        if (
+            not self.branches
+            or self.default == "Expenses"
+            or not fee_category_in_branches(self.default, self.branches)
+        ):
+            raise PreferencesError("fee_categories_invalid")
+
+    def serialize(self) -> str:
+        return json.dumps({"branches": self.branches, "default": self.default})
+
+    @classmethod
+    def parse(cls, value: str) -> "FeePreferences":
+        try:
+            settings = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise PreferencesError("fee_categories_invalid") from exc
+        if (
+            not isinstance(settings, dict)
+            or set(settings) != {"branches", "default"}
+            or not isinstance(settings["branches"], list)
+            or any(not isinstance(branch, str) for branch in settings["branches"])
+            or not isinstance(settings["default"], str)
+        ):
+            raise PreferencesError("fee_categories_invalid")
+        return cls(tuple(dict.fromkeys(settings["branches"])), settings["default"])
 
 
 def desktop_preferences_path() -> Path:

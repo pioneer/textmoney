@@ -104,16 +104,33 @@ receipt choices.
 | + | One | Income into the account |
 | ↔ | Source and destination, both required | Transfer source → destination |
 
-Only **↔** shows the destination account and transfer fee controls, hiding the
+Only **↔** shows the destination account, hiding the
 ordinary category. Minus and plus hide the second account completely, and its
 retained draft cannot turn an ordinary transaction into a transfer. Switching
-buttons preserves numeric amounts, description, fee settings and category drafts.
+buttons preserves numeric amounts, description, per-kind fee settings and category drafts.
 For different currencies the first amount is the total source debit and the
 second is the actual destination credit; neither is automatically replaced.
 To reverse a transfer, explicitly change its source/destination accounts and
 the exchanged amounts as appropriate. Fees retain their selected currency.
 For same-currency fees, the single amount retains its existing nominal
 added/deducted meaning; the preview shows actual debited/credited totals.
+
+Ordinary **−** expenses and **+** income also offer an optional fixed fee under
+Advanced, in the selected account's currency. There is no percentage or third
+currency. The amount label and preview explain Added/Deducted semantics; see the
+[accounting table](journal-format.md#purchase-and-income-commissions).
+Settings → Commission categories selects expense branches and automatically includes
+their descendants; a separate default chooses the initial fee category.
+The initial All expense categories choice preserves existing behavior until narrowed.
+Both selections are saved together on the device, not in the journal. All fee
+selectors show hierarchy. Excluding a category does not hide an existing
+transaction's saved fee from its editor.
+Purchase and fee remain in one transaction, recognized by
+their expense posting order without custom metadata. Matching hand-written
+two-category splits use the same interpretation.
+Saved commissions reopen, edit and delete with their transaction, using the same
+backup/conflict protections as transfers. Reopening uses canonical Added amounts,
+not a persisted fee mode. Reimbursements and balance adjustments remain fee-free.
 
 For **+**, **Додатково → Надходження**
 offers income, reimbursement or balance adjustment. Reimbursement additionally

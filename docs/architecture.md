@@ -110,8 +110,8 @@ New transactions have no persistent ID metadata. A source position identifies
 an entry only within its captured source baseline. Native shared links connect
 an expense and its reimbursements. Legacy/user metadata is preserved, not
 globally stripped or treated as an authoritative transaction identity.
-Transfer edit forms reconstruct economic amounts from postings, not stored
-fee-presentation metadata. The default fee category is a local device preference.
+Expense, income and transfer edit forms reconstruct economic amounts from postings,
+not stored fee-presentation metadata. The default fee category is a local device preference.
 Budget definitions use Fava-compatible native `custom "budget"` directives in the
 same journal. The budget domain adapts Fava 1.30.16's MIT allocation/calendar/price
 algorithms; its notice is shipped in `app/notices/fava.txt`. It uses a separate
@@ -248,6 +248,22 @@ Transfers always send from the first account to the second; exchange fields are
 source debit and destination credit. Account selectors determine currencies; the
 existing transfer builder still owns fee and accounting validation.
 
+Ordinary expense/income commissions reuse the Advanced fee controls and a shared
+Flet-free Decimal calculation for previews and posting construction. Fees use the
+selected account's currency only. Per-kind fee drafts survive mode switches but
+never leak into another kind or a special receipt. Every fee category is selectable,
+within device-local configured branches, using the local default or
+`Expenses:Bank-Fees` fallback. Settings uses a hierarchical branch multi-select
+with inherited descendants and a separate default. A single validated preference
+stores both atomically; the earlier default-only setting remains a read fallback.
+Settings and transaction fee choices reuse category indentation and path sorting.
+Excluded saved fees remain available to their editor, without changing accounting
+recognition or adding journal metadata. The approved metadata-free
+purchase convention uses the first expense posting as principal and the second as
+commission, including matching externally authored two-category splits. The codec
+keeps larger or unsupported splits read-only. Reimbursement references identify the
+purchase category, not its fee. Reports and budgets sum each native posting once.
+
 Special receipts (reimbursement and balance adjustment) are explicit contextual
 choices under collapsed Advanced for positive, non-transfer transactions. They
 never become ordinary income implicitly. Hidden fee/reference/category values
@@ -298,7 +314,7 @@ validation (balanced explicit amounts, declarations, currency and dates)
 remains strict. Liability credit balances are normal and do not produce an
 insufficient-funds warning.
 
-The default transfer fee category is a local device preference.
+The default fee category is a local device preference.
 Without it, `Expenses:Bank-Fees` is the default and is declared only when first
 used with a nonzero fee, within the same validated save. Editing derives amounts
 from postings with canonical added-fee presentation, preserving unrelated

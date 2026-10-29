@@ -531,14 +531,14 @@ def test_referenced_unused_account_cannot_be_deleted(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
-def test_split_and_opening_entries_are_readonly_in_expense_editor(tmp_path: Path) -> None:
+def test_larger_splits_and_opening_entries_are_readonly_in_expense_editor(tmp_path: Path) -> None:
     async def scenario() -> None:
         journal = await seeded(tmp_path)
         with pytest.raises(LedgerError, match="crud_transaction_readonly"):
             journal.expense_for_edit(journal.ledger.transactions[0].id)
         source = journal.source.replace(
             "Expenses:Food:Groceries 10 UAH",
-            "Expenses:Food:Groceries 5 UAH\n    Expenses:Food 5 UAH",
+            "Expenses:Food:Groceries 3 UAH\n    Expenses:Food 3 UAH\n    Expenses:Food 4 UAH",
         )
         assert source != journal.source
         (tmp_path / FILENAME).write_text(source, newline="")

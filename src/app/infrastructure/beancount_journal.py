@@ -339,9 +339,8 @@ class JournalCodec:
                     if expense.date <= transaction.date
                     and any(
                         debit.account == credit.account and debit.currency == credit.currency
-                        for debit in expense.postings
+                        for debit in (ledger.cashflow_details(expense).category,)
                         for credit in transaction.postings
-                        if debit.account.startswith("Expenses:")
                     )
                 }
                 if len(candidates) == 1:
@@ -580,10 +579,13 @@ def _infer_transaction_kind(transaction: Transaction, ledger: Ledger) -> str:
             if category.account.startswith("Income:") and category.amount < 0 < account.amount:
                 return "income"
     try:
-        ledger.transfer_details(transaction)
+        return ledger.cashflow_details(transaction).kind
     except LedgerError:
-        return "external"
-    return "transfer"
+        try:
+            ledger.transfer_details(transaction)
+        except LedgerError:
+            return "external"
+        return "transfer"
 
 
 def equity_declaration(opened: date) -> str:

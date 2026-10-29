@@ -29,6 +29,7 @@ from app.domain.ledger import (
     LedgerError,
     Posting,
     Transaction,
+    cashflow_amounts,
     exchange_values,
     money,
 )
@@ -36,7 +37,12 @@ from app.domain.reporting import CategoryReport, PeriodReport, period_bounds, pe
 from app.domain.storage import ConflictError
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
-from app.infrastructure.preferences import DesktopPreferences, PreferencesError
+from app.infrastructure.preferences import (
+    DesktopPreferences,
+    FeePreferences,
+    PreferencesError,
+    fee_category_in_branches,
+)
 from app.journal import FILENAME, Journal
 from app.localization import (
     LANGUAGES,
@@ -63,6 +69,7 @@ THEME_KEY = "textmoney.theme.v1"
 TIMEZONE_KEY = "textmoney.timezone.v1"
 BACKUP_CLEANUP_KEY = "textmoney.backup-cleanup.v1"
 DEFAULT_FEE_KEY = "textmoney.default-fee-category.v1"
+FEE_CATEGORIES_KEY = "textmoney.fee-categories.v1"
 COMPACT_MAX_WIDTH = 599
 MEDIUM_MAX_WIDTH = 1023
 MAX_CONTENT_WIDTH = 1180
@@ -96,7 +103,8 @@ class FinanceView(ft.Row):
         self.theme_name = "system"
         self.timezone_name = "system"
         self.auto_backup_cleanup = True
-        self.default_fee_category = BANK_FEES
+        self.fee_preferences = FeePreferences()
+        self.fee_branches_draft = self.fee_preferences.branches
         self.possible_conflict_copies: list[str] = []
         self.sibling_scan_failed = False
         self.system_zone = "system"
@@ -122,7 +130,12 @@ class FinanceView(ft.Row):
         self.account_root = ft.Dropdown(
             value="Assets", expand=True, on_select=self._account_type_changed
         )
-        self.default_fee = ft.Dropdown()
+        self.default_fee = ft.Dropdown(expand=True)
+        self.fee_category_choices = ft.Column(spacing=0)
+        self.fee_choices_state: tuple[tuple[str, str, bool, bool], ...] = ()
+        self.fee_category_settings = ft.ExpansionTile(
+            title="", controls=[self.fee_category_choices], maintain_state=True
+        )
         self.default_fee_save = ft.Button(on_click=self._save_default_fee)
         self.default_fee_notice = ft.Text("", visible=False)
         self.backup_cleanup = ft.Checkbox(value=True, on_change=self._backup_cleanup_changed)
@@ -409,6 +422,8 @@ class FinanceView(ft.Row):
             self.category_name,
             self.operating_currencies,
             self.default_fee,
+            self.default_fee_save,
+            self.fee_category_settings,
         ]
         self._refresh_labels()
         self._refresh()
@@ -466,6 +481,8 @@ class FinanceView(ft.Row):
             ft.DropdownOption(key="Liabilities", text=self.tr("transfer_liability")),
         ]
         self.default_fee.label = self.tr("transfer_default_fee")
+        self.fee_category_settings.title = self.tr("fee_categories")
+        self._render_fee_settings()
         self.default_fee_save.content = self.tr("crud_save")
         self.page_title.value = self.tr(
             {
@@ -696,7 +713,9 @@ class FinanceView(ft.Row):
                         ft.Text(self.tr("timezone_help")),
                         self.timezone_choice,
                         self.timezone_save,
-                        self.default_fee,
+                        self.fee_category_settings,
+                        ft.Text(self.tr("fee_categories_help"), size=12),
+                        ft.Row([self.default_fee]),
                         self.default_fee_save,
                         self.default_fee_notice,
                     ],
@@ -853,6 +872,7 @@ class FinanceView(ft.Row):
         self.reload_button.disabled = self.journal is None
         self.operating_currencies.disabled = not ready
         self.default_fee.disabled = self.default_fee_save.disabled = not ready
+        self.fee_category_settings.disabled = not ready
         self.balance_warning.visible = False
         if not ready or self.journal is None:
             self.account_list.controls = [ft.Text(self.tr("accounts_empty"))]
@@ -872,23 +892,15 @@ class FinanceView(ft.Row):
             + " "
             + ", ".join(a.name for a in ledger.accounts if a.id in warnings)
         )
-        self.default_fee.options = [
-            ft.DropdownOption(key=c.id, text=c.name)
-            for c in ledger.categories
-            if c.id.startswith("Expenses:") and ledger.category_active(c.id)
-        ]
-        if BANK_FEES not in {c.id for c in ledger.categories}:
-            self.default_fee.options.append(
-                ft.DropdownOption(key=BANK_FEES, text=self.tr("transfer_bank_fees"))
-            )
-        if (
-            self.default_fee_journal is not self.journal
-            or self.default_fee.value == self.default_fee_original
+        if self.default_fee_journal is not self.journal or (
+            self.default_fee.value == self.default_fee_original
+            and self.fee_branches_draft == self.fee_preferences.branches
         ):
             self.default_fee.value = ledger.default_fee_category
             self.default_fee_original = ledger.default_fee_category
             self.default_fee_journal = self.journal
             self.default_fee_source = self.journal.source
+            self.fee_branches_draft = self.fee_preferences.branches
         if (
             self.operating_journal is not self.journal
             or self.operating_currencies.value == self.operating_original
@@ -1324,6 +1336,15 @@ class FinanceView(ft.Row):
             and -outgoing[0].amount == incoming[0].amount
         )
         transfer = None
+        cashflow = None
+        if transaction.kind in {"expense", "income"} and self.journal is not None:
+            cashflow = self.journal.ledger.cashflow_details(transaction)
+            outgoing, incoming = (
+                ([cashflow.account], [cashflow.category])
+                if cashflow.kind == "expense"
+                else ([cashflow.category], [cashflow.account])
+            )
+            simple = True
         if transaction.kind == "transfer" and self.journal is not None:
             try:
                 transfer = self.journal.transfer_details(transaction)
@@ -1363,9 +1384,10 @@ class FinanceView(ft.Row):
             )
         ]
         if simple:
+            movement = abs(cashflow.account.amount) if cashflow else incoming[0].amount
             heading.append(
                 ft.Text(
-                    format_amount(incoming[0].amount, self.language, incoming[0].currency),
+                    format_amount(movement, self.language, incoming[0].currency),
                     size=13,
                 )
             )
@@ -1381,11 +1403,12 @@ class FinanceView(ft.Row):
                     size=12,
                 )
             )
-        if transfer and transfer.fee:
+        fee_details = transfer or cashflow
+        if fee_details and fee_details.fee:
             lines.append(
                 ft.Text(
                     f"{self.tr('transfer_fee')}: "
-                    f"{format_amount(transfer.fee, self.language, transfer.fee_currency)}",
+                    f"{format_amount(fee_details.fee, self.language, fee_details.fee_currency)}",
                     size=12,
                 )
             )
@@ -1470,11 +1493,18 @@ class FinanceView(ft.Row):
             if saved_cleanup not in {None, "on", "off"}:
                 raise PreferencesError(self.tr("backups_invalid_setting"))
             self.auto_backup_cleanup = saved_cleanup != "off"
-            saved_fee = await self.preferences.get(DEFAULT_FEE_KEY)
-            if saved_fee is not None:
-                if not isinstance(saved_fee, str) or not saved_fee.startswith("Expenses:"):
-                    raise PreferencesError("default_fee_invalid")
-                self.default_fee_category = saved_fee
+            fee_settings = await self.preferences.get(FEE_CATEGORIES_KEY)
+            if fee_settings is not None:
+                if not isinstance(fee_settings, str):
+                    raise PreferencesError("fee_categories_invalid")
+                self.fee_preferences = FeePreferences.parse(fee_settings)
+            else:
+                saved_fee = await self.preferences.get(DEFAULT_FEE_KEY)
+                if saved_fee is not None:
+                    if not isinstance(saved_fee, str) or not saved_fee.startswith("Expenses:"):
+                        raise PreferencesError("default_fee_invalid")
+                    self.fee_preferences = FeePreferences(default=saved_fee)
+            self.fee_branches_draft = self.fee_preferences.branches
             await self._sync_system_zone()
             saved_folder = await self.preferences.get(FOLDER_KEY)
             if isinstance(saved_folder, str):
@@ -2247,16 +2277,26 @@ class FinanceView(ft.Row):
             if transaction and transaction.kind == "transfer"
             else None
         )
+        cashflow = (
+            journal.ledger.cashflow_details(transaction)
+            if transaction and transaction.kind in {"expense", "income"}
+            else None
+        )
+        saved_fee = transfer or cashflow
         account_ids = {a.id for a in journal.ledger.accounts}
         original_asset = (
             transfer.source
             if transfer
+            else cashflow.account
+            if cashflow
             else next(p for p in transaction.postings if p.account in account_ids)
             if transaction
             else None
         )
         original_category = (
-            next(p.account for p in transaction.postings if p.account not in account_ids)
+            cashflow.category.account
+            if cashflow
+            else next(p.account for p in transaction.postings if p.account not in account_ids)
             if transaction and not transfer
             else None
         )
@@ -2332,10 +2372,12 @@ class FinanceView(ft.Row):
         fee_enabled = ft.Checkbox(
             data="fee_enabled",
             label=self.tr("transfer_fee_enabled"),
-            value=bool(transfer and transfer.fee),
+            value=bool(saved_fee and saved_fee.fee),
         )
         fee = ft.TextField(
-            data="fee", label=self.tr("transfer_fee"), value=str(transfer.fee) if transfer else "0"
+            data="fee",
+            label=self.tr("transfer_fee"),
+            value=str(saved_fee.fee) if saved_fee else "0",
         )
         fee_mode = ft.Dropdown(
             data="fee_mode",
@@ -2351,27 +2393,23 @@ class FinanceView(ft.Row):
             data="fee_category",
             expand=True,
             label=self.tr("transfer_fee_category"),
-            value=transfer.fee_category if transfer else journal.ledger.default_fee_category,
-            options=[
-                ft.DropdownOption(key=c.id, text=c.name)
-                for c in journal.ledger.categories
-                if c.id.startswith("Expenses:")
-                and (
-                    journal.ledger.category_active(c.id)
-                    or (transfer and transfer.fee_category == c.id)
-                )
-            ],
+            value=saved_fee.fee_category
+            if saved_fee and saved_fee.fee
+            else journal.ledger.default_fee_category,
+            options=self._fee_category_options(
+                journal,
+                self.fee_preferences.branches,
+                retained=saved_fee.fee_category if saved_fee and saved_fee.fee else None,
+            ),
         )
-        if BANK_FEES not in {c.id for c in journal.ledger.categories}:
-            fee_category.options.append(
-                ft.DropdownOption(key=BANK_FEES, text=self.tr("transfer_bank_fees"))
-            )
         if transfer:
             amount.value = str(
                 transfer.debited
                 if transfer.exchange or transfer.mode == "deducted"
                 else transfer.target.amount
             )
+        elif cashflow:
+            amount.value = str(cashflow.amount)
         received = ft.TextField(
             data="second_amount",
             value=str(transfer.target.amount) if transfer and transfer.exchange else "",
@@ -2429,7 +2467,7 @@ class FinanceView(ft.Row):
                 if str(exc) != "crud_transaction_readonly":
                     raise
                 continue
-            posting = next(p for p in item.postings if p.account.startswith("Expenses:"))
+            posting = journal.ledger.cashflow_details(item).category
             reference.options.append(
                 ft.DropdownOption(
                     key=item.id,
@@ -2474,6 +2512,7 @@ class FinanceView(ft.Row):
             expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
         )
         category_values: dict[str, str | None] = {}
+        fee_drafts: dict[str, tuple[bool, str, str | None, str | None, str | None]] = {}
         currencies = {a.id: a.currency for a in journal.ledger.accounts}
         names = {a.id: a.name for a in journal.ledger.accounts}
 
@@ -2519,18 +2558,32 @@ class FinanceView(ft.Row):
             transfer_label = self.tr(
                 "exchange_credited" if fee_mode.value == "added" else "exchange_debited"
             )
+            kind = operation()
+            ordinary_fee = kind in {"expense", "income"} and bool(fee_enabled.value)
+            if ordinary_fee:
+                transfer_label = self.tr(
+                    "commission_purchase"
+                    if kind == "expense" and fee_mode.value == "added"
+                    else "exchange_debited"
+                    if kind == "expense"
+                    else "exchange_credited"
+                    if fee_mode.value == "added"
+                    else "commission_gross"
+                )
             amount.label = (
                 f"{primary_label} ({primary_currency})"
                 if exchange
                 else f"{transfer_label} ({primary_currency})"
-                if transferring and fee_enabled.value and primary_currency
+                if (transferring and fee_enabled.value or ordinary_fee) and primary_currency
                 else f"{self.tr('amount')} ({primary_currency})"
                 if primary_currency
                 else self.tr("amount")
             )
             received.label = f"{second_label} ({second_currency})"
             received.visible = exchange
-            fee_mode.visible = transferring and bool(fee_enabled.value) and not exchange
+            fee_mode.visible = (
+                (transferring or ordinary_fee) and bool(fee_enabled.value) and not exchange
+            )
             fee_currency.visible = transferring and bool(fee_enabled.value) and exchange
             fee_currency.options = [
                 ft.DropdownOption(key=c, text=c)
@@ -2544,13 +2597,32 @@ class FinanceView(ft.Row):
                 if exchange
                 else self.tr("transfer_fee")
             )
-            preview.visible = operation() == "transfer"
+            preview.visible = transferring or ordinary_fee
             if preview.visible:
                 sender, receiver = account.value, destination.value
-                movement = f"{names.get(sender or '', '…')} → {names.get(receiver or '', '…')}"
+                movement = (
+                    f"{names.get(sender or '', '…')} → {names.get(receiver or '', '…')}"
+                    if transferring
+                    else names.get(account.value or "", "…")
+                )
                 try:
                     commission = money(fee.value or "0") if fee_enabled.value else Decimal("0")
-                    if exchange:
+                    if ordinary_fee:
+                        principal, total = cashflow_amounts(
+                            money(amount.value or ""), commission, fee_mode.value or "", kind
+                        )
+                        preview.value = (
+                            movement
+                            + "\n"
+                            + self.tr(
+                                "commission_expense_preview"
+                                if kind == "expense"
+                                else "commission_income_preview",
+                                principal=format_amount(principal, self.language, primary_currency),
+                                total=format_amount(total, self.language, primary_currency),
+                            )
+                        )
+                    elif exchange:
                         principal, gross, rate = exchange_values(
                             money(source_amount or ""),
                             money(target_amount or ""),
@@ -2605,6 +2677,22 @@ class FinanceView(ft.Row):
             if changed:
                 category_values[previous_kind] = category.value
                 category.value = category_values.get(kind)
+                fee_drafts[previous_kind] = (
+                    bool(fee_enabled.value),
+                    fee.value,
+                    fee_mode.value,
+                    fee_category.value,
+                    fee_currency.value,
+                )
+                (
+                    fee_enabled.value,
+                    fee.value,
+                    fee_mode.value,
+                    fee_category.value,
+                    fee_currency.value,
+                ) = fee_drafts.get(
+                    kind, (False, "0", "added", journal.ledger.default_fee_category, None)
+                )
             previous_kind = kind
             root = "Income:" if kind == "income" else "Expenses:"
             category.label = self.tr("income_category" if kind == "income" else "expense_category")
@@ -2644,13 +2732,15 @@ class FinanceView(ft.Row):
             )
             category.visible = kind not in {"adjustment", "transfer"}
             category_row.visible = category.visible
-            fee_fields.visible = kind == "transfer"
-            fee.visible = fee_category.visible = kind == "transfer" and bool(fee_enabled.value)
-            update_exchange()
+            fee_fields.visible = kind in {"expense", "income", "transfer"}
+            fee.visible = fee_category.visible = fee_fields.visible and bool(fee_enabled.value)
+            if fee_category.value not in {option.key for option in fee_category.options}:
+                fee_category.value = None
             if kind == "adjustment":
                 category.value = ADJUSTMENTS
             elif category.value not in {o.key for o in category.options}:
                 category.value = None
+            update_exchange()
             reference.visible = kind == "reimbursement" and transaction is None
             special.visible = sign.selected == ["+"]
             details = []
@@ -2658,10 +2748,10 @@ class FinanceView(ft.Row):
                 details.append(self.tr(f"kind_{transaction.kind}"))
                 if transaction.payee:
                     details.append(transaction.payee)
-                if transfer and transfer.fee:
+                if saved_fee and saved_fee.fee:
                     details.append(
                         f"{self.tr('transfer_fee')}: "
-                        f"{format_amount(transfer.fee, self.language, transfer.fee_currency)}"
+                        f"{format_amount(saved_fee.fee, self.language, saved_fee.fee_currency)}"
                     )
                 details.append(when.clock.value or "")
             advanced.subtitle = " · ".join(details) or None
@@ -2676,9 +2766,7 @@ class FinanceView(ft.Row):
                     raise ConflictError("crud_stale")
                 if reference.value:
                     original = journal.expense_for_edit(reference.value)
-                    posting = next(
-                        p for p in original.postings if p.account.startswith("Expenses:")
-                    )
+                    posting = journal.ledger.cashflow_details(original).category
                     category.value = posting.account
                     amount.value = str(posting.amount)
                 self.page.update()
@@ -2949,6 +3037,12 @@ class FinanceView(ft.Row):
                     timestamp,
                     description.value or "",
                     source,
+                    fee=(fee.value or "0")
+                    if kind in {"expense", "income"} and fee_enabled.value
+                    else "0",
+                    fee_category=fee_category.value or "",
+                    fee_mode=fee_mode.value or "added",
+                    default_fee_name=self.tr("transfer_bank_fees"),
                 )
             if journal.source != source:
                 raise ConflictError("crud_stale")
@@ -2961,6 +3055,10 @@ class FinanceView(ft.Row):
                     occurred,
                     description.value or "",
                     timestamp,
+                    fee=(fee.value or "0") if fee_enabled.value else "0",
+                    fee_category=fee_category.value or "",
+                    fee_mode=fee_mode.value or "added",
+                    default_fee_name=self.tr("transfer_bank_fees"),
                 )
             return await journal.add_incoming(
                 account.value or "",
@@ -2975,6 +3073,10 @@ class FinanceView(ft.Row):
                 if kind == "reimbursement" and reference.value
                 else None,
                 expected_source=source,
+                fee=(fee.value or "0") if kind == "income" and fee_enabled.value else "0",
+                fee_category=fee_category.value or "",
+                fee_mode=fee_mode.value or "added",
+                default_fee_name=self.tr("transfer_bank_fees"),
             )
 
         controls: list[ft.Control] = [
@@ -3422,10 +3524,11 @@ class FinanceView(ft.Row):
                 raise ConflictError("crud_stale")
             previous = journal.default_fee_category
             selected = self.default_fee.value or ""
+            settings = FeePreferences(self.fee_branches_draft, selected)
             await journal.set_default_fee_category(selected, self.default_fee_source)
             try:
                 if self.preferences is None or not await self.preferences.set(
-                    DEFAULT_FEE_KEY, selected
+                    FEE_CATEGORIES_KEY, settings.serialize()
                 ):
                     raise PreferencesError("default_fee_save_failed")
             except Exception as exc:
@@ -3434,12 +3537,103 @@ class FinanceView(ft.Row):
                 if isinstance(exc, PreferencesError):
                     raise
                 raise PreferencesError("default_fee_save_failed") from exc
-            self.default_fee_category = selected
+            self.fee_preferences = settings
             self.default_fee_original = self.default_fee.value
             self.default_fee_notice.visible = False
             self._set_message("default_fee_saved")
 
         await self._action(save)
+
+    @property
+    def default_fee_category(self) -> str:
+        return self.fee_preferences.default
+
+    def _fee_category_options(
+        self, journal: Journal, branches: tuple[str, ...], *, retained: str | None = None
+    ) -> list[ft.DropdownOption]:
+        items = {
+            category.id: category.name
+            for category in journal.ledger.categories
+            if category.id.startswith("Expenses:")
+            and (
+                category.id == retained
+                or (
+                    journal.ledger.category_active(category.id)
+                    and fee_category_in_branches(category.id, branches)
+                )
+            )
+        }
+        if not any(
+            c.id == BANK_FEES for c in journal.ledger.categories
+        ) and fee_category_in_branches(BANK_FEES, branches):
+            items[BANK_FEES] = self.tr("transfer_bank_fees")
+        return [
+            ft.DropdownOption(
+                key=identifier, text=self._category_label(identifier, items[identifier])
+            )
+            for identifier in sorted(items, key=lambda identifier: identifier.split(":"))
+        ]
+
+    def _render_fee_settings(self) -> None:
+        if self.journal is None or not self.journal.ready:
+            return
+        items = {
+            category.id: category.name
+            for category in self.journal.ledger.categories
+            if category.id.startswith("Expenses:")
+        }
+        if BANK_FEES not in items:
+            items[BANK_FEES] = self.tr("transfer_bank_fees")
+        for identifier in (*items, *self.fee_branches_draft):
+            parts = identifier.split(":")
+            for length in range(1, len(parts) + 1):
+                path = ":".join(parts[:length])
+                items.setdefault(path, parts[length - 1])
+        items["Expenses"] = self.tr("fee_categories_all")
+        choices = tuple(
+            (
+                identifier,
+                items[identifier],
+                fee_category_in_branches(identifier, self.fee_branches_draft),
+                any(identifier.startswith(branch + ":") for branch in self.fee_branches_draft),
+            )
+            for identifier in sorted(items, key=lambda identifier: identifier.split(":"))
+        )
+        if choices != self.fee_choices_state:
+            self.fee_choices_state = choices
+            self.fee_category_choices.controls = [
+                ft.Container(
+                    ft.Checkbox(
+                        label=label,
+                        tooltip=identifier,
+                        data=identifier,
+                        value=checked,
+                        disabled=inherited,
+                        on_change=self._fee_branch_changed,
+                    ),
+                    padding=ft.Padding.only(left=16 * identifier.count(":")),
+                )
+                for identifier, label, checked, inherited in choices
+            ]
+        options = self._fee_category_options(self.journal, self.fee_branches_draft)
+        if [(o.key, o.text) for o in options] != [
+            (o.key, o.text) for o in self.default_fee.options
+        ]:
+            self.default_fee.options = options
+
+    def _fee_branch_changed(self, event: ft.Event[ft.Checkbox]) -> None:
+        identifier = str(event.control.data)
+        branches = set(self.fee_branches_draft)
+        if event.control.value:
+            branches = {branch for branch in branches if not branch.startswith(identifier + ":")}
+            branches.add(identifier)
+        else:
+            branches.discard(identifier)
+        self.fee_branches_draft = tuple(sorted(branches))
+        if not fee_category_in_branches(self.default_fee.value or "", self.fee_branches_draft):
+            self.default_fee.value = None
+        self._render_fee_settings()
+        self.page.update()
 
     async def _apply_default_fee(self) -> None:
         journal = self._require_journal()

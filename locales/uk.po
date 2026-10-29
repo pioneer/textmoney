@@ -590,11 +590,11 @@ msgstr "Спосіб списання комісії"
 
 #. Stable TextMoney key: ui.transfer_added; do not translate this identifier.
 msgid "ui.transfer_added"
-msgstr "Додатково до суми переказу"
+msgstr "Додатково до суми"
 
 #. Stable TextMoney key: ui.transfer_deducted; do not translate this identifier.
 msgid "ui.transfer_deducted"
-msgstr "Із суми переказу"
+msgstr "Із суми"
 
 #. Stable TextMoney key: ui.transfer_fee_category; do not translate this
 #. identifier.
@@ -604,7 +604,43 @@ msgstr "Категорія комісії"
 #. Stable TextMoney key: ui.transfer_default_fee; do not translate this
 #. identifier.
 msgid "ui.transfer_default_fee"
-msgstr "Типова категорія комісії переказу"
+msgstr "Типова категорія комісії"
+
+#. Stable TextMoney key: ui.fee_categories; do not translate this identifier.
+msgid "ui.fee_categories"
+msgstr "Категорії комісій"
+
+#. Stable TextMoney key: ui.fee_categories_help; do not translate this identifier.
+msgid "ui.fee_categories_help"
+msgstr "Виберіть гілки для списків комісій; їхні підкатегорії включаються автоматично. Зніміть позначку «Усі категорії витрат», щоб звузити список. Нижче виберіть типову категорію та збережіть. Ці налаштування діють лише на цьому пристрої й не змінюють збережені операції."
+
+#. Stable TextMoney key: ui.fee_categories_all; do not translate this identifier.
+msgid "ui.fee_categories_all"
+msgstr "Усі категорії витрат"
+
+#. Stable TextMoney key: ui.fee_categories_invalid; do not translate this identifier.
+msgid "ui.fee_categories_invalid"
+msgstr "Виберіть хоча б одну гілку категорій витрат і типову категорію в цих гілках. Якщо збережені параметри некоректні, перевірте налаштування комісій цього пристрою."
+
+#. Stable TextMoney key: ui.commission_amount; do not translate this identifier.
+msgid "ui.commission_amount"
+msgstr "Введіть додатну суму й невід’ємну комісію. Комісія із суми має бути меншою за суму."
+
+#. Stable TextMoney key: ui.commission_purchase; do not translate this identifier.
+msgid "ui.commission_purchase"
+msgstr "Покупка без комісії"
+
+#. Stable TextMoney key: ui.commission_gross; do not translate this identifier.
+msgid "ui.commission_gross"
+msgstr "Дохід до комісії"
+
+#. Stable TextMoney key: ui.commission_expense_preview; do not translate this identifier.
+msgid "ui.commission_expense_preview"
+msgstr "Покупка: {principal}; разом списано: {total}"
+
+#. Stable TextMoney key: ui.commission_income_preview; do not translate this identifier.
+msgid "ui.commission_income_preview"
+msgstr "Валовий дохід: {principal}; фактично зараховано: {total}"
 
 #. Stable TextMoney key: ui.transfer_bank_fees; do not translate this
 #. identifier.
@@ -629,7 +665,7 @@ msgstr ""
 
 #. Stable TextMoney key: ui.transfer_category; do not translate this identifier.
 msgid "ui.transfer_category"
-msgstr "Виберіть одну категорію витрат для типової комісії переказу."
+msgstr "Виберіть категорію витрат для типової комісії."
 
 #. Stable TextMoney key: ui.transfer_negative; do not translate this identifier.
 msgid "ui.transfer_negative"
@@ -1136,10 +1172,10 @@ msgid "ui.conflict_copy_scan_failed"
 msgstr "Не вдалося перевірити назви сусідніх файлів на можливі конфліктні копії. Поточний журнал залишається доступним."
 
 msgid "ui.default_fee_saved"
-msgstr "Типову категорію комісії збережено лише на цьому пристрої."
+msgstr "Категорії комісій і типову категорію збережено лише на цьому пристрої."
 
 msgid "ui.default_fee_save_failed"
-msgstr "Не вдалося зберегти локальну типову категорію комісії. Попередній параметр не змінено."
+msgstr "Не вдалося зберегти локальні налаштування комісій. Попередні параметри не змінено."
 
 msgid "ui.default_fee_unavailable"
 msgstr "Локально вибрана категорія комісії відсутня або неактивна в цьому журналі. Виберіть активну категорію витрат; локальний параметр не змінено."

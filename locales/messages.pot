@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TextMoney 0.3.16\n"
+"Project-Id-Version: TextMoney 0.3.17\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-10-29 02:54+0200\n"
-"PO-Revision-Date: 2026-10-29 02:54+0200\n"
+"POT-Creation-Date: 2026-10-29 08:52+0200\n"
+"PO-Revision-Date: 2026-10-29 08:52+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -558,6 +558,25 @@ msgstr ""
 msgid "ui.transfer_default_fee"
 msgstr ""
 
+#. Stable TextMoney key: ui.fee_categories; do not translate this identifier.
+msgid "ui.fee_categories"
+msgstr ""
+
+#. Stable TextMoney key: ui.fee_categories_help; do not translate this
+#. identifier.
+msgid "ui.fee_categories_help"
+msgstr ""
+
+#. Stable TextMoney key: ui.fee_categories_all; do not translate this
+#. identifier.
+msgid "ui.fee_categories_all"
+msgstr ""
+
+#. Stable TextMoney key: ui.fee_categories_invalid; do not translate this
+#. identifier.
+msgid "ui.fee_categories_invalid"
+msgstr ""
+
 #. Stable TextMoney key: ui.transfer_bank_fees; do not translate this
 #. identifier.
 msgid "ui.transfer_bank_fees"
@@ -580,6 +599,30 @@ msgstr ""
 #. Stable TextMoney key: ui.transfer_category; do not translate this
 #. identifier.
 msgid "ui.transfer_category"
+msgstr ""
+
+#. Stable TextMoney key: ui.commission_amount; do not translate this
+#. identifier.
+msgid "ui.commission_amount"
+msgstr ""
+
+#. Stable TextMoney key: ui.commission_purchase; do not translate this
+#. identifier.
+msgid "ui.commission_purchase"
+msgstr ""
+
+#. Stable TextMoney key: ui.commission_gross; do not translate this identifier.
+msgid "ui.commission_gross"
+msgstr ""
+
+#. Stable TextMoney key: ui.commission_expense_preview; do not translate this
+#. identifier.
+msgid "ui.commission_expense_preview"
+msgstr ""
+
+#. Stable TextMoney key: ui.commission_income_preview; do not translate this
+#. identifier.
+msgid "ui.commission_income_preview"
 msgstr ""
 
 #. Stable TextMoney key: ui.transfer_negative; do not translate this

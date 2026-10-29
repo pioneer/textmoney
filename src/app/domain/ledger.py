@@ -130,6 +130,51 @@ class Posting:
 
 
 @dataclass(frozen=True)
+class CashflowDetails:
+    account: Posting
+    category: Posting
+    commission: Posting | None
+    kind: str
+
+    @property
+    def amount(self) -> Decimal:
+        return self.category.amount if self.kind == "expense" else self.account.amount
+
+    @property
+    def fee(self) -> Decimal:
+        return self.commission.amount if self.commission else ZERO
+
+    @property
+    def fee_category(self) -> str:
+        return self.commission.account if self.commission else BANK_FEES
+
+    @property
+    def fee_currency(self) -> str:
+        return self.account.currency
+
+
+def cashflow_amounts(
+    amount: Decimal, fee: Decimal, mode: str, kind: str
+) -> tuple[Decimal, Decimal]:
+    """Return category principal and absolute account movement, excluding/including fees."""
+    checked_amount(amount)
+    checked_amount(fee)
+    if kind not in {"expense", "income"} or mode not in {"added", "deducted"} or fee < ZERO:
+        raise LedgerError("commission_amount")
+    with localcontext() as context:
+        context.prec = 50
+        if kind == "expense":
+            principal = amount - fee if mode == "deducted" else amount
+            movement = principal + fee
+        else:
+            principal = amount + fee if mode == "added" else amount
+            movement = principal - fee
+    if principal <= ZERO or movement <= ZERO:
+        raise LedgerError("commission_amount")
+    return checked_amount(principal), checked_amount(movement)
+
+
+@dataclass(frozen=True)
 class TransferDetails:
     source: Posting
     target: Posting
@@ -328,6 +373,41 @@ class Ledger:
         self.balances(today=today, negative_assets=negative)
         return negative
 
+    def cashflow_details(self, transaction: Transaction) -> CashflowDetails:
+        postings = transaction.postings
+        accounts = {a.id for a in self.accounts}
+        ordinary = [p for p in postings if p.account in accounts]
+        with localcontext() as context:
+            context.prec = 50
+            total = sum((p.amount for p in postings), ZERO)
+        if (
+            len(postings) not in {2, 3}
+            or len(ordinary) != 1
+            or ordinary[0].amount == ZERO
+            or any(p.has_price for p in postings)
+            or len({p.currency for p in postings}) != 1
+            or total != ZERO
+        ):
+            raise LedgerError("crud_transaction_readonly")
+        account = ordinary[0]
+        others = [p for p in postings if p is not account]
+        kind = "expense" if account.amount < ZERO else "income"
+        fees = (
+            others[1:]
+            if kind == "expense"
+            else [p for p in others if p.account.startswith("Expenses:") and p.amount >= ZERO]
+        )
+        categories = [p for p in others if all(p is not fee for fee in fees)]
+        if (
+            len(fees) > 1
+            or any(not p.account.startswith("Expenses:") or p.amount < ZERO for p in fees)
+            or len(categories) != 1
+            or not categories[0].account.startswith("Expenses:" if kind == "expense" else "Income:")
+            or (categories[0].amount if kind == "expense" else -categories[0].amount) <= ZERO
+        ):
+            raise LedgerError("crud_transaction_readonly")
+        return CashflowDetails(account, categories[0], fees[0] if fees else None, kind)
+
     def transfer_details(self, transaction: Transaction) -> TransferDetails:
         accounts = {a.id for a in self.accounts}
         prices = [p for p in transaction.postings if p.has_price]
@@ -525,6 +605,9 @@ class Ledger:
         transaction_id: str,
         *,
         today: date | None = None,
+        fee: Decimal = ZERO,
+        fee_category: str = BANK_FEES,
+        fee_mode: str = "added",
     ) -> Transaction:
         accounts = {account.id: account for account in self.accounts}
         if account_id not in accounts or category_id not in {
@@ -538,6 +621,11 @@ class Ledger:
             raise LedgerError("Expense amount must be greater than zero.")
         if not EPOCH <= occurred <= (today or date.today()):
             raise LedgerError("Expense date must be between 1970-01-01 and today.")
+        principal, debit = cashflow_amounts(amount, fee, fee_mode, "expense")
+        if fee and (
+            not fee_category.startswith("Expenses:") or not self.category_active(fee_category)
+        ):
+            raise LedgerError("incoming_category")
         transaction = Transaction(
             transaction_id,
             occurred,
@@ -547,8 +635,9 @@ class Ledger:
             display_name(payee) if payee.strip() else "",
             "Expense",
             (
-                Posting(category_id, amount, accounts[account_id].currency),
-                Posting(account_id, -amount, accounts[account_id].currency),
+                Posting(category_id, principal, accounts[account_id].currency),
+                Posting(account_id, -debit, accounts[account_id].currency),
+                *((Posting(fee_category, fee, accounts[account_id].currency),) if fee else ()),
             ),
             "expense",
         )
@@ -567,6 +656,9 @@ class Ledger:
         kind: str,
         *,
         today: date | None = None,
+        fee: Decimal = ZERO,
+        fee_category: str = BANK_FEES,
+        fee_mode: str = "added",
     ) -> Transaction:
         account = next((a for a in self.accounts if a.id == account_id), None)
         if account is None:
@@ -588,6 +680,15 @@ class Ledger:
             raise LedgerError("incoming_amount")
         if not EPOCH <= occurred <= (today or date.today()):
             raise LedgerError("incoming_date")
+        principal = credit = amount
+        if kind == "income":
+            principal, credit = cashflow_amounts(amount, fee, fee_mode, kind)
+        elif fee:
+            raise LedgerError("commission_amount")
+        if fee and (
+            not fee_category.startswith("Expenses:") or not self.category_active(fee_category)
+        ):
+            raise LedgerError("incoming_category")
         transaction = Transaction(
             transaction_id,
             occurred,
@@ -597,8 +698,9 @@ class Ledger:
             display_name(payee) if payee.strip() else "",
             "",
             (
-                Posting(account_id, amount, account.currency),
-                Posting(category_id, -amount, account.currency),
+                Posting(account_id, credit, account.currency),
+                Posting(category_id, -principal, account.currency),
+                *((Posting(fee_category, fee, account.currency),) if fee else ()),
             ),
             kind,
         )

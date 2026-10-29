@@ -328,7 +328,25 @@ Use only a disposable synthetic journal:
    only the default clock for new entries changes. Check native date pickers
    on Android for timezone-induced date shifts.
 8. Restart after changing the default fee category. Verify the local preference
-   survives without adding journal metadata.
+   survives without adding journal metadata. For both expenses and income, save
+   amount 100 with fee 5 in Added and Deducted modes, checking the
+   [expected postings](journal-format.md#purchase-and-income-commissions).
+   Purchases and income must allow a custom fee category and use the local default
+   (Bank-Fees only as fallback). Also choose the purchase category itself for its
+   fee, verifying posting roles remain distinct. No fee-currency picker should appear. Reopen, change
+   accounts/currency and fee, disable the fee, then delete; inspect native
+   postings, annotations, period totals and category budgets. Switch modes and
+   special receipts to check draft restoration and absence of hidden fees.
+   Trigger invalid amounts, an external conflict and a backup failure; every
+   unsaved field must remain available.
+   In Settings, uncheck All expense categories and select multiple commission
+   branches. Verify inherited child checkboxes, parent-first indentation in all
+   fee/default selectors, a separate default inside the selected branches and
+   exclusion of similarly prefixed sibling names. Save/restart without changing
+   journal contents; create a new descendant and confirm it is included. Exclude a
+   saved transaction's fee category and verify it remains editable. A preference
+   write failure must preserve both previous saved settings and unsaved branch
+   selections; an external reload must not silently rebase the Settings draft.
 9. On Android, exercise interrupted-save review, retained provider grants and
    permission failures. Confirm backup/read-back failures still block unsafe
    retries. This requires physical-device testing, not just an APK build.

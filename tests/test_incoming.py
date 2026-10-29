@@ -631,8 +631,9 @@ def test_switching_modes_preserves_common_draft_and_each_category(
     [
         (
             "expense",
-            "  Assets:Bank -8 UAH\n  Expenses:Food 5 UAH\n  Expenses:Food 3 UAH\n",
-            ["Bank: −8.00 UAH", "Food: 5.00 UAH", "Food: 3.00 UAH"],
+            "  Assets:Bank -8 UAH\n  Expenses:Food 4 UAH\n"
+            "  Expenses:Food 3 UAH\n  Expenses:Food 1 UAH\n",
+            ["Bank: −8.00 UAH", "Food: 4.00 UAH", "Food: 3.00 UAH", "Food: 1.00 UAH"],
         ),
         (
             "external",

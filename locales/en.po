@@ -1220,7 +1220,7 @@ msgstr "This code is invalid for the selected type or parent."
 
 #. Stable TextMoney key: ui.code_suggestion_regenerate; do not translate this identifier.
 msgid "ui.code_suggestion_regenerate"
-msgstr "Regenerate"
+msgstr "Restore suggested code"
 
 #. Stable TextMoney key: ui.code_suggestion_alternatives; do not translate this identifier.
 msgid "ui.code_suggestion_alternatives"

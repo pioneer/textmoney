@@ -151,10 +151,10 @@ class FinanceView(ft.Row):
             on_select=self._category_suggestion_selected,
         )
         self.account_suggestion_regenerate = ft.TextButton(
-            on_click=self._regenerate_account_suggestion
+            disabled=True, on_click=self._regenerate_account_suggestion
         )
         self.category_suggestion_regenerate = ft.TextButton(
-            on_click=self._regenerate_category_suggestion
+            disabled=True, on_click=self._regenerate_category_suggestion
         )
         self.account_code_manual = False
         self.category_code_manual = False
@@ -2002,6 +2002,7 @@ class FinanceView(ft.Row):
         submit = ft.TextButton(self.tr("crud_delete" if deleting else "crud_save"))
 
         async def commit(event: ft.Event[ft.TextButton]) -> None:
+            disabled_states = [(control, control.disabled) for control in controls]
             submit.disabled = cancel.disabled = True
             for control in controls:
                 control.disabled = True
@@ -2018,8 +2019,8 @@ class FinanceView(ft.Row):
                 await self._action(action)
             finally:
                 submit.disabled = cancel.disabled = False
-                for control in controls:
-                    control.disabled = False
+                for control, disabled in disabled_states:
+                    control.disabled = disabled
                 self.page.update()
 
         submit.on_click = commit
@@ -2721,13 +2722,14 @@ class FinanceView(ft.Row):
                 width=320,
                 visible=False,
             )
-            regenerate = ft.TextButton(self.tr("code_suggestion_regenerate"))
+            regenerate = ft.TextButton(self.tr("code_suggestion_regenerate"), disabled=True)
             code_manual = False
 
             def update_suggestion(*, regenerate_code: bool = False) -> None:
                 nonlocal code_manual
                 if regenerate_code:
                     code_manual = False
+                regenerate.disabled = not (code_manual and (category_name.value or "").strip())
                 root = "Income" if operation() == "income" else "Expenses"
                 if not (category_name.value or "").strip():
                     if not code_manual:
@@ -3174,6 +3176,12 @@ class FinanceView(ft.Row):
         if regenerate:
             self.account_code_manual = False
         journal = self.journal
+        self.account_suggestion_regenerate.disabled = not (
+            self.account_code_manual
+            and journal is not None
+            and journal.ready
+            and (self.account_name.value or "").strip()
+        )
         if journal is None or not journal.ready or not (self.account_name.value or "").strip():
             if not self.account_code_manual:
                 self.account_id.value = ""
@@ -3209,6 +3217,12 @@ class FinanceView(ft.Row):
         if regenerate:
             self.category_code_manual = False
         journal = self.journal
+        self.category_suggestion_regenerate.disabled = not (
+            self.category_code_manual
+            and journal is not None
+            and journal.ready
+            and (self.category_name.value or "").strip()
+        )
         if journal is None or not journal.ready:
             if not self.category_code_manual:
                 self.category_id.value = ""

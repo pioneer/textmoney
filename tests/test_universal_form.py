@@ -333,12 +333,42 @@ def test_inline_category_suggestion_uses_parent_and_preserves_transaction_draft(
             for control in controls
             if isinstance(control, ft.TextField) and control.data == "quick_category_path"
         )
+        restore = next(
+            control
+            for control in controls
+            if isinstance(control, ft.TextButton)
+            and control.content == view.tr("code_suggestion_regenerate")
+        )
+        assert restore.disabled
+        path.value = "Expenses:Manual"
+        change(path)
+        assert restore.disabled
         parent.value = "Expenses:Food"
         assert parent.on_select is not None
         MagicMock(wraps=parent.on_select)(MagicMock(control=parent))
         name.value = "Кафе"
         assert name.on_change is not None
         MagicMock(wraps=name.on_change)(MagicMock(control=name))
+        assert not restore.disabled
+        click(restore)
+        assert path.value == "Expenses:Food:Cafe"
+        assert restore.disabled
+        name.value = "Продукти"
+        change(name)
+        alternatives = next(control for control in controls if isinstance(control, ft.Dropdown))
+        assert alternatives.options
+        alternatives.value = alternatives.options[0].key
+        assert alternatives.on_select
+        MagicMock(wraps=alternatives.on_select)(MagicMock(control=alternatives))
+        assert not restore.disabled
+        name.value = ""
+        change(name)
+        assert restore.disabled
+        name.value = "Кафе"
+        change(name)
+        assert not restore.disabled
+        click(restore)
+        assert restore.disabled
         assert path.value == "Expenses:Food:Cafe"
 
         actions = category_dialog.actions or []

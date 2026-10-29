@@ -1226,7 +1226,7 @@ msgstr "Код не відповідає вибраному типу або ба
 
 #. Stable TextMoney key: ui.code_suggestion_regenerate; do not translate this identifier.
 msgid "ui.code_suggestion_regenerate"
-msgstr "Створити знову"
+msgstr "Відновити запропонований код"
 
 #. Stable TextMoney key: ui.code_suggestion_alternatives; do not translate this identifier.
 msgid "ui.code_suggestion_alternatives"

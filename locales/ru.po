@@ -1223,7 +1223,7 @@ msgstr "Код не подходит выбранному типу или род
 
 #. Stable TextMoney key: ui.code_suggestion_regenerate; do not translate this identifier.
 msgid "ui.code_suggestion_regenerate"
-msgstr "Создать заново"
+msgstr "Восстановить предложенный код"
 
 #. Stable TextMoney key: ui.code_suggestion_alternatives; do not translate this identifier.
 msgid "ui.code_suggestion_alternatives"

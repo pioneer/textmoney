@@ -101,6 +101,25 @@ def test_missing_english_key_is_reported() -> None:
         translate("en", "not_a_real_key")
 
 
+@pytest.mark.parametrize(
+    ("language", "label"),
+    [
+        ("en", "Restore suggested code"),
+        ("uk", "Відновити запропонований код"),
+        ("ru", "Восстановить предложенный код"),
+    ],
+)
+def test_code_suggestion_action_explicitly_restores_the_suggested_code(
+    language: str, label: str
+) -> None:
+    view = FinanceView()
+    view.language = language
+    view._refresh_labels()
+    assert translate(language, "code_suggestion_regenerate") == label
+    assert view.account_suggestion_regenerate.content == label
+    assert view.category_suggestion_regenerate.content == label
+
+
 def test_missing_selected_translation_falls_back_to_english(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

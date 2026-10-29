@@ -9,7 +9,7 @@ import flet as ft
 import pytest
 from form_controls import click
 
-from app.domain.ledger import EPOCH
+from app.domain.ledger import EPOCH, LedgerError
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import date_input
@@ -427,11 +427,13 @@ def test_account_suggestion_tracks_attributes_and_respects_manual_override(
         await journal.create_account("Monobank:UAH", "Монобанк гривнева", "UAH")
         view.journal = journal
         view._create_account(MagicMock())
+        assert view.account_suggestion_regenerate.disabled
         view.account_name.value = "Монобанк, доларова картка"
         view.currency.value = "USD"
         view._account_attributes_changed(MagicMock())
         assert view.account_id.value == "Assets:Monobank:USD"
         assert view.account_suggestion_status.value == view.tr("code_suggestion_status")
+        assert view.account_suggestion_regenerate.disabled
 
         view.account_root.value = "Liabilities"
         view._account_attributes_changed(MagicMock())
@@ -446,10 +448,12 @@ def test_account_suggestion_tracks_attributes_and_respects_manual_override(
         view._account_attributes_changed(MagicMock())
         assert view.account_id.value == "Assets:Cash:USD"
         assert view.account_suggestion_status.value == view.tr("code_suggestion_manual")
+        assert not view.account_suggestion_regenerate.disabled
 
         view._regenerate_account_suggestion(MagicMock())
         assert view.account_id.value == "Assets:Bank:Privatbank:EUR"
         assert not view.account_code_manual
+        assert view.account_suggestion_regenerate.disabled
 
     asyncio.run(scenario())
 
@@ -465,10 +469,12 @@ def test_category_suggestion_tracks_parent_and_manual_override(
         await journal.create_category("Transport", "Transport")
         view.journal = journal
         view._create_category(MagicMock())
+        assert view.category_suggestion_regenerate.disabled
         view.category_parent.value = "Expenses:Food"
         view.category_name.value = "Кафе"
         view._category_attributes_changed(MagicMock())
         assert view.category_id.value == "Expenses:Food:Cafe"
+        assert view.category_suggestion_regenerate.disabled
 
         view.category_root.value = "Income"
         view._category_type_changed(MagicMock())
@@ -484,10 +490,12 @@ def test_category_suggestion_tracks_parent_and_manual_override(
         view._category_attributes_changed(MagicMock())
         assert view.category_id.value == "Expenses:Food:Dining"
         assert view.category_suggestion_status.value == view.tr("code_suggestion_invalid")
+        assert not view.category_suggestion_regenerate.disabled
 
         view._regenerate_category_suggestion(MagicMock())
         assert view.category_id.value == "Expenses:Transport:Cafe"
         assert not view.category_code_manual
+        assert view.category_suggestion_regenerate.disabled
 
     asyncio.run(scenario())
 
@@ -527,7 +535,84 @@ def test_creation_failure_keeps_draft_and_does_not_close_dialog(
         )
         assert not dialog.actions[-1].disabled
         assert isinstance(dialog.content, ft.Column)
-        assert all(not control.disabled for control in dialog.content.controls)
+        restore = (
+            view.category_suggestion_regenerate if category else view.account_suggestion_regenerate
+        )
+        assert restore.disabled
+        assert all(
+            not control.disabled for control in dialog.content.controls if control != restore
+        )
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("category", [False, True])
+@pytest.mark.parametrize("manual", [False, True])
+def test_restore_suggested_code_relevance_survives_failed_save_and_reopening(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, category: bool, manual: bool
+) -> None:
+    async def scenario() -> None:
+        view, page = setup_view(monkeypatch)
+        journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        create = view._create_category if category else view._create_account
+        update = view._category_attributes_changed if category else view._account_attributes_changed
+        code_changed = view._category_code_changed if category else view._account_code_changed
+        choose = (
+            view._category_suggestion_selected if category else view._account_suggestion_selected
+        )
+        name = view.category_name if category else view.account_name
+        code = view.category_id if category else view.account_id
+        restore = (
+            view.category_suggestion_regenerate if category else view.account_suggestion_regenerate
+        )
+        alternatives = (
+            view.category_suggestion_alternatives
+            if category
+            else view.account_suggestion_alternatives
+        )
+        create(MagicMock())
+        assert restore.disabled
+        code.value = "Expenses:Manual" if category else "Assets:Manual"
+        code_changed(MagicMock())
+        assert restore.disabled
+        name.value = "Продукти" if category else "Synthetic bank"
+        update(MagicMock())
+        assert not restore.disabled
+        click(restore)
+        assert restore.disabled
+        assert alternatives.options
+        alternatives.value = alternatives.options[0].key
+        choose(MagicMock(control=alternatives))
+        assert not restore.disabled
+        if not manual:
+            click(restore)
+        assert restore.disabled is not manual
+        expected = code.value
+        name.value = " "
+        update(MagicMock())
+        assert restore.disabled
+        name.value = "Продукти" if category else "Synthetic bank"
+        update(MagicMock())
+        assert restore.disabled is not manual
+        dialog = page.show_dialog.call_args.args[0]
+        before = journal.source
+        monkeypatch.setattr(
+            journal,
+            "create_category" if category else "create_account",
+            AsyncMock(side_effect=LedgerError("crud_code_invalid")),
+        )
+        await submit(dialog)
+        assert restore.disabled is not manual
+        assert code.value == expected
+        assert journal.source == before
+        page.pop_dialog.assert_not_called()
+        view._dismiss(MagicMock())
+        assert journal.ready
+        assert name.value and name.value.strip()
+        create(MagicMock())
+        assert restore.disabled is not manual
+        assert code.value == expected
 
     asyncio.run(scenario())
 

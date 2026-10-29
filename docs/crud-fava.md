@@ -44,8 +44,12 @@ category parent. The offline normalization includes predictable Cyrillic
 transliteration and a small set of unambiguous common terms. Existing entities
 are not renamed when their display names change. Suggested identifiers remain
 editable; after a manual edit, attribute changes do not replace the entered code.
-**Regenerate** explicitly applies the current suggestion again. Invalid codes
-and collisions are shown and checked again at save time; identifiers are never
+**Restore suggested code** applies the current suggestion again and restores
+automatic suggestions after manual edits or selecting an alternative. It does
+not create or save an entity. The button is enabled only after a manual edit or
+alternative selection, with a nonblank name; restoring the suggestion disables
+it again. This also applies to inline category creation. Invalid codes and
+collisions are shown and checked again at save time; identifiers are never
 silently reused or suffixed.
 
 Inline category creation in the transaction form uses the active operation's

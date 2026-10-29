@@ -818,7 +818,10 @@ class BudgetView(ft.Column):
         category = ft.Dropdown(
             expand=True,
             label=tr("budget_category"),
-            options=[ft.DropdownOption(key=key, text=value) for key, value in identifiers.items()],
+            options=[
+                ft.DropdownOption(key=key, text=self.host._category_label(key, identifiers[key]))
+                for key in sorted(identifiers)
+            ],
             value=budget.account if budget else None,
         )
         amount = ft.TextField(

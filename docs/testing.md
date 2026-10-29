@@ -56,7 +56,10 @@ the available horizontal space.
 - Add account and Add category: dropdowns align with the input fields, including
   the Parent dropdown in nested category creation.
 - Add/Edit budget (also Change from date and Stop): Category and Interval
-  dropdowns align with the other inputs.
+  dropdowns align with the other inputs. Category options place parents before
+  their descendants and indent each nested level, like Add operation; income
+  labels retain their localized prefix. Selecting a nested category saves its
+  technical account, not its display label.
 - Add/Edit operation: Category and Date inputs have equal widths, with their
   create-category and calendar buttons aligned.
 - Edit account/category: the selectable technical code is bold; all Edit account

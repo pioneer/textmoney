@@ -156,6 +156,58 @@ def test_budget_category_labels_are_short_and_not_transaction_instructions(
 
 @pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
 @pytest.mark.parametrize("mode", ["add", "edit", "change", "stop"])
+def test_budget_category_dropdown_is_parent_first_and_indented(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+    language: str,
+    width: int,
+    mode: str,
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        host.language = language
+        host._apply_layout(width)
+        source = SOURCE.replace(
+            "2000-01-01 open Expenses:Food\n",
+            '2000-01-01 open Income:Work:Bonus\n    name: "Bonus"\n'
+            '2000-01-01 open Expenses:Food:Meals:Lunch\n    name: "Lunch"\n'
+            '2000-01-01 open Expenses:Travel\n    name: "Travel"\n'
+            '2000-01-01 open Income:Work\n    name: "Work"\n'
+            "2000-01-01 open Expenses:Food\n",
+        )
+        journal = await load(host, tmp_path, source)
+        before = journal.source
+        host.budgets._form(
+            None if mode == "add" else journal.ledger.budgets[0],
+            new=mode in {"change", "stop"},
+            stop=mode == "stop",
+        )
+        dialog = page.show_dialog.call_args.args[0]
+        category, amount, _, _ = fields(dialog)
+        assert [(option.key, option.text) for option in category.options] == [
+            ("Expenses:Food", "Groceries"),
+            ("Expenses:Food:Meals", "  Expenses:Food:Meals"),
+            ("Expenses:Food:Meals:Lunch", "    Lunch"),
+            ("Expenses:Travel", "Travel"),
+            ("Income:Work", f"{host.tr('kind_income')} · Work"),
+            ("Income:Work:Bonus", f"{host.tr('kind_income')} ·   Bonus"),
+        ]
+        assert category.value == (None if mode == "add" else "Expenses:Food")
+        assert journal.source == before
+        category.value = "Expenses:Food:Meals:Lunch"
+        amount.value = "15"
+        await submit(dialog)
+        assert host.error_message is None
+        assert any(
+            budget.account == category.value and budget.amount == Decimal("15")
+            for budget in journal.ledger.budgets
+        )
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
+@pytest.mark.parametrize("mode", ["add", "edit", "change", "stop"])
 def test_budget_form_dropdowns_fill_the_form(
     view: tuple[FinanceView, MagicMock],
     tmp_path: Path,

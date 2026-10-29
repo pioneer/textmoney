@@ -627,6 +627,7 @@ class BudgetView(ft.Column):
                         collapsed_bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
                     )
                 )
+                tile.controls_padding = ft.Padding.only(left=40)
                 if highlighted and self.reveal_requested:
                     # The client must lay out the target before scroll_to can find its key.
                     tile.on_size_change = self._reveal_report
@@ -697,29 +698,16 @@ class BudgetView(ft.Column):
         row = event.control.data
         assert isinstance(row, BudgetRow)
         names = self._account_names()
-        listing = ft.Column()
+        listing = ft.Column(spacing=0)
         search = ft.TextField(label=self.host.tr("budget_search_transactions"))
 
         def render(event: ft.Event[ft.TextField] | None = None) -> None:
             query = (search.value or "").strip().casefold()
-            listing.controls = [
-                ft.ExpansionTile(
-                    title=(
-                        f"{format_date(transaction.date, self.host.language)} · {transaction.payee}"
-                    ),
-                    subtitle=transaction.narration,
-                    controls=[
-                        ft.Text(
-                            f"{names.get(posting.account, posting.account)}"
-                            f"  {posting.amount} {posting.currency}",
-                            tooltip=posting.account,
-                            selectable=True,
-                        )
-                        for posting in transaction.postings
-                    ],
-                    expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
+            transactions = [
+                transaction
+                for transaction in sorted(
+                    row.transactions, key=self.host._transaction_sort_key, reverse=True
                 )
-                for transaction in row.transactions
                 if (not query or query in f"{transaction.payee} {transaction.narration}".casefold())
                 and (
                     not self.currency.value
@@ -732,7 +720,10 @@ class BudgetView(ft.Column):
                         for posting in transaction.postings
                     )
                 )
-            ] or [ft.Text(self.host.tr("budget_no_matches"))]
+            ]
+            listing.controls = self.host._transaction_groups(
+                transactions, names, read_only=True
+            ) or [ft.Text(self.host.tr("budget_no_matches"))]
             if event is not None:
                 self.host.page.update()
 

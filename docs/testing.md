@@ -81,6 +81,11 @@ the available horizontal space.
   other expansion tiles or the native arrow's behavior.
   Check expanded/collapsed branches, inactive labels, long names,
   edit/delete buttons, picker search/selection and retained expansion state.
+- Reports / Budgets transaction details reuse the Operations date headings and
+  compact rows, newest date/time first, but remain read-only. Check payee/narration
+  search, currency filtering, empty matches and unchanged budget totals.
+  Expanded budget details use a larger 40-pixel indent so direct-only figures
+  begin to the right of the parent title; other trees retain their 16-pixel indent.
 
 ## Desktop popup keyboard shortcuts
 

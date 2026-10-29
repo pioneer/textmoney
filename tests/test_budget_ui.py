@@ -298,7 +298,7 @@ def test_explicit_parent_budget_remains_visible(
                 assert tile.affinity == ft.TileAffinity.LEADING
                 assert tile.dense and tile.min_tile_height == 40
                 assert tile.tile_padding == 0
-                assert tile.controls_padding == ft.Padding.only(left=16)
+                assert tile.controls_padding == ft.Padding.only(left=40)
                 assert tile.shape == tile.collapsed_shape == ft.RoundedRectangleBorder()
 
     asyncio.run(scenario())
@@ -521,10 +521,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         assert isinstance(dialog.content, ft.Column)
         texts = [item for item in walk(dialog.content) if isinstance(item, ft.Text)]
         assert texts[0].value == display_name and texts[0].tooltip == budget.account
-        posting = next(
-            item for item in texts if item.tooltip == budget.account and item is not texts[0]
-        )
-        assert str(posting.value).startswith(f"{display_name}  ")
+        assert any(str(item.value).endswith(f"→ {display_name}") for item in texts[1:])
         host.budgets._delete(budget)
         dialog = page.show_dialog.call_args.args[0]
         assert isinstance(dialog.content, ft.Column)
@@ -585,10 +582,11 @@ def test_overview_displays_reference_amounts_overspend_and_transactions(
         dialog = page.show_dialog.call_args.args[0]
         assert isinstance(dialog, ft.AlertDialog) and dialog.scrollable
         assert isinstance(dialog.content, ft.Column)
+        assert not any(isinstance(item, ft.ExpansionTile) for item in walk(dialog.content))
         assert any(
-            isinstance(item, ft.ExpansionTile) and "Synthetic shop" in str(item.title)
-            for item in walk(dialog.content)
+            isinstance(item, ft.Text) and item.value == "Lunch" for item in walk(dialog.content)
         )
+        assert not any(isinstance(item, ft.IconButton) for item in walk(dialog.content))
 
     asyncio.run(scenario())
 
@@ -1066,16 +1064,129 @@ def test_transaction_search_does_not_change_headline_totals_or_journal(
         assert search.on_change
         search.value = "DINNER"
         cast(Callable[[object], None], search.on_change)(MagicMock())
-        listing = [item for item in walk(dialog.content) if isinstance(item, ft.ExpansionTile)]
-        assert len(listing) == 1 and "Other shop" in str(listing[0].title)
+        listing = dialog.content.controls[-1]
+        assert isinstance(listing, ft.Column) and listing.spacing == 0
+        cards = [
+            item
+            for item in listing.controls
+            if isinstance(item, ft.Container) and isinstance(item.content, ft.Row)
+        ]
+        assert len(cards) == 1
+        assert any(isinstance(item, ft.Text) and item.value == "Dinner" for item in walk(cards[0]))
         for _ in range(3):
             host._refresh()
             assert search.value == "DINNER"
         search.value = "no match"
         cast(Callable[[object], None], search.on_change)(MagicMock())
-        assert not any(isinstance(item, ft.ExpansionTile) for item in walk(dialog.content))
+        assert len(listing.controls) == 1
+        empty = listing.controls[0]
+        assert isinstance(empty, ft.Text) and empty.value == host.tr("budget_no_matches")
         assert displayed_rows(host)[0] == original
         assert (tmp_path / FILENAME).read_text() == before
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
+def test_budget_transactions_reuse_operations_rows_readonly_newest_first(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, language: str, width: int
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        host.language = language
+        page.width = width
+        host._apply_layout(width)
+        journal = await load(
+            host,
+            tmp_path,
+            SOURCE
+            + """
+2026-01-05 * "Late shop" "Evening"
+    time: "20:30"
+    Expenses:Food 2 USD
+    Assets:Cash -2 USD
+2026-01-06 * "Latest shop" "Newest day"
+    time: "08:00"
+    Expenses:Food:Meals 3 USD
+    Assets:Cash -3 USD
+2026-01-05 * "Early shop" "Morning"
+    time: "09:00"
+    Expenses:Food 1 USD
+    Assets:Cash -1 USD
+""",
+        )
+        before = (tmp_path / FILENAME).read_bytes()
+        original = displayed_rows(host)[0]
+        host.budgets._transactions(MagicMock(control=ft.TextButton(data=original)))
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog.content, ft.Column)
+        listing = dialog.content.controls[-1]
+        assert isinstance(listing, ft.Column) and listing.spacing == 0
+        assert not any(
+            isinstance(item, (ft.IconButton, ft.ExpansionTile)) for item in walk(listing)
+        )
+        ordered = [journal.ledger.transactions[index] for index in (2, 1, 3, 0)]
+        names = host.budgets._account_names()
+        expected = host._transaction_groups(ordered, names, read_only=True)
+        actual_text = [item.value for item in walk(listing) if isinstance(item, ft.Text)]
+        expected_text = [
+            item.value for item in walk(ft.Column(expected)) if isinstance(item, ft.Text)
+        ]
+        assert actual_text == expected_text
+        cards = [
+            item
+            for item in listing.controls
+            if isinstance(item, ft.Container) and isinstance(item.content, ft.Row)
+        ]
+        assert len(cards) == 4
+        assert [
+            next(item.value for item in walk(card) if isinstance(item, ft.Text)) for card in cards
+        ] == ["Newest day", "Evening", "Morning", "Lunch"]
+        assert all(
+            isinstance(card.content, ft.Row) and len(card.content.controls) == 1 for card in cards
+        )
+        assert (tmp_path / FILENAME).read_bytes() == before
+        assert displayed_rows(host)[0] == original
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "currency,expected", [("", ["Dinner", "Lunch"]), ("USD", ["Lunch"]), ("EUR", ["Dinner"])]
+)
+def test_budget_transaction_rows_preserve_currency_and_payee_filters(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+    currency: str,
+    expected: list[str],
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        await load(host, tmp_path, MULTI_CURRENCY)
+        original = displayed_rows(host)[0]
+        before = (tmp_path / FILENAME).read_bytes()
+        host.budgets.currency.value = currency
+        host.budgets._transactions(MagicMock(control=ft.TextButton(data=original)))
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog.content, ft.Column)
+        search, listing = dialog.content.controls[1:]
+        assert isinstance(search, ft.TextField) and search.on_change
+        assert isinstance(listing, ft.Column)
+
+        def narrations() -> list[str | None]:
+            return [
+                next(item.value for item in walk(card) if isinstance(item, ft.Text))
+                for card in listing.controls
+                if isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
+            ]
+
+        assert narrations() == expected
+        search.value = "OTHER SHOP"
+        cast(Callable[[object], None], search.on_change)(MagicMock())
+        assert narrations() == (["Dinner"] if currency != "USD" else [])
+        assert not any(isinstance(item, ft.IconButton) for item in walk(listing))
+        assert (tmp_path / FILENAME).read_bytes() == before
+        assert displayed_rows(host)[0] == original
 
     asyncio.run(scenario())
 

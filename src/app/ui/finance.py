@@ -937,11 +937,7 @@ class FinanceView(ft.Row):
         names.update({category.id: category.name for category in ledger.categories})
         transactions = sorted(
             ledger.transactions,
-            key=lambda item: (
-                item.date,
-                datetime.fromisoformat(item.timestamp),
-                item.id,
-            ),
+            key=self._transaction_sort_key,
             reverse=True,
         )
         self.history.controls = self._transaction_groups(transactions, names) or [
@@ -1257,11 +1253,17 @@ class FinanceView(ft.Row):
             if isinstance(control, ft.Container) and isinstance(control.content, ft.Row):
                 control.border = border
 
+    @staticmethod
+    def _transaction_sort_key(transaction: Transaction) -> tuple[date, datetime, str]:
+        return transaction.date, datetime.fromisoformat(transaction.timestamp), transaction.id
+
     def _transaction_groups(
         self,
         transactions: list[Transaction],
         names: dict[str, str],
         compact: bool = False,
+        *,
+        read_only: bool = False,
     ) -> list[ft.Control]:
         controls: list[ft.Control] = []
         for day, entries in groupby(transactions, key=lambda item: item.date):
@@ -1279,7 +1281,10 @@ class FinanceView(ft.Row):
                     ),
                 )
             )
-            controls.extend(self._transaction_card(item, names, compact) for item in entries)
+            controls.extend(
+                self._transaction_card(item, names, compact, read_only=read_only)
+                for item in entries
+            )
         return controls
 
     def _transaction_card(
@@ -1287,6 +1292,8 @@ class FinanceView(ft.Row):
         transaction: Transaction,
         names: dict[str, str],
         compact: bool = False,
+        *,
+        read_only: bool = False,
     ) -> ft.Control:
         kind_key = {
             "opening": "kind_opening",
@@ -1391,16 +1398,20 @@ class FinanceView(ft.Row):
                     overflow=ft.TextOverflow.ELLIPSIS,
                 )
             )
-        actions: list[ft.Control] = [
-            ft.IconButton(
-                icon=ft.Icons.EDIT_OUTLINED,
-                icon_size=20,
-                tooltip=self.tr("crud_edit"),
-                data=transaction.id,
-                on_click=self._edit_transaction,
-            ),
-        ]
-        if not compact:
+        actions: list[ft.Control] = (
+            []
+            if read_only
+            else [
+                ft.IconButton(
+                    icon=ft.Icons.EDIT_OUTLINED,
+                    icon_size=20,
+                    tooltip=self.tr("crud_edit"),
+                    data=transaction.id,
+                    on_click=self._edit_transaction,
+                ),
+            ]
+        )
+        if not compact and not read_only:
             actions.append(
                 ft.IconButton(
                     icon=ft.Icons.DELETE_OUTLINE,

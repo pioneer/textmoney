@@ -38,6 +38,27 @@ async def press(session: Session, key: str = "Escape") -> None:
     await session.dispatch_event(dialog.content._i, "key_down", {"key": key})
 
 
+@pytest.mark.parametrize("platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS])
+@pytest.mark.parametrize("key", ["Escape", "Enter", "Numpad Enter"])
+def test_daily_report_keys_close_without_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: ft.PagePlatform, key: str
+) -> None:
+    async def scenario() -> None:
+        session = keyboard_session(platform)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
+        view = FinanceView()
+        journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        journal.ready = True
+        view._daily_report(journal, date(2026, 1, 31))
+        dialog = session.page._dialogs.controls[-1]
+        assert isinstance(dialog, ft.AlertDialog) and dialog.open
+        await press(session, key)
+        assert not dialog.open
+        assert list(tmp_path.iterdir()) == []
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize(
     "platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.MACOS]
 )

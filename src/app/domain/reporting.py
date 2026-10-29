@@ -53,6 +53,18 @@ def period_bounds(preset: str, today: date) -> tuple[date, date]:
     raise LedgerError("report_date_range")
 
 
+def currency_totals(ledger: Ledger, start: date, end: date) -> tuple[CurrencyReport, ...]:
+    totals = ledger.period_totals(start, end)
+    return tuple(
+        CurrencyReport(
+            currency,
+            totals["income"].get(currency, ZERO),
+            totals["expenses"].get(currency, ZERO),
+        )
+        for currency in sorted(set(totals["income"]) | set(totals["expenses"]))
+    )
+
+
 def period_report(ledger: Ledger, start: date, end: date) -> PeriodReport:
     """Aggregate category postings once; never combine different currencies."""
     if end < start:
@@ -136,17 +148,8 @@ def period_report(ledger: Ledger, start: date, end: date) -> PeriodReport:
         )
         return tuple(item for identifier in top_level if (item := build(identifier)) is not None)
 
-    totals = ledger.period_totals(start, end)
-    currencies = sorted(set(totals["income"]) | set(totals["expenses"]))
     return PeriodReport(
-        tuple(
-            CurrencyReport(
-                currency,
-                totals["income"].get(currency, ZERO),
-                totals["expenses"].get(currency, ZERO),
-            )
-            for currency in currencies
-        ),
+        currency_totals(ledger, start, end),
         category_roots("Income"),
         category_roots("Expenses"),
         tuple(sorted(unassigned["Income"].items())),

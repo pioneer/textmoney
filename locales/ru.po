@@ -16,6 +16,21 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+msgid "ui.daily_summary"
+msgstr "Итоги дня · По категориям"
+
+msgid "ui.daily_no_cashflow"
+msgstr "Нет расходов и доходов"
+
+msgid "ui.daily_report"
+msgstr "Отчёт за день · {day}"
+
+msgid "ui.daily_report_help"
+msgstr "Расходы включают комиссии и уменьшаются на возмещения. Доходы показаны отдельно. Валюты не конвертируются; родительские категории включают подкатегории. Это отчёт только для просмотра; после изменений откройте его снова."
+
+msgid "ui.daily_report_close"
+msgstr "Закрыть"
+
 msgid "ui.default_account"
 msgstr "Счёт по умолчанию для операций"
 

@@ -83,6 +83,15 @@ the available horizontal space.
   available report content width, respecting navigation and page padding.
   Custom date ranges, wrapped amount metrics, and bottom scroll clearance remain
   usable on narrow displays.
+- Operations: exactly one clickable summary appears below each date, with net
+  expenses and income separate per currency. Check commissions on purchases,
+  receipts and transfers, reimbursements (including negative net expense),
+  income-only days and principal-only days. Home and budget details have no
+  daily blocks. Open multiple dates, expand nested expense/income categories,
+  inspect inactive labels and long names, and scroll a large report at narrow
+  and desktop widths; Close must stay accessible. Escape/Enter must close
+  without writes or backups. Edit/delete/reload the journal and reopen a report
+  to verify updated figures and date boundaries.
 - Category trees in Accounting, report breakdowns and budget pickers use compact,
   borderless rows. Top-level rows start at the content edge; nested levels
   add 16 logical pixels, without extra leaf indentation. Expandable rows show

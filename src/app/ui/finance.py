@@ -27,6 +27,7 @@ from app.domain.ledger import (
     EPOCH,
     Account,
     Category,
+    Ledger,
     LedgerError,
     Posting,
     Transaction,
@@ -34,7 +35,14 @@ from app.domain.ledger import (
     exchange_values,
     money,
 )
-from app.domain.reporting import CategoryReport, PeriodReport, period_bounds, period_report
+from app.domain.reporting import (
+    CategoryReport,
+    CurrencyReport,
+    PeriodReport,
+    currency_totals,
+    period_bounds,
+    period_report,
+)
 from app.domain.storage import ConflictError
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -972,9 +980,9 @@ class FinanceView(ft.Row):
             key=self._transaction_sort_key,
             reverse=True,
         )
-        self.history.controls = self._transaction_groups(transactions, names) or [
-            ft.Text(self.tr("transactions_empty"))
-        ]
+        self.history.controls = self._transaction_groups(
+            transactions, names, daily_summary=True
+        ) or [ft.Text(self.tr("transactions_empty"))]
         self.home_activity.controls = self._transaction_groups(
             transactions[:5], names, compact=True
         ) or [ft.Text(self.tr("home_no_transactions"))]
@@ -1065,74 +1073,6 @@ class FinanceView(ft.Row):
             for item in report.currencies
         ]
 
-        def percentage(amount: Decimal, total: Decimal) -> str:
-            if total == 0:
-                return self.tr("report_percentage_unavailable")
-            with localcontext() as context:
-                context.prec = 50
-                value = amount * 100 / total
-            return f"{format_amount(value, self.language)}%"
-
-        def category_controls(
-            categories: tuple[CategoryReport, ...], currency: str, total: Decimal
-        ) -> list[ft.Control]:
-            def node(item: CategoryReport) -> ft.Control | None:
-                children = [child for sub in item.children if (child := node(sub)) is not None]
-                amount = item.amount(currency)
-                if amount == 0 and not children:
-                    return None
-                labels: list[ft.Control] = [
-                    ft.Text(item.name, expand=True),
-                    ft.Text(format_amount(amount, self.language, currency)),
-                    ft.Text(percentage(amount, total), width=72, text_align=ft.TextAlign.RIGHT),
-                ]
-                if not item.active:
-                    labels[0] = ft.Column(
-                        [labels[0], ft.Text(self.tr("crud_inactive_label"), size=12)],
-                        spacing=0,
-                        expand=True,
-                    )
-                title = ft.Row(labels, spacing=8)
-                if children:
-                    return compact_tree_tile(ft.ExpansionTile(title=title, controls=children))
-                return ft.Container(
-                    padding=0,
-                    content=title,
-                )
-
-            return [item for category in categories if (item := node(category)) is not None]
-
-        def category_section(
-            title_key: str,
-            categories: tuple[CategoryReport, ...],
-            unassigned: tuple[tuple[str, Decimal], ...],
-            currency: str,
-            total: Decimal,
-        ) -> ft.Control:
-            controls: list[ft.Control] = [
-                ft.Text(self.tr(title_key), size=17, weight=ft.FontWeight.W_600)
-            ]
-            controls.extend(category_controls(categories, currency, total))
-            unassigned_amount = dict(unassigned).get(currency, Decimal("0"))
-            if unassigned_amount != 0:
-                controls.append(
-                    ft.Row(
-                        [
-                            ft.Text(self.tr("report_uncategorized"), expand=True),
-                            ft.Text(format_amount(unassigned_amount, self.language, currency)),
-                            ft.Text(
-                                percentage(unassigned_amount, total),
-                                width=72,
-                                text_align=ft.TextAlign.RIGHT,
-                            ),
-                        ],
-                        spacing=8,
-                    )
-                )
-            if len(controls) == 1:
-                controls.append(ft.Text(self.tr("report_categories_empty")))
-            return ft.Column(controls, spacing=0)
-
         self.report_categories.controls = [
             ft.Container(
                 theme=compact_tree_theme(),
@@ -1142,7 +1082,7 @@ class FinanceView(ft.Row):
                 content=ft.Column(
                     [
                         ft.Text(self.tr("currency_group", currency=item.currency), size=18),
-                        category_section(
+                        self._report_category_section(
                             "report_expense_categories",
                             report.expense_categories,
                             report.unassigned_expenses,
@@ -1150,7 +1090,7 @@ class FinanceView(ft.Row):
                             item.expenses,
                         ),
                         ft.Divider(),
-                        category_section(
+                        self._report_category_section(
                             "report_income_categories",
                             report.income_categories,
                             report.unassigned_income,
@@ -1163,6 +1103,68 @@ class FinanceView(ft.Row):
             )
             for item in report.currencies
         ]
+
+    def _report_category_section(
+        self,
+        title_key: str,
+        categories: tuple[CategoryReport, ...],
+        unassigned: tuple[tuple[str, Decimal], ...],
+        currency: str,
+        total: Decimal,
+        *,
+        stacked: bool = False,
+    ) -> ft.Column:
+        def percentage(amount: Decimal) -> str:
+            if total == 0:
+                return self.tr("report_percentage_unavailable")
+            with localcontext() as context:
+                context.prec = 50
+                value = amount * 100 / total
+            return f"{format_amount(value, self.language)}%"
+
+        def category_line(label: ft.Control, amount: Decimal) -> ft.Control:
+            values: list[ft.Control] = [
+                ft.Text(format_amount(amount, self.language, currency)),
+                ft.Text(percentage(amount), width=72, text_align=ft.TextAlign.RIGHT),
+            ]
+            if stacked:
+                return ft.Column(
+                    [label, ft.Row(values, wrap=True, spacing=8, run_spacing=0)],
+                    tight=True,
+                    spacing=0,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                )
+            label.expand = True
+            return ft.Row([label, *values], spacing=8)
+
+        def node(item: CategoryReport) -> ft.Control | None:
+            children = [child for sub in item.children if (child := node(sub)) is not None]
+            amount = item.amount(currency)
+            if amount == 0 and not children:
+                return None
+            label: ft.Control = ft.Text(item.name)
+            if not item.active:
+                label = ft.Column(
+                    [label, ft.Text(self.tr("crud_inactive_label"), size=12)],
+                    spacing=0,
+                )
+            title = category_line(label, amount)
+            if children:
+                return compact_tree_tile(ft.ExpansionTile(title=title, controls=children))
+            return ft.Container(padding=0, content=title)
+
+        controls: list[ft.Control] = [
+            ft.Text(self.tr(title_key), size=17, weight=ft.FontWeight.W_600)
+        ]
+        controls.extend(item for category in categories if (item := node(category)) is not None)
+        unassigned_amount = dict(unassigned).get(currency, Decimal("0"))
+        if unassigned_amount != 0:
+            controls.append(
+                category_line(ft.Text(self.tr("report_uncategorized")), unassigned_amount)
+            )
+        if len(controls) == 1:
+            controls.append(ft.Text(self.tr("report_categories_empty")))
+        return ft.Column(controls, spacing=0)
 
     def _report_period_changed(self, event: ft.Event[ft.Dropdown]) -> None:
         self._render_reports()
@@ -1296,6 +1298,7 @@ class FinanceView(ft.Row):
         compact: bool = False,
         *,
         read_only: bool = False,
+        daily_summary: bool = False,
     ) -> list[ft.Control]:
         controls: list[ft.Control] = []
         for day, entries in groupby(transactions, key=lambda item: item.date):
@@ -1313,11 +1316,132 @@ class FinanceView(ft.Row):
                     ),
                 )
             )
+            day_entries = tuple(entries)
+            if daily_summary and self.journal is not None:
+                controls.append(self._daily_summary(self.journal, day, day_entries))
             controls.extend(
                 self._transaction_card(item, names, compact, read_only=read_only)
-                for item in entries
+                for item in day_entries
             )
         return controls
+
+    def _daily_summary(
+        self, journal: Journal, day: date, transactions: tuple[Transaction, ...]
+    ) -> ft.Container:
+        totals = currency_totals(Ledger(transactions=transactions), day, day)
+        button = ft.TextButton(
+            data=day,
+            expand=True,
+            content=ft.Column(
+                [
+                    ft.Text(self.tr("daily_summary"), size=12),
+                    self._daily_totals(totals),
+                ],
+                tight=True,
+                spacing=4,
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+            ),
+            style=ft.ButtonStyle(
+                padding=8,
+                side=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT),
+                shape=ft.RoundedRectangleBorder(radius=8),
+                alignment=ft.Alignment.CENTER_LEFT,
+            ),
+            on_click=lambda event: self._daily_report(journal, day),
+        )
+        return ft.Container(
+            padding=ft.Padding.only(bottom=4),
+            content=ft.Column([ft.Row([button])], spacing=0),
+        )
+
+    def _daily_totals(self, currencies: tuple[CurrencyReport, ...]) -> ft.Column:
+        return ft.Column(
+            [
+                ft.Row(
+                    [
+                        ft.Text(
+                            f"{self.tr('report_expenses')}: "
+                            f"{format_amount(item.expenses, self.language, item.currency)}",
+                            size=13,
+                        ),
+                        ft.Text(
+                            f"{self.tr('report_income')}: "
+                            f"{format_amount(item.income, self.language, item.currency)}",
+                            size=13,
+                        ),
+                    ],
+                    wrap=True,
+                    spacing=16,
+                    run_spacing=4,
+                )
+                for item in currencies
+            ]
+            or [ft.Text(self.tr("daily_no_cashflow"), size=13)],
+            spacing=4,
+            tight=True,
+        )
+
+    def _daily_report(self, journal: Journal, day: date) -> None:
+        try:
+            if self.journal is not journal:
+                raise ConflictError("crud_stale")
+            if not journal.ready:
+                raise LedgerError("report_unavailable")
+            report = period_report(journal.ledger, day, day)
+            sections: list[ft.Control] = []
+            for item in report.currencies:
+                sections.extend(
+                    [
+                        ft.Divider(),
+                        ft.Text(self.tr("currency_group", currency=item.currency), size=18),
+                        self._report_category_section(
+                            "report_expense_categories",
+                            report.expense_categories,
+                            report.unassigned_expenses,
+                            item.currency,
+                            item.expenses,
+                            stacked=self.screen_class == ScreenClass.COMPACT,
+                        ),
+                        ft.Divider(),
+                        self._report_category_section(
+                            "report_income_categories",
+                            report.income_categories,
+                            report.unassigned_income,
+                            item.currency,
+                            item.income,
+                            stacked=self.screen_class == ScreenClass.COMPACT,
+                        ),
+                    ]
+                )
+            show_dialog(
+                self.page,
+                ft.AlertDialog(
+                    title=self.tr(
+                        "daily_report",
+                        day=self.tr("initial_date")
+                        if day == EPOCH
+                        else format_date(day, self.language),
+                    ),
+                    scrollable=True,
+                    content=ft.Container(
+                        theme=compact_tree_theme(),
+                        content=ft.Column(
+                            [
+                                self._daily_totals(report.currencies),
+                                ft.Text(self.tr("daily_report_help"), size=12),
+                                *sections,
+                            ],
+                            tight=True,
+                            width=520,
+                            spacing=12,
+                            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                        ),
+                    ),
+                    actions=[ft.TextButton(self.tr("daily_report_close"), on_click=self._dismiss)],
+                ),
+            )
+        except Exception as exc:
+            self._error(exc, notify=True)
 
     def _transaction_card(
         self,

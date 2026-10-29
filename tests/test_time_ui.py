@@ -139,6 +139,8 @@ def texts(control: ft.Control) -> list[str]:
         return [control.value or ""]
     if isinstance(control, ft.Container) and control.content is not None:
         return texts(control.content)
+    if isinstance(control, ft.TextButton) and isinstance(control.content, ft.Control):
+        return texts(control.content)
     if isinstance(control, (ft.Row, ft.Column)):
         return [text for child in control.controls for text in texts(child)]
     return []
@@ -298,6 +300,9 @@ def test_both_transaction_lists_group_localized_dates_without_changing_order_or_
                 assert control.content.weight == ft.FontWeight.W_600
                 assert control.alignment == ft.Alignment.CENTER
                 assert control.border is None
+            elif isinstance(control.content, ft.Column):
+                assert listing is view.history and control.border is None
+                assert view.tr("daily_summary") in texts(control)
             else:
                 assert isinstance(control.content, ft.Row)
                 expected_border = (

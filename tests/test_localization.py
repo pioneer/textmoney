@@ -70,6 +70,7 @@ def test_all_locales_have_a_nonempty_translation_for_each_ui_key() -> None:
                 transactions=3,
                 budgets=1,
                 references=8,
+                day="2026-10-29",
             ).strip()
 
 

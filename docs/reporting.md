@@ -28,3 +28,24 @@ roll-ups from double-counting. Uncategorized postings are shown separately.
 The report is an operational summary, not a full accounting statement. It does
 not calculate FX gains/losses, historical valuations, or balances in a reporting
 currency.
+
+## Daily Operations summaries
+
+Below each date in Operations, a compact clickable block shows **net expenses**
+and **income** separately for every currency. It follows the same posting-based
+rules as Overview: commissions on purchases, receipts and transfers are expenses;
+reimbursements reduce expenses on their recorded accounting date. Income is not
+reduced by its commission. There is no cross-currency combined total. Days with
+only transfers, opening balances or adjustments show no expenses or income.
+
+Click the block to open a scrollable, read-only category report for that date.
+Expense and income trees are separate, retain inactive categories and include
+descendant subtotals without double-counting. On narrow screens, category names
+sit above their amounts and percentages. Close, Escape or Enter dismisses
+the popup without writing to the journal. The popup is a snapshot of the
+currently loaded ledger; reopen it after changes. List totals refresh after
+edits, deletions and external journal reloads.
+
+Daily blocks appear only in Operations, not in the truncated Home activity
+list or filtered budget transaction details. Compact totals scan each day's
+entries once; category trees are built only when a daily report is opened.

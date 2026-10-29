@@ -16,6 +16,21 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+msgid "ui.daily_summary"
+msgstr "Підсумки дня · За категоріями"
+
+msgid "ui.daily_no_cashflow"
+msgstr "Немає витрат і доходів"
+
+msgid "ui.daily_report"
+msgstr "Звіт за день · {day}"
+
+msgid "ui.daily_report_help"
+msgstr "Витрати включають комісії та зменшуються на відшкодування. Доходи показано окремо. Валюти не конвертуються; батьківські категорії включають підкатегорії. Це звіт лише для перегляду; після змін відкрийте його знову."
+
+msgid "ui.daily_report_close"
+msgstr "Закрити"
+
 msgid "ui.default_account"
 msgstr "Типовий рахунок для операцій"
 

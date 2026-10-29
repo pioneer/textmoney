@@ -210,6 +210,21 @@ msgstr "Including children"
 msgid "ui.budget_transactions"
 msgstr "Contributing transactions"
 
+msgid "ui.daily_summary"
+msgstr "Day totals · By category"
+
+msgid "ui.daily_no_cashflow"
+msgstr "No expenses or income"
+
+msgid "ui.daily_report"
+msgstr "Daily report · {day}"
+
+msgid "ui.daily_report_help"
+msgstr "Expenses include commissions and subtract reimbursements. Income is shown separately. Currencies are not converted; parent categories include their descendants. This is a read-only snapshot; reopen it after changes."
+
+msgid "ui.daily_report_close"
+msgstr "Close"
+
 msgid "ui.default_account"
 msgstr "Default transaction account"
 

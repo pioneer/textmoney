@@ -115,6 +115,32 @@ pruned. Cancelling an async caller does not stop an already running I/O thread.
 Windows CI exercises tests and installer/startup smoke checks; this is not full
 interactive Windows or power-loss validation. See [Testing](testing.md).
 
+### Category migration
+
+Changing an existing category's code/parent is a guarded, whole-journal rewrite,
+not an ordinary display-name edit. See [the migration workflow](journal-format.md#moving-and-renaming-an-existing-category).
+Previewing and acknowledging never write. Confirmation regenerates and validates
+the source-bound plan, then requires an adapter with explicit atomic replacement
+support. Desktop uses the same verified backup, same-directory staging,
+late hash check and `os.replace()` pipeline above, with no truncating fallback.
+Android SAF and other adapters without that capability are refused before backup
+or journal writes.
+
+**No other app/device may write to the file during migration. Close other editors
+and pause synchronization before confirmation; keep TextMoney open until it
+finishes.** The operation can take time and atomic replacement is not a lock:
+an external writer can race the last hash check. It is not a guarantee of
+power-loss or network/cloud durability. Inspect the result before resuming the
+normal sequential synchronization workflow.
+
+Review/save source versions must match; stale plans, collisions, backup failures
+and pre-replacement staging failures do not replace the original. Post-commit
+failures retain the existing explicit uncertain/saved-with-maintenance-warning
+semantics; do not blindly retry. Journal and local preferences are not one atomic
+transaction: a local commission-settings failure reports that the journal is
+already migrated, closes its obsolete edit dialogs and asks you to review/save
+Settings rather than repeat the migration. Keep independent backups.
+
 ## Android interrupted-save review
 
 SAF uses direct provider writes, which are **not atomic**. A `content://` URI is

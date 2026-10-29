@@ -11,6 +11,7 @@ from uuid import uuid4
 from autobean_refactor import models
 
 from app.domain.budgets import Budget, budget_amount, budget_currency, interval_name
+from app.domain.category_migration import CategoryMigration, migrated_category
 from app.domain.ledger import (
     ADJUSTMENTS,
     BANK_FEES,
@@ -35,6 +36,7 @@ from app.infrastructure.beancount_journal import (
     JournalCodec,
     append,
     budget_text,
+    category_migration,
     equity_declaration,
     open_account,
     open_category,
@@ -45,6 +47,7 @@ from app.infrastructure.beancount_journal import (
     transaction_time,
 )
 from app.storage import (
+    AtomicFolder,
     Folder,
     RecoveryFolder,
     RecoveryRequired,
@@ -213,12 +216,12 @@ class Journal:
         candidate = append(self.source, addition)
         return await self._commit(candidate)
 
-    async def _commit(self, candidate: str) -> str | None:
+    async def _commit(self, candidate: str, *, require_atomic: bool = False) -> str | None:
         self._require_ready()
         ledger = await asyncio.to_thread(self._parse, candidate)
         self.storage.draft = candidate
         try:
-            backup = await self.storage.write()
+            backup = await self.storage.write(require_atomic=require_atomic)
         except (StorageError, ConflictError, TimeoutError, asyncio.CancelledError):
             self.ready = False
             self.storage.loaded = False
@@ -772,6 +775,38 @@ class Journal:
             return replace_directive(self.source, entry, update)
 
         return await self._change(edit, expected_source)
+
+    @property
+    def category_migration_available(self) -> bool:
+        return isinstance(self.storage.folder, AtomicFolder)
+
+    async def plan_category_migration(
+        self, identifier: str, target: str, expected_source: str
+    ) -> CategoryMigration:
+        self._require_ready()
+        if not self.category_migration_available:
+            raise StorageError("category_migration_atomic_required")
+        if self.source != expected_source:
+            raise ConflictError("crud_stale")
+
+        def prepare() -> CategoryMigration:
+            assert self.codec is not None
+            plan = category_migration(self.codec.document(expected_source), identifier, target)
+            self._parse(plan.candidate)
+            return plan
+
+        return await asyncio.to_thread(prepare)
+
+    async def migrate_category(self, plan: CategoryMigration) -> str | None:
+        reviewed = await self.plan_category_migration(plan.original, plan.target, plan.source)
+        if reviewed != plan:
+            raise ConflictError("crud_stale")
+        backup = await self._commit(plan.candidate, require_atomic=True)
+        self.default_fee_category = migrated_category(
+            self.default_fee_category, plan.original, plan.target
+        )
+        self.ledger = replace(self.ledger, default_fee_category=self.default_fee_category)
+        return backup
 
     async def delete_account(self, identifier: str, expected_source: str) -> str | None:
         return await self._delete_declaration(identifier, expected_source, category=False)

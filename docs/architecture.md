@@ -24,6 +24,7 @@ src/app/domain/backups.py  timestamped backup identities and tiered retention
 src/app/domain/recovery.py checksummed, hash-only Android save records and classification
 src/app/domain/ledger.py   explicit accounts, Decimal postings and running-balance checks
 src/app/domain/budgets.py  Fava-compatible daily allocation, calendar ranges and budget reports
+src/app/domain/category_migration.py source-bound subtree migration plan and path remapping
 src/app/ui/budgets.py      localized budget overview, report controls and definition management
 src/app/journal.py         one-journal load/append/save coordination, no Flet
 src/app/infrastructure/beancount_journal.py lossless reading, directive splices and generation
@@ -41,6 +42,14 @@ session owns its `Folder` protocol and accepts desktop or Android adapters, plus
 test fakes. It is intentionally a single module, not a service framework. Do not create empty
 packages, generic repositories, dependency injection containers, or abstract
 base classes in anticipation of features.
+
+Category code/parent migrations are planned through the lossless journal codec,
+validated and rechecked against their reviewed source by `Journal`, then require
+the storage session's opt-in `AtomicFolder` capability. Desktop reuses its
+same-directory atomic replacement; Android SAF intentionally lacks that
+capability. There is no non-atomic migration fallback or new journal metadata.
+UI owns the multi-step warning/acknowledgement and remaps local settings only
+after a verified journal commit, reporting any post-commit preference failure.
 
 UI owns controls and navigation, not business decisions or raw HTTP/database
 calls. Every new or changed popup must follow the

@@ -285,3 +285,6 @@ class DesktopFolder:
 
     async def write(self, data: bytes, *, expected_hash: str | None) -> None:
         await asyncio.to_thread(self._write, data, expected_hash)
+
+    async def write_atomic(self, data: bytes, *, expected_hash: str | None) -> None:
+        await self.write(data, expected_hash=expected_hash)

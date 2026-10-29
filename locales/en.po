@@ -210,6 +210,75 @@ msgstr "Including children"
 msgid "ui.budget_transactions"
 msgstr "Contributing transactions"
 
+msgid "ui.default_account"
+msgstr "Default transaction account"
+
+msgid "ui.default_account_none"
+msgstr "No default account"
+
+msgid "ui.default_account_help"
+msgstr "Optional, saved on this device only, not in the journal. Preselects the account for new expenses and receipts, or the source account for transfers. You can change it in each form; saved transactions are unchanged."
+
+msgid "ui.default_account_unavailable_choice"
+msgstr "{identifier} (unavailable)"
+
+msgid "ui.default_account_unavailable"
+msgstr "The saved default account is missing or inactive in this journal. New transactions will have no account selected. Choose an active account or No default account, then save."
+
+msgid "ui.default_account_invalid"
+msgstr "The saved default account setting is invalid. Check this device's settings."
+
+msgid "ui.default_account_save_failed"
+msgstr "Could not save the default account. The previous setting is unchanged; your selection is retained. Check device storage and try again."
+
+msgid "ui.default_account_saved"
+msgstr "Default transaction account saved on this device."
+
+msgid "ui.category_migration_advanced"
+msgstr "Advanced: change category code or hierarchy"
+
+msgid "ui.category_migration_start"
+msgstr "Move or rename category branch…"
+
+msgid "ui.category_migration_intro"
+msgstr "This separate operation changes the technical code of this category and all descendants, including historical records and budgets. Display names and active states stay unchanged; unsaved edits above are not applied. Merging and changing between Expenses and Income are not allowed."
+
+msgid "ui.category_migration_code"
+msgstr "Enter one code component, without colons."
+
+msgid "ui.category_migration_code_title"
+msgstr "New code"
+
+msgid "ui.category_migration_review"
+msgstr "Review category migration"
+
+msgid "ui.category_migration_counts"
+msgstr "Categories: {categories} · Transactions: {transactions} · Budgets: {budgets} · References: {references}"
+
+msgid "ui.category_migration_warning"
+msgstr "WARNING: This rewrites the complete journal and may take time. Close other editors, stop writes from all other apps/devices, and pause synchronization before continuing. NO ONE must write to the file during this operation. Keep TextMoney open until completion. A verified backup is created before atomic file replacement; failure before replacement leaves the original intact. Atomic replacement prevents partial files, but does not lock out other writers or guarantee survival of power loss. Other devices' local category settings must be reviewed separately."
+
+msgid "ui.category_migration_ack"
+msgstr "I have read the warning, stopped other writers and paused synchronization."
+
+msgid "ui.category_migration_confirm"
+msgstr "Migrate entire branch"
+
+msgid "ui.category_migration_ack_required"
+msgstr "Read and acknowledge the migration warning before continuing."
+
+msgid "ui.category_migration_target_invalid"
+msgstr "Choose an existing active parent in the same category type and a valid new code. A branch cannot be moved into itself or left unchanged."
+
+msgid "ui.category_migration_collision"
+msgstr "The destination category or subtree is already referenced. Merging is not supported; choose an unused code."
+
+msgid "ui.category_migration_atomic_required"
+msgstr "Migration requires atomic file replacement and is available only with desktop filesystem storage. Android SAF cannot guarantee atomic replacement; migration is blocked."
+
+msgid "ui.category_migration_preferences_failed"
+msgstr "The journal migration is already saved, but local commission settings could not be saved. Do not retry the migration. Review and save commission categories and their default in Settings before restarting."
+
 msgid "ui.budget_view_report"
 msgstr "View in reports"
 
@@ -1801,7 +1870,7 @@ msgstr ""
 #. identifier.
 msgid "ui.crud_category_help"
 msgstr ""
-"Technical ID cannot change. Categories with history or children cannot be"
+"Use Advanced to migrate the technical code or hierarchy. Categories with history or children cannot be"
 " deleted. Deactivating a parent also hides its descendants from new "
 "expenses."
 

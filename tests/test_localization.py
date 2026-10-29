@@ -66,6 +66,10 @@ def test_all_locales_have_a_nonempty_translation_for_each_ui_key() -> None:
                 added=1,
                 removed=0,
                 changed=2,
+                categories=2,
+                transactions=3,
+                budgets=1,
+                references=8,
             ).strip()
 
 

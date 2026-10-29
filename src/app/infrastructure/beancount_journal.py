@@ -14,6 +14,7 @@ from babel.core import Locale, UnknownLocaleError
 from lark.exceptions import UnexpectedInput
 
 from app.domain.budgets import Budget, Price, interval_name
+from app.domain.category_migration import CategoryMigration, migrated_category
 from app.domain.ledger import (
     ADJUSTMENTS,
     EQUITY,
@@ -454,6 +455,74 @@ def parse_budget(entry: models.Custom) -> Budget:
         interval,
         amount.number,
         amount.currency,
+    )
+
+
+def category_migration(document: models.File, original: str, target: str) -> CategoryMigration:
+    source = render(document)
+    root = original.split(":")[0]
+    declarations = {
+        entry.account: entry for entry in document.raw_directives if isinstance(entry, models.Open)
+    }
+    if root not in {"Expenses", "Income"} or original not in declarations:
+        raise LedgerError("crud_missing")
+    if (
+        account_path(target, root) != target
+        or target.split(":")[0] != root
+        or target == original
+        or target.startswith(original + ":")
+    ):
+        raise LedgerError("category_migration_target_invalid")
+    parent = target.rsplit(":", 1)[0]
+    if parent != root and (
+        parent not in declarations or declarations[parent].meta.get("textmoney-active") is False
+    ):
+        raise LedgerError("category_migration_target_invalid")
+    account_tokens = [token for token in document.tokens if isinstance(token, models.Account)]
+    quoted_budgets = [
+        value
+        for entry in document.raw_directives
+        if isinstance(entry, models.Custom) and entry.type == "budget"
+        for value in entry.raw_values[:1]
+        if isinstance(value, models.EscapedString)
+    ]
+    identifiers = {token.value for token in (*account_tokens, *quoted_budgets)}
+    if any(
+        (identifier == target or identifier.startswith(target + ":"))
+        and migrated_category(identifier, original, target) == identifier
+        for identifier in identifiers
+    ):
+        raise LedgerError("category_migration_collision")
+    counts = {"categories": 0, "transactions": 0, "budgets": 0}
+    for entry in document.raw_directives:
+        if isinstance(entry, models.Open):
+            counts["categories"] += (
+                migrated_category(entry.account, original, target) != entry.account
+            )
+        elif isinstance(entry, models.Transaction):
+            counts["transactions"] += any(
+                migrated_category(token.value, original, target) != token.value
+                for token in entry.tokens
+                if isinstance(token, models.Account)
+            )
+        elif isinstance(entry, models.Custom) and entry.type == "budget":
+            account = parse_budget(entry).account
+            counts["budgets"] += migrated_category(account, original, target) != account
+    references = 0
+    for token in (*account_tokens, *quoted_budgets):
+        updated = migrated_category(token.value, original, target)
+        if updated != token.value:
+            token.value = updated
+            references += 1
+    return CategoryMigration(
+        original,
+        target,
+        source,
+        render(document),
+        counts["categories"],
+        counts["transactions"],
+        counts["budgets"],
+        references,
     )
 
 

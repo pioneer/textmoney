@@ -5,6 +5,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.domain.category_migration import migrated_category
 from app.domain.ledger import BANK_FEES, LedgerError, account_path
 
 
@@ -12,8 +13,32 @@ class PreferencesError(RuntimeError):
     pass
 
 
+def parse_default_account(value: object) -> str | None:
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str) or not value.startswith(("Assets:", "Liabilities:")):
+        raise PreferencesError("default_account_invalid")
+    try:
+        if account_path(value, value.split(":")[0]) != value:
+            raise PreferencesError("default_account_invalid")
+    except LedgerError as exc:
+        raise PreferencesError("default_account_invalid") from exc
+    return value
+
+
 def fee_category_in_branches(identifier: str, branches: tuple[str, ...]) -> bool:
     return any(identifier == branch or identifier.startswith(branch + ":") for branch in branches)
+
+
+def migrated_fee_branches(branches: tuple[str, ...], original: str, target: str) -> tuple[str, ...]:
+    updated = tuple(
+        dict.fromkeys(migrated_category(branch, original, target) for branch in branches)
+    )
+    if fee_category_in_branches(original, branches) and not fee_category_in_branches(
+        target, updated
+    ):
+        updated += (target,)
+    return updated
 
 
 @dataclass(frozen=True)
@@ -40,6 +65,12 @@ class FeePreferences:
 
     def serialize(self) -> str:
         return json.dumps({"branches": self.branches, "default": self.default})
+
+    def migrate(self, original: str, target: str) -> "FeePreferences":
+        return FeePreferences(
+            migrated_fee_branches(self.branches, original, target),
+            migrated_category(self.default, original, target),
+        )
 
     @classmethod
     def parse(cls, value: str) -> "FeePreferences":

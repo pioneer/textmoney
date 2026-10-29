@@ -327,6 +327,70 @@ def test_real_edit_dialog_cannot_be_cancelled_during_save(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("confirm", [False, True])
+def test_category_migration_keyboard_gates_acknowledgement_and_retains_nested_drafts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, confirm: bool
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        await journal.add_expense(
+            "Assets:Bank", "Expenses:Food", "10", "", "2026-10-18", "Synthetic"
+        )
+        original = (tmp_path / FILENAME).read_bytes()
+        backups = set((tmp_path / "backups").iterdir())
+        view._edit_entity(MagicMock(control=ft.IconButton(data=("category", "Expenses:Food"))))
+        editor = session.page._dialogs.controls[-1]
+        assert isinstance(editor, ft.AlertDialog)
+        assert isinstance(editor.content, ft.KeyboardListener)
+        assert isinstance(editor.content.content, ft.Column)
+        name = next(c for c in editor.content.content.controls if isinstance(c, ft.TextField))
+        name.value = "Unsaved name"
+        advanced = next(
+            c for c in editor.content.content.controls if isinstance(c, ft.ExpansionTile)
+        )
+        entry = next(c for c in advanced.controls or [] if isinstance(c, ft.TextButton))
+        await session.dispatch_event(entry._i, "click", None)
+        target = session.page._dialogs.controls[-1]
+        assert isinstance(target, ft.AlertDialog)
+        assert isinstance(target.content, ft.KeyboardListener)
+        assert isinstance(target.content.content, ft.Column)
+        code = next(c for c in target.content.content.controls if isinstance(c, ft.TextField))
+        code.value = "Meals"
+        await session.dispatch_event(code._i, "focus", None)
+        await press(session, "Enter")
+        review = session.page._dialogs.controls[-1]
+        assert isinstance(review, ft.AlertDialog)
+        assert isinstance(review.content, ft.KeyboardListener)
+        assert isinstance(review.content.content, ft.Column)
+        await press(session, "Enter")
+        assert review.open and (tmp_path / FILENAME).read_bytes() == original
+        if confirm:
+            row = next(c for c in review.content.content.controls if isinstance(c, ft.Row))
+            ack = next(c for c in row.controls if isinstance(c, ft.Checkbox))
+            ack.value = True
+            await session.dispatch_event(ack._i, "change", None)
+            await press(session, "Enter")
+            assert not review.open and not target.open and not editor.open
+            assert "Expenses:Meals" in journal.source and "Expenses:Food" not in journal.source
+            assert journal.ledger.categories[0].name == "Food"
+            assert len(set((tmp_path / "backups").iterdir()) - backups) == 1
+        else:
+            await press(session)
+            assert not review.open and target.open and editor.open
+            await session.dispatch_event(review._i, "dismiss", None)
+            assert code.value == "Meals"
+            await press(session)
+            assert not target.open and editor.open
+            await session.dispatch_event(target._i, "dismiss", None)
+            assert name.value == "Unsaved name"
+            await press(session)
+            assert not editor.open
+            assert (tmp_path / FILENAME).read_bytes() == original
+            assert set((tmp_path / "backups").iterdir()) == backups
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize("key", ["Enter", "Numpad Enter"])
 @pytest.mark.parametrize("modal", [False, True])

@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TextMoney 0.3.17\n"
+"Project-Id-Version: TextMoney 0.3.19\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-10-29 08:52+0200\n"
-"PO-Revision-Date: 2026-10-29 08:52+0200\n"
+"POT-Creation-Date: 2026-10-29 21:38+0200\n"
+"PO-Revision-Date: 2026-10-29 21:38+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -206,6 +206,75 @@ msgid "ui.budget_subtree"
 msgstr ""
 
 msgid "ui.budget_transactions"
+msgstr ""
+
+msgid "ui.default_account"
+msgstr ""
+
+msgid "ui.default_account_none"
+msgstr ""
+
+msgid "ui.default_account_help"
+msgstr ""
+
+msgid "ui.default_account_unavailable_choice"
+msgstr ""
+
+msgid "ui.default_account_unavailable"
+msgstr ""
+
+msgid "ui.default_account_invalid"
+msgstr ""
+
+msgid "ui.default_account_save_failed"
+msgstr ""
+
+msgid "ui.default_account_saved"
+msgstr ""
+
+msgid "ui.category_migration_advanced"
+msgstr ""
+
+msgid "ui.category_migration_start"
+msgstr ""
+
+msgid "ui.category_migration_intro"
+msgstr ""
+
+msgid "ui.category_migration_code"
+msgstr ""
+
+msgid "ui.category_migration_code_title"
+msgstr ""
+
+msgid "ui.category_migration_review"
+msgstr ""
+
+msgid "ui.category_migration_counts"
+msgstr ""
+
+msgid "ui.category_migration_warning"
+msgstr ""
+
+msgid "ui.category_migration_ack"
+msgstr ""
+
+msgid "ui.category_migration_confirm"
+msgstr ""
+
+msgid "ui.category_migration_ack_required"
+msgstr ""
+
+msgid "ui.category_migration_target_invalid"
+msgstr ""
+
+msgid "ui.category_migration_collision"
+msgstr ""
+
+msgid "ui.category_migration_atomic_required"
+msgstr ""
+
+msgid "ui.category_migration_preferences_failed"
 msgstr ""
 
 msgid "ui.budget_view_report"

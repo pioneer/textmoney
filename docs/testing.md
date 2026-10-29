@@ -63,6 +63,12 @@ the available horizontal space.
   technical account, not its display label.
 - Add/Edit operation: Category and Date inputs have equal widths, with their
   create-category and calendar buttons aligned.
+- Settings: optional Default transaction account and its None choice fill the
+  content width. Save/restart, change/clear it and open new expenses, receipts and
+  transfers; only the primary/source account is preselected, manual choices and
+  existing transactions are unchanged. Inactive/missing defaults leave new forms
+  blank and show a notice in Settings. Failed saves retain the draft and the
+  previous preference, without journal writes or backups.
 - Edit account/category: the selectable technical code is bold; all Edit account
   fields and Edit category's name input fill the form width. Account date inputs
   leave only the calendar button's space at the right.
@@ -129,6 +135,36 @@ With a disposable journal on a desktop:
    repeated Enter must not submit again while an operation is pending.
    Check Linux and Windows keyboard behavior; headless tests do not certify
    native input delivery.
+
+## Existing-category migration
+
+Focused synthetic tests cover Expenses/Income, LF/CRLF, whole-subtree typed
+references and quoted budgets, unchanged unrelated strings/comments, official
+Beancount validation, unchanged accounting totals, exact verified backups,
+same-directory replacement, stale/tampered reviews, collisions, external
+changes, backup/staging failures and Android capability rejection. UI tests
+exercise localized warnings, explicit acknowledgement, retained drafts,
+display-name-only edits and migrated local fee preferences, including errors
+after the journal is already committed.
+
+With a disposable desktop journal, also check:
+
+1. Ordinary Edit changes only display name/visibility. Advanced starts collapsed;
+   moving/renaming requires a separate target form, review and acknowledgement.
+2. The parent dropdown shows names, smaller full codes and indentation, excluding
+   the source subtree. Check same-root selection and invalid/occupied codes.
+3. Review shows exact old/new paths and counts. Enter cannot commit before
+   acknowledgement. Escape closes only review, retaining the target draft;
+   another Escape returns to the original display-name draft without writes.
+4. Pause synchronization and stop other writers. Confirm once; verify the exact
+   pre-migration backup, migrated history/budgets/commissions, unchanged balances
+   and preserved category names/active flags. Reopen/restart and inspect defaults.
+5. Change the journal externally after review: refuse the save and preserve
+   drafts. Exercise permission/disk-space failures on disposable files only.
+6. Android shows the unavailable explanation and disabled migration action.
+   Ordinary display-name edits remain supported. Native Windows sharing rules,
+   filesystem/provider atomicity and crash/power-loss behavior require separate
+   platform tests; Linux/browser tests do not certify them.
 
 ## AppImage native GTK theme
 

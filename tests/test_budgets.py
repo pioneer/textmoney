@@ -565,7 +565,8 @@ def test_budget_save_failure_preserves_original_and_draft(
         await journal.create_category("Food", "Food", opened=EPOCH)
         original = (tmp_path / FILENAME).read_bytes()
 
-        async def fail() -> str | None:
+        async def fail(*, require_atomic: bool = False) -> str | None:
+            assert not require_atomic
             raise StorageError("Backup failed (synthetic). Original not modified.")
 
         monkeypatch.setattr(journal.storage, "write", fail)

@@ -36,6 +36,11 @@ class RecoveryRequired(StorageError):
 
 
 @runtime_checkable
+class AtomicFolder(Protocol):
+    async def write_atomic(self, data: bytes, *, expected_hash: str | None) -> None: ...
+
+
+@runtime_checkable
 class RecoveryFolder(Protocol):
     async def inspect_recovery(self) -> RecoveryState: ...
     async def write_guarded(
@@ -112,7 +117,9 @@ class StorageSession:
         logger.info("Verified file backup created")
         return result
 
-    async def write(self) -> str | None:
+    async def write(self, *, require_atomic: bool = False) -> str | None:
+        if require_atomic and not isinstance(self.folder, AtomicFolder):
+            raise StorageError("category_migration_atomic_required")
         self.cleanup_error = False
         data = self.draft.encode("utf-8")
         previous = await self._checked_read()
@@ -121,7 +128,10 @@ class StorageSession:
         # Detect modifications during backup too; providers offer no compare-and-swap.
         await self._checked_read()
         try:
-            if isinstance(self.folder, RecoveryFolder):
+            if require_atomic:
+                assert isinstance(self.folder, AtomicFolder)
+                await self.folder.write_atomic(data, expected_hash=self.last_hash)
+            elif isinstance(self.folder, RecoveryFolder):
                 await self.folder.write_guarded(data, expected_hash=self.last_hash, backup=backup)
             else:
                 await self.folder.write(data, expected_hash=self.last_hash)

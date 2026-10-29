@@ -66,8 +66,40 @@ file. See [Category budgets](budgets.md) for intervals, precision and history.
   Children and other directive references can also prevent deletion.
 
 New codes are suggested from names and existing conventions, but remain editable
-before creation. Existing codes are not renamed when display names change.
+before creation. Existing codes are not automatically renamed when display names change.
 Inline category creation retains the unsaved transaction form.
+
+### Moving and renaming an existing category
+
+Ordinary **Edit** changes a category's display name and visibility; historical
+screens resolve the new name without rewriting posting codes. To change the
+technical code or parent, open **Edit → Advanced: change category code or hierarchy →
+Move or rename category branch**. Choose an active existing parent (or no parent)
+within the same Expenses/Income type and enter one new code component.
+
+The separate review shows the source/destination and affected category,
+transaction, budget and reference counts. Read the warning, stop all other
+writers and pause synchronization, then acknowledge it to enable migration.
+Cancel changes nothing. Unsaved display-name/visibility edits in the original
+editor are not applied by this separate operation.
+
+Migration moves the entire subtree, including inactive descendants, preserving
+display names, declaration dates, amounts, posting order, tags, links, comments,
+formatting and line endings. All typed Beancount account references and both
+bare/quoted Fava budget category references are migrated. Unrelated quoted
+strings and arbitrary app-specific string conventions are not interpreted or
+globally replaced. Existing accounting/format restrictions still apply.
+
+There are no merges, Expenses/Income conversions or moves into the branch itself.
+An already referenced destination subtree is rejected, even without an explicit
+declaration. Candidate validation can also reject a new parent whose declaration
+date is later than the child. Local commission branches/defaults follow the move;
+moving a subbranch outside a selected ancestor retains its fee eligibility.
+Other devices' local settings are not migrated.
+
+This feature requires desktop filesystem storage and
+[atomic replacement with a verified backup](data-safety.md#category-migration).
+It is blocked on Android SAF, not silently replaced by a non-atomic write.
 
 ## Transactions and editing
 
@@ -79,6 +111,16 @@ default clock timezone.
 
 Supported operations include expenses, income, reimbursements, opening balances,
 balance adjustments and transfers, including bounded currency exchanges.
+Settings offers an optional **Default transaction account**, saved only on the
+current device, not in the journal. It preselects an active asset/liability
+account for new expenses and receipts, or the source account of a transfer;
+the destination still requires a separate choice. The form remains editable,
+and editing saved transactions always uses their own accounts. Choose
+**No default account** and save to disable preselection. Missing/inactive defaults
+leave new forms unselected and show an explanation in Settings; they are not
+silently replaced. The setting is device-wide and applies only when its account
+code is active in the currently selected journal.
+
 Reimbursements credit an expense category on the receipt date; they are not
 income. An optional native shared link can associate one with an expense.
 This does not track outstanding debt, cap reimbursement amounts or cascade edits

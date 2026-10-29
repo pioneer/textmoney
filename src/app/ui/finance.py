@@ -13,6 +13,7 @@ from zoneinfo import available_timezones
 import flet as ft
 from finance_saf import FinanceSaf
 
+from app.domain.category_migration import CategoryMigration, migrated_category
 from app.domain.code_suggestions import (
     CodeCandidate,
     suggest_account_code,
@@ -42,6 +43,8 @@ from app.infrastructure.preferences import (
     FeePreferences,
     PreferencesError,
     fee_category_in_branches,
+    migrated_fee_branches,
+    parse_default_account,
 )
 from app.journal import FILENAME, Journal
 from app.localization import (
@@ -69,6 +72,7 @@ THEME_KEY = "textmoney.theme.v1"
 TIMEZONE_KEY = "textmoney.timezone.v1"
 BACKUP_CLEANUP_KEY = "textmoney.backup-cleanup.v1"
 DEFAULT_FEE_KEY = "textmoney.default-fee-category.v1"
+DEFAULT_ACCOUNT_KEY = "textmoney.default-account.v1"
 FEE_CATEGORIES_KEY = "textmoney.fee-categories.v1"
 COMPACT_MAX_WIDTH = 599
 MEDIUM_MAX_WIDTH = 1023
@@ -103,6 +107,7 @@ class FinanceView(ft.Row):
         self.theme_name = "system"
         self.timezone_name = "system"
         self.auto_backup_cleanup = True
+        self.default_account_id: str | None = None
         self.fee_preferences = FeePreferences()
         self.fee_branches_draft = self.fee_preferences.branches
         self.possible_conflict_copies: list[str] = []
@@ -131,6 +136,10 @@ class FinanceView(ft.Row):
             value="Assets", expand=True, on_select=self._account_type_changed
         )
         self.default_fee = ft.Dropdown(expand=True)
+        self.default_account = ft.Dropdown(expand=True, value="")
+        self.default_account_save = ft.Button(on_click=self._save_default_account)
+        self.default_account_notice = ft.Text("", visible=False)
+        self.default_account_journal: Journal | None = None
         self.fee_category_choices = ft.Column(spacing=0)
         self.fee_choices_state: tuple[tuple[str, str, bool, bool], ...] = ()
         self.fee_category_settings = ft.ExpansionTile(
@@ -423,6 +432,8 @@ class FinanceView(ft.Row):
             self.operating_currencies,
             self.default_fee,
             self.default_fee_save,
+            self.default_account,
+            self.default_account_save,
             self.fee_category_settings,
         ]
         self._refresh_labels()
@@ -484,6 +495,9 @@ class FinanceView(ft.Row):
         self.fee_category_settings.title = self.tr("fee_categories")
         self._render_fee_settings()
         self.default_fee_save.content = self.tr("crud_save")
+        self.default_account.label = self.tr("default_account")
+        self.default_account_save.content = self.tr("crud_save")
+        self._render_default_account()
         self.page_title.value = self.tr(
             {
                 "home": "nav_home",
@@ -713,6 +727,12 @@ class FinanceView(ft.Row):
                         ft.Text(self.tr("timezone_help")),
                         self.timezone_choice,
                         self.timezone_save,
+                        ft.Divider(),
+                        ft.Row([self.default_account]),
+                        ft.Text(self.tr("default_account_help"), size=12),
+                        self.default_account_save,
+                        self.default_account_notice,
+                        ft.Divider(),
                         self.fee_category_settings,
                         ft.Text(self.tr("fee_categories_help"), size=12),
                         ft.Row([self.default_fee]),
@@ -1505,6 +1525,10 @@ class FinanceView(ft.Row):
                         raise PreferencesError("default_fee_invalid")
                     self.fee_preferences = FeePreferences(default=saved_fee)
             self.fee_branches_draft = self.fee_preferences.branches
+            self.default_account_id = parse_default_account(
+                await self.preferences.get(DEFAULT_ACCOUNT_KEY)
+            )
+            self.default_account.value = self.default_account_id or ""
             await self._sync_system_zone()
             saved_folder = await self.preferences.get(FOLDER_KEY)
             if isinstance(saved_folder, str):
@@ -2336,13 +2360,19 @@ class FinanceView(ft.Row):
             data="account",
             expand=True,
             label=self.tr("primary_account"),
-            value=original_asset.account if original_asset else None,
+            value=original_asset.account
+            if original_asset
+            else self.default_account_id
+            if transaction is None
+            else None,
             options=[
                 ft.DropdownOption(key=a.id, text=f"{a.name} ({a.currency})")
                 for a in journal.ledger.accounts
                 if a.active or (original_asset and original_asset.account == a.id)
             ],
         )
+        if transaction is None and account.value not in {option.key for option in account.options}:
+            account.value = None
         category = ft.Dropdown(
             data="category",
             expand=True,
@@ -3157,6 +3187,27 @@ class FinanceView(ft.Row):
                 )
                 if opening_date is not None:
                     controls.append(opening_date)
+            if category:
+                controls.append(
+                    ft.ExpansionTile(
+                        title=self.tr("category_migration_advanced"),
+                        maintain_state=True,
+                        controls=[
+                            ft.Text(self.tr("category_migration_intro")),
+                            ft.TextButton(
+                                self.tr("category_migration_start"),
+                                disabled=not journal.category_migration_available,
+                                on_click=lambda _: self._category_migration_dialog(
+                                    journal, identifier, source
+                                ),
+                            ),
+                            ft.Text(
+                                self.tr("category_migration_atomic_required"),
+                                visible=not journal.category_migration_available,
+                            ),
+                        ],
+                    )
+                )
 
             async def save() -> str | None:
                 if category:
@@ -3179,6 +3230,177 @@ class FinanceView(ft.Row):
             self._edit_dialog(self.tr("crud_edit"), controls, journal, save, stretch=True)
         except Exception as exc:
             self._error(exc, notify=True)
+
+    def _category_migration_dialog(self, journal: Journal, identifier: str, source: str) -> None:
+        if not journal.category_migration_available:
+            self._error(StorageError("category_migration_atomic_required"), notify=True)
+            return
+        root, *components = identifier.split(":")
+        parent = ft.Dropdown(
+            label=self.tr("code_suggestion_parent"),
+            expand=True,
+            options=self._category_parent_options(
+                tuple(
+                    item
+                    for item in journal.ledger.categories
+                    if item.id != identifier and not item.id.startswith(identifier + ":")
+                ),
+                root,
+            ),
+            value=":".join([root, *components[:-1]]) if len(components) > 1 else "",
+        )
+        if parent.value not in {option.key for option in parent.options}:
+            parent.value = ""
+        code = ft.TextField(label=self.tr("category_migration_code_title"), value=components[-1])
+        cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)
+        review = ft.TextButton(self.tr("category_migration_review"))
+
+        async def preview(event: ft.Event[ft.TextButton]) -> None:
+            if review.disabled:
+                return
+            review.disabled = cancel.disabled = parent.disabled = code.disabled = True
+
+            async def prepare() -> None:
+                if self.journal is not journal:
+                    raise ConflictError("crud_stale")
+                leaf = (code.value or "").strip()
+                if not leaf or ":" in leaf:
+                    raise LedgerError("category_migration_target_invalid")
+                target = f"{parent.value or root}:{leaf}"
+                plan = await journal.plan_category_migration(identifier, target, source)
+                self._confirm_category_migration(journal, plan)
+
+            try:
+                await self._action(prepare)
+            finally:
+                review.disabled = cancel.disabled = parent.disabled = code.disabled = False
+                self.page.update()
+
+        review.on_click = preview
+        show_dialog(
+            self.page,
+            ft.AlertDialog(
+                modal=True,
+                scrollable=True,
+                title=self.tr("category_migration_start"),
+                content=ft.Column(
+                    [
+                        ft.Text(identifier, selectable=True),
+                        ft.Text(self.tr("category_migration_intro")),
+                        ft.Row([parent]),
+                        code,
+                        ft.Text(self.tr("category_migration_code")),
+                    ],
+                    width=360,
+                    tight=True,
+                    spacing=12,
+                ),
+                actions=[cancel, review],
+            ),
+        )
+
+    def _confirm_category_migration(self, journal: Journal, plan: CategoryMigration) -> None:
+        acknowledged = ft.Checkbox(semantics_label=self.tr("category_migration_ack"), value=False)
+        cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)
+        submit = ft.TextButton(self.tr("category_migration_confirm"), disabled=True)
+        busy = False
+
+        def acknowledge(event: ft.Event[ft.Checkbox]) -> None:
+            submit.disabled = busy or not acknowledged.value
+            self.page.update()
+
+        async def commit(event: ft.Event[ft.TextButton]) -> None:
+            nonlocal busy
+            if busy:
+                return
+            if not acknowledged.value:
+                self._error(LedgerError("category_migration_ack_required"), notify=True)
+                return
+            busy = True
+            submit.disabled = cancel.disabled = acknowledged.disabled = True
+
+            async def migrate() -> None:
+                if self.journal is not journal:
+                    raise ConflictError("crud_stale")
+                backup = await journal.migrate_category(plan)
+                # Close source-bound dialogs before any post-commit preference failure.
+                for _ in range(3):
+                    self.page.pop_dialog()
+                self._saved(backup)
+                await self._migrate_category_preferences(plan)
+
+            try:
+                await self._action(migrate)
+            finally:
+                busy = False
+                cancel.disabled = acknowledged.disabled = False
+                submit.disabled = not acknowledged.value
+                self.page.update()
+
+        acknowledged.on_change = acknowledge
+        submit.on_click = commit
+        show_dialog(
+            self.page,
+            ft.AlertDialog(
+                modal=True,
+                scrollable=True,
+                title=self.tr("category_migration_review"),
+                content=ft.Column(
+                    [
+                        ft.Text(f"{plan.original} → {plan.target}", selectable=True),
+                        ft.Text(
+                            self.tr(
+                                "category_migration_counts",
+                                categories=plan.categories,
+                                transactions=plan.transactions,
+                                budgets=plan.budgets,
+                                references=plan.references,
+                            )
+                        ),
+                        ft.Text(self.tr("category_migration_warning")),
+                        ft.Row(
+                            [
+                                acknowledged,
+                                ft.Text(self.tr("category_migration_ack"), expand=True),
+                            ],
+                            vertical_alignment=ft.CrossAxisAlignment.START,
+                        ),
+                    ],
+                    width=440,
+                    tight=True,
+                    spacing=12,
+                ),
+                actions=[cancel, submit],
+            ),
+        )
+
+    async def _migrate_category_preferences(self, plan: CategoryMigration) -> None:
+        def move(identifier: str) -> str:
+            return migrated_category(identifier, plan.original, plan.target)
+
+        previous = self.fee_preferences
+        self.fee_preferences = previous.migrate(plan.original, plan.target)
+        self.fee_branches_draft = migrated_fee_branches(
+            self.fee_branches_draft, plan.original, plan.target
+        )
+        if self.default_fee.value:
+            self.default_fee.value = move(self.default_fee.value)
+        if self.default_fee_original:
+            self.default_fee_original = move(self.default_fee_original)
+        self.category_parent.value = move(self.category_parent.value or "")
+        self.category_expansion = {
+            move(identifier): expanded for identifier, expanded in self.category_expansion.items()
+        }
+        self.budgets.category_id = move(self.budgets.category_id)
+        if self.fee_preferences != previous:
+            try:
+                if self.preferences is None or not await self.preferences.set(
+                    FEE_CATEGORIES_KEY, self.fee_preferences.serialize()
+                ):
+                    raise PreferencesError("category_migration_preferences_failed")
+            except Exception as exc:
+                logger.exception("Category migration saved, but local commission settings failed")
+                raise PreferencesError("category_migration_preferences_failed") from exc
 
     def _delete_entity(self, event: ft.Event[ft.IconButton]) -> None:
         try:
@@ -3525,6 +3747,61 @@ class FinanceView(ft.Row):
         self._refresh_labels()
         self._update_account_suggestion()
         self.page.update()
+
+    def _render_default_account(self) -> None:
+        journal = self.journal
+        ready = journal is not None and journal.ready
+        self.default_account.disabled = self.default_account_save.disabled = not ready
+        if self.default_account_journal is not journal:
+            self.default_account.value = self.default_account_id or ""
+            self.default_account_journal = journal
+        accounts = journal.ledger.accounts if journal is not None else ()
+        active = {account.id for account in accounts if account.active}
+        options = [ft.DropdownOption(key="", text=self.tr("default_account_none"))]
+        options += [
+            ft.DropdownOption(key=account.id, text=f"{account.name} ({account.currency})")
+            for account in accounts
+            if account.active
+        ]
+        selected = self.default_account.value
+        if selected and selected not in active:
+            options.append(
+                ft.DropdownOption(
+                    key=selected,
+                    text=self.tr("default_account_unavailable_choice", identifier=selected),
+                )
+            )
+        if [(o.key, o.text) for o in options] != [
+            (o.key, o.text) for o in self.default_account.options
+        ]:
+            self.default_account.options = options
+        self.default_account_notice.value = self.tr("default_account_unavailable")
+        self.default_account_notice.visible = (
+            ready and self.default_account_id is not None and self.default_account_id not in active
+        )
+
+    async def _save_default_account(self, event: ft.Event[ft.Button]) -> None:
+        async def save() -> None:
+            journal = self._require_journal()
+            if journal is not self.default_account_journal:
+                raise ConflictError("crud_stale")
+            selected = parse_default_account(self.default_account.value)
+            if selected is not None and not any(
+                account.id == selected and account.active for account in journal.ledger.accounts
+            ):
+                raise PreferencesError("default_account_unavailable")
+            try:
+                if self.preferences is None or not await self.preferences.set(
+                    DEFAULT_ACCOUNT_KEY, selected or ""
+                ):
+                    raise PreferencesError("default_account_save_failed")
+            except Exception as exc:
+                logger.exception("Could not save default transaction account preference")
+                raise PreferencesError("default_account_save_failed") from exc
+            self.default_account_id = selected
+            self._set_message("default_account_saved")
+
+        await self._action(save)
 
     async def _save_default_fee(self, event: ft.Event[ft.Button]) -> None:
         async def save() -> None:

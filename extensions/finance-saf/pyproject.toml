@@ -3,7 +3,7 @@ name = "finance-saf"
 version = "0.1.0"
 description = "Minimal Flet bridge to Android SAF for TextMoney"
 requires-python = ">=3.13"
-dependencies = ["flet==1.0.1"]
+dependencies = ["flet==1.0.5"]
 
 [build-system]
 requires = ["setuptools>=75"]

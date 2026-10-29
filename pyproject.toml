@@ -4,7 +4,7 @@ version = "0.3.19"
 description = "TextMoney: offline-first personal expense tracking"
 requires-python = ">=3.13"
 dependencies = [
-    "flet==1.0.1",
+    "flet==1.0.5",
     "finance-saf==0.1.0",
     "beancount-parser==1.2.3",
     "autobean-refactor==0.3.1",
@@ -18,8 +18,8 @@ finance-saf = { path = "extensions/finance-saf" }
 
 [dependency-groups]
 dev = [
-    "flet[all]==1.0.1",
-    "flet-mcp==1.0.1",
+    "flet[all]==1.0.5",
+    "flet-mcp==1.0.5",
     "invoke>=2.2,<3",
     "pytest>=8,<10",
     "ruff>=0.13,<1",

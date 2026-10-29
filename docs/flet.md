@@ -1,7 +1,9 @@
 # Flet and MCP
 
-This template pins Flet 1.0.1 and uses imperative controls with `ft.run(main)`.
+The app pins Flet 1.0.5 and uses imperative controls with `ft.run(main)`.
 Do not copy deprecated APIs or introduce `@ft.component`.
+Keep the runtime, `all` extras, MCP, and local SAF extension's Python and Dart
+dependencies aligned. Their pins and locked packages are checked by tests.
 
 [.vscode/mcp.json](../.vscode/mcp.json) starts the installed server with
 `uv run flet mcp` from the workspace. Run `uv sync`, trust the workspace/server in
@@ -38,6 +40,27 @@ icons from `icon.png`; see [branding](branding.md).
 Sources: [Flet documentation](https://flet.dev/docs/),
 [publishing](https://flet.dev/docs/publish/),
 [MCP cookbook](https://flet.dev/docs/cookbook/flet-mcp).
+
+## Flet 1.0.5 upgrade verification
+
+The runtime, CLI, desktop/web clients, platform assets, MCP and local extension
+pins were upgraded together from 1.0.1. No application APIs or popup cancellation
+policies were changed. Historical validation sections below retain their original
+versions.
+
+- `uv sync --locked` and `uv run inv verify-flet` passed with 1.0.5.
+- `uv run inv check`: 1,546 passed, one native-Windows-only test skipped.
+  Windows-target `uv run inv typecheck --platform=Windows` also passed.
+- `uv run inv build-android` produced `build/apk/textmoney-0.3.19.apk`.
+  The Python and Dart dependencies both resolve to Flet 1.0.5.
+  `uv run inv check-beancount-apk` passed its host-payload checks, including
+  packaged release metadata, parser/Babel resources and synthetic journal edits.
+- `uv run inv run` started the branded Linux 1.0.5 client under Xvfb.
+  Browser preview checks covered desktop/narrow daily reports, category expansion
+  and retained transaction drafts after cancelling nested category creation.
+  After that nested cancellation, Escape did not reliably dismiss the parent
+  form in the browser preview; its Cancel button worked. Native interactive
+  keyboard behavior, Android SAF runtime and Windows runtime remain unverified.
 
 ## Required popup keyboard convention
 
@@ -79,7 +102,7 @@ uses native activation, not a second synthetic click. The pinned Material
 TextField client emits `submit` only with `shift_enter=True`: multiline fields
 use that event; single-line fields use the focus-scoped listener. Input discovery
 follows Flet's dataclass control fields, excluding Python-only state.
-Flet 1.0.1 has no public programmatic button-click dispatch; the helper uses
+Flet 1.0.5 has no public programmatic button-click dispatch; the helper uses
 `button._trigger_event` and checks the active dialog stack. Regression tests
 exercise real sessions and protocol serialization; recheck these compatibility
 boundaries and actual keyboard delivery on a Flet upgrade.

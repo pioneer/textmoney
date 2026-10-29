@@ -510,6 +510,31 @@ def test_apk_smoke_mirrors_every_package_extracted_at_runtime() -> None:
     assert set(project["tool"]["flet"]["android"]["extract_packages"]) == PACKAGES
 
 
+def test_flet_runtime_tooling_and_native_extension_pins_stay_aligned() -> None:
+    project = tomllib.loads((tasks.ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    runtime = next(item for item in project["project"]["dependencies"] if item.startswith("flet=="))
+    version = runtime.removeprefix("flet==")
+    assert f"flet[all]=={version}" in project["dependency-groups"]["dev"]
+    assert f"flet-mcp=={version}" in project["dependency-groups"]["dev"]
+    extension = tasks.ROOT / "extensions/finance-saf"
+    python = tomllib.loads((extension / "pyproject.toml").read_text(encoding="utf-8"))
+    assert runtime in python["project"]["dependencies"]
+    dart = (extension / "src/flutter/finance_saf/pubspec.yaml").read_text(encoding="utf-8")
+    assert f"  flet: {version}" in dart.splitlines()
+    locked = tomllib.loads((tasks.ROOT / "uv.lock").read_text(encoding="utf-8"))
+    packages = {
+        "flet",
+        "flet-cli",
+        "flet-desktop",
+        "flet-mcp",
+        "flet-platform-assets",
+        "flet-web",
+    }
+    assert {
+        item["name"]: item["version"] for item in locked["package"] if item["name"] in packages
+    } == dict.fromkeys(packages, version)
+
+
 def test_previous_release_build_number_refuses_an_already_published_tag(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

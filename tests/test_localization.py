@@ -458,7 +458,12 @@ def test_startup_system_language_uses_client_locale_order_not_app_default(
 
 @pytest.mark.parametrize("language", LANGUAGES)
 def test_storage_explanation_names_beancount_format(language: str) -> None:
-    assert "Beancount" in translate(language, "storage_explanation")
+    explanation = translate(language, "storage_explanation")
+    for name in ("Beancount", "Dropbox", "Google Drive", "Syncthing"):
+        assert name in explanation
+    assert "Dropsync" not in explanation
+    if language == "en":
+        assert "Dropbox, Google Drive or Syncthing" in explanation
 
 
 def test_page_owned_controls_receive_language_theme_and_transaction_updates(

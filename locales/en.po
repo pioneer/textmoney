@@ -481,6 +481,10 @@ msgstr "Destination account (optional)"
 msgid "ui.transaction_advanced"
 msgstr "Advanced"
 
+#. Stable TextMoney key: ui.transaction_code; do not translate this identifier.
+msgid "ui.transaction_code"
+msgstr "Transaction code: {identifier}"
+
 #. Stable TextMoney key: ui.second_account; do not translate this identifier.
 msgid "ui.second_account"
 msgstr "Second account (optional)"
@@ -1394,7 +1398,7 @@ msgid "ui.storage_explanation"
 msgstr ""
 "Your journal is a plain-text file in Beancount format in this folder. "
 "TextMoney does not upload it. To sync between devices, use a sync app you "
-"trust (such as Dropbox or Dropsync)."
+"trust (such as Dropbox, Google Drive or Syncthing)."
 
 #. Stable TextMoney key: ui.storage_filename; do not translate this identifier.
 msgid "ui.storage_filename"

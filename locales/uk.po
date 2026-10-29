@@ -483,6 +483,10 @@ msgstr "Рахунок зарахування (необов'язково)"
 msgid "ui.transaction_advanced"
 msgstr "Додатково"
 
+#. Stable TextMoney key: ui.transaction_code; do not translate this identifier.
+msgid "ui.transaction_code"
+msgstr "Код операції: {identifier}"
+
 #. Stable TextMoney key: ui.second_account; do not translate this identifier.
 msgid "ui.second_account"
 msgstr "Другий рахунок (необов'язково)"
@@ -1400,8 +1404,8 @@ msgid "ui.storage_explanation"
 msgstr ""
 "Журнал — це текстовий файл у форматі Beancount у цій папці. TextMoney не "
 "завантажує його в інтернет. Для синхронізації між пристроями "
-"використовуйте надійний для вас застосунок, наприклад Dropbox або "
-"Dropsync."
+"використовуйте надійний для вас застосунок, наприклад Dropbox, "
+"Google Drive або Syncthing."
 
 #. Stable TextMoney key: ui.storage_filename; do not translate this identifier.
 msgid "ui.storage_filename"

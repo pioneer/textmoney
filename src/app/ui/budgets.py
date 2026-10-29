@@ -594,6 +594,7 @@ class BudgetView(ft.Column):
                                     ft.Text(
                                         names.get(account, account.rsplit(":", 1)[-1]),
                                         size=16,
+                                        weight=ft.FontWeight.BOLD,
                                         tooltip=account,
                                         expand=True,
                                     ),
@@ -763,6 +764,7 @@ class BudgetView(ft.Column):
                     f" · {format_date(budget.date, self.host.language)}",
                     tooltip=budget.account,
                     selectable=True,
+                    weight=ft.FontWeight.BOLD,
                 ),
                 ft.Text(
                     f"{budget.amount} {budget.currency} · {tr(f'budget_{budget.interval}')}",
@@ -817,6 +819,7 @@ class BudgetView(ft.Column):
         if budget is not None:
             identifiers.setdefault(budget.account, budget.account)
         category = ft.Dropdown(
+            expand=True,
             label=tr("budget_category"),
             options=[ft.DropdownOption(key=key, text=value) for key, value in identifiers.items()],
             value=budget.account if budget else None,
@@ -831,6 +834,7 @@ class BudgetView(ft.Column):
             else next(iter(journal.ledger.operating_currencies), "UAH"),
         )
         interval = ft.Dropdown(
+            expand=True,
             label=tr("budget_interval"),
             value=budget.interval if budget else "monthly",
             options=[ft.DropdownOption(key=name, text=tr(f"budget_{name}")) for name in INTERVALS],
@@ -884,10 +888,10 @@ class BudgetView(ft.Column):
                         else "budget_new_help"
                     )
                 ),
-                category,
+                ft.Row([category]),
                 amount,
                 currency,
-                interval,
+                ft.Row([interval]),
                 ft.Text(tr("budget_effective")),
                 effective,
             ],
@@ -903,7 +907,11 @@ class BudgetView(ft.Column):
         self.host._edit_dialog(
             self.host.tr("crud_delete"),
             [
-                ft.Text(names.get(budget.account, budget.account), tooltip=budget.account),
+                ft.Text(
+                    names.get(budget.account, budget.account),
+                    tooltip=budget.account,
+                    weight=ft.FontWeight.BOLD,
+                ),
                 ft.Text(self.host.tr("budget_delete_help")),
             ],
             journal,

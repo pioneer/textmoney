@@ -63,9 +63,10 @@ may change during alpha, with no release dates promised.
 ### Editing and synchronization
 
 Use one writer at a time. Save and close the editing session, let
-Dropbox/Dropsync (or your chosen tool) finish uploading, and wait for it to finish
-downloading on the next device before editing there. TextMoney does not contact
-cloud APIs, synchronize files, merge journals or resolve cloud conflicts.
+Dropbox, Google Drive or Syncthing (or your chosen tool) finish uploading, and wait
+for it to finish downloading on the next device before editing there. TextMoney
+does not contact cloud APIs, synchronize files, merge journals or resolve cloud
+conflicts.
 A possible-conflict filename notice is advisory, not proof that synchronization
 has completed or that every conflicting copy has been found.
 Hash checks, verified backups and Android interrupted-save review protect local
@@ -222,10 +223,11 @@ records. TextMoney accesses these files directly; it does not upload
 them or maintain a separate database. Edits preserve unrelated comments,
 metadata, tags and links.
 
-Dropbox, Dropsync or another folder synchronization tool can synchronize the
-folder separately, **including hidden recovery files**. Cloud synchronization is
-not built into TextMoney. Let it finish before editing on another device, and avoid
-simultaneous edits. Local checks cannot establish that uploading/downloading is finished.
+Dropbox, Google Drive or Syncthing (or another folder synchronization tool) can
+synchronize the folder separately, **including hidden recovery files**. Cloud
+synchronization is not built into TextMoney. Let it finish before editing on
+another device, and avoid simultaneous edits. Local checks cannot establish
+that uploading/downloading is finished.
 
 While open, the app polls for external changes roughly every five seconds.
 Valid changes are reloaded without merging; invalid or unsupported journals
@@ -466,7 +468,8 @@ loading only—not report equivalence. Follow the GUI checklist in
 [the compatibility report](docs/beancount-compatibility.md) before claiming
 Accounts, Journal, Balance Sheet or Income Statement GUI compatibility.
 
-Always validate a **disposable copy**, never a live Dropbox/Dropsync journal.
+Always validate a **disposable copy**, never a live journal synchronized by
+Dropbox, Google Drive or Syncthing.
 For local tests:
 
 ```sh

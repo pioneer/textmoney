@@ -118,7 +118,9 @@ class FinanceView(ft.Row):
         self.balance_warning = ft.Text("", color=ft.Colors.ERROR, visible=False)
         self.external_notice = ft.Column(spacing=4, visible=False)
         self.conflict_copy_notice = ft.Text("", selectable=True, visible=False)
-        self.account_root = ft.Dropdown(value="Assets", on_select=self._account_type_changed)
+        self.account_root = ft.Dropdown(
+            value="Assets", expand=True, on_select=self._account_type_changed
+        )
         self.default_fee = ft.Dropdown()
         self.default_fee_save = ft.Button(on_click=self._save_default_fee)
         self.default_fee_notice = ft.Text("", visible=False)
@@ -133,8 +135,8 @@ class FinanceView(ft.Row):
         self.opening = ft.TextField(width=320)
         self.category_id = ft.TextField(width=320)
         self.category_name = ft.TextField(width=320)
-        self.category_root = ft.Dropdown(value="Expenses", width=320)
-        self.category_parent = ft.Dropdown(value="", width=320)
+        self.category_root = ft.Dropdown(value="Expenses", expand=True)
+        self.category_parent = ft.Dropdown(value="", expand=True)
         self.account_suggestion_status = ft.Text(size=12, color=ft.Colors.OUTLINE)
         self.category_suggestion_status = ft.Text(size=12, color=ft.Colors.OUTLINE)
         self.account_suggestion_alternatives = ft.Dropdown(
@@ -186,7 +188,7 @@ class FinanceView(ft.Row):
         self.history = ft.Column(spacing=0)
         today = self._today()
         self.report_period = ft.Dropdown(
-            width=320,
+            expand=True,
             value="current_month",
             on_select=self._report_period_changed,
         )
@@ -214,12 +216,15 @@ class FinanceView(ft.Row):
             visible=False,
         )
         self.report_error = ft.Text(color=ft.Colors.ERROR, visible=False)
-        self.report_summary = ft.Column(spacing=12)
+        self.report_summary = ft.Column(
+            spacing=12, horizontal_alignment=ft.CrossAxisAlignment.STRETCH
+        )
         self.report_categories = ft.Column(spacing=16)
         self.report_overview = ft.Column(
             spacing=16,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
             controls=[
-                self.report_period,
+                ft.Row([self.report_period]),
                 self.report_range,
                 self.report_error,
                 self.report_summary,
@@ -2026,11 +2031,19 @@ class FinanceView(ft.Row):
             ),
         )
 
+    def _transaction_code(self, transaction: Transaction) -> ft.Text:
+        return ft.Text(
+            self.tr("transaction_code", identifier=transaction.id),
+            selectable=True,
+            italic=True,
+            size=12,
+        )
+
     def _opening_details(self, transaction: Transaction) -> ft.ExpansionTile:
         return ft.ExpansionTile(
             title=self.tr("details"),
             controls=[
-                ft.Text(transaction.id, selectable=True),
+                self._transaction_code(transaction),
                 ft.Text(f"{self.tr('date')}: {format_date(transaction.date, self.language)}"),
                 ft.Text(
                     format_timestamp(transaction.timestamp, self.language, self._effective_zone())
@@ -2147,7 +2160,7 @@ class FinanceView(ft.Row):
                                     [self._opening_details(transaction)]
                                     if transaction.kind == "opening"
                                     else [
-                                        ft.Text(transaction.id, selectable=True),
+                                        self._transaction_code(transaction),
                                         ft.Text(
                                             format_timestamp(
                                                 transaction.timestamp,
@@ -2194,7 +2207,7 @@ class FinanceView(ft.Row):
 
             self._edit_dialog(
                 self.tr("crud_confirm"),
-                [ft.Text(self.tr("crud_confirm_body")), ft.Text(transaction.id, selectable=True)],
+                [ft.Text(self.tr("crud_confirm_body")), self._transaction_code(transaction)],
                 journal,
                 remove,
                 deleting=True,
@@ -2289,7 +2302,7 @@ class FinanceView(ft.Row):
             icon=ft.Icons.ADD,
             tooltip=self.tr("create_category"),
         )
-        category_row = ft.Row([category, category_create])
+        category_row = ft.Row([category, category_create], spacing=0)
         amount = ft.TextField(
             data="amount",
             expand=True,
@@ -2426,7 +2439,7 @@ class FinanceView(ft.Row):
                         fee_fields,
                         payee,
                         when.time_controls,
-                        *([ft.Text(transaction.id, selectable=True)] if transaction else []),
+                        *([self._transaction_code(transaction)] if transaction else []),
                         *(
                             [
                                 ft.Text(
@@ -2689,7 +2702,7 @@ class FinanceView(ft.Row):
                 data="quick_category_parent",
                 label=self.tr("code_suggestion_parent"),
                 value="",
-                width=320,
+                expand=True,
             )
             category_status = ft.Text(size=12, color=ft.Colors.OUTLINE)
             category_alternatives = ft.Dropdown(
@@ -2854,7 +2867,7 @@ class FinanceView(ft.Row):
                                     "kind_income" if operation() == "income" else "kind_expense"
                                 )
                             ),
-                            category_parent,
+                            ft.Row([category_parent]),
                             category_name,
                             category_path,
                             category_opened,
@@ -3021,7 +3034,11 @@ class FinanceView(ft.Row):
                 )
                 opening_date.occurred.label = self.tr("opening_balance_date")
             controls: list[ft.Control] = [
-                ft.Text(identifier, selectable=True),
+                ft.Text(
+                    identifier,
+                    selectable=True,
+                    weight=ft.FontWeight.BOLD,
+                ),
                 ft.Text(self.tr("crud_category_help" if category else "crud_account_help")),
                 name,
                 active,
@@ -3052,7 +3069,7 @@ class FinanceView(ft.Row):
                     ),
                 )
 
-            self._edit_dialog(self.tr("crud_edit"), controls, journal, save)
+            self._edit_dialog(self.tr("crud_edit"), controls, journal, save, stretch=True)
         except Exception as exc:
             self._error(exc, notify=True)
 
@@ -3326,7 +3343,7 @@ class FinanceView(ft.Row):
         self._edit_dialog(
             self.tr("account_form_title"),
             [
-                self.account_root,
+                ft.Row([self.account_root]),
                 self.account_name,
                 self.account_id,
                 self.account_suggestion_status,
@@ -3427,8 +3444,8 @@ class FinanceView(ft.Row):
         self._edit_dialog(
             self.tr("category_form_title"),
             [
-                self.category_root,
-                self.category_parent,
+                ft.Row([self.category_root]),
+                ft.Row([self.category_parent]),
                 self.category_name,
                 self.category_id,
                 self.category_suggestion_status,

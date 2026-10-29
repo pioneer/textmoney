@@ -95,6 +95,81 @@ def test_advanced_fields_reserve_space_for_floating_time_label(
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
+@pytest.mark.parametrize("editing", [False, True])
+def test_category_and_date_inputs_use_matching_row_spacing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str, editing: bool
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        if editing:
+            await journal.add_expense("Assets:Bank", "Expenses:Food", "10", "", "2026-10-18")
+        view, page = ui(journal, monkeypatch)
+        view.language = language
+        view._transaction_dialog(journal, journal.ledger.transactions[-1] if editing else None)
+        dialog = page.show_dialog.call_args.args[0]
+        form = transaction_form(dialog)
+        category_row = next(
+            control
+            for control in dialog.content.controls
+            if isinstance(control, ft.Row)
+            and control.controls == [form.category, form.category_create]
+        )
+        date_row = form.when.controls[0]
+        assert isinstance(date_row, ft.Row)
+        assert category_row.spacing == date_row.spacing == 0
+        assert form.category.expand is True and form.when.occurred.expand is True
+        date_button = date_row.controls[1]
+        assert isinstance(date_button, ft.IconButton)
+        assert form.category_create.width == date_button.width
+        assert form.category_create.size_constraints == date_button.size_constraints
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "language,label",
+    [("en", "Transaction code"), ("uk", "Код операції"), ("ru", "Код операции")],
+)
+@pytest.mark.parametrize("deleting", [False, True])
+def test_transaction_popups_label_the_code_in_small_italic_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str, label: str, deleting: bool
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        await journal.add_expense("Assets:Bank", "Expenses:Food", "10", "", "2026-10-18")
+        transaction = journal.ledger.transactions[-1]
+        view, page = ui(journal, monkeypatch)
+        view.language = language
+        before = journal.source
+        backups = list((tmp_path / "backups").iterdir())
+        event = MagicMock(control=ft.IconButton(data=transaction.id))
+        if deleting:
+            view._delete_transaction(event)
+            dialog = page.show_dialog.call_args.args[0]
+            assert isinstance(dialog.content, ft.Column)
+            fields = dialog.content
+        else:
+            view._edit_transaction(event)
+            dialog = page.show_dialog.call_args.args[0]
+            advanced = transaction_form(dialog).advanced
+            assert advanced.controls is not None
+            fields = advanced.controls[0]
+            assert isinstance(fields, ft.Column)
+        code = next(
+            control
+            for control in fields.controls
+            if isinstance(control, ft.Text) and transaction.id in (control.value or "")
+        )
+        assert code.value == f"{label}: {transaction.id}"
+        assert code.selectable and code.italic and code.size == 12
+        click(dialog.actions[0])
+        assert journal.source == before
+        assert list((tmp_path / "backups").iterdir()) == backups
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
 def test_description_first_aligned_fields_and_sign_explanation_follow_account_roles(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str
 ) -> None:
@@ -235,11 +310,19 @@ def test_inline_category_suggestion_uses_parent_and_preserves_transaction_draft(
         assert isinstance(category_dialog, ft.AlertDialog)
         assert isinstance(category_dialog.content, ft.Column)
         controls = category_dialog.content.controls or []
-        parent = next(
+        parent_row = next(
             control
             for control in controls
-            if isinstance(control, ft.Dropdown) and control.data == "quick_category_parent"
+            if isinstance(control, ft.Row)
+            and any(
+                isinstance(child, ft.Dropdown) and child.data == "quick_category_parent"
+                for child in control.controls
+            )
         )
+        parent = parent_row.controls[0]
+        assert isinstance(parent, ft.Dropdown)
+        assert parent.expand is True and parent.width is None
+        assert parent_row.width is None and not parent_row.wrap
         name = next(
             control
             for control in controls

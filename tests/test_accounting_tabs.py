@@ -107,6 +107,131 @@ async def submit(dialog: ft.AlertDialog) -> None:
     await cast(Callable[[object], Awaitable[None]], button.on_click)(MagicMock())
 
 
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+@pytest.mark.parametrize("width", [390, 800, 1366])
+def test_account_creation_fields_have_matching_widths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str, width: int
+) -> None:
+    async def scenario() -> None:
+        view, page = setup_view(monkeypatch)
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        view.journal = journal
+        view.language = language
+        view._refresh()
+        view._apply_layout(width)
+        view._create_account(MagicMock())
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog.content, ft.Column)
+        assert dialog.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+        account_type_row = dialog.content.controls[0]
+        assert isinstance(account_type_row, ft.Row)
+        assert account_type_row.controls == [view.account_root]
+        assert view.account_root.expand is True
+        assert account_type_row.width is None and not account_type_row.wrap
+        fields = [
+            view.account_name,
+            view.account_id,
+            view.currency,
+            view.opening,
+            *(
+                control
+                for control in dialog.content.controls
+                if isinstance(control, DateTimeFields)
+            ),
+        ]
+        assert len(fields) == 6
+        assert all(field.width == view.account_name.width == 320 for field in fields)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
+def test_category_creation_dropdowns_fill_the_form(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str, width: int
+) -> None:
+    async def scenario() -> None:
+        view, page = setup_view(monkeypatch)
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        view.journal = journal
+        view.language = language
+        view._refresh()
+        view._apply_layout(width)
+        view._create_category(MagicMock())
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog.content, ft.Column)
+        assert dialog.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+        for dropdown in (view.category_root, view.category_parent):
+            row = next(
+                control
+                for control in dialog.content.controls
+                if isinstance(control, ft.Row) and control.controls == [dropdown]
+            )
+            assert row.width is None and not row.wrap
+            assert dropdown.expand is True and dropdown.width is None
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("category", [False, True])
+@pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
+def test_entity_edit_codes_are_bold_and_fields_fill_the_form(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, category: bool, language: str, width: int
+) -> None:
+    async def scenario() -> None:
+        view, page = setup_view(monkeypatch)
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_category("Food", "Food", opened=EPOCH)
+        await journal.create_account("Cash", "Cash", "UAH", opened=EPOCH)
+        view.journal = journal
+        view.language = language
+        view._refresh()
+        view._apply_layout(width)
+        item = journal.ledger.categories[0] if category else journal.ledger.accounts[0]
+        before = journal.source
+        view._edit_entity(
+            MagicMock(control=ft.IconButton(data=("category" if category else "account", item.id)))
+        )
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog.content, ft.Column)
+        code = next(
+            control
+            for control in dialog.content.controls
+            if isinstance(control, ft.Text) and control.value == item.id
+        )
+        assert code.selectable
+        assert code.weight == ft.FontWeight.BOLD
+        assert dialog.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+        name = next(
+            control
+            for control in dialog.content.controls
+            if isinstance(control, ft.TextField)
+            and control.label == view.tr("category_name" if category else "account_name")
+        )
+        assert name.width is None and name.value == item.name
+        if not category:
+            opening = next(
+                control
+                for control in dialog.content.controls
+                if isinstance(control, ft.TextField) and control.label == view.tr("opening_balance")
+            )
+            assert opening.width is None
+            when = next(
+                control
+                for control in dialog.content.controls
+                if isinstance(control, DateTimeFields)
+            )
+            assert when.occurred.expand is True
+            date_row = when.controls[0]
+            assert isinstance(date_row, ft.Row) and date_row.width is None
+        view._dismiss(MagicMock())
+        assert journal.source == before
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("category", [False, True])
 def test_creation_dialog_saves_and_clears_only_submitted_fields(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, category: bool

@@ -46,6 +46,34 @@ Browser previews help inspect layout, not local journal access:
 packaging is not a supported financial-storage target; see [Web deployment](deployment.md).
 Apple build tasks do not establish device-tested iOS/macOS support.
 
+## Form and report layout
+
+At desktop and narrow viewport widths, compare the rendered control boundaries,
+not only Python `width` values. In Flet 1.0.1, a standalone dropdown can keep its
+intrinsic width even in a stretched column; `expand=True` inside a row gives it
+the available horizontal space.
+
+- Add account and Add category: dropdowns align with the input fields, including
+  the Parent dropdown in nested category creation.
+- Add/Edit budget (also Change from date and Stop): Category and Interval
+  dropdowns align with the other inputs.
+- Add/Edit operation: Category and Date inputs have equal widths, with their
+  create-category and calendar buttons aligned.
+- Edit account/category: the selectable technical code is bold; all Edit account
+  fields and Edit category's name input fill the form width. Account date inputs
+  leave only the calendar button's space at the right.
+- Transaction edit/delete and read-only/opening details: the selectable
+  transaction code has an explicit localized label, italic styling and a
+  slightly smaller font. New transactions do not display a code.
+- Delete budget: the budget name is bold and
+  retains its technical-code tooltip. Accounting / Budgets definition headings
+  and Report budget names are bold, including nested budgets and names that
+  fall back to technical codes.
+- Reports / Overview: Period and each currency summary rectangle fill the
+  available report content width, respecting navigation and page padding.
+  Custom date ranges, wrapped amount metrics, and bottom scroll clearance remain
+  usable on narrow displays.
+
 ## Desktop popup cancellation
 
 Escape must behave like the active popup's **Cancel** (or **Keep editing**)

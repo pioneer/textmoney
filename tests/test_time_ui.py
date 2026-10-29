@@ -594,6 +594,9 @@ def test_readonly_transaction_opens_details_instead_of_hiding_its_postings(
         view._edit_transaction(event)
         dialog = page.show_dialog.call_args.args[0]
         assert dialog.title == "Details"
+        code = next(c for c in dialog.content.controls if isinstance(c, ft.Text) and c.italic)
+        assert code.value == view.tr("transaction_code", identifier=event.control.data)
+        assert code.selectable and code.size == 12
         assert "Wallet: −10.00 UAH" in texts(dialog.content)
         assert any("Equity:Opening-Balances" in text for text in texts(dialog.content))
         assert len(dialog.actions) == 1
@@ -907,6 +910,10 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
         details = next(c for c in dialog.content.controls if isinstance(c, ft.ExpansionTile))
         assert not details.expanded
         assert details.controls
+        code = details.controls[0]
+        assert isinstance(code, ft.Text)
+        assert code.value == view.tr("transaction_code", identifier=original.id)
+        assert code.selectable and code.italic and code.size == 12
         assert any("1970" in str(c.value) for c in details.controls if isinstance(c, ft.Text))
         amount = next(c for c in dialog.content.controls if isinstance(c, ft.TextField))
         assert amount.value == ("0" if mode == "zero" else "100")

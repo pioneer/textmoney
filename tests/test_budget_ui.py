@@ -154,6 +154,49 @@ def test_budget_category_labels_are_short_and_not_transaction_instructions(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
+@pytest.mark.parametrize("mode", ["add", "edit", "change", "stop"])
+def test_budget_form_dropdowns_fill_the_form(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+    language: str,
+    width: int,
+    mode: str,
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        host.language = language
+        journal = await load(host, tmp_path)
+        host._apply_layout(width)
+        before = journal.source
+        host.budgets._form(
+            None if mode == "add" else journal.ledger.budgets[0],
+            new=mode in {"change", "stop"},
+            stop=mode == "stop",
+        )
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog.content, ft.Column)
+        assert dialog.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+        dropdowns = [item for item in walk(dialog.content) if isinstance(item, ft.Dropdown)]
+        assert [item.label for item in dropdowns] == [
+            host.tr("budget_category"),
+            host.tr("budget_interval"),
+        ]
+        for dropdown in dropdowns:
+            row = next(
+                control
+                for control in dialog.content.controls
+                if isinstance(control, ft.Row) and control.controls == [dropdown]
+            )
+            assert row.width is None and not row.wrap
+            assert dropdown.expand is True and dropdown.width is None
+        host._dismiss(MagicMock())
+        assert journal.source == before
+        assert (tmp_path / FILENAME).read_text() == SOURCE
+
+    asyncio.run(scenario())
+
+
 def test_reports_hide_automatic_parent_totals_and_unbudgeted_categories(
     view: tuple[FinanceView, MagicMock], tmp_path: Path
 ) -> None:
@@ -359,7 +402,11 @@ def test_interval_changes_adjust_only_untouched_new_budget_dates(
         host.budgets._form(journal.ledger.budgets[0] if historical else None)
         dialog = page.show_dialog.call_args.args[0]
         assert isinstance(dialog.content, ft.Column)
-        interval = dialog.content.controls[4]
+        interval = next(
+            control
+            for control in walk(dialog.content)
+            if isinstance(control, ft.Dropdown) and control.label == host.tr("budget_interval")
+        )
         assert isinstance(interval, ft.Dropdown) and interval.on_select is not None
         effective = fields(dialog)[-1]
         for value, expected in [("daily", "2026-10-27"), ("monthly", "2026-10-01")]:
@@ -442,6 +489,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         heading = next(item for item in walk(definition) if isinstance(item, ft.Text))
         assert str(heading.value).startswith(f"{display_name} · ")
         assert heading.tooltip == budget.account
+        assert heading.weight == ft.FontWeight.BOLD
         food = next(
             item
             for item in walk(host.budgets.results)
@@ -453,6 +501,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         label = next(item for item in walk(food) if isinstance(item, ft.Text))
         assert label.value == display_name
         assert label.tooltip == budget.account
+        assert label.weight == ft.FontWeight.BOLD
         transaction_button = next(item for item in walk(food) if isinstance(item, ft.TextButton))
         host.budgets._transactions(MagicMock(control=transaction_button))
         dialog = page.show_dialog.call_args.args[0]
@@ -469,6 +518,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         confirmation = dialog.content.controls[0]
         assert isinstance(confirmation, ft.Text)
         assert confirmation.value == display_name and confirmation.tooltip == budget.account
+        assert confirmation.weight == ft.FontWeight.BOLD
         assert journal.ledger.budgets == (budget,)
         assert budget.account == "Expenses:Food"
 
@@ -488,6 +538,7 @@ def test_budget_category_without_display_name_keeps_account_code(
         heading = next(item for item in walk(definition) if isinstance(item, ft.Text))
         assert str(heading.value).startswith("Expenses:Food · ")
         assert heading.tooltip == "Expenses:Food"
+        assert heading.weight == ft.FontWeight.BOLD
 
     asyncio.run(scenario())
 
@@ -572,12 +623,10 @@ def fields(
     dialog: ft.AlertDialog,
 ) -> tuple[ft.Dropdown, ft.TextField, ft.TextField, DateTimeFields]:
     assert isinstance(dialog.content, ft.Column)
-    values = dialog.content.controls
-    assert isinstance(values[1], ft.Dropdown)
-    assert isinstance(values[2], ft.TextField)
-    assert isinstance(values[3], ft.TextField)
-    assert isinstance(values[-1], DateTimeFields)
-    return values[1], values[2], values[3], values[-1]
+    category = next(item for item in walk(dialog.content) if isinstance(item, ft.Dropdown))
+    amount, currency = [item for item in dialog.content.controls if isinstance(item, ft.TextField)]
+    effective = next(item for item in dialog.content.controls if isinstance(item, DateTimeFields))
+    return category, amount, currency, effective
 
 
 async def submit(dialog: ft.AlertDialog) -> None:
@@ -1134,6 +1183,11 @@ def test_definition_opens_its_month_and_currency_then_reveals_highlighted_nested
         tiles = [item for item in walk(host.budgets.results) if isinstance(item, ft.ExpansionTile)]
         target = next(item for item in tiles if item.data.account == budget.account)
         ancestor = next(item for item in tiles if item.data.account == parent.account)
+        for tile in (ancestor, target):
+            assert isinstance(tile.title, ft.Column)
+            label = next(item for item in walk(tile.title) if isinstance(item, ft.Text))
+            assert label.tooltip == tile.data.account
+            assert label.weight == ft.FontWeight.BOLD
         assert ancestor.expanded
         assert ancestor.bgcolor is None and ancestor.collapsed_bgcolor is None
         assert target.bgcolor == target.collapsed_bgcolor == ft.Colors.SECONDARY_CONTAINER
@@ -1155,6 +1209,9 @@ def test_definition_opens_its_month_and_currency_then_reveals_highlighted_nested
             for item in walk(host.budgets.results)
             if isinstance(item, ft.ExpansionTile) and item.data.account == budget.account
         )
+        assert isinstance(refreshed.title, ft.Column)
+        label = next(item for item in walk(refreshed.title) if isinstance(item, ft.Text))
+        assert label.weight == ft.FontWeight.BOLD
         assert refreshed.bgcolor == ft.Colors.SECONDARY_CONTAINER
         assert refreshed.on_size_change is None and host.budgets.scroll_target is None
         scroll.assert_awaited_once()

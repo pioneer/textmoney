@@ -321,6 +321,21 @@ def test_reports_keep_scroll_clearance_for_floating_action(
             if screen != "reports":
                 continue
             assert view.screen_host.content is view.reports_screen
+            assert view.report_overview.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+            period_row = next(
+                control
+                for control in view.report_overview.controls
+                if isinstance(control, ft.Row) and control.controls == [view.report_period]
+            )
+            assert period_row.width is None and not period_row.wrap
+            assert view.report_period.expand is True and view.report_period.width is None
+            assert view.report_summary.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+            assert view.report_summary.width is None
+            if state == "populated":
+                assert all(
+                    isinstance(card, ft.Container) and card.width is None
+                    for card in view.report_summary.controls
+                )
             listing = view.report_overview.controls[-1]
             assert isinstance(listing, ft.Container)
             assert listing.content is view.report_categories

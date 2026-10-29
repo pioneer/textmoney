@@ -141,7 +141,7 @@ class FinanceView(ft.Row):
         self.account_suggestion_status = ft.Text(size=12, color=ft.Colors.OUTLINE)
         self.category_suggestion_status = ft.Text(size=12, color=ft.Colors.OUTLINE)
         self.account_suggestion_alternatives = ft.Dropdown(
-            width=320,
+            expand=True,
             visible=False,
             on_select=self._account_suggestion_selected,
         )
@@ -3385,7 +3385,7 @@ class FinanceView(ft.Row):
                 self.account_id,
                 self.account_suggestion_status,
                 self.account_suggestion_regenerate,
-                self.account_suggestion_alternatives,
+                ft.Row([self.account_suggestion_alternatives]),
                 self.currency,
                 self.opening,
                 account_opened,

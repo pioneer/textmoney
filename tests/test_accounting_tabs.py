@@ -130,6 +130,25 @@ def test_account_creation_fields_have_matching_widths(
         assert account_type_row.controls == [view.account_root]
         assert view.account_root.expand is True
         assert account_type_row.width is None and not account_type_row.wrap
+        alternatives = view.account_suggestion_alternatives
+        assert not alternatives.visible
+        view.account_name.value = "Synthetic bank"
+        view._account_attributes_changed(MagicMock())
+        assert alternatives.visible and alternatives.options
+        alternatives_row = next(
+            control
+            for control in dialog.content.controls
+            if isinstance(control, ft.Row) and control.controls == [alternatives]
+        )
+        assert alternatives.expand is True and alternatives.width is None
+        assert alternatives_row.width is None and not alternatives_row.wrap
+        selected = alternatives.options[0].key
+        alternatives.value = selected
+        view._account_suggestion_selected(MagicMock(control=alternatives))
+        assert view.account_id.value == selected and view.account_code_manual
+        view.account_name.value = ""
+        view._account_attributes_changed(MagicMock())
+        assert not alternatives.visible
         fields = [
             view.account_name,
             view.account_id,

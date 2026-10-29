@@ -54,7 +54,8 @@ intrinsic width even in a stretched column; `expand=True` inside a row gives it
 the available horizontal space.
 
 - Add account and Add category: dropdowns align with the input fields, including
-  the Parent dropdown in nested category creation.
+  the Parent dropdown in nested category creation and the account's Other
+  variants dropdown when code suggestions are available.
 - Add/Edit budget (also Change from date and Stop): Category and Interval
   dropdowns align with the other inputs. Category options place parents before
   their descendants and indent each nested level, like Add operation; income

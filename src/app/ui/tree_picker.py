@@ -18,6 +18,7 @@ class TreePicker(ft.AlertDialog):
         selected: str,
         all_label: str,
         on_select: Callable[[str], Awaitable[None]],
+        icon: Callable[[str], ft.Control | None] | None = None,
     ) -> None:
         super().__init__(title=title, scrollable=True)
         self.owner = page
@@ -25,6 +26,7 @@ class TreePicker(ft.AlertDialog):
         self.items = dict(items)
         self.selected = selected
         self.select = on_select
+        self.entity_icon = icon
         self.expanded: dict[str, bool] = {}
         self.search = ft.TextField(
             label=translate(language, "budget_search_tree"), on_change=self._search
@@ -61,6 +63,7 @@ class TreePicker(ft.AlertDialog):
         def node(key: str) -> ft.Control:
             button = ft.TextButton(
                 self.items[key],
+                icon=self.entity_icon(key) if self.entity_icon is not None else None,
                 data=key,
                 tooltip=key,
                 on_click=self._choose,

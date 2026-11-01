@@ -35,6 +35,14 @@ Add success and meaningful failure cases, cancellation/timeouts when relevant,
 and verify no sensitive values appear in logs. Keep UI tests about state and
 behavior, not incidental control ordering. Do not mock the decision under test.
 
+Entity-icon tests use synthetic images, temporary sidecars and a fake Iconify
+transport. They check exact pixel/proportion thresholds, raster normalization,
+inert SVG validation, style ordering, license retention, offline restart, stale
+and concurrent assignments, migration, explicit I/O failures, UI propagation and
+real Flet modal keyboard dispatch with retained parent drafts. See
+[Entity icons](entity-icons.md). Native SAF and file-picker behavior still need
+device checks; APK compilation or host-payload execution is not that proof.
+
 Before publishing, also run a real target build and launch it. Unit tests cannot
 prove native plugin availability, platform permissions, icon appearance, signing,
 or browser/Pyodide compatibility. Check desktop/mobile viewport sizes and inspect

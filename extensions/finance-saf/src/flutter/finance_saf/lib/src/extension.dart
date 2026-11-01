@@ -185,6 +185,63 @@ class FinanceSafService extends FletService {
         throw StateError('Incomplete migration. Review the migration output before opening.');
       }
     }
+    if (method == 'icons_read' || method == 'icons_create') {
+      var directory = await _util.child(uri, ['textmoney-icons']);
+      if (directory != null && !directory.isDir) {
+        throw StateError('Icon storage is not a directory.');
+      }
+      if (method == 'icons_create' && directory == null) {
+        directory = await _util.mkdirp(uri, ['textmoney-icons']);
+      }
+      if (directory == null) return <String, String>{};
+      final validName = RegExp(r'^[a-f0-9]{64}\.json$');
+      if (method == 'icons_create') {
+        final name = args['name'] as String;
+        final encoded = args['data'] as String;
+        if (!validName.hasMatch(name) || encoded.length > 524288) {
+          throw StateError('Invalid icon record.');
+        }
+        final bytes = base64Decode(encoded);
+        if (bytes.length > 393216) throw StateError('Icon record is too large.');
+        final existing = await _readDocument(directory.uri, name);
+        if (existing != null && existing != encoded) {
+          throw StateError('Icon record differs. Reload before retrying.');
+        }
+        if (existing == null) {
+          final saved = await _stream.writeFileBytes(
+            directory.uri, name, 'application/json', bytes,
+            overwrite: false, append: false,
+          );
+          if (saved.fileName != name) {
+            throw StateError('Provider changed the icon filename.');
+          }
+        }
+        if (await _readDocument(directory.uri, name) != encoded) {
+          throw StateError('Icon write verification failed. Reload before retrying.');
+        }
+        return true;
+      }
+      final files = await _util.list(directory.uri);
+      if (files.length > 4096) throw StateError('Too many icon records.');
+      final records = <String, String>{};
+      var total = 0;
+      for (final file in files) {
+        if (file.name.endsWith('.tmp')) continue;
+        if (file.isDir || !validName.hasMatch(file.name) || records.containsKey(file.name)) {
+          throw StateError('Invalid or duplicate icon record. Check synced copies.');
+        }
+        if (file.length < 0 || file.length > 393216) {
+          throw StateError('Icon record is too large or has unknown size.');
+        }
+        final bytes = await _stream.readFileBytes(file.uri);
+        total += bytes.length;
+        if (bytes.length > 393216 || total > 16777216) {
+          throw StateError('Icon storage exceeds its size limit.');
+        }
+        records[file.name] = base64Encode(bytes);
+      }
+      return records;
+    }
     final pendingName = RegExp(
       '^$prefix-[0-9]{8}T[0-9]{12}Z-[a-f0-9]{32}-pending\\.beancount\$',
     );

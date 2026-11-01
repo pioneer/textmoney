@@ -16,6 +16,11 @@ src/app/localization.py    gettext catalog loading, runtime language discovery a
 src/app/timekeeping.py     default clock and native date-picker timezone transport
 src/app/ui/datetime_fields.py shared manual/date-picker/time-picker controls
 src/app/ui/dialogs.py       shared desktop popup Escape/Cancel and Enter/Submit behavior
+src/app/ui/icons.py         optional offline/online/import icon picker
+src/app/icons.py            validated icon assets and immutable sidecar assignment policy
+src/app/infrastructure/icon_files.py bounded desktop/SAF sidecar I/O
+src/app/infrastructure/icon_sources.py bundled catalogue and explicit Iconify requests
+src/app/icon_catalogue/     vendored Material artwork and source license texts
 src/app/ui/beancount.py    separate bundled-fixture action; lazy parser import
 src/app/beancount_diagnostics.py   pure-Python syntax/editing/quantity experiment, not a full engine
 src/app/fixtures/beancount/ synthetic bundled books, never user storage
@@ -58,6 +63,11 @@ desktop Escape invokes Cancel and Enter invokes the existing submit action,
 respecting validation and disabled states. Shortcuts affect only the active popup
 without losing a parent draft; Shift+Enter inserts multiline text.
 Application-owned dialogs must use the shared `app.ui.dialogs.show_dialog` helper.
+
+Optional [entity icons](entity-icons.md) are stored beside the journal in an
+append-only sidecar directory, never in Beancount metadata. Network lookup is
+explicit and limited to Iconify; assigned images and attribution render offline.
+Icon failures do not disable otherwise-valid financial journal access.
 
 GNU gettext PO files in `locales/` are the editable translation source;
 Invoke compiles them to packaged MO catalogs in `src/app/locale/`. Runtime

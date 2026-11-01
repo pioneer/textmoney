@@ -14,6 +14,7 @@ from form_controls import transaction_form
 from journal_fixtures import review_external_fixture
 
 from app.domain.ledger import EPOCH, Account, Category, LedgerError, Posting, Transaction
+from app.infrastructure.beancount_journal import transaction_time
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.preferences import DesktopPreferences, FeePreferences
 from app.journal import FILENAME, Journal
@@ -794,7 +795,7 @@ def test_hidden_saved_payee_and_original_dates_survive_edit_and_conflicting_draf
         original = journal.ledger.transactions[-1]
         stamp = "2026-01-01T00:30:00"
         source = journal.source.replace(
-            f'  time: "{datetime.fromisoformat(original.timestamp):%H:%M:%S}"',
+            f'  time: "{transaction_time(original.timestamp)}"',
             '  time: "00:30:00"',
         )
         (tmp_path / FILENAME).write_text(source, newline="")
@@ -898,10 +899,10 @@ def test_opening_transaction_editor_uses_safe_account_balance_edit(
             await journal.edit_account("Assets:Cash", "Wallet", "0", True, journal.source)
         original = next(t for t in journal.ledger.transactions if t.kind == "opening")
         source = journal.source.replace(
-            f'  time: "{datetime.fromisoformat(original.timestamp):%H:%M:%S}"',
-            f'  time: "{datetime.fromisoformat(original.timestamp):%H:%M:%S}"\n'
-            '  receipt: "keep" ; comment',
+            f'  time: "{transaction_time(original.timestamp)}"',
+            f'  time: "{transaction_time(original.timestamp)}"\n  receipt: "keep" ; comment',
         )
+        assert 'receipt: "keep" ; comment' in source
         (tmp_path / FILENAME).write_text(source, newline="")
         await review_external_fixture(journal)
         original = next(t for t in journal.ledger.transactions if t.kind == "opening")

@@ -126,6 +126,7 @@ class BudgetView(ft.Column):
             id(journal.ledger) if journal else None,
             ready,
             self.host.language,
+            self.host.icon_revision,
         )
         if model_key != self.model_key:
             self.model_key = model_key
@@ -152,8 +153,11 @@ class BudgetView(ft.Column):
         self.account.content = f"{tr('budget_account')}: {account or tr('budget_all_accounts')}"
         self.scope.tooltip = self.category_id or None
         self.account.tooltip = self.account_id or None
+        self.scope.icon = self.host._entity_icon(self.category_id)
+        self.account.icon = self.host._entity_icon(self.account_id)
         filter_key = (
             self.host.language,
+            self.host.icon_revision,
             self.category_id,
             category,
             self.account_id,
@@ -174,6 +178,11 @@ class BudgetView(ft.Column):
             if label:
                 chips.append(
                     ft.Chip(
+                        leading=self.host._entity_icon(
+                            self.category_id if key == "category" else self.account_id
+                        )
+                        if key in {"category", "account"}
+                        else None,
                         label=ft.Text(
                             label,
                             max_lines=1,
@@ -213,6 +222,7 @@ class BudgetView(ft.Column):
                 self.category_id,
                 self.host.tr("budget_all"),
                 self._select_category,
+                icon=self.host._entity_icon,
             ),
         )
 
@@ -227,6 +237,7 @@ class BudgetView(ft.Column):
                 self.account_id,
                 self.host.tr("budget_all_accounts"),
                 self._select_account,
+                icon=self.host._entity_icon,
             ),
         )
 
@@ -281,6 +292,7 @@ class BudgetView(ft.Column):
             id(journal.ledger) if journal else None,
             journal.ready if journal else False,
             self.host.language,
+            self.host.icon_revision,
             self.month,
             self.account_id,
             self.category_id,
@@ -597,6 +609,7 @@ class BudgetView(ft.Column):
                             [
                                 ft.Row(
                                     [
+                                        *self.host._entity_icon_controls(account),
                                         ft.Text(
                                             names.get(account, account.rsplit(":", 1)[-1]),
                                             size=16,
@@ -736,10 +749,13 @@ class BudgetView(ft.Column):
                 scrollable=True,
                 content=ft.Column(
                     [
-                        ft.Text(
-                            names.get(row.account, row.account),
-                            tooltip=row.account,
-                            selectable=True,
+                        self.host._entity_label(
+                            row.account,
+                            ft.Text(
+                                names.get(row.account, row.account),
+                                tooltip=row.account,
+                                selectable=True,
+                            ),
                         ),
                         search,
                         listing,
@@ -756,12 +772,15 @@ class BudgetView(ft.Column):
         names = self._account_names()
         return ft.Column(
             [
-                ft.Text(
-                    f"{names.get(budget.account, budget.account)}"
-                    f" · {format_date(budget.date, self.host.language)}",
-                    tooltip=budget.account,
-                    selectable=True,
-                    weight=ft.FontWeight.BOLD,
+                self.host._entity_label(
+                    budget.account,
+                    ft.Text(
+                        f"{names.get(budget.account, budget.account)}"
+                        f" · {format_date(budget.date, self.host.language)}",
+                        tooltip=budget.account,
+                        selectable=True,
+                        weight=ft.FontWeight.BOLD,
+                    ),
                 ),
                 ft.Text(
                     f"{budget.amount} {budget.currency} · {tr(f'budget_{budget.interval}')}",
@@ -818,9 +837,15 @@ class BudgetView(ft.Column):
         category = ft.Dropdown(
             expand=True,
             label=tr("budget_category"),
+            on_select=self.host._entity_dropdown_selected,
+            leading_icon=self.host._entity_icon(budget.account) if budget else None,
             options=[
-                ft.DropdownOption(key=key, text=self.host._category_label(key, identifiers[key]))
-                for key in sorted(identifiers)
+                ft.DropdownOption(
+                    key=key,
+                    text=self.host._category_label(key, identifiers[key]),
+                    leading_icon=self.host._entity_icon(key),
+                )
+                for key in sorted(identifiers, key=lambda identifier: identifier.split(":"))
             ],
             value=budget.account if budget else None,
         )

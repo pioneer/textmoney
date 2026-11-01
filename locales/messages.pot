@@ -4,14 +4,101 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TextMoney 0.3.19\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-10-29 22:04+0200\n"
-"PO-Revision-Date: 2026-10-29 22:04+0200\n"
+"POT-Creation-Date: 2026-10-30 00:00+0200\n"
+"PO-Revision-Date: 2026-10-30 00:00+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
+
+msgid "ui.icon_choose"
+msgstr ""
+
+msgid "ui.icon_search"
+msgstr ""
+
+msgid "ui.icon_online"
+msgstr ""
+
+msgid "ui.icon_import"
+msgstr ""
+
+msgid "ui.icon_remove"
+msgstr ""
+
+msgid "ui.icon_none"
+msgstr ""
+
+msgid "ui.icon_attribution"
+msgstr ""
+
+msgid "ui.icon_privacy"
+msgstr ""
+
+msgid "ui.icon_import_notice"
+msgstr ""
+
+msgid "ui.icon_imported"
+msgstr ""
+
+msgid "ui.icon_user_license"
+msgstr ""
+
+msgid "ui.icon_no_results"
+msgstr ""
+
+msgid "ui.icon_no_suitable"
+msgstr ""
+
+msgid "ui.icon_dimensions"
+msgstr ""
+
+msgid "ui.icon_size"
+msgstr ""
+
+msgid "ui.icon_svg"
+msgstr ""
+
+msgid "ui.icon_format"
+msgstr ""
+
+msgid "ui.icon_query_invalid"
+msgstr ""
+
+msgid "ui.icon_online_failed"
+msgstr ""
+
+msgid "ui.icon_rate_limited"
+msgstr ""
+
+msgid "ui.icon_import_failed"
+msgstr ""
+
+msgid "ui.icon_records_invalid"
+msgstr ""
+
+msgid "ui.icon_sync_incomplete"
+msgstr ""
+
+msgid "ui.icon_storage"
+msgstr ""
+
+msgid "ui.icon_stale"
+msgstr ""
+
+msgid "ui.icon_conflicts"
+msgstr ""
+
+msgid "ui.icon_migration_failed"
+msgstr ""
+
+msgid "ui.icon_failed"
+msgstr ""
+
+msgid "ui.icon_delete_failed"
+msgstr ""
 
 msgid "ui.error_migration_incomplete"
 msgstr ""

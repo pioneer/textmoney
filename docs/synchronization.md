@@ -2,8 +2,8 @@
 
 TextMoney is a local-first UI frontend to an ordinary local Beancount file and
 works fully offline. `textmoney.beancount` is the sole active financial journal.
-TextMoney does not perform synchronization, access cloud APIs, merge changes,
-resolve conflicts or certify synchronization completion.
+TextMoney does not perform journal synchronization, access cloud-storage APIs,
+merge financial changes, resolve journal conflicts or certify synchronization completion.
 
 ## Local folders and sync clients
 
@@ -24,7 +24,10 @@ provider appearing in the picker does not establish offline folder access.
 TextMoney does not download a private working copy.
 
 Configure the external client to synchronize the whole folder, including
-`backups/` and hidden recovery files. This is a local-file workflow, not a native
+`backups/`, `textmoney-icons/` (when icons are assigned) and hidden recovery files.
+The [optional icon sidecars](entity-icons.md#storage-and-synchronization) retain
+their own immutable history and conflict notices, without changing financial
+journal synchronization rules. This is a local-file workflow, not a native
 integration with or certification of any synchronization service or client.
 
 ## Operating rule

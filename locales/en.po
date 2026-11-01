@@ -15,6 +15,93 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+msgid "ui.icon_choose"
+msgstr "Choose icon"
+
+msgid "ui.icon_search"
+msgstr "Search icons"
+
+msgid "ui.icon_online"
+msgstr "Search more online"
+
+msgid "ui.icon_import"
+msgstr "Import image"
+
+msgid "ui.icon_remove"
+msgstr "Remove icon"
+
+msgid "ui.icon_none"
+msgstr "No icon selected"
+
+msgid "ui.icon_attribution"
+msgstr "Source and license"
+
+msgid "ui.icon_privacy"
+msgstr "Bundled icons work offline. Online search sends only your entered search text to Iconify. Assigned icons are saved beside your journal."
+
+msgid "ui.icon_import_notice"
+msgstr "Import only images you have permission to use. Resizing does not change copyright or trademark rights."
+
+msgid "ui.icon_imported"
+msgstr "Imported image"
+
+msgid "ui.icon_user_license"
+msgstr "User-provided; rights not verified"
+
+msgid "ui.icon_no_results"
+msgstr "No matching icons. Try another term, search online, or import an image."
+
+msgid "ui.icon_no_suitable"
+msgstr "No suitable icons: unsafe SVGs and unsuitable proportions were excluded."
+
+msgid "ui.icon_dimensions"
+msgstr "Choose an image with an aspect ratio between 1:2 and 2:1. Raster images need at least 48 pixels on each side and at most 4096."
+
+msgid "ui.icon_size"
+msgstr "Image is too large. Import a file up to 2 MiB; normalized records must fit within 384 KiB."
+
+msgid "ui.icon_svg"
+msgstr "This SVG is unsupported. Use a simple SVG with a viewBox and paths/shapes, without embedded images, scripts, references or effects."
+
+msgid "ui.icon_format"
+msgstr "Cannot read this image. Choose a valid, non-animated PNG, JPEG, WebP or simple SVG."
+
+msgid "ui.icon_query_invalid"
+msgstr "Enter a search term of 1–120 characters."
+
+msgid "ui.icon_online_failed"
+msgstr "Iconify search failed. Check your connection and try again. Bundled icons and image import remain available."
+
+msgid "ui.icon_rate_limited"
+msgstr "Please wait before searching again. Iconify may temporarily limit requests."
+
+msgid "ui.icon_import_failed"
+msgstr "The picker did not return image bytes. Try selecting the file again."
+
+msgid "ui.icon_records_invalid"
+msgstr "Icon sidecars are invalid or exceed supported limits. Check textmoney-icons for damaged or sync-conflict copies. The journal was not changed."
+
+msgid "ui.icon_sync_incomplete"
+msgstr "Some icon revisions have not synced yet. Finish syncing textmoney-icons, then reload."
+
+msgid "ui.icon_storage"
+msgstr "Cannot access icon sidecars. Check folder permissions, disk space and sync status, then reload."
+
+msgid "ui.icon_stale"
+msgstr "Icon assignments changed while this picker was open. Cancel and reopen it before saving. Your journal is unchanged."
+
+msgid "ui.icon_conflicts"
+msgstr "Conflicting icon assignments were synced. Choose an icon again for the affected account/category to resolve them."
+
+msgid "ui.icon_migration_failed"
+msgstr "The journal migration succeeded, but icon assignments could not be moved. Check icon storage and reassign icons at their new categories."
+
+msgid "ui.icon_failed"
+msgstr "The icon operation failed. Your selection is retained; check diagnostics and retry."
+
+msgid "ui.icon_delete_failed"
+msgstr "The account/category was deleted, but its old icon assignment could not be removed. Check icon storage before reusing the same category/account code."
+
 msgid "ui.error_migration_incomplete"
 msgstr "The data migration did not finish. Do not edit this folder. Keep the original and retry the migration into a new folder."
 

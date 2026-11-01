@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future
@@ -44,8 +45,11 @@ from app.domain.reporting import (
     period_report,
 )
 from app.domain.storage import ConflictError
+from app.icons import IconAsset, IconError, IconStore
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
+from app.infrastructure.icon_files import AndroidIconFiles, DesktopIconFiles
+from app.infrastructure.icon_sources import IconifySearch
 from app.infrastructure.preferences import (
     DesktopPreferences,
     FeePreferences,
@@ -70,6 +74,7 @@ from app.timekeeping import local_datetime, named_zone
 from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
+from app.ui.icons import IconPicker, icon_image
 from app.ui.tree_style import compact_tree_theme, compact_tree_tile
 from app.version import release_identity
 
@@ -105,6 +110,11 @@ class FinanceView(ft.Row):
     def __init__(self) -> None:
         super().__init__(expand=True, spacing=0, alignment=ft.MainAxisAlignment.CENTER)
         self.journal: Journal | None = None
+        self.icons: IconStore | None = None
+        self.icon_provider = IconifySearch()
+        self.icon_revision = 0
+        self.next_icon_poll = 0.0
+        self.icon_notice = ft.Text("", visible=False, color=ft.Colors.ERROR, selectable=True)
         self.preferences: ft.SharedPreferences | DesktopPreferences | None = None
         self.bridge: FinanceSaf | None = None
         self.worker: Future[None] | None = None
@@ -143,8 +153,10 @@ class FinanceView(ft.Row):
         self.account_root = ft.Dropdown(
             value="Assets", expand=True, on_select=self._account_type_changed
         )
-        self.default_fee = ft.Dropdown(expand=True)
-        self.default_account = ft.Dropdown(expand=True, value="")
+        self.default_fee = ft.Dropdown(expand=True, on_select=self._entity_dropdown_selected)
+        self.default_account = ft.Dropdown(
+            expand=True, value="", on_select=self._entity_dropdown_selected
+        )
         self.default_account_save = ft.Button(on_click=self._save_default_account)
         self.default_account_notice = ft.Text("", visible=False)
         self.default_account_journal: Journal | None = None
@@ -409,7 +421,7 @@ class FinanceView(ft.Row):
                 ),
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20, vertical=8),
-                    content=self.message,
+                    content=ft.Column([self.message, self.icon_notice], spacing=4),
                 ),
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20), content=self.balance_warning
@@ -469,7 +481,7 @@ class FinanceView(ft.Row):
         self.message.value = self.tr(key)
 
     def _set_error(self, exc: Exception) -> None:
-        if isinstance(exc, (ConflictError, LedgerError, PreferencesError, StorageError)):
+        if isinstance(exc, (ConflictError, LedgerError, PreferencesError, StorageError, IconError)):
             self.message_key = ""
             self.error_message = str(exc)
             logger.warning("Journal operation refused (%s)", type(exc).__name__)
@@ -939,9 +951,9 @@ class FinanceView(ft.Row):
             self.operating_journal = self.journal
         self.fab.disabled = False
         balances = ledger.balances(today=self.journal.today())
-        grouped: dict[str, list[tuple[str, Decimal]]] = defaultdict(list)
+        grouped: dict[str, list[tuple[str, str, Decimal]]] = defaultdict(list)
         for account in ledger.accounts:
-            grouped[account.currency].append((account.name, balances[account.id]))
+            grouped[account.currency].append((account.name, account.id, balances[account.id]))
         currency_order = {
             currency: index for index, currency in enumerate(ledger.operating_currencies)
         }
@@ -957,12 +969,12 @@ class FinanceView(ft.Row):
                         *[
                             ft.Row(
                                 [
-                                    ft.Text(name, expand=True),
+                                    self._entity_label(identifier, ft.Text(name, expand=True)),
                                     ft.Text(format_amount(amount, self.language, currency)),
                                 ],
                                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             )
-                            for name, amount in sorted(accounts)
+                            for name, identifier, amount in sorted(accounts)
                         ],
                     ],
                     spacing=10,
@@ -1142,7 +1154,7 @@ class FinanceView(ft.Row):
             amount = item.amount(currency)
             if amount == 0 and not children:
                 return None
-            label: ft.Control = ft.Text(item.name)
+            label: ft.Control = self._entity_label(item.identifier, ft.Text(item.name))
             if not item.active:
                 label = ft.Column(
                     [label, ft.Text(self.tr("crud_inactive_label"), size=12)],
@@ -1210,6 +1222,7 @@ class FinanceView(ft.Row):
                 labels.append(ft.Text(self.tr("crud_inactive_label"), size=12))
             row = ft.Row(
                 [
+                    *self._entity_icon_controls(identifier),
                     ft.Column(labels, spacing=0, expand=True),
                     *(self._entity_actions(item) if item else []),
                 ],
@@ -1238,6 +1251,14 @@ class FinanceView(ft.Row):
     def _entity_actions(self, item: Account | Category) -> list[ft.Control]:
         kind = "category" if isinstance(item, Category) else "account"
         return [
+            ft.IconButton(
+                icon=ft.Icons.IMAGE_SEARCH,
+                tooltip=self.tr("icon_choose"),
+                data=item.id,
+                icon_size=20,
+                on_click=self._choose_entity_icon,
+                style=ft.ButtonStyle(visual_density=ft.VisualDensity.COMPACT),
+            ),
             ft.IconButton(
                 icon=ft.Icons.EDIT_OUTLINED,
                 tooltip=self.tr("crud_edit"),
@@ -1270,12 +1291,93 @@ class FinanceView(ft.Row):
             padding=ft.Padding.symmetric(vertical=2),
             content=ft.Row(
                 [
+                    *self._entity_icon_controls(item.id),
                     ft.Column(lines, spacing=0, expand=True),
                     *self._entity_actions(item),
                 ],
                 spacing=0,
             ),
         )
+
+    def _entity_icon(self, identifier: str) -> ft.Image | None:
+        asset = self.icons.assets.get(identifier) if self.icons is not None else None
+        return icon_image(asset) if asset is not None else None
+
+    def _entity_icon_controls(self, identifier: str) -> list[ft.Control]:
+        image = self._entity_icon(identifier)
+        return [ft.Container(image, margin=ft.Margin.only(right=8))] if image else []
+
+    def _entity_dropdown_selected(self, event: ft.Event[ft.Dropdown]) -> None:
+        event.control.leading_icon = self._entity_icon(event.control.value or "")
+        self.page.update()
+
+    def _entity_label(self, identifier: str, label: ft.Control) -> ft.Control:
+        image = self._entity_icon(identifier)
+        if image is None:
+            return label
+        expand = label.expand
+        label.expand = True
+        return ft.Row([image, label], spacing=8, expand=expand)
+
+    def _choose_entity_icon(self, event: ft.Event[ft.IconButton]) -> None:
+        try:
+            journal = self._require_journal()
+            identifier = str(event.control.data)
+            self._open_icon_picker(journal, identifier)
+        except Exception as exc:
+            self._error(exc, notify=True)
+
+    def _open_icon_picker(self, journal: Journal, identifier: str) -> None:
+        store = self.icons
+        if store is None or not store.loaded or not journal.ready:
+            raise StorageError("icon_storage")
+        expected = store.heads.get(identifier, ())
+
+        async def save(asset: IconAsset | None) -> None:
+            async with self.lock:
+                if (
+                    self.journal is not journal
+                    or self.icons is not store
+                    or not journal.ready
+                    or identifier not in self._existing_identifiers(journal)
+                ):
+                    raise ConflictError("icon_stale")
+                await store.assign(identifier, asset, expected)
+                self.icon_revision += 1
+                self.icon_notice.visible = bool(store.conflicts)
+                self.icon_notice.value = self.tr("icon_conflicts") if store.conflicts else ""
+                self.fee_choices_state = ()
+                self._refresh()
+                if self.current_screen == "reports":
+                    await self.budgets.refresh()
+
+        show_dialog(
+            self.page,
+            IconPicker(
+                self.page,
+                self.language,
+                store.assets.get(identifier),
+                self.icon_provider,
+                save,
+                conflict=identifier in store.conflicts,
+            ),
+        )
+
+    async def _load_icons(self) -> None:
+        if self.icons is None:
+            return
+        try:
+            if await self.icons.load():
+                self.icon_revision += 1
+                self.fee_choices_state = ()
+            self.icon_notice.value = self.tr("icon_conflicts") if self.icons.conflicts else ""
+            self.icon_notice.visible = bool(self.icons.conflicts)
+        except (IconError, StorageError, TimeoutError) as exc:
+            logger.warning("Icon sidecar read failed (%s)", type(exc).__name__)
+            self.icon_notice.value = (
+                self.tr(str(exc)) if isinstance(exc, IconError) else self.tr("icon_storage")
+            )
+            self.icon_notice.visible = True
 
     def _update_transaction_separators(self) -> None:
         border = (
@@ -1499,6 +1601,7 @@ class FinanceView(ft.Row):
                 outgoing, incoming = [transfer.source], [transfer.target]
                 simple = True
         title = display
+        source = target = ""
         if simple:
             source = names.get(
                 outgoing[0].account,
@@ -1517,6 +1620,24 @@ class FinanceView(ft.Row):
                 if transaction.kind == "opening"
                 else f"{source} → {target}"
             )
+        movement_icons = simple and any(
+            self.icons is not None and posting.account in self.icons.assets
+            for posting in (*outgoing, *incoming)
+        )
+
+        def movement_label() -> ft.Control:
+            if not movement_icons:
+                return ft.Text(title, size=10, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
+            return ft.Row(
+                [
+                    self._entity_label(outgoing[0].account, ft.Text(source, size=10, expand=True)),
+                    ft.Text("→", size=10),
+                    self._entity_label(incoming[0].account, ft.Text(target, size=10, expand=True)),
+                ],
+                spacing=4,
+                expand=True,
+            )
+
         has_summary = simple and transaction.kind != "opening" and bool(summary)
         heading: list[ft.Control] = [
             ft.Text(
@@ -1527,6 +1648,8 @@ class FinanceView(ft.Row):
                 overflow=ft.TextOverflow.ELLIPSIS,
             )
         ]
+        if movement_icons and not has_summary:
+            heading[0] = movement_label()
         if simple:
             movement = abs(cashflow.account.amount) if cashflow else incoming[0].amount
             heading.append(
@@ -1557,14 +1680,7 @@ class FinanceView(ft.Row):
                 )
             )
         if has_summary:
-            lines.append(
-                ft.Text(
-                    title,
-                    size=10,
-                    max_lines=1,
-                    overflow=ft.TextOverflow.ELLIPSIS,
-                )
-            )
+            lines.append(movement_label())
         actions: list[ft.Control] = (
             []
             if read_only
@@ -1693,6 +1809,9 @@ class FinanceView(ft.Row):
             if journal.ready and await journal.poll():
                 await self._apply_default_fee()
                 self._set_message("external_reloaded")
+            if time.monotonic() >= self.next_icon_poll:
+                self.next_icon_poll = time.monotonic() + 30
+                await self._load_icons()
         finally:
             self._refresh()
 
@@ -1839,10 +1958,16 @@ class FinanceView(ft.Row):
         )
         await folder.status()
         self.journal = Journal(folder, today=self._today)
+        self.icons = IconStore(
+            AndroidIconFiles(folder)
+            if isinstance(folder, AndroidFolder)
+            else DesktopIconFiles(folder)
+        )
         self.possible_conflict_copies = []
         self.sibling_scan_failed = False
         self.journal.storage.auto_cleanup = self.auto_backup_cleanup
         await self.journal.load()
+        await self._load_icons()
         await self._apply_default_fee()
         await self._scan_conflict_copies()
         self.folder_label.value = (
@@ -1913,6 +2038,7 @@ class FinanceView(ft.Row):
             if self.journal is None:
                 raise LedgerError("Select a folder first.")
             await self.journal.load()
+            await self._load_icons()
             await self._apply_default_fee()
             await self._scan_conflict_copies()
             self._set_message("reloaded")
@@ -2280,7 +2406,7 @@ class FinanceView(ft.Row):
         self._edit_dialog(
             self.tr("kind_opening"),
             [
-                ft.Text(f"{account.name} ({account.currency})"),
+                self._entity_label(account.id, ft.Text(f"{account.name} ({account.currency})")),
                 amount,
                 opening_date,
                 ft.Text(self.tr("crud_opening_help"), size=12),
@@ -2372,7 +2498,9 @@ class FinanceView(ft.Row):
                                     maintain_state=True,
                                 ),
                                 *[
-                                    ft.Text(posting_details(posting))
+                                    self._entity_label(
+                                        posting.account, ft.Text(posting_details(posting))
+                                    )
                                     for posting in transaction.postings
                                 ],
                             ],
@@ -2490,7 +2618,9 @@ class FinanceView(ft.Row):
             if transaction is None
             else None,
             options=[
-                ft.DropdownOption(key=a.id, text=f"{a.name} ({a.currency})")
+                ft.DropdownOption(
+                    key=a.id, text=f"{a.name} ({a.currency})", leading_icon=self._entity_icon(a.id)
+                )
                 for a in journal.ledger.accounts
                 if a.active or (original_asset and original_asset.account == a.id)
             ],
@@ -2545,6 +2675,7 @@ class FinanceView(ft.Row):
         )
         fee_category = ft.Dropdown(
             data="fee_category",
+            on_select=self._entity_dropdown_selected,
             expand=True,
             label=self.tr("transfer_fee_category"),
             value=saved_fee.fee_category
@@ -2858,7 +2989,9 @@ class FinanceView(ft.Row):
                 else "incoming_sender"
             )
             destination.options = [
-                ft.DropdownOption(key=a.id, text=f"{a.name} ({a.currency})")
+                ft.DropdownOption(
+                    key=a.id, text=f"{a.name} ({a.currency})", leading_icon=self._entity_icon(a.id)
+                )
                 for a in journal.ledger.accounts
                 if a.id != account.value
                 and (
@@ -2876,7 +3009,11 @@ class FinanceView(ft.Row):
             else:
                 destination.error_text = None
             category.options = [
-                ft.DropdownOption(key=c.id, text=self._category_label(c.id, c.name))
+                ft.DropdownOption(
+                    key=c.id,
+                    text=self._category_label(c.id, c.name),
+                    leading_icon=self._entity_icon(c.id),
+                )
                 for c in journal.ledger.categories
                 if c.id.startswith(root)
                 and (journal.ledger.category_active(c.id) or c.id == original_category)
@@ -2911,6 +3048,8 @@ class FinanceView(ft.Row):
             advanced.subtitle = " · ".join(details) or None
             for row in dropdown_rows:
                 row.visible = row.controls[0].visible
+            for selector in (account, category, destination, fee_category):
+                selector.leading_icon = self._entity_icon(selector.value or "")
             if event is not None:
                 self.page.update()
 
@@ -2922,6 +3061,7 @@ class FinanceView(ft.Row):
                     original = journal.expense_for_edit(reference.value)
                     posting = journal.ledger.cashflow_details(original).category
                     category.value = posting.account
+                    category.leading_icon = self._entity_icon(posting.account)
                     amount.value = str(posting.amount)
                 self.page.update()
             except Exception as exc:
@@ -3029,6 +3169,7 @@ class FinanceView(ft.Row):
 
             def parent_changed(event: ft.Event[ft.Dropdown]) -> None:
                 update_suggestion()
+                category_parent.leading_icon = self._entity_icon(category_parent.value or "")
                 self.page.update()
 
             def alternative_selected(event: ft.Event[ft.Dropdown]) -> None:
@@ -3081,7 +3222,9 @@ class FinanceView(ft.Row):
                     identifier = code.code
                     category.options = [
                         ft.DropdownOption(
-                            key=item.id, text=self._category_label(item.id, item.name)
+                            key=item.id,
+                            text=self._category_label(item.id, item.name),
+                            leading_icon=self._entity_icon(item.id),
                         )
                         for item in journal.ledger.categories
                         if item.id.startswith(f"{root}:") and item.active
@@ -3135,6 +3278,7 @@ class FinanceView(ft.Row):
         special.on_select = configure
         fee_enabled.on_change = configure
         account.on_select = configure
+        category.on_select = self._entity_dropdown_selected
         destination.on_select = configure
         reference.on_select = fill_reference
         category_create.on_click = create_category_dialog
@@ -3303,6 +3447,11 @@ class FinanceView(ft.Row):
                 ft.Text(self.tr("crud_category_help" if category else "crud_account_help")),
                 name,
                 active,
+                ft.TextButton(
+                    self.tr("icon_choose"),
+                    icon=ft.Icons.IMAGE_SEARCH,
+                    on_click=lambda _: self._open_icon_picker(journal, identifier),
+                ),
             ]
             if isinstance(item, Account):
                 controls.append(ft.Text(item.currency))
@@ -3362,6 +3511,7 @@ class FinanceView(ft.Row):
         root, *components = identifier.split(":")
         parent = ft.Dropdown(
             label=self.tr("code_suggestion_parent"),
+            on_select=self._entity_dropdown_selected,
             expand=True,
             options=self._category_parent_options(
                 tuple(
@@ -3375,6 +3525,7 @@ class FinanceView(ft.Row):
         )
         if parent.value not in {option.key for option in parent.options}:
             parent.value = ""
+        parent.leading_icon = self._entity_icon(parent.value or "")
         code = ft.TextField(label=self.tr("category_migration_code_title"), value=components[-1])
         cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)
         review = ft.TextButton(self.tr("category_migration_review"))
@@ -3516,6 +3667,7 @@ class FinanceView(ft.Row):
             move(identifier): expanded for identifier, expanded in self.category_expansion.items()
         }
         self.budgets.category_id = move(self.budgets.category_id)
+        settings_failure: Exception | None = None
         if self.fee_preferences != previous:
             try:
                 if self.preferences is None or not await self.preferences.set(
@@ -3524,7 +3676,18 @@ class FinanceView(ft.Row):
                     raise PreferencesError("category_migration_preferences_failed")
             except Exception as exc:
                 logger.exception("Category migration saved, but local commission settings failed")
-                raise PreferencesError("category_migration_preferences_failed") from exc
+                settings_failure = exc
+        if self.icons is not None:
+            try:
+                await self.icons.migrate(plan.original, plan.target)
+                self.icon_revision += 1
+            except (IconError, StorageError, TimeoutError) as exc:
+                self.icon_notice.value = self.tr("icon_migration_failed")
+                self.icon_notice.visible = True
+                logger.warning("Journal migrated; icon migration failed (%s)", type(exc).__name__)
+                raise IconError("icon_migration_failed") from exc
+        if settings_failure is not None:
+            raise PreferencesError("category_migration_preferences_failed") from settings_failure
 
     def _delete_entity(self, event: ft.Event[ft.IconButton]) -> None:
         try:
@@ -3570,9 +3733,21 @@ class FinanceView(ft.Row):
             source = journal.source
 
             async def remove() -> str | None:
-                if kind == "category":
-                    return await journal.delete_category(identifier, source)
-                return await journal.delete_account(identifier, source)
+                backup = (
+                    await journal.delete_category(identifier, source)
+                    if kind == "category"
+                    else await journal.delete_account(identifier, source)
+                )
+                if self.icons is not None and identifier in self.icons.heads:
+                    try:
+                        await self.icons.assign(identifier, None, self.icons.heads[identifier])
+                        self.icon_revision += 1
+                    except (IconError, StorageError, TimeoutError, ConflictError) as exc:
+                        logger.warning(
+                            "Entity deleted; icon cleanup failed (%s)", type(exc).__name__
+                        )
+                        raise IconError("icon_delete_failed") from exc
+                return backup
 
             self._edit_dialog(
                 self.tr("crud_confirm"),
@@ -3722,6 +3897,7 @@ class FinanceView(ft.Row):
         self, event: ft.Event[ft.TextField] | ft.Event[ft.Dropdown]
     ) -> None:
         self._update_category_suggestion()
+        self.category_parent.leading_icon = self._entity_icon(self.category_parent.value or "")
         if self.page:
             self.page.update()
 
@@ -3770,10 +3946,13 @@ class FinanceView(ft.Row):
                 key=item.id,
                 text=f"{item.name} ({item.id})",
                 content=ft.Container(
-                    ft.Text(
-                        item.name,
-                        size=16,
-                        spans=[ft.TextSpan(f" ({item.id})", style=ft.TextStyle(size=12))],
+                    self._entity_label(
+                        item.id,
+                        ft.Text(
+                            item.name,
+                            size=16,
+                            spans=[ft.TextSpan(f" ({item.id})", style=ft.TextStyle(size=12))],
+                        ),
                     ),
                     padding=ft.Padding.only(left=16 * (item.id.count(":") - 1)),
                 ),
@@ -3797,6 +3976,7 @@ class FinanceView(ft.Row):
         }:
             self.category_parent.value = ""
         self.category_parent.label = self.tr("code_suggestion_parent")
+        self.category_parent.leading_icon = self._entity_icon(self.category_parent.value or "")
 
     def _create_account(self, event: ft.Event[ft.Button]) -> None:
         journal = self._require_journal()
@@ -3883,7 +4063,11 @@ class FinanceView(ft.Row):
         active = {account.id for account in accounts if account.active}
         options = [ft.DropdownOption(key="", text=self.tr("default_account_none"))]
         options += [
-            ft.DropdownOption(key=account.id, text=f"{account.name} ({account.currency})")
+            ft.DropdownOption(
+                key=account.id,
+                text=f"{account.name} ({account.currency})",
+                leading_icon=self._entity_icon(account.id),
+            )
             for account in accounts
             if account.active
         ]
@@ -3895,14 +4079,19 @@ class FinanceView(ft.Row):
                     text=self.tr("default_account_unavailable_choice", identifier=selected),
                 )
             )
-        if [(o.key, o.text) for o in options] != [
-            (o.key, o.text) for o in self.default_account.options
+        if [
+            (o.key, o.text, o.leading_icon.src if isinstance(o.leading_icon, ft.Image) else None)
+            for o in options
+        ] != [
+            (o.key, o.text, o.leading_icon.src if isinstance(o.leading_icon, ft.Image) else None)
+            for o in self.default_account.options
         ]:
             self.default_account.options = options
         self.default_account_notice.value = self.tr("default_account_unavailable")
         self.default_account_notice.visible = (
             ready and self.default_account_id is not None and self.default_account_id not in active
         )
+        self.default_account.leading_icon = self._entity_icon(self.default_account.value or "")
 
     async def _save_default_account(self, event: ft.Event[ft.Button]) -> None:
         async def save() -> None:
@@ -3979,7 +4168,9 @@ class FinanceView(ft.Row):
             items[BANK_FEES] = self.tr("transfer_bank_fees")
         return [
             ft.DropdownOption(
-                key=identifier, text=self._category_label(identifier, items[identifier])
+                key=identifier,
+                text=self._category_label(identifier, items[identifier]),
+                leading_icon=self._entity_icon(identifier),
             )
             for identifier in sorted(items, key=lambda identifier: identifier.split(":"))
         ]
@@ -4013,21 +4204,29 @@ class FinanceView(ft.Row):
             self.fee_choices_state = choices
             self.fee_category_choices.controls = [
                 ft.Container(
-                    ft.Checkbox(
-                        label=label,
-                        tooltip=identifier,
-                        data=identifier,
-                        value=checked,
-                        disabled=inherited,
-                        on_change=self._fee_branch_changed,
+                    self._entity_label(
+                        identifier,
+                        ft.Checkbox(
+                            label=label,
+                            tooltip=identifier,
+                            data=identifier,
+                            value=checked,
+                            disabled=inherited,
+                            on_change=self._fee_branch_changed,
+                        ),
                     ),
                     padding=ft.Padding.only(left=16 * identifier.count(":")),
                 )
                 for identifier, label, checked, inherited in choices
             ]
         options = self._fee_category_options(self.journal, self.fee_branches_draft)
-        if [(o.key, o.text) for o in options] != [
-            (o.key, o.text) for o in self.default_fee.options
+        self.default_fee.leading_icon = self._entity_icon(self.default_fee.value or "")
+        if [
+            (o.key, o.text, o.leading_icon.src if isinstance(o.leading_icon, ft.Image) else None)
+            for o in options
+        ] != [
+            (o.key, o.text, o.leading_icon.src if isinstance(o.leading_icon, ft.Image) else None)
+            for o in self.default_fee.options
         ]:
             self.default_fee.options = options
 

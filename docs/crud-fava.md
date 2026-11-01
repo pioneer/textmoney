@@ -91,6 +91,8 @@ description first, then unsigned positive amount with **− / + / ↔** immediat
 to its left, accounts, category and date. A short hint below the amount explains
 the selection: debit from an account, credit to an account, or transfer between
 accounts. All dropdowns fill the form width and share aligned edges.
+New transactions initially focus the amount field. Editing keeps its existing
+focus behavior; field order is unchanged.
 An adjacent **+** button creates a category without leaving the transaction.
 The compact dialog uses the current operation's category type, the selected
 parent and the same journal-backed creation service to suggest a valid code.

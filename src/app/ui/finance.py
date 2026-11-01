@@ -2644,6 +2644,7 @@ class FinanceView(ft.Row):
             expand=True,
             label=self.tr("amount"),
             value=str(abs(original_asset.amount)) if original_asset else "",
+            autofocus=transaction is None,
         )
         sign_hint = ft.Text(data="sign_hint", size=12)
         destination = ft.Dropdown(

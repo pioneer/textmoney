@@ -234,6 +234,38 @@ async def finance_session(
     return session, view, journal
 
 
+@pytest.mark.parametrize(
+    "platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.ANDROID]
+)
+@pytest.mark.parametrize("editing", [False, True])
+def test_transaction_creation_autofocuses_amount_without_changing_edit_focus(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: ft.PagePlatform, editing: bool
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        session.page.platform = platform
+        if editing:
+            await journal.add_expense(
+                "Assets:Bank", "Expenses:Food", "10", "", "2026-10-18", "Synthetic"
+            )
+            view._edit_transaction(
+                MagicMock(control=ft.IconButton(data=journal.ledger.transactions[-1].id))
+            )
+        else:
+            view._new_transaction(MagicMock())
+        dialog = session.page._dialogs.controls[-1]
+        assert isinstance(dialog, ft.AlertDialog) and dialog.open
+        form = transaction_form(dialog)
+        assert form.amount.autofocus is not editing
+        assert form.description.autofocus is (editing and platform != ft.PagePlatform.ANDROID)
+        assert form.amount.value == ("10" if editing else "")
+        assert not form.second_amount.autofocus
+        assert not form.fee.autofocus
+        assert not form.payee.autofocus
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("category", [False, True])
 @pytest.mark.parametrize("edit", [False, True])
 def test_blocked_delete_escape_cancels_without_opening_or_saving_an_editor(

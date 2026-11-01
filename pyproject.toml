@@ -30,6 +30,7 @@ dev = [
     "pip>=25,<27",
     "fava==1.30.16",
     "Babel>=2.16,<3",
+    "pytest-timeout>=2,<3",
 ]
 
 [tool.ruff]
@@ -53,6 +54,7 @@ venv = ".venv"
 testpaths = ["tests"]
 pythonpath = ["src", "."]
 addopts = "-ra --strict-markers"
+timeout = 120
 
 [tool.flet]
 product = "TextMoney"

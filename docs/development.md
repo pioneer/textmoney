@@ -101,7 +101,9 @@ startup check. These checks do not exercise journal selection or real user data.
 The packager obtains the official linuxdeploy and appimagetool AppImages and
 the GTK bundling plugin into ignored `build/linux-appimage-tools/`. Each
 download is pinned to a SHA-256 digest in `tools/linux_appimage.py` and checked
-before execution. The verified appimagetool's embedded runtime is reused, so
+before execution. appimagetool uses the versioned 1.9.1 release, not the mutable
+`continuous` asset that can change underneath a pinned digest. The verified
+appimagetool's embedded runtime is reused via `--runtime-file`, so
 AppImage generation does not need an unverified runtime download. The Flet
 bundle and dependencies are staged under a temporary AppDir in `build/`; the
 final AppImage alone is placed in `dist/linux/`. `uv run inv clean` removes

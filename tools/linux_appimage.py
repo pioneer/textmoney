@@ -17,10 +17,9 @@ LINUXDEPLOY_URL = (
 )
 LINUXDEPLOY_SHA256 = "c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d"
 APPIMAGETOOL_URL = (
-    "https://github.com/AppImage/appimagetool/releases/download/continuous/"
-    "appimagetool-x86_64.AppImage"
+    "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
 )
-APPIMAGETOOL_SHA256 = "95cbe7cce9717fce90c484e34052ee7c7f1d7635b33c12525b4776826a7d29b6"
+APPIMAGETOOL_SHA256 = "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"
 GTK_PLUGIN_URL = (
     "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/"
     "7a3fbc31a9e5075073ff8790f26effbac5f84453/linuxdeploy-plugin-gtk.sh"
@@ -276,9 +275,12 @@ def build_appimage(
     artifact.unlink(missing_ok=True)
     packaging = run_command(
         str(appimagetool),
+        "--runtime-file",
+        str(runtime_path),
+        "--no-appstream",
         str(app_dir),
         str(artifact),
-        env=tool_env | {"LDAI_RUNTIME_FILE": str(runtime_path), "LDAI_NO_APPSTREAM": "1"},
+        env=tool_env,
         cwd=project_root,
     )
     if packaging.returncode:

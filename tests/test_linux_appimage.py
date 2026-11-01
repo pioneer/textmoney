@@ -1,6 +1,7 @@
 import hashlib
 import io
 import os
+import re
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -8,6 +9,14 @@ from unittest.mock import MagicMock
 import pytest
 
 from tools import linux_appimage
+
+
+def test_appimagetool_uses_versioned_release_not_moving_continuous_build() -> None:
+    assert re.fullmatch(
+        r"https://github\.com/AppImage/appimagetool/releases/download/"
+        r"\d+\.\d+\.\d+/appimagetool-x86_64\.AppImage",
+        linux_appimage.APPIMAGETOOL_URL,
+    )
 
 
 def _valid_appdir(app_dir: Path) -> Path:
@@ -129,6 +138,11 @@ def test_build_appimage_orchestrates_pinned_toolchain_and_output(
                 'export GTK_PATH="$APPDIR/usr/lib/gtk-3.0"\n'
             )
         if args[0] == str(appimagetool):
+            assert args[1:4] == (
+                "--runtime-file",
+                str(tool_dir / "runtime-x86_64"),
+                "--no-appstream",
+            )
             hook = root / "build/linux-appimage.AppDir/apprun-hooks/linuxdeploy-plugin-gtk.sh"
             assert linux_appimage.GTK_THEME_SETUP.read_text() in hook.read_text()
             assert 'export GTK_PATH="$APPDIR/usr/lib/gtk-3.0"' in hook.read_text()

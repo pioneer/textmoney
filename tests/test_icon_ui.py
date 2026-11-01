@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -22,6 +23,63 @@ from app.ui.tree_picker import TreePicker
 
 def images(control: ft.Control) -> list[ft.Image]:
     return [child for child in walk(control) if isinstance(child, ft.Image)]
+
+
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("case", ["narrated", "blank", "opening-small", "opening-large"])
+def test_icon_movements_keep_consistent_columns_with_or_without_inline_amount(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, compact: bool, case: str
+) -> None:
+    async def scenario() -> None:
+        _session, view, journal = await finance_session(tmp_path, monkeypatch)
+        view.icons = store_at(tmp_path)
+        await view.icons.assign("Assets:Bank", asset("Bank"), ())
+        await journal.add_expense(
+            "Assets:Bank", "Expenses:Food", "10", "", "2026-10-18", "Synthetic"
+        )
+        transaction = journal.ledger.transactions[-1]
+        if case == "blank":
+            transaction = replace(transaction, narration="")
+            await view.icons.assign("Expenses:Food", asset("Food"), ())
+        elif case.startswith("opening"):
+            amount = Decimal("123.17" if case == "opening-small" else "234601.87")
+            transaction = replace(
+                transaction,
+                kind="opening",
+                postings=(
+                    replace(transaction.postings[0], account="Assets:Bank", amount=amount),
+                    replace(
+                        transaction.postings[1], account="Equity:Opening-Balances", amount=-amount
+                    ),
+                ),
+            )
+        card = view._transaction_card(
+            transaction, {"Assets:Bank": "Bank", "Expenses:Food": "Food"}, compact
+        )
+        assert isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
+        details = card.content.controls[0]
+        assert isinstance(details, ft.Column)
+        movement = details.controls[-1]
+        assert isinstance(movement, ft.Row) and len(movement.controls) == 2
+        source, destination = movement.controls
+        assert source.expand is True
+        assert isinstance(destination, ft.Row) and destination.expand == 2
+        arrow, target, *amounts = destination.controls
+        assert isinstance(arrow, ft.Text) and arrow.value == "→"
+        assert target.expand is True
+        assert len(amounts) == (0 if case == "narrated" else 1)
+        labels = [
+            child
+            for control in (source, target)
+            for child in walk(control)
+            if isinstance(child, ft.Text)
+        ]
+        assert len(labels) == 2
+        assert all(
+            label.max_lines == 1 and label.overflow == ft.TextOverflow.ELLIPSIS for label in labels
+        )
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("key", ["Escape", "Enter"])

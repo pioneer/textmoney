@@ -51,6 +51,10 @@ Assigned icons appear in lists, balances, transaction movements/details,
 account/category and parent selectors, commission/default-account settings,
 daily/Overview reports and budget trees/filters/definitions. Labels, technical
 identities and hierarchy indentation are retained.
+Transaction movements with icons use consistent source/destination columns, including
+opening balances and rows without a description. Inline amounts do not move the
+arrow; the destination column has extra room for the amount on narrow screens.
+Long account/category labels truncate instead of overflowing.
 
 ## Storage and synchronization
 

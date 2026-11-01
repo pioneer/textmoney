@@ -1625,14 +1625,30 @@ class FinanceView(ft.Row):
             for posting in (*outgoing, *incoming)
         )
 
-        def movement_label() -> ft.Control:
+        def movement_label(amount: ft.Control | None = None) -> ft.Control:
             if not movement_icons:
                 return ft.Text(title, size=10, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
+
+            def label(identifier: str, text: str) -> ft.Control:
+                return self._entity_label(
+                    identifier,
+                    ft.Text(
+                        text, size=10, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS
+                    ),
+                )
+
             return ft.Row(
                 [
-                    self._entity_label(outgoing[0].account, ft.Text(source, size=10, expand=True)),
-                    ft.Text("→", size=10),
-                    self._entity_label(incoming[0].account, ft.Text(target, size=10, expand=True)),
+                    label(outgoing[0].account, source),
+                    ft.Row(
+                        [
+                            ft.Text("→", size=10),
+                            label(incoming[0].account, target),
+                            *([amount] if amount is not None else []),
+                        ],
+                        spacing=4,
+                        expand=2,
+                    ),
                 ],
                 spacing=4,
                 expand=True,
@@ -1648,8 +1664,6 @@ class FinanceView(ft.Row):
                 overflow=ft.TextOverflow.ELLIPSIS,
             )
         ]
-        if movement_icons and not has_summary:
-            heading[0] = movement_label()
         if simple:
             movement = abs(cashflow.account.amount) if cashflow else incoming[0].amount
             heading.append(
@@ -1660,7 +1674,11 @@ class FinanceView(ft.Row):
             )
         else:
             heading.append(ft.Text(self.tr("multiple_postings"), size=12))
-        lines: list[ft.Control] = [ft.Row(heading, spacing=8)]
+        lines: list[ft.Control] = [
+            movement_label(heading[-1])
+            if movement_icons and not has_summary
+            else ft.Row(heading, spacing=8)
+        ]
         if transfer and transfer.exchange:
             credit = format_amount(transfer.target.amount, self.language, transfer.target.currency)
             lines.append(

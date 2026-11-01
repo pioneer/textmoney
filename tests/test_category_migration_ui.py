@@ -12,7 +12,7 @@ from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.preferences import DesktopPreferences, FeePreferences
 from app.journal import FILENAME, Journal
 from app.storage import StorageError
-from app.ui.finance import FEE_CATEGORIES_KEY, FinanceView
+from app.ui.finance import FinanceView
 
 SOURCE = """option "operating_currency" "USD"
 2000-01-01 open Assets:Cash USD
@@ -41,6 +41,7 @@ async def setup(
     view = FinanceView()
     view.journal, view.language = journal, language
     view.preferences = DesktopPreferences(path / "preferences.json")
+    await view._load_shared_defaults(reset=("account", "commission"))
     view._refresh()
     view._edit_entity(MagicMock(control=ft.IconButton(data=("category", "Expenses:Old"))))
     return view, page, journal
@@ -84,6 +85,9 @@ def test_guarded_migration_needs_explicit_review_and_acknowledgement_and_updates
     async def scenario() -> None:
         view, page, journal = await setup(tmp_path, monkeypatch, language)
         view.fee_preferences = FeePreferences(("Expenses:Old",), "Expenses:Old:Child")
+        assert view.shared_defaults
+        await view.shared_defaults.save("commission", view.fee_preferences, ())
+        await view._load_shared_defaults(reset=("commission",))
         await view._apply_default_fee()
         view._refresh()
         view.budgets.category_id = "Expenses:Old"
@@ -113,7 +117,7 @@ def test_guarded_migration_needs_explicit_review_and_acknowledgement_and_updates
         assert view.fee_preferences == FeePreferences(("Expenses:New",), "Expenses:New:Child")
         assert journal.ledger.default_fee_category == "Expenses:New:Child"
         assert view.preferences
-        assert await view.preferences.get(FEE_CATEGORIES_KEY) == view.fee_preferences.serialize()
+        assert view.shared_defaults.values["commission"] == view.fee_preferences
         backups = list((tmp_path / "backups").glob("*-committed.beancount"))
         assert len(backups) == 1 and backups[0].read_bytes() == SOURCE.encode()
 
@@ -161,17 +165,45 @@ def test_post_commit_preference_error_does_not_offer_to_repeat_completed_migrati
     async def scenario() -> None:
         view, page, journal = await setup(tmp_path, monkeypatch)
         view.fee_preferences = FeePreferences(("Expenses:Old",), "Expenses:Old:Child")
-        view.preferences = MagicMock(set=AsyncMock(return_value=False))
+        assert view.shared_defaults
+        await view.shared_defaults.save("commission", view.fee_preferences, ())
+        view.shared_defaults.files.create_record = AsyncMock(side_effect=StorageError("Synthetic"))
         dialog = await review(page)
         acknowledged = next(c for c in controls(dialog) if isinstance(c, ft.Checkbox))
         acknowledged.value = True
         change(acknowledged)
         await click_async(submit(dialog))
-        assert view.error_message == "category_migration_preferences_failed"
+        assert view.error_message == "shared_settings_migration_failed"
         assert page.pop_dialog.call_count == 3
         assert journal.ready and "open Expenses:New" in journal.source
         assert view.fee_preferences.default == "Expenses:New:Child"
-        assert "Do not retry" in view.tr("category_migration_preferences_failed")
+        assert "Do not retry" in view.tr("shared_settings_migration_failed")
+
+    asyncio.run(scenario())
+
+
+def test_migration_uses_latest_shared_commission_settings_before_the_next_poll(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        view, page, journal = await setup(tmp_path, monkeypatch)
+        assert view.shared_defaults
+        original = FeePreferences(("Expenses:Old",), "Expenses:Old:Child")
+        await view.shared_defaults.save("commission", original, ())
+        await view._load_shared_defaults(reset=("commission",))
+        dialog = await review(page)
+        updated = FeePreferences(("Expenses:Old",), "Expenses:Old")
+        await view.shared_defaults.save(
+            "commission", updated, view.shared_defaults.heads["commission"]
+        )
+        acknowledged = next(c for c in controls(dialog) if isinstance(c, ft.Checkbox))
+        acknowledged.value = True
+        change(acknowledged)
+        await click_async(submit(dialog))
+        expected = FeePreferences(("Expenses:New",), "Expenses:New")
+        assert view.error_message is None and view.fee_preferences == expected
+        assert view.shared_defaults.values["commission"] == expected
+        assert journal.ledger.default_fee_category == "Expenses:New"
 
     asyncio.run(scenario())
 

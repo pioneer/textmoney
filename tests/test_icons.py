@@ -248,7 +248,7 @@ def test_sidecar_failure_retains_original_and_is_explicit(
         await store.assign("Assets:Bank", asset(), ())
         original = dict(store.records)
         monkeypatch.setattr(
-            "app.infrastructure.icon_files.os.link", MagicMock(side_effect=OSError("disk full"))
+            "app.infrastructure.record_files.os.link", MagicMock(side_effect=OSError("disk full"))
         )
         with pytest.raises(IconError, match="icon_storage"):
             await store.assign("Assets:Bank", asset("New"), store.heads["Assets:Bank"])

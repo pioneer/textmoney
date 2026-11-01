@@ -51,9 +51,11 @@ async def setup(
     view = FinanceView()
     view.journal = journal
     view.preferences = DesktopPreferences(path / "preferences.json")
+    await view._load_shared_defaults(reset=("account", "commission"))
     if restricted:
-        view.fee_preferences = FeePreferences((BRANCH,), CHILD)
-        await view._apply_default_fee()
+        assert view.shared_defaults
+        await view.shared_defaults.save("commission", FeePreferences((BRANCH,), CHILD), ())
+        await view._load_shared_defaults(reset=("commission",))
     view._refresh()
     return view, page, journal
 
@@ -179,7 +181,8 @@ def test_branch_settings_save_atomically_and_future_descendants_are_included(
         settings = FeePreferences((BANK_FEES, BRANCH), CHILD)
         assert view.fee_preferences == settings
         assert view.preferences is not None
-        assert await view.preferences.get(FEE_CATEGORIES_KEY) == settings.serialize()
+        assert view.shared_defaults and view.shared_defaults.values["commission"] == settings
+        assert await view.preferences.get(FEE_CATEGORIES_KEY) is None
         assert await view.preferences.get(DEFAULT_FEE_KEY) is None
         await journal.create_category("Fees:New", "New")
         view._refresh()
@@ -205,7 +208,13 @@ def test_failed_settings_keep_saved_policy_and_branch_draft(
             return_value=failure != "false",
             side_effect=OSError("Synthetic failure") if failure == "exception" else None,
         )
-        view.preferences = None if failure == "missing" else preferences
+        assert view.shared_defaults
+        if failure == "missing":
+            view.shared_defaults = None
+        elif failure in {"false", "exception"}:
+            view.shared_defaults.files.create_record = AsyncMock(
+                side_effect=OSError("Synthetic failure") if failure == "exception" else None
+            )
         if failure == "stale":
             journal.source += "\n; external\n"
         source = journal.source
@@ -350,12 +359,15 @@ def test_startup_migrates_or_restores_fee_policy_without_journal_writes(
         with pytest.raises(asyncio.CancelledError):
             await view._lifecycle()
         if mode == "invalid":
-            assert view.error_message == "fee_categories_invalid" and view.journal is None
+            assert view.error_message is None and view.journal and view.journal.ready
+            assert view.legacy_defaults_invalid
         else:
             assert view.journal and view.journal.ready
-            assert view.fee_preferences == (
-                configured if mode == "combined" else FeePreferences(default="Expenses:Food")
+            assert view.fee_preferences == FeePreferences()
+            assert view.default_fee.value == (
+                configured.default if mode == "combined" else "Expenses:Food"
             )
+            assert not (journal_path / "textmoney-settings").exists()
             assert view.journal.source == SOURCE
             if mode == "combined":
                 assert "Expenses:Food" not in {o.key for o in view.default_fee.options}

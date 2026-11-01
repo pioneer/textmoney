@@ -16,7 +16,7 @@ Use the maintained guides instead:
 
 In particular, current writes use `name`, local `time` and native reimbursement
 links, not persistent transaction IDs or the legacy metadata described below.
-Fee defaults are local, supported hand-written transactions can be edited, and
+Fee defaults are shared sidecar settings, supported hand-written transactions can be edited, and
 negative asset balances warn rather than block saves. Timezone changes do not
 convert saved wall-clock times. Do not copy historical examples as a current
 journal specification.
@@ -128,7 +128,8 @@ currency. The amount label and preview explain Added/Deducted semantics; see the
 Settings → Commission categories selects expense branches and automatically includes
 their descendants; a separate default chooses the initial fee category.
 The initial All expense categories choice preserves existing behavior until narrowed.
-Both selections are saved together on the device, not in the journal. All fee
+Both selections are saved together in the journal folder's shared settings sidecar,
+not in the journal. All fee
 selectors show hierarchy. Excluding a category does not hide an existing
 transaction's saved fee from its editor.
 Purchase and fee remain in one transaction, recognized by
@@ -208,7 +209,7 @@ two postings.
 
 At this milestone, Settings selected an active expense category as the default
 fee category and stored an app-specific default-fee flag on its `open`.
-**Superseded:** current defaults are local device preferences, not synchronized
+**Superseded:** current defaults are synchronized sidecar settings, not
 journal metadata; see [current transfers](journal-format.md#transfers-and-exchange-precision).
 In the absence of a marked category, this milestone used
 `Expenses:Bank-Fees`, created with a localized display name only on

@@ -136,8 +136,8 @@ normal sequential synchronization workflow.
 Review/save source versions must match; stale plans, collisions, backup failures
 and pre-replacement staging failures do not replace the original. Post-commit
 failures retain the existing explicit uncertain/saved-with-maintenance-warning
-semantics; do not blindly retry. Journal and local preferences are not one atomic
-transaction: a local commission-settings failure reports that the journal is
+semantics; do not blindly retry. Journal and shared settings are not one atomic
+transaction: a shared commission-settings failure reports that the journal is
 already migrated, closes its obsolete edit dialogs and asks you to review/save
 Settings rather than repeat the migration. Keep independent backups.
 

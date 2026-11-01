@@ -93,9 +93,11 @@ globally replaced. Existing accounting/format restrictions still apply.
 There are no merges, Expenses/Income conversions or moves into the branch itself.
 An already referenced destination subtree is rejected, even without an explicit
 declaration. Candidate validation can also reject a new parent whose declaration
-date is later than the child. Local commission branches/defaults follow the move;
+date is later than the child. Settings drafts and commission branches/defaults follow the move;
 moving a subbranch outside a selected ancestor retains its fee eligibility.
-Other devices' local settings are not migrated.
+Shared commission branches/defaults follow the migration through the settings
+sidecar after the journal commit. Other devices receive those references when
+the whole folder synchronizes; missing references remain explicit until both arrive.
 
 This feature requires desktop filesystem storage and
 [atomic replacement with a verified backup](data-safety.md#category-migration).
@@ -111,15 +113,16 @@ default clock timezone.
 
 Supported operations include expenses, income, reimbursements, opening balances,
 balance adjustments and transfers, including bounded currency exchanges.
-Settings offers an optional **Default transaction account**, saved only on the
-current device, not in the journal. It preselects an active asset/liability
+Settings offers an optional **Default transaction account**, shared through the
+selected journal folder's [settings sidecar](shared-settings.md), not in the journal.
+It preselects an active asset/liability
 account for new expenses and receipts, or the source account of a transfer;
 the destination still requires a separate choice. The form remains editable,
-and editing saved transactions always uses their own accounts. Choose
+and open forms retain their drafts; editing saved transactions always uses their own accounts. Choose
 **No default account** and save to disable preselection. Missing/inactive defaults
 leave new forms unselected and show an explanation in Settings; they are not
-silently replaced. The setting is device-wide and applies only when its account
-code is active in the currently selected journal.
+silently replaced. The setting belongs to that journal folder and applies only
+when its account code is active in the currently selected journal.
 
 Reimbursements credit an expense category on the receipt date; they are not
 income. An optional native shared link can associate one with an expense.
@@ -151,7 +154,7 @@ selected calendar day.
 
 New entries do not generate `id`, `timestamp`, `textmoney-kind`,
 `textmoney-expense-id` or `textmoney-fee-mode` metadata. Fee-category defaults are
-local device preferences, not journal settings. Unrelated existing user metadata,
+shared sidecar settings, not journal metadata. Unrelated existing user metadata,
 tags, links and comments are preserved; legacy app fields are not globally
 migrated, stripped or used as authoritative transaction identities.
 
@@ -173,9 +176,11 @@ Settings offers a hierarchical multi-select of commission category branches;
 selecting a parent includes all descendants, including future ones. All expense
 categories remain available until this list is narrowed. The separate default must
 belong to a selected branch; it initially falls back to `Expenses:Bank-Fees`.
-Branches and default are saved together as one local device preference, with no
-journal metadata. Older default-only preferences are read without changing their
-meaning. Fee selectors (including the Settings default) use path order and nesting
+Branches and default are published together as one journal-folder sidecar setting,
+with no journal metadata. Older local/default-only preferences are unsaved draft
+seeds only; explicit Save publishes them. See [Shared defaults](shared-settings.md)
+for sequential synchronization, conflict review and failure semantics.
+Fee selectors (including the Settings default) use path order and nesting
 indentation. An existing transaction's fee remains available when editing even if
 later excluded; inactive categories retain the existing save validation.
 A missing `Expenses:Bank-Fees`
@@ -200,7 +205,7 @@ Reimbursements and balance adjustments do not support commissions.
 ### Transfers and exchange precision
 
 Same-currency transfers move principal between accounts; only explicit fee
-postings affect expenses. Without a local default fee category,
+postings affect expenses. Without an available default fee category,
 `Expenses:Bank-Fees` is declared when first needed for a nonzero fee.
 Fee presentation is reconstructed from postings rather than saved as metadata.
 

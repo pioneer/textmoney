@@ -59,6 +59,7 @@ from app.infrastructure.preferences import (
     migrated_fee_branches,
     parse_default_account,
 )
+from app.infrastructure.record_files import AndroidRecordFiles, DesktopRecordFiles
 from app.journal import FILENAME, Journal
 from app.localization import (
     LANGUAGES,
@@ -70,6 +71,8 @@ from app.localization import (
     translate,
     translate_plural,
 )
+from app.shared_defaults import POLICY as DEFAULTS_POLICY
+from app.shared_defaults import DefaultValue, SharedDefaults, SharedDefaultsError
 from app.storage import RecoveryRequired, StorageError
 from app.timekeeping import local_datetime, named_zone
 from app.ui.budgets import BudgetView
@@ -127,8 +130,21 @@ class FinanceView(ft.Row):
         self.timezone_name = "system"
         self.auto_backup_cleanup = True
         self.default_account_id: str | None = None
+        self.default_account_original: str | None = None
+        self.shared_defaults: SharedDefaults | None = None
+        self.shared_defaults_journal: Journal | None = None
+        self.shared_defaults_error: str | None = None
+        self.default_account_heads: tuple[str, ...] = ()
+        self.default_fee_heads: tuple[str, ...] = ()
+        self.legacy_default_account: str | None = None
+        self.legacy_fee_preferences = FeePreferences()
+        self.legacy_defaults_invalid = False
+        self.shared_notice = ft.Text("", visible=False, color=ft.Colors.ERROR, selectable=True)
+        self.shared_details = ft.Text("", selectable=True)
+        self.shared_review = ft.TextButton(on_click=self._review_shared_defaults)
         self.fee_preferences = FeePreferences()
         self.fee_branches_draft = self.fee_preferences.branches
+        self.fee_branches_original = self.fee_preferences.branches
         self.possible_conflict_copies: list[str] = []
         self.sibling_scan_failed = False
         self.system_zone = "system"
@@ -434,7 +450,9 @@ class FinanceView(ft.Row):
                 ),
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20, vertical=8),
-                    content=ft.Column([self.message, self.icon_notice], spacing=4),
+                    content=ft.Column(
+                        [self.message, self.icon_notice, self.shared_notice], spacing=4
+                    ),
                 ),
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20), content=self.balance_warning
@@ -588,6 +606,7 @@ class FinanceView(ft.Row):
             ],
         ]
         self.language_choice.value = self.language if self.manual_language else "system"
+        self._shared_defaults_labels()
         self._sync_report_period()
         self.report_start.set_language(self.language)
         self.report_end.set_language(self.language)
@@ -755,6 +774,9 @@ class FinanceView(ft.Row):
                         self.timezone_choice,
                         self.timezone_save,
                         ft.Divider(),
+                        ft.Text(self.tr("shared_settings_help"), size=12),
+                        self.shared_details,
+                        self.shared_review,
                         ft.Row([self.default_account]),
                         ft.Text(self.tr("default_account_help"), size=12),
                         self.default_account_save,
@@ -941,13 +963,18 @@ class FinanceView(ft.Row):
         )
         if self.default_fee_journal is not self.journal or (
             self.default_fee.value == self.default_fee_original
-            and self.fee_branches_draft == self.fee_preferences.branches
+            and self.fee_branches_draft == self.fee_branches_original
         ):
-            self.default_fee.value = ledger.default_fee_category
-            self.default_fee_original = ledger.default_fee_category
+            self.default_fee.value = (
+                None
+                if self.shared_defaults and "commission" in self.shared_defaults.conflicts
+                else self.fee_preferences.default
+            )
+            self.default_fee_original = self.default_fee.value
             self.default_fee_journal = self.journal
             self.default_fee_source = self.journal.source
             self.fee_branches_draft = self.fee_preferences.branches
+            self.fee_branches_original = self.fee_preferences.branches
         if (
             self.operating_journal is not self.journal
             or self.operating_currencies.value == self.operating_original
@@ -1448,6 +1475,179 @@ class FinanceView(ft.Row):
             )
             self.icon_notice.visible = True
 
+    def _require_shared_defaults(self) -> SharedDefaults:
+        if (
+            self.shared_defaults is None
+            or self.shared_defaults_journal is not self.journal
+            or not self.shared_defaults.loaded
+            or self.shared_defaults_error is not None
+        ):
+            raise SharedDefaultsError(self.shared_defaults_error or "shared_settings_not_ready")
+        return self.shared_defaults
+
+    async def _load_shared_defaults(
+        self, *, reset: tuple[str, ...] = (), seed: bool = False, read_records: bool = True
+    ) -> None:
+        journal = self.journal
+        if journal is None or not journal.ready:
+            return
+        if self.shared_defaults_journal is not journal:
+            folder = journal.storage.folder
+            if not isinstance(folder, (DesktopFolder, AndroidFolder)):
+                raise SharedDefaultsError("shared_settings_storage")
+            self.shared_defaults = SharedDefaults(
+                AndroidRecordFiles(folder, DEFAULTS_POLICY)
+                if isinstance(folder, AndroidFolder)
+                else DesktopRecordFiles(folder, DEFAULTS_POLICY)
+            )
+            self.shared_defaults_journal = journal
+            reset = ("account", "commission")
+        store = self.shared_defaults
+        if store is None:
+            raise SharedDefaultsError("shared_settings_not_ready")
+        account_clean = (self.default_account.value or None) == self.default_account_original
+        fee_clean = (
+            self.default_fee.value or None
+        ) == self.default_fee_original and self.fee_branches_draft == self.fee_branches_original
+        try:
+            if read_records:
+                await store.load()
+        except (PreferencesError, StorageError, TimeoutError) as exc:
+            logger.exception("Shared defaults could not be read")
+            self.shared_defaults_error = (
+                str(exc) if isinstance(exc, SharedDefaultsError) else "shared_settings_storage"
+            )
+            if not store.loaded:
+                self.default_account_id = None
+                await journal.set_default_fee_category(None, journal.source)
+            self._shared_defaults_labels()
+            return
+        self.shared_defaults_error = None
+        account = store.values.get("account")
+        self.default_account_id = account if isinstance(account, str) else None
+        commission = store.values.get("commission")
+        self.fee_preferences = (
+            commission if isinstance(commission, FeePreferences) else FeePreferences()
+        )
+        await self._apply_default_fee()
+        if account_clean or "account" in reset:
+            self.default_account.value = self.default_account_id or ""
+            self.default_account_original = self.default_account_id
+            self.default_account_heads = store.heads.get("account", ())
+            self.default_account_journal = journal
+            if seed and "account" not in store.heads:
+                self.default_account.value = self.legacy_default_account or ""
+        if fee_clean or "commission" in reset:
+            self.default_fee.value = (
+                None if "commission" in store.conflicts else self.fee_preferences.default
+            )
+            self.default_fee_original = self.default_fee.value
+            self.fee_branches_draft = self.fee_preferences.branches
+            self.fee_branches_original = self.fee_preferences.branches
+            self.default_fee_heads = store.heads.get("commission", ())
+            self.default_fee_source = journal.source
+            self.default_fee_journal = journal
+            if seed and "commission" not in store.heads:
+                self.fee_branches_draft = self.legacy_fee_preferences.branches
+                self.default_fee.value = self.legacy_fee_preferences.default
+        self._shared_defaults_labels()
+
+    def _shared_defaults_labels(self) -> None:
+        store = self.shared_defaults
+        lines: list[str] = []
+        stale = False
+        if store is not None and store.loaded:
+            stale = self.default_account_heads != store.heads.get(
+                "account", ()
+            ) or self.default_fee_heads != store.heads.get("commission", ())
+            for group, label in (
+                ("account", "default_account"),
+                ("commission", "transfer_fee_category"),
+            ):
+                choices = store.conflicts.get(group, (store.values.get(group),))
+                if group not in store.heads:
+                    lines.append(f"{self.tr(label)}: {self.tr('shared_settings_unpublished')}")
+                    continue
+                formatted = []
+                for choice in choices:
+                    if isinstance(choice, FeePreferences):
+                        formatted.append(f"{choice.default} ({', '.join(choice.branches)})")
+                    else:
+                        formatted.append(choice or self.tr("default_account_none"))
+                lines.append(f"{self.tr(label)}: {' / '.join(formatted)}")
+            if self.legacy_defaults_invalid and set(store.heads) != {"account", "commission"}:
+                lines.append(self.tr("shared_settings_legacy_invalid"))
+        key = self.shared_defaults_error
+        if key is None and store is not None and store.conflicts:
+            key = "shared_settings_conflicts"
+        if key is None and stale:
+            key = "shared_settings_stale"
+        self.shared_notice.value = self.tr(key) if key else ""
+        self.shared_notice.visible = key is not None
+        self.shared_details.value = "\n".join(lines)
+        self.shared_review.content = self.tr("shared_settings_review")
+        self.shared_review.visible = bool(stale or (store and store.conflicts))
+        self.shared_review.disabled = self.shared_defaults_error is not None
+
+    async def _review_shared_defaults(self, event: ft.Event[ft.TextButton]) -> None:
+        async def review() -> None:
+            journal = self._require_journal()
+            await self._load_shared_defaults()
+            store = self._require_shared_defaults()
+            heads, source = dict(store.heads), journal.source
+            details = self.shared_details.value or ""
+
+            async def accept(event: ft.Event[ft.TextButton]) -> None:
+                async def acknowledge() -> None:
+                    if self.journal is not journal or self.shared_defaults is not store:
+                        raise ConflictError("crud_stale")
+                    await store.load()
+                    if store.heads != heads or journal.source != source:
+                        raise ConflictError("shared_settings_stale")
+                    self.default_account_heads = heads.get("account", ())
+                    self.default_fee_heads = heads.get("commission", ())
+                    self.default_fee_source = source
+                    self.page.pop_dialog()
+
+                await self._action(acknowledge)
+
+            show_dialog(
+                self.page,
+                ft.AlertDialog(
+                    title=ft.Text(self.tr("shared_settings_review")),
+                    scrollable=True,
+                    content=ft.Column(
+                        [
+                            ft.Text(details, selectable=True),
+                            ft.Text(self.tr("shared_settings_review_help")),
+                        ],
+                        tight=True,
+                        width=440,
+                    ),
+                    actions=[
+                        ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss),
+                        ft.TextButton(self.tr("shared_settings_keep_draft"), on_click=accept),
+                    ],
+                ),
+            )
+
+        await self._action(review)
+
+    async def _save_shared_default(
+        self, group: str, value: DefaultValue, heads: tuple[str, ...]
+    ) -> None:
+        store = self._require_shared_defaults()
+        try:
+            await store.save(group, value, heads)
+        except ConflictError:
+            await self._load_shared_defaults()
+            raise
+        except (PreferencesError, StorageError, TimeoutError) as exc:
+            logger.exception("Shared defaults save failed")
+            self.shared_defaults_error = "shared_settings_write_uncertain"
+            raise SharedDefaultsError("shared_settings_write_uncertain") from exc
+        await self._load_shared_defaults(reset=(group,), read_records=False)
+
     def _update_transaction_separators(self) -> None:
         border = (
             ft.Border(bottom=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT))
@@ -1840,22 +2040,26 @@ class FinanceView(ft.Row):
             if saved_cleanup not in {None, "on", "off"}:
                 raise PreferencesError(self.tr("backups_invalid_setting"))
             self.auto_backup_cleanup = saved_cleanup != "off"
-            fee_settings = await self.preferences.get(FEE_CATEGORIES_KEY)
-            if fee_settings is not None:
-                if not isinstance(fee_settings, str):
-                    raise PreferencesError("fee_categories_invalid")
-                self.fee_preferences = FeePreferences.parse(fee_settings)
-            else:
-                saved_fee = await self.preferences.get(DEFAULT_FEE_KEY)
-                if saved_fee is not None:
-                    if not isinstance(saved_fee, str) or not saved_fee.startswith("Expenses:"):
-                        raise PreferencesError("default_fee_invalid")
-                    self.fee_preferences = FeePreferences(default=saved_fee)
-            self.fee_branches_draft = self.fee_preferences.branches
-            self.default_account_id = parse_default_account(
-                await self.preferences.get(DEFAULT_ACCOUNT_KEY)
-            )
-            self.default_account.value = self.default_account_id or ""
+            try:
+                fee_settings = await self.preferences.get(FEE_CATEGORIES_KEY)
+                if fee_settings is not None:
+                    if not isinstance(fee_settings, str):
+                        raise PreferencesError("fee_categories_invalid")
+                    self.legacy_fee_preferences = FeePreferences.parse(fee_settings)
+                else:
+                    saved_fee = await self.preferences.get(DEFAULT_FEE_KEY)
+                    if saved_fee is not None:
+                        if not isinstance(saved_fee, str):
+                            raise PreferencesError("default_fee_invalid")
+                        self.legacy_fee_preferences = FeePreferences(default=saved_fee)
+                self.legacy_default_account = parse_default_account(
+                    await self.preferences.get(DEFAULT_ACCOUNT_KEY)
+                )
+            except PreferencesError:
+                logger.exception("Legacy defaults are invalid; shared settings remain independent")
+                self.legacy_defaults_invalid = True
+                self.legacy_default_account = None
+                self.legacy_fee_preferences = FeePreferences()
             await self._sync_system_zone()
             saved_folder = await self.preferences.get(FOLDER_KEY)
             if isinstance(saved_folder, str):
@@ -1899,6 +2103,7 @@ class FinanceView(ft.Row):
             if time.monotonic() >= self.next_icon_poll:
                 self.next_icon_poll = time.monotonic() + 30
                 await self._load_icons()
+                await self._load_shared_defaults()
         finally:
             self._refresh()
 
@@ -2050,10 +2255,21 @@ class FinanceView(ft.Row):
             if isinstance(folder, AndroidFolder)
             else DesktopIconFiles(folder)
         )
+        self.shared_defaults = SharedDefaults(
+            AndroidRecordFiles(folder, DEFAULTS_POLICY)
+            if isinstance(folder, AndroidFolder)
+            else DesktopRecordFiles(folder, DEFAULTS_POLICY)
+        )
+        self.shared_defaults_journal = self.journal
+        self.shared_defaults_error = None
+        self.default_account_id = None
+        self.default_account_original = None
+        self.fee_preferences = FeePreferences()
         self.possible_conflict_copies = []
         self.sibling_scan_failed = False
         self.journal.storage.auto_cleanup = self.auto_backup_cleanup
         await self.journal.load()
+        await self._load_shared_defaults(reset=("account", "commission"), seed=True)
         await self._load_icons()
         await self._apply_default_fee()
         await self._scan_conflict_copies()
@@ -2126,6 +2342,7 @@ class FinanceView(ft.Row):
                 raise LedgerError("Select a folder first.")
             await self.journal.load()
             await self._load_icons()
+            await self._load_shared_defaults()
             await self._apply_default_fee()
             await self._scan_conflict_copies()
             self._set_message("reloaded")
@@ -2646,6 +2863,7 @@ class FinanceView(ft.Row):
             else None
         )
         saved_fee = transfer or cashflow
+        initial_fee_category = journal.ledger.default_fee_category or None
         account_ids = {a.id for a in journal.ledger.accounts}
         original_asset = (
             transfer.source
@@ -2766,9 +2984,7 @@ class FinanceView(ft.Row):
             on_select=self._entity_dropdown_selected,
             expand=True,
             label=self.tr("transfer_fee_category"),
-            value=saved_fee.fee_category
-            if saved_fee and saved_fee.fee
-            else journal.ledger.default_fee_category,
+            value=saved_fee.fee_category if saved_fee and saved_fee.fee else initial_fee_category,
             options=self._fee_category_options(
                 journal,
                 self.fee_preferences.branches,
@@ -3063,9 +3279,7 @@ class FinanceView(ft.Row):
                     fee_mode.value,
                     fee_category.value,
                     fee_currency.value,
-                ) = fee_drafts.get(
-                    kind, (False, "0", "added", journal.ledger.default_fee_category, None)
-                )
+                ) = fee_drafts.get(kind, (False, "0", "added", initial_fee_category, None))
             previous_kind = kind
             root = "Income:" if kind == "income" else "Expenses:"
             category.label = self.tr("income_category" if kind == "income" else "expense_category")
@@ -3741,10 +3955,32 @@ class FinanceView(ft.Row):
         def move(identifier: str) -> str:
             return migrated_category(identifier, plan.original, plan.target)
 
-        previous = self.fee_preferences
-        self.fee_preferences = previous.migrate(plan.original, plan.target)
+        migrated_settings = self.fee_preferences.migrate(plan.original, plan.target)
+        settings_failure: Exception | None = None
+        store = self.shared_defaults
+        if store is not None:
+            try:
+                await store.load()
+                if "commission" in store.conflicts:
+                    raise SharedDefaultsError("shared_settings_conflicts")
+                shared = store.values.get("commission")
+                if isinstance(shared, FeePreferences):
+                    updated = shared.migrate(plan.original, plan.target)
+                    if updated != shared:
+                        await store.save("commission", updated, store.heads.get("commission", ()))
+                        self.default_fee_heads = store.heads.get("commission", ())
+                    migrated_settings = updated
+            except (PreferencesError, StorageError, TimeoutError, ConflictError) as exc:
+                logger.exception("Journal migrated, but shared commission settings failed")
+                settings_failure = exc
+                self.shared_defaults_error = "shared_settings_migration_failed"
+        self.fee_preferences = migrated_settings
+        await self._apply_default_fee()
         self.fee_branches_draft = migrated_fee_branches(
             self.fee_branches_draft, plan.original, plan.target
+        )
+        self.fee_branches_original = migrated_fee_branches(
+            self.fee_branches_original, plan.original, plan.target
         )
         if self.default_fee.value:
             self.default_fee.value = move(self.default_fee.value)
@@ -3755,16 +3991,6 @@ class FinanceView(ft.Row):
             move(identifier): expanded for identifier, expanded in self.category_expansion.items()
         }
         self.budgets.category_id = move(self.budgets.category_id)
-        settings_failure: Exception | None = None
-        if self.fee_preferences != previous:
-            try:
-                if self.preferences is None or not await self.preferences.set(
-                    FEE_CATEGORIES_KEY, self.fee_preferences.serialize()
-                ):
-                    raise PreferencesError("category_migration_preferences_failed")
-            except Exception as exc:
-                logger.exception("Category migration saved, but local commission settings failed")
-                settings_failure = exc
         if self.icons is not None:
             try:
                 await self.icons.migrate(plan.original, plan.target)
@@ -3775,7 +4001,7 @@ class FinanceView(ft.Row):
                 logger.warning("Journal migrated; icon migration failed (%s)", type(exc).__name__)
                 raise IconError("icon_migration_failed") from exc
         if settings_failure is not None:
-            raise PreferencesError("category_migration_preferences_failed") from settings_failure
+            raise SharedDefaultsError("shared_settings_migration_failed") from settings_failure
 
     def _delete_entity(self, event: ft.Event[ft.IconButton]) -> None:
         try:
@@ -4146,6 +4372,7 @@ class FinanceView(ft.Row):
         self.default_account.disabled = self.default_account_save.disabled = not ready
         if self.default_account_journal is not journal:
             self.default_account.value = self.default_account_id or ""
+            self.default_account_original = self.default_account_id
             self.default_account_journal = journal
         accounts = journal.ledger.accounts if journal is not None else ()
         active = {account.id for account in accounts if account.active}
@@ -4191,15 +4418,7 @@ class FinanceView(ft.Row):
                 account.id == selected and account.active for account in journal.ledger.accounts
             ):
                 raise PreferencesError("default_account_unavailable")
-            try:
-                if self.preferences is None or not await self.preferences.set(
-                    DEFAULT_ACCOUNT_KEY, selected or ""
-                ):
-                    raise PreferencesError("default_account_save_failed")
-            except Exception as exc:
-                logger.exception("Could not save default transaction account preference")
-                raise PreferencesError("default_account_save_failed") from exc
-            self.default_account_id = selected
+            await self._save_shared_default("account", selected, self.default_account_heads)
             self._set_message("default_account_saved")
 
         await self._action(save)
@@ -4209,23 +4428,15 @@ class FinanceView(ft.Row):
             journal = self._require_journal()
             if journal is not self.default_fee_journal:
                 raise ConflictError("crud_stale")
-            previous = journal.default_fee_category
             selected = self.default_fee.value or ""
             settings = FeePreferences(self.fee_branches_draft, selected)
-            await journal.set_default_fee_category(selected, self.default_fee_source)
-            try:
-                if self.preferences is None or not await self.preferences.set(
-                    FEE_CATEGORIES_KEY, settings.serialize()
-                ):
-                    raise PreferencesError("default_fee_save_failed")
-            except Exception as exc:
-                await journal.set_default_fee_category(previous, journal.source)
-                self.default_fee.value = previous
-                if isinstance(exc, PreferencesError):
-                    raise
-                raise PreferencesError("default_fee_save_failed") from exc
-            self.fee_preferences = settings
-            self.default_fee_original = self.default_fee.value
+            if journal.source != self.default_fee_source:
+                raise ConflictError("crud_stale")
+            if (
+                selected != BANK_FEES or any(c.id == BANK_FEES for c in journal.ledger.categories)
+            ) and not journal.ledger.category_active(selected):
+                raise LedgerError("incoming_category")
+            await self._save_shared_default("commission", settings, self.default_fee_heads)
             self.default_fee_notice.visible = False
             self._set_message("default_fee_saved")
 
@@ -4307,7 +4518,18 @@ class FinanceView(ft.Row):
                 )
                 for identifier, label, checked, inherited in choices
             ]
-        options = self._fee_category_options(self.journal, self.fee_branches_draft)
+        options = self._fee_category_options(
+            self.journal, self.fee_branches_draft, retained=self.default_fee.value
+        )
+        if self.default_fee.value and self.default_fee.value not in {o.key for o in options}:
+            options.append(
+                ft.DropdownOption(
+                    key=self.default_fee.value,
+                    text=self.tr(
+                        "default_account_unavailable_choice", identifier=self.default_fee.value
+                    ),
+                )
+            )
         self.default_fee.leading_icon = self._entity_icon(self.default_fee.value or "")
         if [
             (o.key, o.text, o.leading_icon.src if isinstance(o.leading_icon, ft.Image) else None)
@@ -4334,11 +4556,19 @@ class FinanceView(ft.Row):
 
     async def _apply_default_fee(self) -> None:
         journal = self._require_journal()
+        if self.shared_defaults is not None and (
+            "commission" in self.shared_defaults.conflicts or not self.shared_defaults.loaded
+        ):
+            await journal.set_default_fee_category(None, journal.source)
+            self.default_fee_notice.visible = True
+            self.default_fee_notice.value = self.tr("shared_settings_conflicts")
+            return
         try:
             await journal.set_default_fee_category(self.default_fee_category, journal.source)
         except LedgerError as exc:
             if str(exc) != "incoming_category":
                 raise
+            await journal.set_default_fee_category(None, journal.source)
             self.default_fee_notice.value = self.tr("default_fee_unavailable")
             self.default_fee_notice.visible = True
         else:

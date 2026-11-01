@@ -111,6 +111,15 @@ the available horizontal space.
   presets, refreshed totals, retained custom drafts and the browsed month after
   reload, resizing, language changes and switching screens. Current month ends
   today; other browsed months cover the full month. Check both narrow/desktop widths.
+- Shared defaults: publish account and commission branches/default separately,
+  synchronize the entire `textmoney-settings/` directory, and test offline
+  restart on another device. Check explicit account clearing, folder isolation,
+  journal/settings arriving in either order, unavailable references, local draft
+  seeds without automatic publication, retained Settings/transaction drafts,
+  stale-save review (Cancel/Escape and Continue/Enter), conflict resolution,
+  permission failures and incomplete/corrupt history without disabling the journal.
+  Physical Android SAF and actual sync clients require device testing; host tests
+  and APK compilation are not proof of provider durability or sync completion.
 - Category trees in Accounting, report breakdowns and budget pickers use compact,
   borderless rows. Top-level rows start at the content edge; nested levels
   add 16 logical pixels, without extra leaf indentation. Expandable rows show
@@ -176,7 +185,7 @@ Beancount validation, unchanged accounting totals, exact verified backups,
 same-directory replacement, stale/tampered reviews, collisions, external
 changes, backup/staging failures and Android capability rejection. UI tests
 exercise localized warnings, explicit acknowledgement, retained drafts,
-display-name-only edits and migrated local fee preferences, including errors
+display-name-only edits and migrated shared fee settings, including errors
 after the journal is already committed.
 
 With a disposable desktop journal, also check:
@@ -395,12 +404,12 @@ Use only a disposable synthetic journal:
 7. Change the default timezone. Saved transaction times must remain unchanged;
    only the default clock for new entries changes. Check native date pickers
    on Android for timezone-induced date shifts.
-8. Restart after changing the default fee category. Verify the local preference
-   survives without adding journal metadata. For both expenses and income, save
+8. Restart after changing the default fee category. Verify the shared setting
+   survives and reaches another device without adding journal metadata. For both expenses and income, save
    amount 100 with fee 5 in Added and Deducted modes, checking the
    [expected postings](journal-format.md#purchase-and-income-commissions).
-   Purchases and income must allow a custom fee category and use the local default
-   (Bank-Fees only as fallback). Also choose the purchase category itself for its
+   Purchases and income must allow a custom fee category and use the shared default
+   (Bank-Fees initially, before publication; unavailable defaults leave no selection). Also choose the purchase category itself for its
    fee, verifying posting roles remain distinct. No fee-currency picker should appear. Reopen, change
    accounts/currency and fee, disable the fee, then delete; inspect native
    postings, annotations, period totals and category budgets. Switch modes and

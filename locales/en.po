@@ -319,7 +319,7 @@ msgid "ui.default_account_none"
 msgstr "No default account"
 
 msgid "ui.default_account_help"
-msgstr "Optional, saved on this device only, not in the journal. Preselects the account for new expenses and receipts, or the source account for transfers. You can change it in each form; saved transactions are unchanged."
+msgstr "Optional, shared with devices synchronizing this journal folder, not stored in the journal. Preselects the account for new expenses and receipts, or the source account for transfers. Open forms and saved transactions are unchanged."
 
 msgid "ui.default_account_unavailable_choice"
 msgstr "{identifier} (unavailable)"
@@ -782,7 +782,52 @@ msgstr "Commission categories"
 
 #. Stable TextMoney key: ui.fee_categories_help; do not translate this identifier.
 msgid "ui.fee_categories_help"
-msgstr "Choose branches for commission selectors; their subcategories are included automatically. Uncheck All expense categories to narrow the list. Choose a default below and save. These settings apply only to this device, not to saved transactions."
+msgstr "Choose branches for commission selectors; their subcategories are included automatically. Uncheck All expense categories to narrow the list. Choose a default below and save. Branches and default synchronize together with this journal folder; open forms and saved transactions are unchanged."
+
+msgid "ui.shared_settings_help"
+msgstr "These defaults belong to this journal folder. Synchronize the complete textmoney-settings/ directory. Existing device choices are drafts only: Save explicitly publishes each setting. No defaults are published on startup. Finish editing and let synchronization complete before using another device."
+
+msgid "ui.shared_settings_unpublished"
+msgstr "Not shared yet. Choose a value and Save to publish it."
+
+msgid "ui.shared_settings_legacy_invalid"
+msgstr "Old device defaults are invalid and were not imported. Choose and Save shared defaults here; the journal was not changed."
+
+msgid "ui.shared_settings_conflicts"
+msgstr "Shared defaults have conflicting choices. No conflicting default is preselected. Review the choices in Settings, choose the account or commission branches/default you want, then Save to resolve that group."
+
+msgid "ui.shared_settings_stale"
+msgstr "Shared defaults changed after this draft was opened. Draft retained. Review the latest settings before saving."
+
+msgid "ui.shared_settings_review"
+msgstr "Review shared defaults"
+
+msgid "ui.shared_settings_review_help"
+msgstr "These are the latest shared choices. Continuing keeps your Settings draft and acknowledges these versions for your next Save. It does not publish anything or change an open transaction. Review account/category availability before saving."
+
+msgid "ui.shared_settings_keep_draft"
+msgstr "Keep draft for next Save"
+
+msgid "ui.shared_settings_invalid"
+msgstr "Shared settings records are damaged, renamed or invalid. Journal access remains available. Finish synchronization and reload; if this persists, inspect textmoney-settings/ and restore a verified complete copy. Do not delete individual history records."
+
+msgid "ui.shared_settings_incomplete"
+msgstr "Shared settings history is incomplete. Let synchronization finish and Reload before saving defaults."
+
+msgid "ui.shared_settings_limit"
+msgstr "Shared settings exceed their storage limit. Keep a verified copy and rebuild the complete history only with all devices closed; do not prune individual records."
+
+msgid "ui.shared_settings_storage"
+msgstr "Cannot access shared settings. Check the selected folder's permissions and offline availability, then Reload. Journal access is independent."
+
+msgid "ui.shared_settings_not_ready"
+msgstr "Shared settings are not loaded. Select the journal folder or Reload before saving defaults."
+
+msgid "ui.shared_settings_write_uncertain"
+msgstr "Shared settings save could not be verified. Draft retained; the journal was not changed. Do not blindly retry. Finish synchronization, Reload and review the saved choices first."
+
+msgid "ui.shared_settings_migration_failed"
+msgstr "The journal was migrated, but shared commission settings could not be updated. Do not retry the category migration. Review and save Settings before using another device."
 
 #. Stable TextMoney key: ui.fee_categories_all; do not translate this identifier.
 msgid "ui.fee_categories_all"

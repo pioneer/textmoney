@@ -811,20 +811,25 @@ class Journal:
     async def delete_account(self, identifier: str, expected_source: str) -> str | None:
         return await self._delete_declaration(identifier, expected_source, category=False)
 
-    async def set_default_fee_category(self, identifier: str, expected_source: str) -> None:
+    async def set_default_fee_category(self, identifier: str | None, expected_source: str) -> None:
         self._require_ready()
         if expected_source != self.source:
             raise ConflictError("crud_stale")
         implicit = identifier == BANK_FEES and not any(
             c.id == BANK_FEES for c in self.ledger.categories
         )
-        if not implicit and (
-            not identifier.startswith("Expenses:") or not self.ledger.category_active(identifier)
+        if (
+            identifier is not None
+            and not implicit
+            and (
+                not identifier.startswith("Expenses:")
+                or not self.ledger.category_active(identifier)
+            )
         ):
             raise LedgerError("incoming_category")
 
-        self.default_fee_category = identifier
-        self.ledger = replace(self.ledger, default_fee_category=identifier)
+        self.default_fee_category = identifier or ""
+        self.ledger = replace(self.ledger, default_fee_category=identifier or "")
 
     async def delete_category(self, identifier: str, expected_source: str) -> str | None:
         return await self._delete_declaration(identifier, expected_source, category=True)

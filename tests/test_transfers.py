@@ -20,6 +20,7 @@ from app.domain.ledger import BANK_FEES, EPOCH, LedgerError, exchange_values
 from app.domain.storage import ConflictError
 from app.infrastructure.beancount_journal import transaction_time
 from app.infrastructure.desktop_storage import DesktopFolder
+from app.infrastructure.preferences import FeePreferences
 from app.journal import FILENAME, Journal
 from app.localization import translate
 from app.storage import StorageError
@@ -428,6 +429,7 @@ def test_transfer_settings_draft_is_not_silently_rebased(
         view.preferences.set = AsyncMock(return_value=True)
         page = MagicMock(spec=ft.Page)
         monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        await view._load_shared_defaults(reset=("account", "commission"))
         view._refresh()
         assert view.default_fee.value == BANK_FEES
         view.default_fee.value = "Expenses:Fees:Other"
@@ -447,6 +449,9 @@ def test_transfer_settings_draft_is_not_silently_rebased(
         await view._save_default_fee(MagicMock())
         assert journal.ledger.default_fee_category == BANK_FEES
         assert BANK_FEES not in {c.id for c in journal.ledger.categories}
+        assert view.shared_defaults is not None
+        assert view.shared_defaults.values["commission"] == FeePreferences(default=BANK_FEES)
+        view.preferences.set.assert_not_awaited()
 
     asyncio.run(scenario())
 

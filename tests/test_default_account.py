@@ -46,6 +46,7 @@ async def setup(
     view = FinanceView()
     view.journal = journal
     view.preferences = DesktopPreferences(path / "preferences.json")
+    await view._load_shared_defaults(reset=("account", "commission"))
     view._refresh()
     return view, page, journal
 
@@ -99,7 +100,8 @@ def test_setting_saves_and_clears_without_writing_the_journal(
         await view._save_default_account(MagicMock())
         assert view.error_message is None and view.default_account_id == "Liabilities:Card"
         assert view.preferences is not None
-        assert await view.preferences.get(DEFAULT_ACCOUNT_KEY) == "Liabilities:Card"
+        assert view.shared_defaults and view.shared_defaults.values["account"] == "Liabilities:Card"
+        assert await view.preferences.get(DEFAULT_ACCOUNT_KEY) is None
         view._new_transaction(MagicMock())
         assert (
             transaction_form(page.show_dialog.call_args.args[0]).account.value == "Liabilities:Card"
@@ -107,7 +109,7 @@ def test_setting_saves_and_clears_without_writing_the_journal(
         view.default_account.value = ""
         await view._save_default_account(MagicMock())
         assert view.default_account_id is None and not view.error_message
-        assert await view.preferences.get(DEFAULT_ACCOUNT_KEY) == ""
+        assert view.shared_defaults.values["account"] is None
         view._new_transaction(MagicMock())
         assert transaction_form(page.show_dialog.call_args.args[0]).account.value is None
         assert journal.source == SOURCE and (tmp_path / FILENAME).read_bytes() == SOURCE.encode()
@@ -210,13 +212,14 @@ def test_deactivation_reactivation_and_folder_change_reconcile_saved_setting_wit
         other.mkdir()
         view.journal = Journal(DesktopFolder(str(other), FILENAME))
         await view.journal.load()
+        await view._load_shared_defaults()
         view._refresh()
-        assert view.default_account.value == "Assets:Cash"
-        assert view.default_account_notice.visible
+        assert view.default_account.value == ""
+        assert not view.default_account_notice.visible
         view._new_transaction(MagicMock())
         assert transaction_form(page.show_dialog.call_args.args[0]).account.value is None
         assert view.preferences is not None
-        assert await view.preferences.get(DEFAULT_ACCOUNT_KEY) == "Assets:Cash"
+        assert await view.preferences.get(DEFAULT_ACCOUNT_KEY) is None
 
     asyncio.run(scenario())
 
@@ -243,7 +246,13 @@ def test_failed_saves_keep_previous_default_and_unsaved_selection(
                 side_effect=OSError("Synthetic failure") if failure == "exception" else None,
             )
         )
-        view.preferences = None if failure == "missing" else preferences
+        assert view.shared_defaults
+        if failure == "missing":
+            view.shared_defaults = None
+        elif failure in {"false", "exception"}:
+            view.shared_defaults.files.create_record = AsyncMock(
+                side_effect=OSError("Synthetic failure") if failure == "exception" else None
+            )
         if failure == "folder":
             view.default_account_journal = None
         await view._save_default_account(MagicMock())
@@ -299,21 +308,23 @@ def test_startup_restores_optional_setting_on_desktop_and_shared_preferences(
         async def attach(location: str) -> None:
             assert location == "synthetic"
             view.journal = journal
+            await view._load_shared_defaults(reset=("account", "commission"), seed=True)
 
         view._attach = attach
         monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
         with pytest.raises(asyncio.CancelledError):
             await view._lifecycle()
         if saved == "Assets:bad":
-            assert view.startup_complete and view.error_message == "default_account_invalid"
-            assert view.default_account_id is None and view.journal is None
+            assert view.startup_complete and view.error_message is None
+            assert view.default_account_id is None and view.journal is journal
+            assert view.legacy_defaults_invalid
             return
         assert view.startup_complete and view.error_message is None
-        assert view.default_account_id == (saved or None)
+        assert view.default_account_id is None
+        assert view.default_account.value == (saved or "")
         view.system_zone = "UTC"
         view._new_transaction(MagicMock())
-        expected = saved if saved in {"Assets:Cash", "Liabilities:Card"} else None
-        assert transaction_form(page.show_dialog.call_args.args[0]).account.value == expected
+        assert transaction_form(page.show_dialog.call_args.args[0]).account.value is None
 
     asyncio.run(scenario())
 

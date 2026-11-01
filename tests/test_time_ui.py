@@ -13,7 +13,7 @@ from flet.controls.device_info import DeviceInfo
 from form_controls import transaction_form
 from journal_fixtures import review_external_fixture
 
-from app.domain.ledger import EPOCH, Account, Category, LedgerError, Posting, Transaction
+from app.domain.ledger import BANK_FEES, EPOCH, Account, Category, LedgerError, Posting, Transaction
 from app.infrastructure.beancount_journal import transaction_time
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.preferences import DesktopPreferences, FeePreferences
@@ -22,7 +22,7 @@ from app.localization import date_input, format_date, format_timestamp, parse_da
 from app.storage import StorageError
 from app.timekeeping import local_datetime, named_zone, picker_timestamp, wall_timestamp
 from app.ui.datetime_fields import DateTimeFields
-from app.ui.finance import DEFAULT_FEE_KEY, FEE_CATEGORIES_KEY, TIMEZONE_KEY, FinanceView
+from app.ui.finance import DEFAULT_FEE_KEY, TIMEZONE_KEY, FinanceView
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
@@ -1040,7 +1040,7 @@ def test_external_poll_retains_draft_and_requires_fresh_form_after_reload(
 
 
 @pytest.mark.parametrize("failure", [None, "false", "exception", "invalid"])
-def test_default_fee_is_local_and_persistence_failure_restores_previous_setting(
+def test_default_fee_is_shared_and_persistence_failure_keeps_previous_setting(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str | None
 ) -> None:
     async def scenario() -> None:
@@ -1051,30 +1051,35 @@ def test_default_fee_is_local_and_persistence_failure_restores_previous_setting(
         await journal.load()
         await journal.create_category("Food", "Food", opened=EPOCH)
         view.preferences = MagicMock()
-        view.preferences.set = AsyncMock(
-            return_value=failure != "false",
-            side_effect=OSError("private preference data") if failure == "exception" else None,
-        )
+        view.preferences.set = AsyncMock(return_value=True)
+        await view._load_shared_defaults(reset=("account", "commission"))
+        assert view.shared_defaults is not None
+        if failure in {"false", "exception"}:
+            view.shared_defaults.files.create_record = AsyncMock(
+                side_effect=OSError("private settings data") if failure == "exception" else None
+            )
         view._refresh()
         previous = journal.ledger.default_fee_category
         original = journal.source
-        view.default_fee.value = "Income:Missing" if failure == "invalid" else "Expenses:Food"
+        selected = "Income:Missing" if failure == "invalid" else "Expenses:Food"
+        view.default_fee.value = selected
         await view._save_default_fee(MagicMock())
         assert journal.source == original
         assert not (tmp_path / "backups").exists() or not list((tmp_path / "backups").iterdir())
+        view.preferences.set.assert_not_awaited()
+        settings = tmp_path / "textmoney-settings"
         if failure:
             assert journal.ledger.default_fee_category == previous
             assert view.default_fee_category == previous
+            assert view.default_fee.value == selected
             assert view.error_message
-            if failure == "invalid":
-                view.preferences.set.assert_not_awaited()
-            else:
-                assert view.default_fee.value == previous
+            assert not settings.exists() or not list(settings.iterdir())
         else:
             assert journal.ledger.default_fee_category == "Expenses:Food"
-            view.preferences.set.assert_awaited_once_with(
-                FEE_CATEGORIES_KEY, FeePreferences(default="Expenses:Food").serialize()
+            assert view.shared_defaults.values["commission"] == FeePreferences(
+                default="Expenses:Food"
             )
+            assert len(list(settings.iterdir())) == 1
             assert view.message_key == "default_fee_saved"
             (tmp_path / FILENAME).write_text(original + "\n; changed\n", newline="")
             await view._poll_journal()
@@ -1085,7 +1090,7 @@ def test_default_fee_is_local_and_persistence_failure_restores_previous_setting(
     asyncio.run(scenario())
 
 
-def test_startup_restores_local_fee_preference_and_new_attachment_uses_it(
+def test_startup_offers_legacy_fee_preference_only_as_folder_draft(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     async def scenario() -> None:
@@ -1110,13 +1115,25 @@ def test_startup_restores_local_fee_preference_and_new_attachment_uses_it(
         with pytest.raises(asyncio.CancelledError):
             await view._lifecycle()
         assert view.journal is not None and view.journal.ready
-        assert view.journal.ledger.default_fee_category == "Expenses:Fees"
+        settings = folder / "textmoney-settings"
+        assert view.journal.ledger.default_fee_category == BANK_FEES
+        assert view.default_fee.value == "Expenses:Fees"
+        assert not settings.exists()
         await view._attach(str(folder))
+        assert view.journal.ledger.default_fee_category == BANK_FEES
+        assert view.default_fee.value == "Expenses:Fees"
+        assert not settings.exists()
+        await view._save_default_fee(MagicMock())
+        assert view.error_message is None
         assert view.journal.ledger.default_fee_category == "Expenses:Fees"
+        assert len(list(settings.iterdir())) == 1
         another = tmp_path / "another"
         another.mkdir()
         await view._attach(str(another))
-        assert view.default_fee_notice.visible
+        assert view.journal.ledger.default_fee_category == BANK_FEES
+        assert not (another / "textmoney-settings").exists()
+        await view._attach(str(folder))
+        assert view.journal.ledger.default_fee_category == "Expenses:Fees"
         assert await prefs.get(DEFAULT_FEE_KEY) == "Expenses:Fees"
 
     asyncio.run(scenario())

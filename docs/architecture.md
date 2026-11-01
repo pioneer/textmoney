@@ -18,7 +18,9 @@ src/app/ui/datetime_fields.py shared manual/date-picker/time-picker controls
 src/app/ui/dialogs.py       shared desktop popup Escape/Cancel and Enter/Submit behavior
 src/app/ui/icons.py         optional offline/online/import icon picker
 src/app/icons.py            validated icon assets and immutable sidecar assignment policy
-src/app/infrastructure/icon_files.py bounded desktop/SAF sidecar I/O
+src/app/shared_defaults.py  journal-scoped immutable default account/commission revisions
+src/app/infrastructure/record_files.py bounded desktop/SAF immutable-record I/O
+src/app/infrastructure/icon_files.py icon-specific record policy
 src/app/infrastructure/icon_sources.py bundled catalogue and explicit Iconify requests
 src/app/icon_catalogue/     vendored Material artwork and source license texts
 src/app/ui/beancount.py    separate bundled-fixture action; lazy parser import
@@ -53,7 +55,7 @@ validated and rechecked against their reviewed source by `Journal`, then require
 the storage session's opt-in `AtomicFolder` capability. Desktop reuses its
 same-directory atomic replacement; Android SAF intentionally lacks that
 capability. There is no non-atomic migration fallback or new journal metadata.
-UI owns the multi-step warning/acknowledgement and remaps local settings only
+UI owns the multi-step warning/acknowledgement and remaps shared commission settings only
 after a verified journal commit, reporting any post-commit preference failure.
 
 UI owns controls and navigation, not business decisions or raw HTTP/database
@@ -68,6 +70,14 @@ Optional [entity icons](entity-icons.md) are stored beside the journal in an
 append-only sidecar directory, never in Beancount metadata. Network lookup is
 explicit and limited to Iconify; assigned images and attribution render offline.
 Icon failures do not disable otherwise-valid financial journal access.
+
+[Shared defaults](shared-settings.md) use a separate `textmoney-settings/`
+sidecar through the same bounded record adapters and existing SAF grant.
+Account and combined commission-branch/default revisions have independent heads.
+Saves explicitly publish, reject stale drafts, and can resolve reviewed conflicts.
+Local legacy choices are draft seeds only; new forms use journal-scoped shared
+values, while open forms retain their choices. Sidecar failures never disable
+valid financial journal access. No settings are written into Beancount.
 
 GNU gettext PO files in `locales/` are the editable translation source;
 Invoke compiles them to packaged MO catalogs in `src/app/locale/`. Runtime
@@ -130,7 +140,7 @@ an entry only within its captured source baseline. Native shared links connect
 an expense and its reimbursements. Legacy/user metadata is preserved, not
 globally stripped or treated as an authoritative transaction identity.
 Expense, income and transfer edit forms reconstruct economic amounts from postings,
-not stored fee-presentation metadata. The default fee category is a local device preference.
+not stored fee-presentation metadata. The default fee category is a shared sidecar setting.
 Budget definitions use Fava-compatible native `custom "budget"` directives in the
 same journal. The budget domain adapts Fava 1.30.16's MIT allocation/calendar/price
 algorithms; its notice is shipped in `app/notices/fava.txt`. It uses a separate
@@ -271,10 +281,12 @@ Ordinary expense/income commissions reuse the Advanced fee controls and a shared
 Flet-free Decimal calculation for previews and posting construction. Fees use the
 selected account's currency only. Per-kind fee drafts survive mode switches but
 never leak into another kind or a special receipt. Every fee category is selectable,
-within device-local configured branches, using the local default or
-`Expenses:Bank-Fees` fallback. Settings uses a hierarchical branch multi-select
-with inherited descendants and a separate default. A single validated preference
-stores both atomically; the earlier default-only setting remains a read fallback.
+within journal-scoped configured branches, using the shared default or the initial
+`Expenses:Bank-Fees` default before publication. Unavailable/conflicting defaults
+leave new forms unselected. Settings uses a hierarchical branch multi-select
+with inherited descendants and a separate default. One immutable settings
+revision stores both; earlier local/default-only settings are draft seeds only.
+SAF publication is not atomic.
 Settings and transaction fee choices reuse category indentation and path sorting.
 Excluded saved fees remain available to their editor, without changing accounting
 recognition or adding journal metadata. The approved metadata-free
@@ -333,8 +345,8 @@ validation (balanced explicit amounts, declarations, currency and dates)
 remains strict. Liability credit balances are normal and do not produce an
 insufficient-funds warning.
 
-The default fee category is a local device preference.
-Without it, `Expenses:Bank-Fees` is the default and is declared only when first
+The default fee category is a shared sidecar setting.
+Before publication, `Expenses:Bank-Fees` is the default and is declared only when first
 used with a nonzero fee, within the same validated save. Editing derives amounts
 from postings with canonical added-fee presentation, preserving unrelated
 annotations rather than persisting a fee-presentation mode. A removed fee posting

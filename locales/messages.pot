@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TextMoney 0.3.19\n"
+"Project-Id-Version: TextMoney 0.3.22\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-10-30 00:00+0200\n"
-"PO-Revision-Date: 2026-10-30 00:00+0200\n"
+"POT-Creation-Date: 2026-11-01 20:07+0200\n"
+"PO-Revision-Date: 2026-11-01 20:07+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -736,6 +736,51 @@ msgstr ""
 #. Stable TextMoney key: ui.fee_categories_help; do not translate this
 #. identifier.
 msgid "ui.fee_categories_help"
+msgstr ""
+
+msgid "ui.shared_settings_help"
+msgstr ""
+
+msgid "ui.shared_settings_unpublished"
+msgstr ""
+
+msgid "ui.shared_settings_legacy_invalid"
+msgstr ""
+
+msgid "ui.shared_settings_conflicts"
+msgstr ""
+
+msgid "ui.shared_settings_stale"
+msgstr ""
+
+msgid "ui.shared_settings_review"
+msgstr ""
+
+msgid "ui.shared_settings_review_help"
+msgstr ""
+
+msgid "ui.shared_settings_keep_draft"
+msgstr ""
+
+msgid "ui.shared_settings_invalid"
+msgstr ""
+
+msgid "ui.shared_settings_incomplete"
+msgstr ""
+
+msgid "ui.shared_settings_limit"
+msgstr ""
+
+msgid "ui.shared_settings_storage"
+msgstr ""
+
+msgid "ui.shared_settings_not_ready"
+msgstr ""
+
+msgid "ui.shared_settings_write_uncertain"
+msgstr ""
+
+msgid "ui.shared_settings_migration_failed"
 msgstr ""
 
 #. Stable TextMoney key: ui.fee_categories_all; do not translate this

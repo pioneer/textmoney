@@ -24,11 +24,16 @@ provider appearing in the picker does not establish offline folder access.
 TextMoney does not download a private working copy.
 
 Configure the external client to synchronize the whole folder, including
-`backups/`, `textmoney-icons/` (when icons are assigned) and hidden recovery files.
+`backups/`, `textmoney-icons/` (when icons are assigned), `textmoney-settings/`
+(when defaults are published) and hidden recovery files.
 The [optional icon sidecars](entity-icons.md#storage-and-synchronization) retain
 their own immutable history and conflict notices, without changing financial
 journal synchronization rules. This is a local-file workflow, not a native
 integration with or certification of any synchronization service or client.
+
+[Shared account and commission defaults](shared-settings.md) use journal-folder
+sidecars with explicit publication and conflict review. They are separate from
+financial journal synchronization; let the whole folder finish syncing.
 
 ## Operating rule
 
@@ -94,7 +99,8 @@ Real-provider, multi-device and power-loss behavior requires physical testing.
 - `textmoney-active` remains the approved hide/reactivate preference; it is not
   a dated accounting `close`.
 - Transfer fees are stored in postings, not `textmoney-fee-mode` metadata.
-  Fee-category defaults are local device preferences.
+  Fee-category defaults and commission branches are shared sidecar settings,
+  not journal metadata.
 - Category budgeting is implemented with native Fava-compatible
   `custom "budget"` directives in this journal. Manage definitions in
   **Accounting → Budgets** and monitor monthly spending in **Reports → Budgets**.

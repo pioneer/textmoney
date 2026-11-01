@@ -2,15 +2,33 @@
 
 import flet as ft
 
+TREE_ROW_HEIGHT = 40
+
 
 def compact_tree_theme() -> ft.Theme:
-    return ft.Theme(list_tile_theme=ft.ListTileTheme(horizontal_spacing=8, min_leading_width=24))
+    return ft.Theme(
+        list_tile_theme=ft.ListTileTheme(
+            horizontal_spacing=8, min_leading_width=24, min_vertical_padding=0
+        )
+    )
+
+
+def compact_tree_leaf(title: ft.Control, *, data: str | None = None) -> ft.ListTile:
+    return ft.ListTile(
+        title=title,
+        data=data,
+        dense=True,
+        min_height=TREE_ROW_HEIGHT,
+        min_vertical_padding=0,
+        visual_density=ft.VisualDensity.COMPACT,
+        content_padding=0,
+    )
 
 
 def compact_tree_tile(tile: ft.ExpansionTile) -> ft.ExpansionTile:
     tile.affinity = ft.TileAffinity.LEADING
     tile.dense = True
-    tile.min_tile_height = 40
+    tile.min_tile_height = TREE_ROW_HEIGHT
     tile.visual_density = ft.VisualDensity.COMPACT
     tile.tile_padding = 0
     tile.controls_padding = ft.Padding.only(left=16)

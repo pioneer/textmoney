@@ -111,6 +111,10 @@ the available horizontal space.
   an arrow before the title; leaves show only their title, with no arrow space.
   A tree-local list-tile theme narrows the arrow/title gap without changing
   other expansion tiles or the native arrow's behavior.
+  Accounting categories and Overview category breakdowns use the same 40-pixel
+  row minimum for parents and leaves, with no extra header padding. Measure
+  collapsed headers and visible children with/without icons at narrow and
+  desktop widths; larger text and inactive labels must not be clipped.
   Check expanded/collapsed branches, inactive labels, long names,
   edit/delete buttons, picker search/selection and retained expansion state.
 - Reports / Budgets transaction details reuse the Operations date headings and

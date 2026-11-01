@@ -311,24 +311,26 @@ def test_report_category_tree_is_compact_borderless_and_has_no_root_indent(
         assert isinstance(card, ft.Container) and isinstance(card.content, ft.Column)
         assert card.theme is not None
         assert card.theme.list_tile_theme == ft.ListTileTheme(
-            horizontal_spacing=8, min_leading_width=24
+            horizontal_spacing=8, min_leading_width=24, min_vertical_padding=0
         )
         expenses = card.content.controls[1]
         assert isinstance(expenses, ft.Column) and expenses.spacing == 0
         heading, bank_fees, food = expenses.controls
         assert isinstance(heading, ft.Text)
-        assert isinstance(bank_fees, ft.Container) and bank_fees.padding == 0
+        assert isinstance(bank_fees, ft.ListTile) and bank_fees.content_padding == 0
         assert isinstance(food, ft.ExpansionTile)
         assert food.affinity == ft.TileAffinity.LEADING
         assert food.dense and food.min_tile_height == 40
         assert food.tile_padding == 0
         assert food.controls_padding == ft.Padding.only(left=16)
         assert food.shape == food.collapsed_shape == ft.RoundedRectangleBorder()
-        assert food.controls and isinstance(food.controls[0], ft.Container)
+        assert bank_fees.min_height == food.min_tile_height == 40
+        assert bank_fees.min_vertical_padding == 0
+        assert food.controls and isinstance(food.controls[0], ft.ListTile)
         groceries = food.controls[0]
-        assert groceries.padding == 0
-        assert isinstance(groceries.content, ft.Row)
-        inactive = groceries.content.controls[0]
+        assert groceries.content_padding == 0 and groceries.min_height == 40
+        assert isinstance(groceries.title, ft.Row)
+        inactive = groceries.title.controls[0]
         assert isinstance(inactive, ft.Column)
         assert isinstance(inactive.controls[1], ft.Text)
         assert inactive.controls[1].value == view.tr("crud_inactive_label")

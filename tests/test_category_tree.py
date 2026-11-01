@@ -17,8 +17,8 @@ from app.ui.finance import FinanceView
 
 
 def row(control: ft.Control) -> ft.Row:
-    assert isinstance(control, (ft.ExpansionTile, ft.Container))
-    value = control.title if isinstance(control, ft.ExpansionTile) else control.content
+    assert isinstance(control, (ft.ExpansionTile, ft.ListTile))
+    value = control.title
     assert isinstance(value, ft.Row)
     return value
 
@@ -42,7 +42,7 @@ def test_income_expense_sections_have_equal_layout_and_nested_actions(language: 
     view.language = language
     assert view.categories_panel.theme is not None
     assert view.categories_panel.theme.list_tile_theme == ft.ListTileTheme(
-        horizontal_spacing=8, min_leading_width=24
+        horizontal_spacing=8, min_leading_width=24, min_vertical_padding=0
     )
     assert view.accounts_panel.theme is None
     categories = (
@@ -73,8 +73,10 @@ def test_income_expense_sections_have_equal_layout_and_nested_actions(language: 
         assert label(parent).value == category.name
         assert parent.controls is not None
         leaf = parent.controls[0]
-        assert isinstance(leaf, ft.Container)
-        assert leaf.padding == 0
+        assert isinstance(leaf, ft.ListTile)
+        assert leaf.content_padding == 0 and leaf.min_vertical_padding == 0
+        assert leaf.min_height == parent.min_tile_height == 40
+        assert leaf.dense and leaf.visual_density == parent.visual_density
         assert leaf.data == category.id + (
             ":Shops" if category.id.startswith("Expenses") else ":Salary"
         )

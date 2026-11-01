@@ -343,7 +343,7 @@ def test_explicit_parent_budget_remains_visible(
         assert isinstance(listing, ft.Container) and listing.content is host.budgets.results
         assert listing.theme is not None
         assert listing.theme.list_tile_theme == ft.ListTileTheme(
-            horizontal_spacing=8, min_leading_width=24
+            horizontal_spacing=8, min_leading_width=24, min_vertical_padding=0
         )
         for tile in walk(host.budgets.results):
             if isinstance(tile, ft.ExpansionTile):
@@ -892,7 +892,7 @@ def test_tree_pickers_have_branches_friendly_names_search_and_clear(
         assert isinstance(listing, ft.Container) and listing.content is picker.listing
         assert listing.theme is not None
         assert listing.theme.list_tile_theme == ft.ListTileTheme(
-            horizontal_spacing=8, min_leading_width=24
+            horizontal_spacing=8, min_leading_width=24, min_vertical_padding=0
         )
         assert picker.items["Expenses:Food"] == "Groceries"
         assert "Expenses:Food:Meals" in picker.items

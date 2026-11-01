@@ -24,6 +24,9 @@ show their own postings plus descendants as a display subtotal in Overview.
 This does not add automatic parent rows to the Budgets report. Only direct
 category postings contribute to the overall metric, preventing hierarchy
 roll-ups from double-counting. Uncategorized postings are shown separately.
+Category headers and leaves use the same compact 40-pixel row minimum in
+Overview and Accounting categories, without extra expandable-header padding.
+Inactive labels and larger text can grow the row to avoid clipping.
 
 The report is an operational summary, not a full accounting statement. It does
 not calculate FX gains/losses, historical valuations, or balances in a reporting

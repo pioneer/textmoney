@@ -75,7 +75,7 @@ from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
 from app.ui.icons import IconPicker, icon_image
-from app.ui.tree_style import compact_tree_theme, compact_tree_tile
+from app.ui.tree_style import compact_tree_leaf, compact_tree_theme, compact_tree_tile
 from app.version import release_identity
 
 logger = logging.getLogger(__name__)
@@ -1163,7 +1163,7 @@ class FinanceView(ft.Row):
             title = category_line(label, amount)
             if children:
                 return compact_tree_tile(ft.ExpansionTile(title=title, controls=children))
-            return ft.Container(padding=0, content=title)
+            return compact_tree_leaf(title)
 
         controls: list[ft.Control] = [
             ft.Text(self.tr(title_key), size=17, weight=ft.FontWeight.W_600)
@@ -1172,7 +1172,9 @@ class FinanceView(ft.Row):
         unassigned_amount = dict(unassigned).get(currency, Decimal("0"))
         if unassigned_amount != 0:
             controls.append(
-                category_line(ft.Text(self.tr("report_uncategorized")), unassigned_amount)
+                compact_tree_leaf(
+                    category_line(ft.Text(self.tr("report_uncategorized")), unassigned_amount)
+                )
             )
         if len(controls) == 1:
             controls.append(ft.Text(self.tr("report_categories_empty")))
@@ -1240,11 +1242,7 @@ class FinanceView(ft.Row):
                         or [ft.Text(self.tr("categories_empty"), size=12)],
                     )
                 )
-            return ft.Container(
-                data=identifier,
-                padding=0,
-                content=row,
-            )
+            return compact_tree_leaf(row, data=identifier)
 
         return [node("Expenses"), node("Income")]
 

@@ -9,7 +9,7 @@ import flet as ft
 import pytest
 
 from app.domain.ledger import EPOCH, Category, Ledger, LedgerError, Posting, Transaction
-from app.domain.reporting import period_bounds, period_report
+from app.domain.reporting import period_bounds, period_report, shift_month
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import date_input
@@ -230,6 +230,9 @@ def test_period_presets_cover_expected_calendar_boundaries() -> None:
         date(2026, 1, 1),
         date(2026, 6, 1),
     )
+    assert period_bounds("month", date(2024, 2, 1)) == (date(2024, 2, 1), date(2024, 2, 29))
+    assert period_bounds("month", date(2025, 2, 1)) == (date(2025, 2, 1), date(2025, 2, 28))
+    assert period_bounds("month", date(9999, 12, 1)) == (date(9999, 12, 1), date.max)
     with pytest.raises(LedgerError, match="report_date_range"):
         period_bounds("unknown", date(2026, 1, 1))
     with pytest.raises(LedgerError, match="report_date_range"):
@@ -288,6 +291,170 @@ def test_reports_navigation_and_custom_range_validation(
         assert view.report_error.visible
         assert view.report_error.value == view.tr("report_date_range")
         assert view.report_summary.controls == []
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "month,offset,expected",
+    [
+        (date(2026, 1, 31), -1, date(2025, 12, 1)),
+        (date(2025, 12, 31), 1, date(2026, 1, 1)),
+        (date(2024, 3, 31), -1, date(2024, 2, 1)),
+        (date(2024, 2, 29), 1, date(2024, 3, 1)),
+    ],
+)
+def test_month_navigation_uses_calendar_months(month: date, offset: int, expected: date) -> None:
+    assert shift_month(month, offset) == expected
+
+
+@pytest.mark.parametrize("month,offset", [(date.min, -1), (date.max, 1)])
+def test_month_navigation_rejects_out_of_range_dates(month: date, offset: int) -> None:
+    with pytest.raises(LedgerError, match="report_date_range"):
+        shift_month(month, offset)
+
+
+@pytest.mark.parametrize("width", [390, 1366])
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_overview_month_arrows_presets_and_refresh_preserve_selected_month(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int, language: str
+) -> None:
+    async def scenario() -> None:
+        today = [date(2024, 3, 5)]
+        monkeypatch.setattr(FinanceView, "_today", lambda _: today[0])
+        page = MagicMock(spec=ft.Page)
+        page.width = width
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view = FinanceView()
+        view.language = language
+        view.startup_complete = True
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME), today=lambda: today[0])
+        await journal.load()
+        view.journal = journal
+        view._navigate("reports")
+
+        assert view.report_month_navigation.controls == [
+            view.report_previous,
+            view.report_month_label,
+            view.report_next,
+        ]
+        assert view.report_month_navigation.visible
+        assert view.report_month_label.value == f"{view.tr('date_month_03')} 2024"
+        assert view.report_previous.tooltip == view.tr("budget_previous")
+        assert view.report_next.tooltip == view.tr("budget_next")
+        assert view._report_dates() == (date(2024, 3, 1), today[0])
+
+        view._report_previous_month(MagicMock())
+        assert view.report_period.value == "month"
+        assert view._report_dates() == (date(2024, 2, 1), date(2024, 2, 29))
+        view._report_next_month(MagicMock())
+        assert view._report_dates() == (date(2024, 3, 1), today[0])
+        view._report_next_month(MagicMock())
+        assert view._report_dates() == (date(2024, 4, 1), date(2024, 4, 30))
+        assert any(
+            option.key == "month" and option.text == f"{view.tr('date_month_04')} 2024"
+            for option in view.report_period.options
+        )
+        cached = view._report_data
+        view._refresh()
+        assert view._report_data is cached
+        view._navigate("home")
+        view._navigate("reports")
+        assert view.report_month == date(2024, 4, 1)
+        view.language = "uk" if language != "uk" else "en"
+        view._refresh_labels()
+        view._render_reports()
+        assert view.report_month_label.value == f"{view.tr('date_month_04')} 2024"
+        assert view._report_dates() == (date(2024, 4, 1), date(2024, 4, 30))
+
+        today[0] = date(2024, 5, 1)
+        view._refresh()
+        assert view._report_dates() == (date(2024, 4, 1), date(2024, 4, 30))
+        journal.ledger = replace(journal.ledger, transactions=())
+        view._refresh()
+        assert view._report_data is not cached
+        assert view.report_month == date(2024, 4, 1)
+
+        view.report_period.value = "current_year"
+        view._report_period_changed(MagicMock())
+        assert not view.report_month_navigation.visible
+        assert view._report_dates() == (date(2024, 1, 1), today[0])
+        view._report_previous_month(MagicMock())
+        assert view.report_period.value == "current_year"
+
+        view.report_period.value = "custom"
+        view.report_start.occurred.value = "10/"
+        view._report_period_changed(MagicMock())
+        assert not view.report_month_navigation.visible
+        assert view.report_range.visible and view.report_error.visible
+        view.report_period.value = "month"
+        view._report_period_changed(MagicMock())
+        assert view.report_month_navigation.visible and not view.report_range.visible
+        assert not view.report_error.visible
+        assert view.report_start.occurred.value == "10/"
+        assert view._report_dates() == (date(2024, 4, 1), date(2024, 4, 30))
+
+        view.report_period.value = "previous_month"
+        view._report_period_changed(MagicMock())
+        assert view._report_dates() == (date(2024, 4, 1), date(2024, 4, 30))
+        view._report_previous_month(MagicMock())
+        assert view._report_dates() == (date(2024, 3, 1), date(2024, 3, 31))
+        view.report_period.value = "current_month"
+        view._report_period_changed(MagicMock())
+        assert view._report_dates() == (date(2024, 5, 1), today[0])
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("month,offset", [(date.min, -1), (date(9999, 12, 1), 1)])
+def test_overview_month_boundary_errors_preserve_period_and_show_warning(
+    monkeypatch: pytest.MonkeyPatch, month: date, offset: int
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+    view = FinanceView()
+    view.report_month = month
+    view.report_period.value = "month"
+    view._render_reports()
+    assert view.report_previous.disabled == (offset == -1)
+    assert view.report_next.disabled == (offset == 1)
+    assert (
+        view.report_month_label.value == f"{view.tr(f'date_month_{month.month:02}')} {month.year}"
+    )
+    unavailable = view.report_summary.controls[0]
+    assert isinstance(unavailable, ft.Text)
+    assert unavailable.value == view.tr("report_unavailable")
+    view._report_step_month(offset)
+    assert view.report_month == month and view.report_period.value == "month"
+    assert view.report_error.visible and view.report_error.value == view.tr("report_date_range")
+    page.update.assert_called()
+
+
+def test_overview_month_navigation_updates_inclusive_ledger_totals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(FinanceView, "_today", lambda _: date(2026, 1, 31))
+        page = MagicMock(spec=ft.Page)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view = FinanceView()
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME), today=lambda: date(2026, 1, 31))
+        await journal.load()
+        journal.ledger = report_ledger()
+        view.journal = journal
+        view._render_reports()
+        january = view._report_data
+        assert january is not None and january.currencies[1].expenses == Decimal("-3")
+        view._report_next_month(MagicMock())
+        february = view._report_data
+        assert february is not None and february.currencies[0].expenses == Decimal("500")
+        assert view._report_range == (date(2026, 2, 1), date(2026, 2, 28))
+        view._report_previous_month(MagicMock())
+        assert view._report_data == january
+        view._report_previous_month(MagicMock())
+        december = view._report_data
+        assert december is not None and december.currencies[0].income == Decimal("500")
+        assert view._report_range == (date(2025, 12, 1), date(2025, 12, 31))
 
     asyncio.run(scenario())
 

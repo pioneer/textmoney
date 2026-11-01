@@ -43,6 +43,7 @@ from app.domain.reporting import (
     currency_totals,
     period_bounds,
     period_report,
+    shift_month,
 )
 from app.domain.storage import ConflictError
 from app.icons import IconAsset, IconError, IconStore
@@ -235,6 +236,17 @@ class FinanceView(ft.Row):
             value="current_month",
             on_select=self._report_period_changed,
         )
+        self.report_month: date | None = None
+        self.report_previous = ft.IconButton(
+            icon=ft.Icons.CHEVRON_LEFT, on_click=self._report_previous_month
+        )
+        self.report_next = ft.IconButton(
+            icon=ft.Icons.CHEVRON_RIGHT, on_click=self._report_next_month
+        )
+        self.report_month_label = ft.Text(expand=True, text_align=ft.TextAlign.CENTER)
+        self.report_month_navigation = ft.Row(
+            [self.report_previous, self.report_month_label, self.report_next]
+        )
         self.report_start = DateTimeFields(
             self.language,
             self.system_zone,
@@ -268,6 +280,7 @@ class FinanceView(ft.Row):
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
             controls=[
                 ft.Row([self.report_period]),
+                self.report_month_navigation,
                 self.report_range,
                 self.report_error,
                 self.report_summary,
@@ -575,13 +588,7 @@ class FinanceView(ft.Row):
             ],
         ]
         self.language_choice.value = self.language if self.manual_language else "system"
-        self.report_period.label = self.tr("report_period")
-        self.report_period.options = [
-            ft.DropdownOption(key="current_month", text=self.tr("report_current_month")),
-            ft.DropdownOption(key="previous_month", text=self.tr("report_previous_month")),
-            ft.DropdownOption(key="current_year", text=self.tr("report_current_year")),
-            ft.DropdownOption(key="custom", text=self.tr("report_custom_range")),
-        ]
+        self._sync_report_period()
         self.report_start.set_language(self.language)
         self.report_end.set_language(self.language)
         self.report_start.occurred.label = self.tr("report_start_date")
@@ -1008,30 +1015,74 @@ class FinanceView(ft.Row):
         if self.current_screen == "reports":
             self._render_reports()
 
+    def _sync_report_period(self) -> None:
+        self.report_period.label = self.tr("report_period")
+        self.report_period.options = [
+            ft.DropdownOption(key="current_month", text=self.tr("report_current_month")),
+            ft.DropdownOption(key="previous_month", text=self.tr("report_previous_month")),
+            *(
+                [
+                    ft.DropdownOption(
+                        key="month",
+                        text=(
+                            f"{self.tr(f'date_month_{self.report_month.month:02}')} "
+                            f"{self.report_month.year}"
+                        ),
+                    )
+                ]
+                if self.report_month is not None
+                else []
+            ),
+            ft.DropdownOption(key="current_year", text=self.tr("report_current_year")),
+            ft.DropdownOption(key="custom", text=self.tr("report_custom_range")),
+        ]
+        self.report_previous.tooltip = self.tr("budget_previous")
+        self.report_next.tooltip = self.tr("budget_next")
+        self.report_month_navigation.visible = self.report_period.value in {
+            "current_month",
+            "previous_month",
+            "month",
+        }
+
     def _report_dates(self) -> tuple[date, date]:
         preset = self.report_period.value or "current_month"
         if preset == "custom":
             start = date.fromisoformat(self.report_start.values()[0])
             end = date.fromisoformat(self.report_end.values()[0])
             return start, end
+        if preset == "month":
+            if self.report_month is None:
+                raise LedgerError("report_date_range")
+            today = self._today()
+            if self.report_month == today.replace(day=1):
+                return period_bounds("current_month", today)
+            return period_bounds("month", self.report_month)
         return period_bounds(preset, self._today())
 
     def _render_reports(self) -> None:
+        self._sync_report_period()
         self.report_range.visible = self.report_period.value == "custom"
         self.report_error.visible = False
         self.report_error.value = ""
-        if self.journal is None or not self.journal.ready:
-            self.report_summary.controls = [ft.Text(self.tr("report_unavailable"))]
-            self.report_categories.controls = []
-            return
         try:
             start, end = self._report_dates()
             if end < start:
                 raise LedgerError("report_date_range")
+            if self.report_month_navigation.visible:
+                self.report_month_label.value = (
+                    f"{self.tr(f'date_month_{start.month:02}')} {start.year}"
+                )
+                self.report_previous.disabled = start == date.min
+                self.report_next.disabled = start == date(9999, 12, 1)
         except LedgerError as exc:
             self.report_error.value = localized_error(self.language, str(exc))
             self.report_error.visible = True
             self.report_summary.controls = []
+            self.report_categories.controls = []
+            return
+
+        if self.journal is None or not self.journal.ready:
+            self.report_summary.controls = [ft.Text(self.tr("report_unavailable"))]
             self.report_categories.controls = []
             return
 
@@ -1184,6 +1235,26 @@ class FinanceView(ft.Row):
         self._render_reports()
         if self.page:
             self.page.update()
+
+    def _report_step_month(self, offset: int) -> None:
+        if not self.report_month_navigation.visible:
+            return
+        try:
+            self.report_month = shift_month(self._report_dates()[0], offset)
+        except LedgerError as exc:
+            self.report_error.value = localized_error(self.language, str(exc))
+            self.report_error.visible = True
+        else:
+            self.report_period.value = "month"
+            self._render_reports()
+        if self.page:
+            self.page.update()
+
+    def _report_previous_month(self, event: ft.Event[ft.IconButton]) -> None:
+        self._report_step_month(-1)
+
+    def _report_next_month(self, event: ft.Event[ft.IconButton]) -> None:
+        self._report_step_month(1)
 
     def _report_date_changed(self, event: ft.Event[ft.TextField]) -> None:
         if self.report_period.value == "custom":

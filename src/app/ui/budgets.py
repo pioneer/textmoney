@@ -17,6 +17,7 @@ from app.domain.budgets import (
     rows,
 )
 from app.domain.ledger import LedgerError
+from app.domain.reporting import shift_month
 from app.localization import date_input, format_budget_number, format_date, localized_error
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
@@ -372,12 +373,11 @@ class BudgetView(ft.Column):
 
     async def _month(self, offset: int) -> None:
         try:
-            index = self.month.year * 12 + self.month.month - 1 + offset
-            chosen = date(index // 12, index % 12 + 1, 1)
+            chosen = shift_month(self.month, offset)
             if chosen.year > 9998:
-                raise ValueError
+                raise LedgerError("budget_month_error")
             self.month = chosen
-        except ValueError:
+        except LedgerError:
             self.error.value = self.host.tr("budget_month_error")
             self.error.visible = True
             self.host.page.update()

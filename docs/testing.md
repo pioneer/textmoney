@@ -105,6 +105,12 @@ the available horizontal space.
   and desktop widths; Close must stay accessible. Escape/Enter must close
   without writes or backups. Edit/delete/reload the journal and reopen a report
   to verify updated figures and date boundaries.
+- Reports / Overview: month arrows and the localized month label remain visible
+  for monthly periods, disappear for year-to-date/custom, and return when choosing
+  a monthly period. Check year rollover, leap February, Current/Previous month
+  presets, refreshed totals, retained custom drafts and the browsed month after
+  reload, resizing, language changes and switching screens. Current month ends
+  today; other browsed months cover the full month. Check both narrow/desktop widths.
 - Category trees in Accounting, report breakdowns and budget pickers use compact,
   borderless rows. Top-level rows start at the content edge; nested levels
   add 16 logical pixels, without extra leaf indentation. Expandable rows show

@@ -10,6 +10,14 @@ the current month, previous month, year to date, and an inclusive custom date
 range. Changing or reloading the ledger invalidates the small in-memory report
 cache.
 
+The month label and left/right arrows browse calendar months, matching the
+Budgets navigation. They disappear for year-to-date and custom ranges.
+Browsing adds the selected month to the period dropdown; choosing Current month
+or Previous month returns to the corresponding relative preset. The current
+month ends today; other browsed months include their last calendar day.
+The browsed month and custom date drafts survive refreshes, language changes
+and navigation within the app.
+
 Income and expense amounts come from `Income:` and `Expenses:` postings, not
 transaction-kind labels. Income postings are shown as positive values.
 Reimbursements remain expense postings with their recorded date and reduce the

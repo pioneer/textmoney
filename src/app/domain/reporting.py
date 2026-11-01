@@ -1,5 +1,6 @@
 """Currency-safe summaries derived from the validated ledger."""
 
+from calendar import monthrange
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -42,7 +43,17 @@ class PeriodReport:
     unassigned_expenses: tuple[tuple[str, Decimal], ...]
 
 
+def shift_month(day: date, offset: int) -> date:
+    index = day.year * 12 + day.month - 1 + offset
+    try:
+        return date(index // 12, index % 12 + 1, 1)
+    except ValueError as exc:
+        raise LedgerError("report_date_range") from exc
+
+
 def period_bounds(preset: str, today: date) -> tuple[date, date]:
+    if preset == "month":
+        return today.replace(day=1), today.replace(day=monthrange(today.year, today.month)[1])
     if preset == "current_month":
         return today.replace(day=1), today
     if preset == "previous_month":

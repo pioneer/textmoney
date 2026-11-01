@@ -33,13 +33,16 @@ from app.domain.ledger import (
     Posting,
     Transaction,
     cashflow_amounts,
+    draft_movements,
     exchange_values,
     money,
 )
 from app.domain.reporting import (
+    AccountBalance,
     CategoryReport,
     CurrencyReport,
     PeriodReport,
+    account_balances,
     currency_totals,
     period_bounds,
     period_report,
@@ -246,6 +249,22 @@ class FinanceView(ft.Row):
         self.category_list = ft.Column(spacing=4)
         self.category_expansion: dict[str, bool] = {}
         self.history = ft.Column(spacing=0)
+        self.operations_totals_values = ft.Row(spacing=10, tight=True)
+        self.operations_totals_label = ft.Text(
+            size=14, color=ft.Colors.ON_SURFACE_VARIANT, no_wrap=True
+        )
+        self.operations_totals = ft.Container(
+            visible=False,
+            padding=ft.Padding.symmetric(horizontal=14, vertical=10),
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border_radius=12,
+            content=ft.Row(
+                [self.operations_totals_label, self.operations_totals_values],
+                spacing=10,
+                scroll=ft.ScrollMode.AUTO,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+        )
         today = self._today()
         self.report_period = ft.Dropdown(
             expand=True,
@@ -290,6 +309,9 @@ class FinanceView(ft.Row):
         self.report_summary = ft.Column(
             spacing=12, horizontal_alignment=ft.CrossAxisAlignment.STRETCH
         )
+        self.report_balances = ft.Column(
+            spacing=12, horizontal_alignment=ft.CrossAxisAlignment.STRETCH
+        )
         self.report_categories = ft.Column(spacing=16)
         self.report_overview = ft.Column(
             spacing=16,
@@ -300,12 +322,14 @@ class FinanceView(ft.Row):
                 self.report_range,
                 self.report_error,
                 self.report_summary,
-                ft.Container(content=self.report_categories, padding=ft.Padding.only(bottom=96)),
+                self.report_categories,
+                ft.Container(content=self.report_balances, padding=ft.Padding.only(bottom=96)),
             ],
         )
         self._report_ledger: object | None = None
         self._report_range: tuple[date, date] | None = None
         self._report_data: PeriodReport | None = None
+        self._report_balances: tuple[AccountBalance, ...] = ()
         self.budgets = BudgetView(self)
         self.budgets.visible = False
         self.report_tab_bar = ft.TabBar(tabs=[], scrollable=False, secondary=True)
@@ -693,7 +717,7 @@ class FinanceView(ft.Row):
         self.fab.content = self.tr("add_transaction")
         self.fab.disabled = not ready
         self.transactions_screen.controls = [
-            ft.Text(self.tr("transactions_title"), size=21, weight=ft.FontWeight.W_600),
+            self.operations_totals,
             ft.Container(content=self.history, padding=ft.Padding.only(bottom=96)),
         ]
         self.accounts_panel_content.controls = [
@@ -947,6 +971,8 @@ class FinanceView(ft.Row):
             self.account_list.controls = [ft.Text(self.tr("accounts_empty"))]
             self.category_list.controls = [ft.Text(self.tr("categories_empty"))]
             self.history.controls = [ft.Text(self.tr("transactions_empty"))]
+            self.operations_totals.visible = False
+            self.operations_totals_values.controls = []
             self.home_balances.controls = [ft.Text(self.tr("home_no_accounts"))]
             self.home_activity.controls = [ft.Text(self.tr("home_no_transactions"))]
             self._refresh_labels()
@@ -1019,6 +1045,7 @@ class FinanceView(ft.Row):
                 key=lambda item: (currency_order.get(item[0], len(currency_order)), item[0]),
             )
         ] or [ft.Text(self.tr("home_no_accounts"))]
+        self._render_operations_totals(ledger, balances)
         names = {account.id: account.name for account in ledger.accounts}
         names.update({category.id: category.name for category in ledger.categories})
         transactions = sorted(
@@ -1105,22 +1132,28 @@ class FinanceView(ft.Row):
             self.report_error.value = localized_error(self.language, str(exc))
             self.report_error.visible = True
             self.report_summary.controls = []
+            self.report_balances.controls = []
             self.report_categories.controls = []
             return
 
         if self.journal is None or not self.journal.ready:
             self.report_summary.controls = [ft.Text(self.tr("report_unavailable"))]
+            self.report_balances.controls = []
             self.report_categories.controls = []
             return
 
         ledger = self.journal.ledger
         if ledger is not self._report_ledger or (start, end) != self._report_range:
             self._report_data = period_report(ledger, start, end)
+            self._report_balances = account_balances(ledger, start, end)
             self._report_ledger = ledger
             self._report_range = (start, end)
         report = self._report_data
         if report is None:
             raise RuntimeError("Report cache was not initialized.")
+        self.report_balances.controls = self._report_balance_cards(
+            self._report_balances, ledger.operating_currencies
+        )
         if not report.currencies:
             self.report_summary.controls = [ft.Text(self.tr("report_empty_period"))]
             self.report_categories.controls = []
@@ -1192,6 +1225,84 @@ class FinanceView(ft.Row):
                 ),
             )
             for item in report.currencies
+        ]
+
+    def _render_operations_totals(self, ledger: Ledger, balances: dict[str, Decimal]) -> None:
+        totals: dict[str, Decimal] = {}
+        with localcontext() as context:
+            context.prec = 50
+            for account in ledger.accounts:
+                totals[account.currency] = (
+                    totals.get(account.currency, Decimal("0")) + balances[account.id]
+                )
+        order = {currency: index for index, currency in enumerate(ledger.operating_currencies)}
+        self.operations_totals_label.value = self.tr("operations_totals")
+        self.operations_totals_values.controls = [
+            ft.Text(
+                format_amount(amount, self.language, currency),
+                size=15,
+                weight=ft.FontWeight.W_600,
+                no_wrap=True,
+            )
+            for currency, amount in sorted(
+                totals.items(), key=lambda pair: (order.get(pair[0], len(order)), pair[0])
+            )
+        ]
+        self.operations_totals.visible = bool(totals)
+
+    def _report_balance_cards(
+        self, balances: tuple[AccountBalance, ...], operating: tuple[str, ...]
+    ) -> list[ft.Control]:
+        if not balances:
+            return []
+        grouped: dict[str, list[AccountBalance]] = defaultdict(list)
+        for item in balances:
+            grouped[item.currency].append(item)
+        order = {currency: index for index, currency in enumerate(operating)}
+
+        def row(item: AccountBalance) -> ft.Control:
+            change = format_amount(item.change, self.language, item.currency)
+            detail = self.tr(
+                "report_balance_detail",
+                start=format_amount(item.opening, self.language, item.currency),
+                change=f"+{change}" if item.change > 0 else change,
+            )
+            return ft.Column(
+                [
+                    ft.Row(
+                        [
+                            self._entity_label(item.identifier, ft.Text(item.name, expand=True)),
+                            ft.Text(
+                                format_amount(item.closing, self.language, item.currency),
+                                weight=ft.FontWeight.W_500,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
+                    ft.Text(detail, size=12, color=ft.Colors.ON_SURFACE_VARIANT),
+                ],
+                spacing=2,
+            )
+
+        return [
+            ft.Text(self.tr("report_balances"), size=18, weight=ft.FontWeight.W_600),
+            *[
+                ft.Container(
+                    padding=16,
+                    border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+                    border_radius=12,
+                    content=ft.Column(
+                        [
+                            ft.Text(self.tr("currency_group", currency=currency), size=18),
+                            *[row(item) for item in items],
+                        ],
+                        spacing=10,
+                    ),
+                )
+                for currency, items in sorted(
+                    grouped.items(), key=lambda pair: (order.get(pair[0], len(order)), pair[0])
+                )
+            ],
         ]
 
     def _report_category_section(
@@ -3104,6 +3215,17 @@ class FinanceView(ft.Row):
         fee_drafts: dict[str, tuple[bool, str, str | None, str | None, str | None]] = {}
         currencies = {a.id: a.currency for a in journal.ledger.accounts}
         names = {a.id: a.name for a in journal.ledger.accounts}
+        liabilities = {a.id for a in journal.ledger.accounts if a.liability}
+        try:
+            current_balances = journal.ledger.balances(today=journal.today())
+        except LedgerError:
+            current_balances = {}
+        base_balances = dict(current_balances)
+        with localcontext() as context:
+            context.prec = 50
+            for item in transaction.postings if transaction else ():
+                if item.account in base_balances:
+                    base_balances[item.account] -= item.amount
 
         def operation() -> str:
             if sign.selected == ["transfer"]:
@@ -3122,7 +3244,60 @@ class FinanceView(ft.Row):
                 and currencies[account.value] != currencies[destination.value]
             )
 
+        def update_balances() -> None:
+            kind = operation()
+            source_id = account.value or ""
+            target_id = destination.value if kind == "transfer" else None
+            exchange = is_exchange()
+            try:
+                changes = draft_movements(
+                    kind,
+                    source_id,
+                    money(amount.value or ""),
+                    fee=money(fee.value or "0")
+                    if fee_enabled.value and kind in {"expense", "income", "transfer"}
+                    else Decimal("0"),
+                    fee_mode=fee_mode.value or "added",
+                    destination=target_id,
+                    destination_amount=money(received.value or "") if exchange else None,
+                    currencies=(
+                        currencies[source_id],
+                        currencies[target_id],
+                        fee_currency.value or currencies[source_id],
+                    )
+                    if exchange and target_id
+                    else None,
+                )
+            except LedgerError:
+                changes = {}
+            for field, identifier in ((account, source_id), (destination, target_id)):
+                if identifier not in current_balances:
+                    field.helper_text = None
+                    continue
+                currency = currencies[identifier]
+                now = format_amount(current_balances[identifier], self.language, currency)
+                after = None
+                if identifier in changes:
+                    with localcontext() as context:
+                        context.prec = 50
+                        after = base_balances[identifier] + changes[identifier]
+                field.helper_text = (
+                    self.tr("form_balance_now", now=now)
+                    if after is None
+                    else self.tr(
+                        "form_balance",
+                        now=now,
+                        after=format_amount(after, self.language, currency),
+                    )
+                )
+                field.helper_style = (
+                    ft.TextStyle(color=ft.Colors.ERROR)
+                    if after is not None and after < 0 and identifier not in liabilities
+                    else None
+                )
+
         def update_exchange() -> None:
+            update_balances()
             exchange = is_exchange()
             transferring = operation() == "transfer"
             sign_hint.value = self.tr(

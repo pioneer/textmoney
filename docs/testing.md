@@ -111,6 +111,14 @@ the available horizontal space.
   presets, refreshed totals, retained custom drafts and the browsed month after
   reload, resizing, language changes and switching screens. Current month ends
   today; other browsed months cover the full month. Check both narrow/desktop widths.
+- Balances: Reports / Overview ends with period-end balances with start and
+  signed change for every period, including periods without income/expenses,
+  month arrows and custom ranges. Operations shows today's signed per-currency
+  totals. In the transaction form, check `now → after` for expenses and income
+  with added/deducted commissions, transfers, exchanges and edits. The
+  original transaction must not be counted twice. Check the highlighted
+  negative asset result and the current-only value for invalid drafts, at 390px
+  and desktop widths.
 - Shared defaults: publish account and commission branches/default separately,
   synchronize the entire `textmoney-settings/` directory, and test offline
   restart on another device. Check explicit account clearing, folder isolation,
@@ -126,6 +134,8 @@ the available horizontal space.
   an arrow before the title; leaves show only their title, with no arrow space.
   A tree-local list-tile theme narrows the arrow/title gap without changing
   other expansion tiles or the native arrow's behavior.
+  Arrows use the same 16-pixel box and 8-pixel label gap as category icons;
+  check matching horizontal centers and label starts for siblings at each depth.
   Accounting categories and Overview category breakdowns use the same 40-pixel
   row minimum for parents and leaves, with no extra header padding. Measure
   collapsed headers and visible children with/without icons at narrow and

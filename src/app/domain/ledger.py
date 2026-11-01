@@ -174,6 +174,47 @@ def cashflow_amounts(
     return checked_amount(principal), checked_amount(movement)
 
 
+def draft_movements(
+    kind: str,
+    source: str,
+    amount: Decimal,
+    *,
+    fee: Decimal = ZERO,
+    fee_mode: str = "added",
+    destination: str | None = None,
+    destination_amount: Decimal | None = None,
+    currencies: tuple[str, str, str] | None = None,
+) -> dict[str, Decimal]:
+    """Account balance changes a form draft would post, mirroring the Ledger builders.
+
+    ``currencies`` is ``(source, destination, fee)`` and marks an exchange transfer.
+    """
+    checked_amount(amount)
+    checked_amount(fee)
+    if amount <= ZERO or fee < ZERO:
+        raise LedgerError("transfer_amount")
+    if kind == "expense":
+        return {source: -cashflow_amounts(amount, fee, fee_mode, kind)[1]}
+    if kind == "income":
+        return {source: cashflow_amounts(amount, fee, fee_mode, kind)[1]}
+    if kind in {"reimbursement", "adjustment"}:
+        if fee:
+            raise LedgerError("commission_amount")
+        return {source: amount}
+    if kind != "transfer" or destination is None or destination == source:
+        raise LedgerError("transfer_accounts")
+    if currencies is not None:
+        if destination_amount is None:
+            raise LedgerError("transfer_amount")
+        exchange_values(amount, destination_amount, fee, *currencies)
+        return {source: -amount, destination: destination_amount}
+    if fee_mode not in {"added", "deducted"} or (fee_mode == "deducted" and fee >= amount):
+        raise LedgerError("transfer_amount")
+    debit = amount + fee if fee_mode == "added" else amount
+    credit = amount - fee if fee_mode == "deducted" else amount
+    return {source: -checked_amount(debit), destination: checked_amount(credit)}
+
+
 @dataclass(frozen=True)
 class TransferDetails:
     source: Posting

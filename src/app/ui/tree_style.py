@@ -2,14 +2,20 @@
 
 import flet as ft
 
+from app.icons import DISPLAY_SIZE
+
 TREE_ROW_HEIGHT = 40
 
 
 def compact_tree_theme() -> ft.Theme:
     return ft.Theme(
+        icon_theme=ft.IconTheme(size=DISPLAY_SIZE),
         list_tile_theme=ft.ListTileTheme(
-            horizontal_spacing=8, min_leading_width=24, min_vertical_padding=0
-        )
+            # COMPACT density subtracts 4, leaving the entity label's 8-pixel gap.
+            horizontal_spacing=12,
+            min_leading_width=DISPLAY_SIZE,
+            min_vertical_padding=0,
+        ),
     )
 
 

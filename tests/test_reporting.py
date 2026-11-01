@@ -8,8 +8,17 @@ from unittest.mock import MagicMock
 import flet as ft
 import pytest
 
-from app.domain.ledger import EPOCH, Category, Ledger, LedgerError, Posting, Transaction
-from app.domain.reporting import period_bounds, period_report, shift_month
+from app.domain.ledger import (
+    EPOCH,
+    ZERO,
+    Account,
+    Category,
+    Ledger,
+    LedgerError,
+    Posting,
+    Transaction,
+)
+from app.domain.reporting import account_balances, period_bounds, period_report, shift_month
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import date_input
@@ -145,6 +154,66 @@ def report_ledger() -> Ledger:
         ),
     )
     return Ledger(categories=categories, transactions=transactions)
+
+
+JANUARY = (date(2026, 1, 1), date(2026, 1, 31))
+
+
+def balance_ledger() -> Ledger:
+    accounts = (
+        Account("Assets:Bank", "Bank", "UAH", EPOCH),
+        Account("Assets:Cash", "Cash", "UAH", EPOCH),
+        Account("Assets:Euro", "Euro", "EUR", EPOCH),
+        Account("Liabilities:Loan", "Loan", "UAH", EPOCH),
+        Account("Assets:Old", "Old", "UAH", EPOCH, active=False),
+        Account("Assets:Closed", "Closed", "UAH", EPOCH, active=False),
+        Account("Assets:Future", "Future", "UAH", date(2026, 2, 1)),
+    )
+    return replace(report_ledger(), accounts=accounts)
+
+
+def test_account_balances_split_opening_inclusive_change_and_closing() -> None:
+    result = {item.identifier: item for item in account_balances(balance_ledger(), *JANUARY)}
+
+    assert list(result) == ["Assets:Bank", "Assets:Cash", "Assets:Euro", "Liabilities:Loan"]
+    bank = result["Assets:Bank"]
+    assert (bank.opening, bank.change, bank.closing) == (
+        Decimal("500"),
+        Decimal("-62"),
+        Decimal("438"),
+    )
+    cash = result["Assets:Cash"]
+    assert (cash.opening, cash.change, cash.closing) == (ZERO, Decimal("186"), Decimal("186"))
+    euro = result["Assets:Euro"]
+    assert (euro.currency, euro.change) == ("EUR", Decimal("4"))
+    assert result["Liabilities:Loan"].closing == Decimal("20")
+
+
+def test_account_balances_hide_idle_inactive_and_unopened_accounts() -> None:
+    ledger = balance_ledger()
+    ledger = replace(
+        ledger,
+        transactions=(
+            *ledger.transactions,
+            transaction(
+                "old-funds",
+                date(2025, 6, 1),
+                posting("Assets:Old", "7"),
+                posting("Equity:Opening-Balances", "-7"),
+                kind="opening",
+            ),
+        ),
+    )
+    january = {item.identifier for item in account_balances(ledger, *JANUARY)}
+    february = {
+        item.identifier for item in account_balances(ledger, date(2026, 2, 1), date(2026, 2, 28))
+    }
+
+    assert "Assets:Closed" not in january and "Assets:Future" not in january
+    assert "Assets:Old" in january
+    assert "Assets:Future" in february
+    with pytest.raises(LedgerError):
+        account_balances(ledger, date(2026, 2, 1), date(2026, 1, 31))
 
 
 def test_period_report_applies_accounting_dates_reimbursements_and_currency_rules() -> None:
@@ -478,8 +547,9 @@ def test_report_category_tree_is_compact_borderless_and_has_no_root_indent(
         assert isinstance(card, ft.Container) and isinstance(card.content, ft.Column)
         assert card.theme is not None
         assert card.theme.list_tile_theme == ft.ListTileTheme(
-            horizontal_spacing=8, min_leading_width=24, min_vertical_padding=0
+            horizontal_spacing=12, min_leading_width=16, min_vertical_padding=0
         )
+        assert card.theme.icon_theme == ft.IconTheme(size=16)
         expenses = card.content.controls[1]
         assert isinstance(expenses, ft.Column) and expenses.spacing == 0
         heading, bank_fees, food = expenses.controls
@@ -551,7 +621,7 @@ def test_reports_keep_scroll_clearance_for_floating_action(
                 )
             listing = view.report_overview.controls[-1]
             assert isinstance(listing, ft.Container)
-            assert listing.content is view.report_categories
+            assert listing.content is view.report_balances
             assert listing.padding == ft.Padding.only(bottom=96)
             assert view.body.scroll == ft.ScrollMode.AUTO
             assert page.floating_action_button is view.fab

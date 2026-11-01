@@ -10,6 +10,7 @@ import pytest
 from form_controls import change, click, transaction_form
 
 from app.domain.ledger import Category
+from app.icons import DISPLAY_SIZE
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import translate
@@ -42,8 +43,9 @@ def test_income_expense_sections_have_equal_layout_and_nested_actions(language: 
     view.language = language
     assert view.categories_panel.theme is not None
     assert view.categories_panel.theme.list_tile_theme == ft.ListTileTheme(
-        horizontal_spacing=8, min_leading_width=24, min_vertical_padding=0
+        horizontal_spacing=12, min_leading_width=DISPLAY_SIZE, min_vertical_padding=0
     )
+    assert view.categories_panel.theme.icon_theme == ft.IconTheme(size=DISPLAY_SIZE)
     assert view.accounts_panel.theme is None
     categories = (
         Category("Expenses:Food", "Їжа", date(1970, 1, 1)),
@@ -68,6 +70,7 @@ def test_income_expense_sections_have_equal_layout_and_nested_actions(language: 
         assert parent.dense and parent.min_tile_height == 40
         assert parent.tile_padding == 0
         assert parent.affinity == ft.TileAffinity.LEADING
+        assert parent.leading is None
         assert parent.shape == parent.collapsed_shape == ft.RoundedRectangleBorder()
         assert not parent.expanded
         assert label(parent).value == category.name

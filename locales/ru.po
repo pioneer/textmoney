@@ -1170,6 +1170,26 @@ msgstr "Расходы"
 msgid "ui.report_net"
 msgstr "Итог"
 
+#. Stable TextMoney key: ui.report_balances; do not translate this identifier.
+msgid "ui.report_balances"
+msgstr "Остатки на конец периода"
+
+#. Stable TextMoney key: ui.report_balance_detail; do not translate this identifier.
+msgid "ui.report_balance_detail"
+msgstr "Начало {start} · изменение {change}"
+
+#. Stable TextMoney key: ui.form_balance; do not translate this identifier.
+msgid "ui.form_balance"
+msgstr "Остаток: {now} → {after}"
+
+#. Stable TextMoney key: ui.form_balance_now; do not translate this identifier.
+msgid "ui.form_balance_now"
+msgstr "Остаток: {now}"
+
+#. Stable TextMoney key: ui.operations_totals; do not translate this identifier.
+msgid "ui.operations_totals"
+msgstr "Остаток"
+
 #. Stable TextMoney key: ui.report_expense_categories; do not translate this identifier.
 msgid "ui.report_expense_categories"
 msgstr "Расходы по категориям"
@@ -1420,11 +1440,6 @@ msgstr "Здесь появятся последние операции."
 #. Stable TextMoney key: ui.currency_group; do not translate this identifier.
 msgid "ui.currency_group"
 msgstr "В валюте {currency}"
-
-#. Stable TextMoney key: ui.transactions_title; do not translate this
-#. identifier.
-msgid "ui.transactions_title"
-msgstr "Операции"
 
 #. Stable TextMoney key: ui.transactions_empty; do not translate this
 #. identifier.

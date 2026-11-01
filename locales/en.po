@@ -1168,6 +1168,26 @@ msgstr "Expenses"
 msgid "ui.report_net"
 msgstr "Net result"
 
+#. Stable TextMoney key: ui.report_balances; do not translate this identifier.
+msgid "ui.report_balances"
+msgstr "Account balances at period end"
+
+#. Stable TextMoney key: ui.report_balance_detail; do not translate this identifier.
+msgid "ui.report_balance_detail"
+msgstr "Start {start} · change {change}"
+
+#. Stable TextMoney key: ui.form_balance; do not translate this identifier.
+msgid "ui.form_balance"
+msgstr "Balance: {now} → {after}"
+
+#. Stable TextMoney key: ui.form_balance_now; do not translate this identifier.
+msgid "ui.form_balance_now"
+msgstr "Balance: {now}"
+
+#. Stable TextMoney key: ui.operations_totals; do not translate this identifier.
+msgid "ui.operations_totals"
+msgstr "Balance"
+
 #. Stable TextMoney key: ui.report_expense_categories; do not translate this identifier.
 msgid "ui.report_expense_categories"
 msgstr "Expenses by category"
@@ -1417,11 +1437,6 @@ msgstr "Your recent activity will appear here."
 #. Stable TextMoney key: ui.currency_group; do not translate this identifier.
 msgid "ui.currency_group"
 msgstr "In {currency}"
-
-#. Stable TextMoney key: ui.transactions_title; do not translate this
-#. identifier.
-msgid "ui.transactions_title"
-msgstr "Transactions"
 
 #. Stable TextMoney key: ui.transactions_empty; do not translate this
 #. identifier.

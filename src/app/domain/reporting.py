@@ -43,6 +43,46 @@ class PeriodReport:
     unassigned_expenses: tuple[tuple[str, Decimal], ...]
 
 
+@dataclass(frozen=True)
+class AccountBalance:
+    identifier: str
+    name: str
+    currency: str
+    opening: Decimal
+    change: Decimal
+
+    @property
+    def closing(self) -> Decimal:
+        with localcontext() as context:
+            context.prec = 50
+            return self.opening + self.change
+
+
+def account_balances(ledger: Ledger, start: date, end: date) -> tuple[AccountBalance, ...]:
+    """Per-account balance before ``start``, inclusive change, and balance after ``end``."""
+    if end < start:
+        raise LedgerError("report_date_range")
+    accounts = {account.id: account for account in ledger.accounts if account.opened <= end}
+    opening = dict.fromkeys(accounts, ZERO)
+    change = dict.fromkeys(accounts, ZERO)
+    with localcontext() as context:
+        context.prec = 50
+        for transaction in ledger.transactions:
+            if transaction.date > end:
+                continue
+            target = opening if transaction.date < start else change
+            for posting in transaction.postings:
+                if posting.account in accounts:
+                    target[posting.account] += posting.amount
+    return tuple(
+        AccountBalance(
+            account.id, account.name, account.currency, opening[account.id], change[account.id]
+        )
+        for account in sorted(accounts.values(), key=lambda item: (item.name, item.id))
+        if account.active or opening[account.id] or change[account.id]
+    )
+
+
 def shift_month(day: date, offset: int) -> date:
     index = day.year * 12 + day.month - 1 + offset
     try:

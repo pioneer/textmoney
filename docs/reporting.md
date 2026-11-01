@@ -40,6 +40,27 @@ The report is an operational summary, not a full accounting statement. It does
 not calculate FX gains/losses, historical valuations, or balances in a reporting
 currency.
 
+## Account balances
+
+Overview ends with every account that is open by the period end, grouped by
+account currency in operating-currency order. Each row shows the balance at the
+period end, with the balance before the first day and the signed change within
+the inclusive range underneath. The list stays visible for periods without
+income or expenses. Inactive accounts appear only when they had a balance or a
+movement. Liabilities use their signed Beancount balances, as on Home.
+
+Operations starts with a one-line strip of today's total balance per currency:
+the signed sum of all account balances, so liabilities reduce it. Amounts in
+different currencies are never combined; the line scrolls horizontally when it
+does not fit.
+
+While creating or editing a transaction, each selected account shows
+`Balance: now → after`. The after value applies the draft with the same
+commission and exchange rules as the journal builders. When editing, the
+original transaction is excluded first. It shows only the current balance until
+the draft is valid. A negative asset result is highlighted. Saving remains
+allowed, as with other negative-balance warnings.
+
 ## Daily Operations summaries
 
 Below each date in Operations, a compact clickable block shows **net expenses**

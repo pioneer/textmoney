@@ -223,7 +223,9 @@ def test_catalog_validation_rejects_invalid_metadata_and_placeholders(
     with pytest.raises(ValueError, match="placeholder mismatch"):
         locale_tools.validate_catalogs(tmp_path)
 
-    russian.write_text(russian_text.replace('"Language: ru\\n"', '"Language: xx\\n"', 1))
+    russian.write_text(
+        russian_text.replace('"Language: ru\\n"', '"Language: xx\\n"', 1), encoding="utf-8"
+    )
     with pytest.raises(ValueError, match="Language metadata"):
         locale_tools.validate_catalogs(tmp_path)
 

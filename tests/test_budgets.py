@@ -529,6 +529,7 @@ console.log(JSON.stringify(cases.map(({value, precision, locale}) => {
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
         ).stdout
     )
     for case, target in zip(cases, expected, strict=True):

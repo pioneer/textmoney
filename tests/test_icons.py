@@ -72,6 +72,19 @@ def test_unsuitable_raster_dimensions_are_hidden(dimensions: tuple[int, int]) ->
         b'<!DOCTYPE svg [<!ENTITY x "x">]>' + SVG,
         SVG.replace(b"0 0 24 24", b"0 0 NaN 24"),
     ],
+    ids=[
+        "not-an-image",
+        "oversized-input",
+        "wide-svg",
+        "missing-viewbox",
+        "script",
+        "external-image",
+        "external-fill",
+        "event-handler",
+        "foreign-object",
+        "doctype-entity",
+        "non-finite-viewbox",
+    ],
 )
 def test_invalid_or_active_images_are_rejected(data: bytes) -> None:
     with pytest.raises(IconError):

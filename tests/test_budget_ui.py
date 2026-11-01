@@ -56,7 +56,7 @@ def view(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]:
 
 
 async def load(view: FinanceView, tmp_path: Path, source: str = SOURCE) -> Journal:
-    (tmp_path / FILENAME).write_text(source)
+    (tmp_path / FILENAME).write_text(source, encoding="utf-8")
     journal = Journal(DesktopFolder(str(tmp_path), FILENAME), today=lambda: date(2026, 12, 31))
     await journal.load()
     view.journal = journal
@@ -545,7 +545,9 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         host.language = language
         journal = await load(host, tmp_path)
         if display_name != "Groceries":
-            (tmp_path / FILENAME).write_text(SOURCE.replace('"Groceries"', f'"{display_name}"'))
+            (tmp_path / FILENAME).write_text(
+                SOURCE.replace('"Groceries"', f'"{display_name}"'), encoding="utf-8"
+            )
             await journal.poll()
             await host.budgets.refresh()
         budget = journal.ledger.budgets[0]

@@ -6,6 +6,9 @@ preserves command failure status. `uv run inv format` formats Python source;
 catalog compilation writes generated MO files, not maintained PO translations.
 Pytest bounds each test to 120 seconds and reports thread stacks on a timeout,
 so a stalled test fails explicitly instead of exhausting the CI job deadline.
+Use short descriptive parameter IDs for image/binary fixtures: pytest includes
+them in `PYTEST_CURRENT_TEST`, where large payloads can exceed Windows limits
+and flood failure reports. Text fixtures and subprocess decoding use explicit UTF-8.
 Run individual Invoke tasks to iterate. Pass focused pytest selectors through
 `PYTEST_ADDOPTS`, using your shell's environment-variable syntax, for example on
 POSIX shells:

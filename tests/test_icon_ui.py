@@ -297,14 +297,17 @@ def test_busy_save_disables_escape_and_duplicate_submission(
         picker = IconPicker(session.page, "en", asset(), IconifySearch(), save)
         show_dialog(session.page, picker)
         task = asyncio.create_task(click_async(picker.submit))
-        await started.wait()
-        assert picker.cancel.disabled and picker.submit.disabled
-        await press(session)
-        assert picker.open
-        await click_async(picker.submit)
-        save.assert_awaited_once()
-        release.set()
-        await task
+        try:
+            async with asyncio.timeout(10):
+                await started.wait()
+                assert picker.cancel.disabled and picker.submit.disabled
+                await press(session)
+                assert picker.open
+                await click_async(picker.submit)
+                save.assert_awaited_once()
+        finally:
+            release.set()
+            await task
         assert not picker.open
 
     asyncio.run(scenario())

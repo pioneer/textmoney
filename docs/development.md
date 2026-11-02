@@ -224,23 +224,32 @@ uv run inv release --version X.Y.Z
 Replace `X.Y.Z` with a new stable version, for example `0.3.7`. This is an
 explicit publication command: it updates `[project].version` and the Android
 build number in `pyproject.toml`, refreshes `uv.lock` offline, runs
-`uv run inv check`, commits those two files, creates an annotated `vX.Y.Z` tag,
-and atomically pushes `main` and that tag to `origin`. It waits for the exact
-release workflow run and reports its result. The requested version must exceed
-the current project version and listed published stable versions. The build
-number increases beyond both the current and prior stable release's code.
+`uv run inv check`, commits those two files, and pushes `main` to `origin`.
+It dispatches the release workflow with the full candidate commit SHA and version,
+waits for that exact candidate's run, and reports its result. There is **no final
+tag during checks or platform builds**. CI creates the annotated `vX.Y.Z` tag
+only after all builds and uploaded artifact digests have been verified.
+The requested version must exceed published stable versions. It may equal the
+current project version when retrying an unpublished candidate. A new version
+increases the Android build number beyond both the current and prior stable
+release's code; corrected candidates retain the same version and build number.
 
 The local prerequisites are Git, uv, the locked development dependencies
 (`uv run inv setup`), and GitHub CLI authenticated with permission to push
-`main`/release tags and read Actions (`gh auth login`). The local command does
+`main` and dispatch/read Actions (`gh auth login`). The publication job creates
+the final tag using its existing contents-write permission. The local command does
 not compile platform binaries: no Flutter, Visual Studio, Java or Android SDK
-is needed locally. Branch protection must allow the release commit/tag push;
+is needed locally. Branch protection must allow the release commit push and
+tag rules must allow CI publication;
 the command never bypasses protection or force-pushes. Commit and push any
 release notes or application changes before running it.
 
 The [All-platform release workflow](../.github/workflows/release.yml) runs:
 
-1. Exact tag/version/commit and increasing Android build-number validation.
+1. Exact candidate/version/commit and increasing Android build-number validation.
+   The workflow is manually dispatched, not triggered by a tag push; its run
+   title records both version and full source SHA. Every build checks out that
+   SHA, even if `main` advances after dispatch. The candidate must belong to `main`.
 2. Format, lint, Pyright and tests on Linux Python 3.13/3.14 and Windows
    Python 3.13, plus the existing Beancount compatibility checks.
 3. Parallel builds from that same commit:
@@ -253,8 +262,10 @@ The [All-platform release workflow](../.github/workflows/release.yml) runs:
      same-version reinstall, responsive-window startup and uninstall checks.
 4. A publication job with release-write permission, only after all three
    platform jobs succeed. It creates a draft, uploads the five binaries and
-   `SHA256SUMS`, checks GitHub's uploaded SHA-256 digests, then publishes the
-   complete release as latest. Existing assets are never replaced. A failed
+   `SHA256SUMS`, checks GitHub's uploaded SHA-256 digests, creates the final
+   annotated tag at the candidate SHA, then publishes the complete release as
+   latest. The draft's target is the full candidate SHA, never a moving branch.
+   Existing assets and final tags are never replaced. A failed
    build cannot publish a partial release; an upload/verification failure
    leaves any created draft unpublished.
    Draft metadata is resolved through GitHub CLI and then read by numeric release
@@ -279,24 +290,47 @@ Release workflows share a concurrency group so different versions cannot race
 to publish as latest. Do not queue several releases at once: GitHub may replace
 an older pending run with a newer pending run.
 
-After a pushed tag's CI/network failure, inspect Actions and reconnect with:
+After a candidate's CI/network failure, inspect Actions. To retry failed jobs
+without changing code, or reconnect to a run still in progress:
 
 ```sh
 uv run inv release --version X.Y.Z --resume
 ```
 
-Resume requires the matching version/tag commit at synchronized `main`. It does
+Resume requires the matching candidate commit at synchronized `main`. It does
 not increment versions, create another commit/tag, or push. It watches the exact
 existing run and reruns failed jobs if the run has completed unsuccessfully.
 Successful jobs/artifacts are retained. A draft can resume uploading only when
-its existing assets have identical digests. If code must change to fix a failed
-build, use a new version/tag; never move an existing release tag.
+its target SHA and existing asset digests match. If publication already completed
+but the client lost its connection, resume verifies the published assets and tag
+instead of rebuilding an already published version.
+
+If code or workflow changes are needed, commit and push those fixes, then run:
+
+```sh
+uv run inv release --version X.Y.Z
+```
+
+Use the **same unpublished version**, without `--resume`. This runs local checks
+and dispatches a fresh candidate from the corrected commit, without another
+version/build-number change or release commit. The previous run must have finished
+or been cancelled first. Successful binaries from an older candidate are not mixed
+with the corrected source: the new candidate rebuilds every platform.
+
+An interrupted publication may leave an unpublished draft. Resume that exact
+candidate first. If it must be replaced with corrected code, inspect and explicitly
+delete **only the unpublished draft** before starting the corrected candidate;
+the tool never deletes drafts or overwrites assets automatically. If a final tag
+already exists, it is retained: resume that publication rather than moving its tag.
+Published releases always require a new version for subsequent changes.
+Old gaps in release numbering are historical; this does not rewrite existing tags.
 
 Failures before the push leave local edits, commits or tags intact for explicit
-inspection; there is no automatic reset, deletion or rollback. `--resume` is
-only for tags already pushed successfully. If the push failed, resolve the
-reported problem and inspect/push the prepared commit and tag explicitly before
-resuming. Do not rerun without inspecting a possibly completed publication.
+inspection; there is no automatic reset, deletion or rollback. If the version
+commit push failed, inspect/push it explicitly. If dispatch failed before a run
+was created, repeat the same-version command after inspecting Actions; if a run
+already exists, use `--resume`. Do not choose a new version merely to recover
+from failed checks, builds, or dispatch/network problems.
 
 CI compilation/startup checks are not physical-device certification or a full
 interactive GUI test. Test install/update, folder selection, journal CRUD,

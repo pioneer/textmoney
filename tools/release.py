@@ -24,7 +24,15 @@ class ReleaseMetadata(TypedDict):
     tag_name: str
     draft: bool
     prerelease: bool
+    target_commitish: str
     assets: list[ReleaseAsset]
+
+
+class CandidateRun(TypedDict):
+    databaseId: int
+    displayTitle: str
+    status: str
+    conclusion: str
 
 
 def run(root: Path, *args: str) -> str:
@@ -100,33 +108,63 @@ def replace_setting(source: str, section: str, key: str, value: str) -> str:
     return source[: match.start(2)] + body + source[match.end(2) :]
 
 
+def candidate_title(tag: str, sha: str) -> str:
+    return f"Release {tag} at {sha}"
+
+
+def candidate_runs(root: Path, repo: str) -> list[CandidateRun]:
+    return json.loads(
+        run(
+            root,
+            "gh",
+            "run",
+            "list",
+            "--repo",
+            repo,
+            "--workflow",
+            "release.yml",
+            "--event",
+            "workflow_dispatch",
+            "--json",
+            "databaseId,displayTitle,status,conclusion",
+            "--limit",
+            "100",
+        )
+    )
+
+
+def remote_tag_sha(root: Path, tag: str) -> str | None:
+    refs = dict(
+        (ref, sha)
+        for sha, ref in (
+            line.split()
+            for line in run(
+                root, "git", "ls-remote", "origin", f"refs/tags/{tag}", f"refs/tags/{tag}^{{}}"
+            ).splitlines()
+        )
+    )
+    return refs.get(f"refs/tags/{tag}^{{}}", refs.get(f"refs/tags/{tag}"))
+
+
+def validate_candidate(root: Path, sha: str) -> None:
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise RuntimeError("The candidate must identify a full commit SHA.")
+    if run(root, "git", "rev-parse", "HEAD") != sha:
+        raise RuntimeError("The checkout must match the exact candidate commit.")
+    run(root, "git", "merge-base", "--is-ancestor", sha, "origin/main")
+
+
 def wait_for_release(root: Path, repo: str, tag: str, sha: str, *, resume: bool) -> None:
     for _ in range(30):
-        runs = json.loads(
-            run(
-                root,
-                "gh",
-                "run",
-                "list",
-                "--repo",
-                repo,
-                "--workflow",
-                "release.yml",
-                "--event",
-                "push",
-                "--commit",
-                sha,
-                "--json",
-                "databaseId,headSha,status,conclusion",
-                "--limit",
-                "10",
-            )
-        )
-        matches = [item for item in runs if item["headSha"] == sha]
+        matches = [
+            item
+            for item in candidate_runs(root, repo)
+            if item["displayTitle"] == candidate_title(tag, sha)
+        ]
         if matches:
             if len(matches) != 1:
                 raise RuntimeError(
-                    "Multiple release runs match this commit; inspect GitHub Actions."
+                    "Multiple candidate runs match this version/commit; inspect GitHub Actions."
                 )
             workflow = matches[0]
             break
@@ -140,6 +178,10 @@ def wait_for_release(root: Path, repo: str, tag: str, sha: str, *, resume: bool)
     if resume and workflow["status"] == "completed" and workflow["conclusion"] != "success":
         run(root, "gh", "run", "rerun", run_id, "--failed", "--repo", repo)
     run(root, "gh", "run", "watch", run_id, "--repo", repo, "--exit-status", "--interval", "15")
+    verify_publication(root, repo, tag, sha)
+
+
+def verify_publication(root: Path, repo: str, tag: str, sha: str) -> None:
     result = json.loads(
         run(
             root,
@@ -159,6 +201,7 @@ def wait_for_release(root: Path, repo: str, tag: str, sha: str, *, resume: bool)
         or result["isDraft"]
         or result["isPrerelease"]
         or {item["name"] for item in result["assets"]} != expected
+        or remote_tag_sha(root, tag) != sha
     ):
         raise RuntimeError("CI finished without the expected complete published release.")
     print(f"Published all three platforms: {result['url']}", flush=True)
@@ -196,18 +239,6 @@ def start_release(
     project_path = root / "pyproject.toml"
     source = project_path.read_text(encoding="utf-8")
     project = tomllib.loads(source)
-    if resume:
-        if project["project"]["version"] != version:
-            raise RuntimeError("Resume requires the matching release version checked out on main.")
-        if run(root, "git", "rev-parse", f"refs/tags/{tag}^{{commit}}") != sha:
-            raise RuntimeError("The release tag must identify the current main commit.")
-        remote = run(root, "git", "ls-remote", "origin", f"refs/tags/{tag}^{{}}")
-        if remote.split()[:1] != [sha]:
-            raise RuntimeError("The annotated release tag is not present on origin at this commit.")
-        wait_for_release(root, repo, tag, sha, resume=True)
-        return
-    if requested <= version_numbers(project["project"]["version"]):
-        raise RuntimeError("The release version must be newer than the current project version.")
     latest = json.loads(
         run(
             root,
@@ -222,33 +253,66 @@ def start_release(
             "tagName,isDraft,isPrerelease",
         )
     )
+    if resume:
+        if project["project"]["version"] != version:
+            raise RuntimeError("Resume requires the matching release version checked out on main.")
+        if any(item["tagName"] == tag and not item["isDraft"] for item in latest):
+            verify_publication(root, repo, tag, sha)
+            return
+        if not any(
+            item["displayTitle"] == candidate_title(tag, sha) for item in candidate_runs(root, repo)
+        ):
+            raise RuntimeError(
+                "No candidate run matches the current commit. After committing fixes, "
+                "run release with the same version without --resume."
+            )
+        wait_for_release(root, repo, tag, sha, resume=True)
+        return
+    current = version_numbers(project["project"]["version"])
+    if requested < current:
+        raise RuntimeError("The release version cannot be older than the current project version.")
     for release in latest:
         if release["tagName"] == tag:
-            raise RuntimeError("A release with this tag already exists; inspect it instead.")
+            raise RuntimeError(
+                "A release with this tag already exists; inspect it instead. "
+                "Use --resume for the same candidate's interrupted draft. An unpublished "
+                "draft from a different commit needs explicit removal before retrying."
+            )
         if (
             not release["isDraft"]
             and not release["isPrerelease"]
             and requested <= version_numbers(release["tagName"].removeprefix("v"))
         ):
             raise RuntimeError("The version must be newer than all listed stable releases.")
-    if run(root, "git", "tag", "--list", tag):
+    if run(root, "git", "tag", "--list", tag) or remote_tag_sha(root, tag):
         raise RuntimeError(
-            "The release tag already exists; use --resume for an interrupted release."
+            "The release tag already exists; use --resume for an interrupted publication. "
+            "Existing final tags are never moved."
         )
-    next_build = max(project["tool"]["flet"]["build_number"], previous_build(tag)) + 1
+    runs = candidate_runs(root, repo)
+    if any(item["status"] != "completed" for item in runs):
+        raise RuntimeError("A release candidate is still active; wait or resume it first.")
+    if any(item["displayTitle"] == candidate_title(tag, sha) for item in runs):
+        raise RuntimeError("This candidate already ran; use --resume to retry its failed jobs.")
+    previous = previous_build(tag)
+    build = project["tool"]["flet"]["build_number"]
+    next_build = max(build, previous) + 1 if requested > current else build
+    if next_build <= previous:
+        raise RuntimeError("The candidate build number must exceed the prior published release.")
     if next_build > 2100000000:
         raise RuntimeError("The Android build number would exceed its supported maximum.")
-    source = replace_setting(source, "project", "version", json.dumps(version))
-    source = replace_setting(source, "tool.flet", "build_number", str(next_build))
     print(
         f"Preparing {tag}, Android build {next_build}. No platform SDK is needed locally.",
         flush=True,
     )
-    project_path.write_text(source, encoding="utf-8")
-    run(root, "uv", "lock", "--offline")
+    if requested > current:
+        source = replace_setting(source, "project", "version", json.dumps(version))
+        source = replace_setting(source, "tool.flet", "build_number", str(next_build))
+        project_path.write_text(source, encoding="utf-8")
+        run(root, "uv", "lock", "--offline")
     check()
     changed = run(root, "git", "diff", "--name-only").splitlines()
-    if set(changed) != {"pyproject.toml", "uv.lock"}:
+    if set(changed) != ({"pyproject.toml", "uv.lock"} if requested > current else set()):
         raise RuntimeError(
             "Unexpected release changes. Inspect the worktree; nothing was committed."
         )
@@ -256,12 +320,69 @@ def start_release(
         raise RuntimeError("Checks created untracked files. Inspect them before releasing.")
     run(root, "git", "diff", "--cached", "--exit-code")
     run(root, "git", "diff", "--check")
-    run(root, "git", "add", "--", "pyproject.toml", "uv.lock")
-    run(root, "git", "commit", "-m", f"Release v{version}", "-m", TRAILER)
-    run(root, "git", "tag", "-a", tag, "-m", f"TextMoney {tag}")
-    run(root, "git", "push", "--atomic", "origin", "HEAD:refs/heads/main", f"refs/tags/{tag}")
+    if requested > current:
+        run(root, "git", "add", "--", "pyproject.toml", "uv.lock")
+        run(root, "git", "commit", "-m", f"Release v{version}", "-m", TRAILER)
+        run(root, "git", "push", "origin", "HEAD:refs/heads/main")
     sha = run(root, "git", "rev-parse", "HEAD")
+    run(
+        root,
+        "gh",
+        "workflow",
+        "run",
+        "release.yml",
+        "--repo",
+        repo,
+        "--ref",
+        "main",
+        "-f",
+        f"version={version}",
+        "-f",
+        f"sha={sha}",
+    )
     wait_for_release(root, repo, tag, sha, resume=False)
+
+
+def ensure_release_tag(root: Path, repo: str, tag: str, sha: str) -> None:
+    existing = remote_tag_sha(root, tag)
+    if existing is not None:
+        if existing != sha:
+            raise RuntimeError(
+                "The final release tag identifies another commit; nothing was moved."
+            )
+        return
+    tag_sha = run(
+        root,
+        "gh",
+        "api",
+        "--method",
+        "POST",
+        f"repos/{repo}/git/tags",
+        "-f",
+        f"tag={tag}",
+        "-f",
+        f"message=TextMoney {tag}",
+        "-f",
+        f"object={sha}",
+        "-f",
+        "type=commit",
+        "--jq",
+        ".sha",
+    )
+    if not re.fullmatch(r"[0-9a-f]{40}", tag_sha):
+        raise RuntimeError("GitHub returned an invalid annotated tag identity.")
+    run(
+        root,
+        "gh",
+        "api",
+        "--method",
+        "POST",
+        f"repos/{repo}/git/refs",
+        "-f",
+        f"ref=refs/tags/{tag}",
+        "-f",
+        f"sha={tag_sha}",
+    )
 
 
 def publish_release(root: Path, directory: Path, tag: str) -> None:
@@ -290,6 +411,11 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
     )
     digests[manifest.name] = hashlib.sha256(manifest.read_bytes()).hexdigest()
     repo = repository(root)
+    sha = run(root, "git", "rev-parse", "HEAD")
+    validate_candidate(root, sha)
+    existing_tag = remote_tag_sha(root, tag)
+    if existing_tag is not None and existing_tag != sha:
+        raise RuntimeError("The final release tag identifies another commit; nothing was moved.")
     releases = json.loads(
         run(
             root,
@@ -317,7 +443,8 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
             "--repo",
             repo,
             "--draft",
-            "--verify-tag",
+            "--target",
+            sha,
             "--title",
             f"TextMoney {tag}",
             "--generate-notes",
@@ -348,6 +475,7 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
             or metadata["tag_name"] != tag
             or metadata["draft"] is not True
             or metadata["prerelease"] is not False
+            or metadata["target_commitish"] != sha
         ):
             raise RuntimeError(
                 "Release must remain the matching stable draft until all artifacts are verified."
@@ -366,5 +494,6 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
     observed = {asset["name"]: asset.get("digest") for asset in metadata["assets"]}
     if observed != {name: f"sha256:{value}" for name, value in digests.items()}:
         raise RuntimeError("Uploaded artifact digests differ; release left unpublished.")
+    ensure_release_tag(root, repo, tag, sha)
     run(root, "gh", "release", "edit", tag, "--repo", repo, "--draft=false", "--latest")
     print(f"Published {tag} with verified Android, Linux and Windows assets.", flush=True)

@@ -358,13 +358,16 @@ synchronized `main` checkout with authenticated GitHub CLI:
 uv run inv release --version X.Y.Z
 ```
 
-This command **commits and pushes** the version/build-number update and release
-tag, waits for CI to build and validate three production-signed architecture APKs,
-an AppImage and a Windows EXE installer, then publishes all five binaries together with SHA-256
-checksums. It does not need platform SDKs locally. Replace `X.Y.Z` with a new
-stable version. If a pushed release run is interrupted or fails, inspect it and
-use `uv run inv release --version X.Y.Z --resume`; existing release assets are
-never overwritten. Windows installers are initially unsigned and may trigger
+This command **commits and pushes** a new version/build-number update and dispatches
+an exact-commit CI candidate. After CI validates three production-signed architecture
+APKs, an AppImage and a Windows EXE installer, it verifies all uploads, creates
+the final release tag, and publishes the binaries together with SHA-256 checksums.
+It does not need platform SDKs locally. A failed candidate does not consume another
+version: commit/push fixes and run the same command with the **same version**.
+To retry failed jobs without code changes, use
+`uv run inv release --version X.Y.Z --resume`. Published versions, final tags and
+existing release assets are never overwritten.
+Windows installers are initially unsigned and may trigger
 SmartScreen warnings. See [one-command releases](docs/development.md#one-command-releases)
 for prerequisites, protected signing approvals, failure recovery and testing limits.
 

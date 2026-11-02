@@ -1,8 +1,17 @@
 name: All-platform release
+run-name: Release v${{ inputs.version }} at ${{ inputs.sha }}
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable candidate version (without v)
+        required: true
+        type: string
+      sha:
+        description: Full candidate commit SHA on main
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -26,6 +35,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@v10.3.0
         with:
@@ -33,11 +44,13 @@ jobs:
           python-version: "3.13"
           enable-cache: true
       - run: uv sync --locked
-      - name: Validate release identity
+      - name: Validate candidate identity
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: uv run inv validate-release --tag "$GITHUB_REF_NAME"
+          RELEASE_TAG: v${{ inputs.version }}
+          CANDIDATE_SHA: ${{ inputs.sha }}
+        run: uv run inv validate-release --tag "$RELEASE_TAG" --sha "$CANDIDATE_SHA"
 
   check:
     needs: prepare
@@ -220,4 +233,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-        run: uv run inv publish-release --tag "$RELEASE_TAG"
+          CANDIDATE_SHA: ${{ needs.prepare.outputs.sha }}
+        run: uv run inv publish-release --tag "$RELEASE_TAG" --sha "$CANDIDATE_SHA"

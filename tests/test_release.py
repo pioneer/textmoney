@@ -13,6 +13,10 @@ from tools import release
 ROOT = Path(__file__).resolve().parents[1]
 SHA = "a" * 40
 REPO = "pioneer/textmoney"
+RUNS_COMMAND = (
+    f"gh run list --repo {REPO} --workflow release.yml --event workflow_dispatch "
+    "--json databaseId,displayTitle,status,conclusion --limit 100"
+)
 
 
 def test_release_requires_exactly_three_named_architecture_apks_and_both_desktops() -> None:
@@ -50,6 +54,7 @@ def commands(root: Path, **overrides: str) -> MagicMock:
         "git tag --list v0.3.7": "",
         "git diff --name-only": "pyproject.toml\nuv.lock",
         "git ls-files --others --exclude-standard": "",
+        RUNS_COMMAND: "[]",
     } | overrides
 
     def run(directory: Path, *args: str) -> str:
@@ -62,7 +67,7 @@ def commands(root: Path, **overrides: str) -> MagicMock:
     return MagicMock(side_effect=run)
 
 
-def test_release_prepares_only_version_files_and_pushes_atomically(
+def test_release_prepares_version_files_and_dispatches_candidate_without_tag(
     workspace: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -91,13 +96,50 @@ def test_release_prepares_only_version_files_and_pushes_atomically(
     assert (
         "git",
         "push",
-        "--atomic",
         "origin",
         "HEAD:refs/heads/main",
-        "refs/tags/v0.3.7",
+    ) in calls
+    assert not any(command[:2] == ("git", "tag") and "-a" in command for command in calls)
+    assert (
+        "gh",
+        "workflow",
+        "run",
+        "release.yml",
+        "--repo",
+        REPO,
+        "--ref",
+        "main",
+        "-f",
+        "version=0.3.7",
+        "-f",
+        f"sha={SHA}",
     ) in calls
     assert not any(command[0] in {"flutter", "flet", "java"} for command in calls)
     wait.assert_called_once_with(workspace, REPO, "v0.3.7", SHA, resume=False)
+
+
+def test_corrected_candidate_keeps_version_and_build_without_another_commit(
+    workspace: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    before = (workspace / "pyproject.toml").read_bytes()
+    run = commands(workspace, **{"git diff --name-only": ""})
+    monkeypatch.setattr(release, "run", run)
+    monkeypatch.setattr(release, "wait_for_release", MagicMock())
+    check = MagicMock()
+    release.start_release(
+        workspace,
+        "0.3.6",
+        resume=False,
+        check=check,
+        previous_build=lambda tag: 28,
+    )
+    assert (workspace / "pyproject.toml").read_bytes() == before
+    assert (workspace / "uv.lock").read_text() == "old lock\n"
+    check.assert_called_once()
+    calls = [call.args[1:] for call in run.call_args_list]
+    assert any(command[:3] == ("gh", "workflow", "run") for command in calls)
+    assert not any(command[:2] in {("git", "commit"), ("git", "push")} for command in calls)
 
 
 @pytest.mark.parametrize(
@@ -195,22 +237,24 @@ def test_existing_draft_with_matching_assets_resumes_without_reupload(
         "tag_name": "v0.3.7",
         "draft": True,
         "prerelease": False,
+        "target_commitish": SHA,
         "assets": [
             {"name": path.name, "digest": "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()}
             for path in artifacts.iterdir()
         ],
     }
-    run = MagicMock(
-        side_effect=[
-            '[{"tagName":"v0.3.7","isDraft":true,"isPrerelease":false}]',
-            '{"databaseId":123,"tagName":"v0.3.7"}',
-            json.dumps(metadata),
-            json.dumps(metadata),
-            "",
-        ]
-    )
-    monkeypatch.setattr(release, "repository", lambda root: REPO)
-    monkeypatch.setattr(release, "run", run)
+    run = publication_commands(monkeypatch, artifacts)
+    original = run.side_effect
+    assert callable(original)
+
+    def resumed(root: Path, *args: str) -> str:
+        if args == ("gh", "api", f"repos/{REPO}/releases/123"):
+            return json.dumps(metadata)
+        result = original(root, *args)
+        assert isinstance(result, str)
+        return result
+
+    run.side_effect = resumed
     release.publish_release(artifacts.parent, artifacts, "v0.3.7")
     assert not any(call.args[1:4] == ("gh", "release", "upload") for call in run.call_args_list)
     assert run.call_args.args[1:4] == ("gh", "release", "edit")
@@ -226,7 +270,7 @@ def test_workflow_failure_is_not_reported_as_release_success(
                 [
                     {
                         "databaseId": 123,
-                        "headSha": SHA,
+                        "displayTitle": release.candidate_title("v0.3.7", SHA),
                         "status": "completed",
                         "conclusion": "failure",
                     }
@@ -248,8 +292,16 @@ def test_resume_does_not_bump_commit_or_push(
     run = commands(
         workspace,
         **{
-            "git rev-parse refs/tags/v0.3.6^{commit}": SHA,
-            "git ls-remote origin refs/tags/v0.3.6^{}": f"{SHA}\trefs/tags/v0.3.6^{{}}",
+            RUNS_COMMAND: json.dumps(
+                [
+                    {
+                        "databaseId": 123,
+                        "displayTitle": release.candidate_title("v0.3.6", SHA),
+                        "status": "completed",
+                        "conclusion": "failure",
+                    }
+                ]
+            ),
         },
     )
     monkeypatch.setattr(release, "run", run)
@@ -265,6 +317,136 @@ def test_resume_does_not_bump_commit_or_push(
     assert (workspace / "uv.lock").read_text() == "old lock\n"
     wait.assert_called_once_with(workspace, REPO, "v0.3.6", SHA, resume=True)
     assert not any(call.args[1:3] == ("git", "push") for call in run.call_args_list)
+    assert not any(call.args[1:4] == ("gh", "workflow", "run") for call in run.call_args_list)
+
+
+@pytest.mark.parametrize("state", ["in_progress", "queued", "completed"])
+def test_existing_candidate_requires_resume_without_dispatch_or_version_edits(
+    workspace: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    state: str,
+) -> None:
+    before = (workspace / "pyproject.toml").read_bytes()
+    command = commands(
+        workspace,
+        **{
+            RUNS_COMMAND: json.dumps(
+                [
+                    {
+                        "databaseId": 123,
+                        "displayTitle": release.candidate_title("v0.3.6", SHA),
+                        "status": state,
+                        "conclusion": "failure" if state == "completed" else "",
+                    }
+                ]
+            )
+        },
+    )
+    monkeypatch.setattr(release, "run", command)
+    with pytest.raises(RuntimeError, match="resume"):
+        release.start_release(
+            workspace,
+            "0.3.6",
+            resume=False,
+            check=MagicMock(),
+            previous_build=MagicMock(),
+        )
+    assert (workspace / "pyproject.toml").read_bytes() == before
+    assert not any(call.args[1:4] == ("gh", "workflow", "run") for call in command.call_args_list)
+
+
+def test_published_version_cannot_be_rebuilt(
+    workspace: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = commands(
+        workspace,
+        **{
+            f"gh release list --repo {REPO} --limit 100 --json tagName,isDraft,isPrerelease": (
+                '[{"tagName":"v0.3.6","isDraft":false,"isPrerelease":false}]'
+            ),
+        },
+    )
+    monkeypatch.setattr(release, "run", command)
+    with pytest.raises(RuntimeError, match="already exists"):
+        release.start_release(
+            workspace,
+            "0.3.6",
+            resume=False,
+            check=MagicMock(),
+            previous_build=MagicMock(),
+        )
+    assert not any(call.args[1:4] == ("gh", "workflow", "run") for call in command.call_args_list)
+
+
+def test_resume_after_code_changes_requests_new_candidate_not_new_version(
+    workspace: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = commands(workspace)
+    monkeypatch.setattr(release, "run", command)
+    with pytest.raises(RuntimeError, match="same version without --resume"):
+        release.start_release(
+            workspace,
+            "0.3.6",
+            resume=True,
+            check=MagicMock(),
+            previous_build=MagicMock(),
+        )
+    assert not any(call.args[1:4] == ("gh", "workflow", "run") for call in command.call_args_list)
+
+
+def test_resume_recognizes_already_published_result_without_rerunning_jobs(
+    workspace: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = commands(
+        workspace,
+        **{
+            f"gh release list --repo {REPO} --limit 100 --json tagName,isDraft,isPrerelease": (
+                '[{"tagName":"v0.3.6","isDraft":false,"isPrerelease":false}]'
+            ),
+            (
+                f"gh release view v0.3.6 --repo {REPO} "
+                "--json tagName,isDraft,isPrerelease,assets,url"
+            ): json.dumps(
+                {
+                    "tagName": "v0.3.6",
+                    "isDraft": False,
+                    "isPrerelease": False,
+                    "assets": [
+                        {"name": name} for name in (*release.artifact_names("0.3.6"), "SHA256SUMS")
+                    ],
+                    "url": "https://example.invalid/release",
+                }
+            ),
+            "git ls-remote origin refs/tags/v0.3.6 refs/tags/v0.3.6^{}": (
+                f"{SHA}\trefs/tags/v0.3.6^{{}}"
+            ),
+        },
+    )
+    monkeypatch.setattr(release, "run", command)
+    release.start_release(
+        workspace,
+        "0.3.6",
+        resume=True,
+        check=MagicMock(),
+        previous_build=MagicMock(),
+    )
+    assert not any(call.args[1:4] == ("gh", "run", "rerun") for call in command.call_args_list)
+
+
+@pytest.mark.parametrize("sha", ["main", "a" * 7, "g" * 40, "b" * 40])
+def test_candidate_rejects_nonexact_checkout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    sha: str,
+) -> None:
+    command = MagicMock(return_value=SHA)
+    monkeypatch.setattr(release, "run", command)
+    with pytest.raises(RuntimeError, match="candidate|SHA"):
+        release.validate_candidate(tmp_path, sha)
+    assert not any(call.args[1:3] == ("git", "merge-base") for call in command.call_args_list)
 
 
 @pytest.mark.parametrize("resume", [False, True])
@@ -279,7 +461,7 @@ def test_wait_tracks_exact_run_and_verifies_complete_publication(
             [
                 {
                     "databaseId": 123,
-                    "headSha": SHA,
+                    "displayTitle": release.candidate_title("v0.3.7", SHA),
                     "status": "completed",
                     "conclusion": "failure",
                 }
@@ -296,11 +478,14 @@ def test_wait_tracks_exact_run_and_verifies_complete_publication(
                 "url": "https://example.invalid/release",
             }
         ),
+        f"{SHA}\trefs/tags/v0.3.7^{{}}",
     ]
     run = MagicMock(side_effect=results)
     monkeypatch.setattr(release, "run", run)
     release.wait_for_release(tmp_path, REPO, "v0.3.7", SHA, resume=resume)
     calls = [call.args[1:] for call in run.call_args_list]
+    listing = calls[0]
+    assert "--commit" not in listing and "workflow_dispatch" in listing
     assert (
         ("gh", "run", "rerun", "123", "--failed", "--repo", REPO) in calls
         if resume
@@ -350,6 +535,8 @@ def publication_commands(
     assets: list[dict[str, str]] = []
 
     def run(root: Path, *args: str) -> str:
+        if args == ("git", "rev-parse", "HEAD"):
+            return SHA
         if args[:3] == ("gh", "release", "list"):
             return json.dumps(
                 [
@@ -374,12 +561,15 @@ def publication_commands(
         if args[:3] == ("gh", "release", "view"):
             return json.dumps({"databaseId": 123, "tagName": "v0.3.7"})
         if args[:2] == ("gh", "api"):
+            if args[2:4] == ("--method", "POST"):
+                return "b" * 40
             return json.dumps(
                 {
                     "id": 123,
                     "tag_name": "v0.3.7",
                     "draft": True,
                     "prerelease": False,
+                    "target_commitish": SHA,
                     "assets": assets,
                 }
             )
@@ -400,6 +590,19 @@ def test_publish_uploads_exact_artifacts_and_checksums_before_publishing(
     uploads = [call for call in run.call_args_list if call.args[1:4] == ("gh", "release", "upload")]
     assert len(uploads) == 6
     assert len((artifacts / "SHA256SUMS").read_text().splitlines()) == 5
+    tag_calls = [
+        index
+        for index, call in enumerate(run.call_args_list)
+        if call.args[1:5] == ("gh", "api", "--method", "POST")
+    ]
+    assert len(tag_calls) == 2
+    assert tag_calls[0] > max(
+        index
+        for index, call in enumerate(run.call_args_list)
+        if call.args[1:4] == ("gh", "release", "upload")
+    )
+    assert f"object={SHA}" in run.call_args_list[tag_calls[0]].args
+    assert "ref=refs/tags/v0.3.7" in run.call_args_list[tag_calls[1]].args
     assert run.call_args.args[1:] == (
         "gh",
         "release",
@@ -427,7 +630,7 @@ def test_publish_reads_draft_by_id_when_tag_endpoint_is_not_available(
             return "[]"
         if args[:3] == ("gh", "release", "view"):
             return json.dumps({"databaseId": 123, "tagName": "v0.3.7"})
-        if args[:2] == ("gh", "api"):
+        if args[:2] == ("gh", "api") and args[2:4] != ("--method", "POST"):
             assert args[2] == f"repos/{REPO}/releases/123", "Tag endpoint cannot read this draft"
         result = original(root, *args)
         assert isinstance(result, str)
@@ -482,6 +685,7 @@ def test_publish_rejects_invalid_resolved_identity(
         {"tag_name": "v0.3.8"},
         {"draft": False},
         {"prerelease": True},
+        {"target_commitish": "b" * 40},
     ],
 )
 @pytest.mark.parametrize("after_upload", [False, True])
@@ -500,7 +704,7 @@ def test_publish_requires_matching_stable_draft_before_and_after_upload(
         nonlocal reads
         result = original(root, *args)
         assert isinstance(result, str)
-        if args[:2] == ("gh", "api"):
+        if args[:2] == ("gh", "api") and args[2:4] != ("--method", "POST"):
             reads += 1
             if reads == (2 if after_upload else 1):
                 return json.dumps(json.loads(result) | changed)
@@ -539,6 +743,46 @@ def test_publish_failures_never_publish(
     with pytest.raises(RuntimeError):
         release.publish_release(artifacts.parent, artifacts, "v0.3.7")
     assert not any(call.args[1:4] == ("gh", "release", "edit") for call in run.call_args_list)
+    assert not any(
+        call.args[1:5] == ("gh", "api", "--method", "POST") for call in run.call_args_list
+    )
+
+
+@pytest.mark.parametrize("existing", [SHA, "b" * 40])
+def test_final_tag_is_never_moved(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    existing: str,
+) -> None:
+    command = MagicMock(return_value=f"{existing}\trefs/tags/v0.3.7^{{}}")
+    monkeypatch.setattr(release, "run", command)
+    if existing == SHA:
+        release.ensure_release_tag(tmp_path, REPO, "v0.3.7", SHA)
+    else:
+        with pytest.raises(RuntimeError, match="another commit"):
+            release.ensure_release_tag(tmp_path, REPO, "v0.3.7", SHA)
+    command.assert_called_once()
+
+
+def test_final_tag_failure_leaves_verified_draft_unpublished(
+    artifacts: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = publication_commands(monkeypatch, artifacts)
+    original = command.side_effect
+    assert callable(original)
+
+    def run(root: Path, *args: str) -> str:
+        if args[:4] == ("gh", "api", "--method", "POST"):
+            raise RuntimeError("synthetic tag failure")
+        result = original(root, *args)
+        assert isinstance(result, str)
+        return result
+
+    command.side_effect = run
+    with pytest.raises(RuntimeError, match="tag failure"):
+        release.publish_release(artifacts.parent, artifacts, "v0.3.7")
+    assert not any(call.args[1:4] == ("gh", "release", "edit") for call in command.call_args_list)
 
 
 @pytest.mark.parametrize("abi", ["arm64-v8a", "armeabi-v7a", "x86_64"])
@@ -554,6 +798,11 @@ def test_missing_any_architecture_prevents_all_publication(
 
 def test_single_release_workflow_gates_publication_on_all_platforms() -> None:
     workflow = (ROOT / ".github/workflows/release.yml").read_text()
+    assert "workflow_dispatch:" in workflow and 'tags: ["v*"]' not in workflow
+    assert "run-name: Release v${{ inputs.version }} at ${{ inputs.sha }}" in workflow
+    assert "ref: ${{ inputs.sha }}" in workflow
+    assert 'validate-release --tag "$RELEASE_TAG" --sha "$CANDIDATE_SHA"' in workflow
+    assert 'publish-release --tag "$RELEASE_TAG" --sha "$CANDIDATE_SHA"' in workflow
     assert "needs: [prepare, android, linux, windows]" in workflow
     assert "runs-on: windows-2022" in workflow
     assert "build-windows-installer" in workflow and "smoke-windows-installer" in workflow
@@ -573,7 +822,7 @@ def test_single_release_workflow_gates_publication_on_all_platforms() -> None:
     assert not (ROOT / ".github/workflows/linux-appimage.yml").exists()
 
 
-def test_release_creates_real_commit_tag_and_atomic_push_only_in_disposable_repositories(
+def test_release_pushes_candidate_commit_without_tag_in_disposable_repositories(
     workspace: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -624,6 +873,10 @@ def test_release_creates_real_commit_tag_and_atomic_push_only_in_disposable_repo
             return "active"
         if args[:3] == ("gh", "release", "list"):
             return "[]"
+        if args[:3] == ("gh", "run", "list"):
+            return "[]"
+        if args[:3] == ("gh", "workflow", "run"):
+            return ""
         raise AssertionError(f"Unexpected integration-test command: {args}")
 
     monkeypatch.setattr(release, "run", run)
@@ -638,12 +891,31 @@ def test_release_creates_real_commit_tag_and_atomic_push_only_in_disposable_repo
     )
     sha = git("rev-parse", "HEAD")
     assert git("status", "--porcelain") == ""
-    assert git("rev-parse", "refs/tags/v0.3.7^{commit}") == sha
+    assert git("tag", "--list") == ""
     assert git("ls-remote", "origin", "refs/heads/main").split()[0] == sha
-    assert git("ls-remote", "origin", "refs/tags/v0.3.7^{}").split()[0] == sha
+    assert git("ls-remote", "origin", "refs/tags/v0.3.7") == ""
     assert release.TRAILER in git("log", "-1", "--format=%B")
     assert set(git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").splitlines()) == {
         "pyproject.toml",
         "uv.lock",
     }
     wait.assert_called_once_with(project, REPO, "v0.3.7", sha, resume=False)
+    identity = tomllib.loads((project / "pyproject.toml").read_text())
+    (project / "fix.txt").write_text("Synthetic CI fix\n")
+    git("add", "fix.txt")
+    git("commit", "-m", "Correct synthetic CI failure")
+    git("push", "origin", "main")
+    wait.reset_mock()
+    release.start_release(
+        project,
+        "0.3.7",
+        resume=False,
+        check=lambda: None,
+        previous_build=lambda tag: 29,
+    )
+    fixed_sha = git("rev-parse", "HEAD")
+    assert fixed_sha != sha
+    assert git("log", "-1", "--format=%s") == "Correct synthetic CI failure"
+    assert tomllib.loads((project / "pyproject.toml").read_text()) == identity
+    assert git("ls-remote", "origin", "refs/tags/v0.3.7") == ""
+    wait.assert_called_once_with(project, REPO, "v0.3.7", fixed_sha, resume=False)

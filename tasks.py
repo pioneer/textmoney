@@ -345,6 +345,16 @@ def previous_release_build_number(tag: str) -> int:
         for release in releases
     ):
         raise Exit(f"Release tag {tag} is already published; refusing to rebuild it.", code=1)
+    if any(
+        isinstance(release, dict)
+        and release.get("isDraft") is False
+        and release.get("isPrerelease") is False
+        and isinstance(release.get("tagName"), str)
+        and release_tools.version_numbers(release["tagName"].removeprefix("v"))
+        >= release_tools.version_numbers(tag.removeprefix("v"))
+        for release in releases
+    ):
+        raise Exit("The candidate version must exceed every published stable release.", code=1)
     previous_tag = next(
         (
             release["tagName"]
@@ -938,7 +948,7 @@ def check(context: Context) -> None:
 
 @task
 def release(context: Context, version: str, resume: bool = False) -> None:
-    """Commit/tag/push a new version and wait for all-platform CI publication."""
+    """Prepare or retry a candidate; tag/publish only after all-platform CI succeeds."""
     try:
         release_tools.start_release(
             ROOT,
@@ -952,15 +962,18 @@ def release(context: Context, version: str, resume: bool = False) -> None:
 
 
 @task
-def validate_release(context: Context, tag: str) -> None:
-    """Validate an exact release tag/commit; emit metadata for CI jobs."""
+def validate_release(context: Context, tag: str, sha: str = "") -> None:
+    """Validate an exact candidate or legacy tag checkout; emit metadata for CI."""
     try:
         release_tools.version_numbers(tag.removeprefix("v"))
         validate_android_release_version(tag)
-        sha = capture_command("git", "rev-parse", "HEAD").strip()
-        tagged = capture_command("git", "rev-parse", f"refs/tags/{tag}^{{commit}}").strip()
-        if sha != tagged:
-            raise Exit("The checkout must match the exact release tag commit.", code=1)
+        if sha:
+            release_tools.validate_candidate(ROOT, sha)
+        else:
+            sha = capture_command("git", "rev-parse", "HEAD").strip()
+            tagged = capture_command("git", "rev-parse", f"refs/tags/{tag}^{{commit}}").strip()
+            if sha != tagged:
+                raise Exit("The checkout must match the exact release tag commit.", code=1)
         if output := os.environ.get("GITHUB_OUTPUT"):
             with Path(output).open("a", encoding="utf-8") as stream:
                 stream.write(f"tag={tag}\nversion={tag[1:]}\nsha={sha}\n")
@@ -969,9 +982,11 @@ def validate_release(context: Context, tag: str) -> None:
 
 
 @task
-def publish_release(context: Context, tag: str, directory: str = "dist/release") -> None:
-    """Publish exactly three CI artifacts after verifying uploaded SHA-256 digests."""
-    validate_release(context, tag)
+def publish_release(
+    context: Context, tag: str, directory: str = "dist/release", sha: str = ""
+) -> None:
+    """Tag and publish all platform artifacts after verifying uploaded SHA-256 digests."""
+    validate_release(context, tag, sha)
     try:
         release_tools.publish_release(ROOT, ROOT / directory, tag)
     except RuntimeError as exc:

@@ -426,6 +426,57 @@ def test_release_version_requires_matching_tag_and_increasing_code(
     tasks.validate_android_release_version("v0.3.1")
 
 
+def test_candidate_validation_emits_source_without_requiring_a_tag(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sha = "a" * 40
+    output = tmp_path / "output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "validate_android_release_version", MagicMock())
+    command = MagicMock(return_value=sha)
+    monkeypatch.setattr(tasks.release_tools, "run", command)
+    tasks.validate_release(Context(), "v0.3.1", sha)
+    assert output.read_text() == f"tag=v0.3.1\nversion=0.3.1\nsha={sha}\n"
+    assert [call.args[1:] for call in command.call_args_list] == [
+        ("git", "rev-parse", "HEAD"),
+        ("git", "merge-base", "--is-ancestor", sha, "origin/main"),
+    ]
+
+
+def test_candidate_not_on_main_cannot_validate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sha = "a" * 40
+    output = tmp_path / "output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "validate_android_release_version", MagicMock())
+    monkeypatch.setattr(
+        tasks.release_tools,
+        "run",
+        MagicMock(side_effect=[sha, RuntimeError("candidate is not on main")]),
+    )
+    with pytest.raises(Exit, match="not on main"):
+        tasks.validate_release(Context(), "v0.3.1", sha)
+    assert not output.exists()
+
+
+def test_candidate_cannot_supersede_a_newer_published_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/textmoney")
+    monkeypatch.setattr(
+        tasks,
+        "capture_command",
+        lambda *args: '[{"tagName":"v0.3.2","isDraft":false,"isPrerelease":false}]',
+    )
+    with pytest.raises(Exit, match="exceed every published"):
+        tasks.previous_release_build_number("v0.3.1")
+
+
 @pytest.mark.parametrize("line_wrapped", [False, True])
 def test_previous_release_build_number_reads_published_release_metadata(
     monkeypatch: pytest.MonkeyPatch,

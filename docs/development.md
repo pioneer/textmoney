@@ -259,6 +259,11 @@ is needed locally. Branch protection must allow the release commit push and
 tag rules must allow CI publication;
 the command never bypasses protection or force-pushes. Commit and push any
 release notes or application changes before running it.
+The `android-production` environment must allow deployments from the exact
+`main` branch: candidate workflows are dispatched with `--ref main`, not a final
+release tag. A tag-only `v*` policy rejects the Android job before any steps run.
+Configure this rule explicitly in repository settings while retaining the
+intended reviewer rules; the release command does not change environment protection.
 
 The [All-platform release workflow](../.github/workflows/release.yml) runs:
 
@@ -419,7 +424,9 @@ No key is generated. Use `--keystore /path/to/existing.jks` for another location
 The default is `~/.local/share/pioneer-signing/android-release.jks`.
 
 To upload signing secrets, first create the `android-production` GitHub environment
-and configure its reviewers and release-tag restrictions in repository settings.
+and configure its reviewers and an exact `main` branch deployment rule in
+repository settings. Existing release-tag rules may remain, but are not enough
+for the candidate workflow.
 Then run:
 
 ```sh
@@ -461,7 +468,8 @@ Separate single-ABI builds preserve the exact project version code; Flutter's
 It requires `FLET_ANDROID_SIGNING_KEY_STORE`,
 `FLET_ANDROID_SIGNING_KEY_ALIAS`, `FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD`,
 and `FLET_ANDROID_SIGNING_KEY_PASSWORD`; the alias must be `android-release`.
-The task checks the tagged project version and requires the Android version code
+The task checks that the project version matches the requested release tag name
+(the final tag need not exist yet) and requires the Android version code
 to exceed the code in the latest prior stable GitHub Release. It then verifies
 each APK's signature, pinned certificate SHA-256, application ID, version name/code,
 architecture-specific filename, nonzero size, sole native ABI and presence of the
@@ -490,11 +498,14 @@ The release task also needs `gh` authenticated to
 `pioneer/textmoney` and Android SDK Build Tools (`apksigner` and `aapt`).
 Requires JDK 17.
 
-The unified `release.yml` workflow runs only for pushed `v*` tags, checks the
-project and release version before accessing signing secrets, and verifies the
-three APKs before handing them to the final all-platform publication job. Configure the GitHub
-`android-production` environment with required reviewers and restrict its
-deployment branches/tags to release tags. Add environment secrets
+The unified `release.yml` workflow is dispatched from `main` with an exact
+candidate SHA and version; pushing a tag does not trigger it. It checks the
+candidate, project and release version before accessing signing secrets, and
+verifies the three APKs before handing them to the final all-platform publication
+job. Configure the GitHub `android-production` environment with the intended
+required reviewers and allow the exact `main` branch under its deployment
+branch/tag rules. Do not remove protection or allow all branches; existing
+release-tag rules may remain. Add environment secrets
 `ANDROID_KEYSTORE_BASE64` (base64-encoded existing JKS),
 `ANDROID_KEYSTORE_PASSWORD`, and `ANDROID_KEY_PASSWORD`. The workflow creates a
 mode-0600 temporary keystore and removes it after the build. The pinned

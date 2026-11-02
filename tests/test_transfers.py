@@ -532,15 +532,64 @@ def test_transfer_summary_is_above_details_and_accounts(
         assert isinstance(amount, ft.Text)
         assert amount.value == ("4,200.00 UAH" if exchange else "100.00 UAH")
         movement = column.controls[-1]
-        assert isinstance(movement, ft.Text)
-        assert movement.value == ("Dollar → Other bank" if exchange else "Bank → Other bank")
-        assert movement.size == 10
+        if exchange:
+            assert isinstance(movement, ft.Row)
+            source_cell, destination = movement.controls
+            assert isinstance(source_cell, ft.Row) and source_cell.expand is True
+            source_label, debited = source_cell.controls
+            assert isinstance(source_label, ft.Text) and source_label.value == "Dollar"
+            assert isinstance(debited, ft.Text) and debited.value == "100.00 USD"
+            assert isinstance(destination, ft.Row) and destination.expand == 2
+            arrow, target_label, credited = destination.controls
+            assert isinstance(arrow, ft.Text) and arrow.value == "→"
+            assert isinstance(target_label, ft.Text) and target_label.value == "Other bank"
+            assert isinstance(credited, ft.Text) and credited.value == "4,200.00 UAH"
+            assert debited.size == credited.size == 12
+        else:
+            assert isinstance(movement, ft.Text)
+            assert movement.value == "Bank → Other bank"
+            assert movement.size == 10
         details = column.controls[1:-1]
-        assert len(details) == (2 if exchange else 1)
+        assert len(details) == 1
         fee = details[-1]
         assert isinstance(fee, ft.Text)
         assert fee.value == ("Fee: 5.00 USD" if exchange else "Fee: 5.00 UAH")
         assert len(row.content.controls[1:]) == (1 if compact else 2)
+
+    asyncio.run(scenario())
+
+
+def test_blank_exchange_heading_is_the_movement_row_with_inline_amounts(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        await transfer(
+            journal,
+            source_account="Assets:Dollar",
+            amount="100",
+            destination_amount="4200",
+            description="",
+        )
+        view = FinanceView()
+        view.journal = journal
+        names = {account.id: account.name for account in journal.ledger.accounts}
+        row = view._transaction_card(journal.ledger.transactions[-1], names)
+        assert isinstance(row, ft.Container) and isinstance(row.content, ft.Row)
+        column = row.content.controls[0]
+        assert isinstance(column, ft.Column)
+        assert len(column.controls) == 1
+        movement = column.controls[0]
+        assert isinstance(movement, ft.Row)
+        source_cell, destination = movement.controls
+        assert isinstance(source_cell, ft.Row) and source_cell.expand is True
+        source_label, debited = source_cell.controls
+        assert isinstance(source_label, ft.Text) and source_label.value == "Dollar"
+        assert isinstance(debited, ft.Text) and debited.value == "100.00 USD"
+        assert isinstance(destination, ft.Row) and destination.expand == 2
+        arrow, target_label, credited = destination.controls
+        assert isinstance(arrow, ft.Text) and arrow.value == "→"
+        assert isinstance(target_label, ft.Text) and target_label.value == "Other bank"
+        assert isinstance(credited, ft.Text) and credited.value == "4,200.00 UAH"
+        assert debited.size == credited.size == 13
 
     asyncio.run(scenario())
 
@@ -936,6 +985,7 @@ def test_exchange_unified_form_preview_draft_and_edit(
         assert enabled.on_change is not None
         cast(Callable[[ft.Event[ft.Checkbox]], None], enabled.on_change)(MagicMock())
         assert "100" in (preview.value or "") and "42 UAH" in (preview.value or "")
+        assert "1 USD ≈ 42 UAH · 1 UAH ≈ 0.0238095238095 USD" in (preview.value or "")
         assert not deduction.visible and currency.visible
         currency.value = "UAH"
         assert currency.on_select is not None

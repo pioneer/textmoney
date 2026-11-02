@@ -324,8 +324,8 @@ at phone and desktop widths and check that the final amount and Edit/Delete
 actions sit above the button and remain clickable. Recheck Home after navigation,
 resizing and label refreshes; the clearance must not disappear or accumulate.
 Empty lists still show their
-normal message. Transfers retain exchange/fee details above their account movement;
-blank descriptions do not add an empty summary line.
+normal message. Transfers show exchange amounts inline with account movement
+and fees above it; blank descriptions do not add an empty summary line.
 
 ## Reports scrolling clearance
 

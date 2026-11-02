@@ -279,8 +279,9 @@ Amounts retain the existing 12-integer-digit/two-decimal limit. Exchange
 serialization uses two decimals without changing monetary values: Beancount
 internally converts `@@` to a unit price and needs normal monetary tolerances
 for repeating ratios. Rate calculation uses 50-digit Decimal precision; the
-preview displays 12 significant digits and marks the rate approximate. The rate
-is never used to calculate or round postings.
+preview displays both fee-excluded directions to 12 significant digits and
+marks the rates approximate. The rates are never used to calculate or round
+postings.
 
 Existing same-currency transactions need no migration. Source-fee debit and fee
 expense annotations are retained on zero postings when their amounts are
@@ -315,7 +316,9 @@ Transaction lists and recent activity show a one-line description preview below
 the movement, truncated with an ellipsis when necessary. Multiline descriptions
 are flattened for the preview only; the editor retains the full original text.
 Complex entries show the description in their heading without duplicating it.
-Opening entries keep their localized opening-balance label.
+Opening entries keep their localized opening-balance label. Cross-currency
+transfers show source and destination accounts with their exchanged amounts
+together on one arrow-aligned movement row.
 
 ### Incoming money
 

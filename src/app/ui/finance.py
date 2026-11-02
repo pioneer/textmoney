@@ -2005,8 +2005,18 @@ class FinanceView(ft.Row):
             for posting in (*outgoing, *incoming)
         )
 
+        exchange_amounts = (
+            (
+                format_amount(transfer.debited, self.language, transfer.source.currency),
+                format_amount(transfer.target.amount, self.language, transfer.target.currency),
+            )
+            if transfer and transfer.exchange
+            else None
+        )
+        movement_row = movement_icons or exchange_amounts is not None
+
         def movement_label(amount: ft.Control | None = None) -> ft.Control:
-            if not movement_icons:
+            if not movement_row:
                 return ft.Text(title, size=10, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
 
             def label(identifier: str, text: str) -> ft.Control:
@@ -2017,14 +2027,25 @@ class FinanceView(ft.Row):
                     ),
                 )
 
+            source_cell = label(outgoing[0].account, source)
+            amounts = [amount] if amount is not None else []
+            if exchange_amounts is not None:
+                debited, credited = exchange_amounts
+                source_cell = ft.Row(
+                    [source_cell, ft.Text(debited, size=13 if amount is not None else 12)],
+                    spacing=4,
+                    expand=True,
+                )
+                if amount is None:
+                    amounts = [ft.Text(credited, size=12)]
             return ft.Row(
                 [
-                    label(outgoing[0].account, source),
+                    source_cell,
                     ft.Row(
                         [
                             ft.Text("→", size=10),
                             label(incoming[0].account, target),
-                            *([amount] if amount is not None else []),
+                            *amounts,
                         ],
                         spacing=4,
                         expand=2,
@@ -2056,18 +2077,9 @@ class FinanceView(ft.Row):
             heading.append(ft.Text(self.tr("multiple_postings"), size=12))
         lines: list[ft.Control] = [
             movement_label(heading[-1])
-            if movement_icons and not has_summary
+            if movement_row and not has_summary
             else ft.Row(heading, spacing=8)
         ]
-        if transfer and transfer.exchange:
-            credit = format_amount(transfer.target.amount, self.language, transfer.target.currency)
-            lines.append(
-                ft.Text(
-                    f"{format_amount(transfer.debited, self.language, transfer.source.currency)}"
-                    f" → {credit}",
-                    size=12,
-                )
-            )
         fee_details = transfer or cashflow
         if fee_details and fee_details.fee:
             lines.append(
@@ -3395,6 +3407,9 @@ class FinanceView(ft.Row):
                             target_currency,
                             fee_currency.value or source_currency,
                         )
+                        with localcontext() as context:
+                            context.prec = 50
+                            reverse = principal / gross
                         preview.value = (
                             movement
                             + "\n"
@@ -3408,7 +3423,10 @@ class FinanceView(ft.Row):
                                 ),
                                 principal=format_amount(principal, self.language, source_currency),
                                 gross=format_amount(gross, self.language, target_currency),
-                                rate=f"1 {source_currency} ≈ {rate:.12g} {target_currency}",
+                                rate=(
+                                    f"1 {source_currency} ≈ {rate:.12g} {target_currency} · "
+                                    f"1 {target_currency} ≈ {reverse:.12g} {source_currency}"
+                                ),
                             )
                         )
                     else:

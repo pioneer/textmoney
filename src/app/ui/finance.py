@@ -1510,12 +1510,28 @@ class FinanceView(ft.Row):
         asset = self.icons.assets.get(identifier) if self.icons is not None else None
         return icon_image(asset) if asset is not None else None
 
+    def _entity_dropdown_icon(self, identifier: str) -> ft.Container | None:
+        image = self._entity_icon(identifier)
+        if image is None:
+            return None
+        return ft.Container(
+            content=image,
+            width=24,
+            height=24,
+            padding=0,
+            alignment=ft.Alignment.CENTER,
+        )
+
     def _entity_icon_controls(self, identifier: str) -> list[ft.Control]:
         image = self._entity_icon(identifier)
         return [ft.Container(image, margin=ft.Margin.only(right=8))] if image else []
 
     def _entity_dropdown_selected(self, event: ft.Event[ft.Dropdown]) -> None:
         event.control.leading_icon = self._entity_icon(event.control.value or "")
+        self.page.update()
+
+    def _transaction_entity_dropdown_selected(self, event: ft.Event[ft.Dropdown]) -> None:
+        event.control.leading_icon = self._entity_dropdown_icon(event.control.value or "")
         self.page.update()
 
     def _entity_label(self, identifier: str, label: ft.Control) -> ft.Control:
@@ -3047,7 +3063,9 @@ class FinanceView(ft.Row):
             else None,
             options=[
                 ft.DropdownOption(
-                    key=a.id, text=f"{a.name} ({a.currency})", leading_icon=self._entity_icon(a.id)
+                    key=a.id,
+                    text=f"{a.name} ({a.currency})",
+                    leading_icon=self._entity_dropdown_icon(a.id),
                 )
                 for a in journal.ledger.accounts
                 if a.active or (original_asset and original_asset.account == a.id)
@@ -3485,7 +3503,9 @@ class FinanceView(ft.Row):
             )
             destination.options = [
                 ft.DropdownOption(
-                    key=a.id, text=f"{a.name} ({a.currency})", leading_icon=self._entity_icon(a.id)
+                    key=a.id,
+                    text=f"{a.name} ({a.currency})",
+                    leading_icon=self._entity_dropdown_icon(a.id),
                 )
                 for a in journal.ledger.accounts
                 if a.id != account.value
@@ -3507,7 +3527,7 @@ class FinanceView(ft.Row):
                 ft.DropdownOption(
                     key=c.id,
                     text=self._category_label(c.id, c.name),
-                    leading_icon=self._entity_icon(c.id),
+                    leading_icon=self._entity_dropdown_icon(c.id),
                 )
                 for c in journal.ledger.categories
                 if c.id.startswith(root)
@@ -3544,7 +3564,7 @@ class FinanceView(ft.Row):
             for row in dropdown_rows:
                 row.visible = row.controls[0].visible
             for selector in (account, category, destination, fee_category):
-                selector.leading_icon = self._entity_icon(selector.value or "")
+                selector.leading_icon = self._entity_dropdown_icon(selector.value or "")
             if event is not None:
                 self.page.update()
 
@@ -3556,7 +3576,7 @@ class FinanceView(ft.Row):
                     original = journal.expense_for_edit(reference.value)
                     posting = journal.ledger.cashflow_details(original).category
                     category.value = posting.account
-                    category.leading_icon = self._entity_icon(posting.account)
+                    category.leading_icon = self._entity_dropdown_icon(posting.account)
                     amount.value = str(posting.amount)
                 self.page.update()
             except Exception as exc:
@@ -3719,7 +3739,7 @@ class FinanceView(ft.Row):
                         ft.DropdownOption(
                             key=item.id,
                             text=self._category_label(item.id, item.name),
-                            leading_icon=self._entity_icon(item.id),
+                            leading_icon=self._entity_dropdown_icon(item.id),
                         )
                         for item in journal.ledger.categories
                         if item.id.startswith(f"{root}:") and item.active
@@ -3773,7 +3793,7 @@ class FinanceView(ft.Row):
         special.on_select = configure
         fee_enabled.on_change = configure
         account.on_select = configure
-        category.on_select = self._entity_dropdown_selected
+        category.on_select = self._transaction_entity_dropdown_selected
         destination.on_select = configure
         reference.on_select = fill_reference
         category_create.on_click = create_category_dialog

@@ -46,6 +46,7 @@ assignments are unchanged by display sizing:
   therefore require conversion to PNG outside the app.
 - Monochrome catalogue icons follow the current theme color. Imported images and
   colored logos retain their colors. The picker previews the actual 16px size.
+  Transaction-form dropdowns center the same artwork in a fixed 24px icon slot.
 
 Assigned icons appear in lists, balances, transaction movements/details,
 account/category and parent selectors, commission/default-account settings,

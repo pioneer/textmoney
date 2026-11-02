@@ -251,11 +251,27 @@ def test_entity_icons_reach_lists_settings_transactions_and_reports(
         dialog = session.page._dialogs.controls[-1]
         assert isinstance(dialog, ft.AlertDialog)
         form = transaction_form(dialog)
-        assert any(isinstance(option.leading_icon, ft.Image) for option in form.account.options)
-        assert any(isinstance(option.leading_icon, ft.Image) for option in form.category.options)
+        account_option = next(
+            option for option in form.account.options if option.key == "Assets:Bank"
+        )
+        category_option = next(
+            option for option in form.category.options if option.key == "Expenses:Food"
+        )
+        for option in (account_option, category_option):
+            assert isinstance(option.leading_icon, ft.Container)
+            assert option.leading_icon.width == option.leading_icon.height == 24
+            assert isinstance(option.leading_icon.content, ft.Image)
+            assert option.leading_icon.content.width == option.leading_icon.content.height == 16
         form.account.value = "Assets:Bank"
         await form.account._trigger_event("select", None)
-        assert isinstance(form.account.leading_icon, ft.Image)
+        assert isinstance(form.account.leading_icon, ft.Container)
+        assert form.account.leading_icon.width == form.account.leading_icon.height == 24
+        assert isinstance(form.account.leading_icon.content, ft.Image)
+        form.category.value = "Expenses:Food"
+        await form.category._trigger_event("select", None)
+        assert isinstance(form.category.leading_icon, ft.Container)
+        assert form.category.leading_icon.width == form.category.leading_icon.height == 24
+        assert isinstance(form.category.leading_icon.content, ft.Image)
 
     asyncio.run(scenario())
 

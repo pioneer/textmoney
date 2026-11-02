@@ -2031,7 +2031,9 @@ class FinanceView(ft.Row):
         )
         movement_row = movement_icons or exchange_amounts is not None
 
-        def movement_label(amount: ft.Control | None = None) -> ft.Control:
+        def movement_label(
+            amount: ft.Control | None = None, *, include_exchange_amounts: bool = True
+        ) -> ft.Control:
             if not movement_row:
                 return ft.Text(title, size=10, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
 
@@ -2045,7 +2047,7 @@ class FinanceView(ft.Row):
 
             source_cell = label(outgoing[0].account, source)
             amounts = [amount] if amount is not None else []
-            if exchange_amounts is not None:
+            if exchange_amounts is not None and include_exchange_amounts:
                 debited, credited = exchange_amounts
                 source_cell = ft.Row(
                     [source_cell, ft.Text(debited, size=13 if amount is not None else 12)],
@@ -2085,6 +2087,13 @@ class FinanceView(ft.Row):
             movement = abs(cashflow.account.amount) if cashflow else incoming[0].amount
             heading.append(
                 ft.Text(
+                    f"{exchange_amounts[0]} → {exchange_amounts[1]}",
+                    size=12,
+                    max_lines=1,
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                )
+                if exchange_amounts is not None and has_summary
+                else ft.Text(
                     format_amount(movement, self.language, incoming[0].currency),
                     size=13,
                 )
@@ -2106,7 +2115,7 @@ class FinanceView(ft.Row):
                 )
             )
         if has_summary:
-            lines.append(movement_label())
+            lines.append(movement_label(include_exchange_amounts=exchange_amounts is None))
         actions: list[ft.Control] = (
             []
             if read_only

@@ -530,21 +530,19 @@ def test_transfer_summary_is_above_details_and_accounts(
         assert isinstance(summary, ft.Text)
         assert summary.value == "Synthetic transfer" and summary.size == 14
         assert isinstance(amount, ft.Text)
-        assert amount.value == ("4,200.00 UAH" if exchange else "100.00 UAH")
+        assert amount.value == ("100.00 USD → 4,200.00 UAH" if exchange else "100.00 UAH")
+        if exchange:
+            assert amount.size == 12 and amount.max_lines == 1
+            assert amount.overflow == ft.TextOverflow.ELLIPSIS
         movement = column.controls[-1]
         if exchange:
             assert isinstance(movement, ft.Row)
             source_cell, destination = movement.controls
-            assert isinstance(source_cell, ft.Row) and source_cell.expand is True
-            source_label, debited = source_cell.controls
-            assert isinstance(source_label, ft.Text) and source_label.value == "Dollar"
-            assert isinstance(debited, ft.Text) and debited.value == "100.00 USD"
+            assert isinstance(source_cell, ft.Text) and source_cell.value == "Dollar"
             assert isinstance(destination, ft.Row) and destination.expand == 2
-            arrow, target_label, credited = destination.controls
+            arrow, target_label = destination.controls
             assert isinstance(arrow, ft.Text) and arrow.value == "→"
             assert isinstance(target_label, ft.Text) and target_label.value == "Other bank"
-            assert isinstance(credited, ft.Text) and credited.value == "4,200.00 UAH"
-            assert debited.size == credited.size == 12
         else:
             assert isinstance(movement, ft.Text)
             assert movement.value == "Bank → Other bank"

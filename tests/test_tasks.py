@@ -12,11 +12,36 @@ from zipfile import ZipFile
 import flet_desktop
 import pytest
 from flet_platform_assets import render_icons, write
+from invoke.collection import Collection
 from invoke.context import Context
 from invoke.exceptions import Exit
+from invoke.program import Program
 from PIL.IcoImagePlugin import IcoImageFile
 
 import tasks
+
+
+@pytest.mark.parametrize(
+    "arguments,version,resume",
+    [
+        ([], "", False),
+        (["--resume"], "", True),
+        (["--version", "1.0.0"], "1.0.0", False),
+        (["--version", "0.4.0", "--resume"], "0.4.0", True),
+    ],
+)
+def test_release_cli_accepts_automatic_or_explicit_versions(
+    monkeypatch: pytest.MonkeyPatch,
+    arguments: list[str],
+    version: str,
+    resume: bool,
+) -> None:
+    start = MagicMock()
+    monkeypatch.setattr(tasks.release_tools, "start_release", start)
+    Program(namespace=Collection(tasks.release)).run(["inv", "release", *arguments], exit=False)
+    start.assert_called_once()
+    assert start.call_args.args == (tasks.ROOT, version)
+    assert start.call_args.kwargs["resume"] == resume
 
 
 @pytest.mark.parametrize("target", ["linux", "windows"])

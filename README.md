@@ -355,17 +355,22 @@ To create the next Android, Linux and Windows release together, use a clean,
 synchronized `main` checkout with authenticated GitHub CLI:
 
 ```sh
-uv run inv release --version X.Y.Z
+uv run inv release
 ```
 
+It selects the next patch after the highest published stable version, or reuses
+the current project version if it is still unpublished. Use
+`uv run inv release --version 0.4.0` (or `1.0.0`, etc.) to choose a specific
+minor, major or patch version; automatic numbering never changes minor/major.
 This command **commits and pushes** a new version/build-number update and dispatches
 an exact-commit CI candidate. After CI validates three production-signed architecture
 APKs, an AppImage and a Windows EXE installer, it verifies all uploads, creates
 the final release tag, and publishes the binaries together with SHA-256 checksums.
 It does not need platform SDKs locally. A failed candidate does not consume another
-version: commit/push fixes and run the same command with the **same version**.
+version: commit/push fixes and run the same command; it reuses the **same version**.
 To retry failed jobs without code changes, use
-`uv run inv release --version X.Y.Z --resume`. Published versions, final tags and
+`uv run inv release --resume` (the current project version, not the next patch).
+Published versions, final tags and
 existing release assets are never overwritten.
 Windows installers are initially unsigned and may trigger
 SmartScreen warnings. See [one-command releases](docs/development.md#one-command-releases)

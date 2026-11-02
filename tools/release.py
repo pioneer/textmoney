@@ -28,6 +28,12 @@ class ReleaseMetadata(TypedDict):
     assets: list[ReleaseAsset]
 
 
+class ReleaseSummary(TypedDict):
+    tagName: str
+    isDraft: bool
+    isPrerelease: bool
+
+
 class CandidateRun(TypedDict):
     databaseId: int
     displayTitle: str
@@ -60,6 +66,24 @@ def version_numbers(version: str) -> tuple[int, ...]:
             "Version components must fit Windows installer version fields (0..65535)."
         )
     return numbers
+
+
+def automatic_release_version(current_version: str, releases: list[ReleaseSummary]) -> str:
+    current = version_numbers(current_version)
+    published = [
+        version_numbers(item["tagName"].removeprefix("v"))
+        for item in releases
+        if not item["isDraft"] and not item["isPrerelease"]
+    ]
+    if not published or current > max(published):
+        return current_version
+    major, minor, patch = max(published)
+    if patch == 65535:
+        raise RuntimeError(
+            "The patch version reached the Windows installer limit. "
+            "Choose a new minor or major version explicitly with --version."
+        )
+    return f"{major}.{minor}.{patch + 1}"
 
 
 def android_apk_names(version: str) -> tuple[str, ...]:
@@ -215,8 +239,8 @@ def start_release(
     check: Callable[[], None],
     previous_build: Callable[[str], int],
 ) -> None:
-    requested = version_numbers(version)
-    tag = f"v{version}"
+    if version:
+        version_numbers(version)
     if run(root, "git", "status", "--porcelain", "--untracked-files=all"):
         raise RuntimeError(
             "Commit or set aside all work before releasing; the worktree must be clean."
@@ -239,20 +263,33 @@ def start_release(
     project_path = root / "pyproject.toml"
     source = project_path.read_text(encoding="utf-8")
     project = tomllib.loads(source)
-    latest = json.loads(
+    pages = json.loads(
         run(
             root,
             "gh",
-            "release",
-            "list",
-            "--repo",
-            repo,
-            "--limit",
-            "100",
-            "--json",
-            "tagName,isDraft,isPrerelease",
+            "api",
+            "--paginate",
+            "--slurp",
+            f"repos/{repo}/releases?per_page=100",
         )
     )
+    latest: list[ReleaseSummary] = [
+        {
+            "tagName": item["tag_name"],
+            "isDraft": item["draft"],
+            "isPrerelease": item["prerelease"],
+        }
+        for page in pages
+        for item in page
+    ]
+    if not version:
+        version = (
+            project["project"]["version"]
+            if resume
+            else automatic_release_version(project["project"]["version"], latest)
+        )
+    requested = version_numbers(version)
+    tag = f"v{version}"
     if resume:
         if project["project"]["version"] != version:
             raise RuntimeError("Resume requires the matching release version checked out on main.")

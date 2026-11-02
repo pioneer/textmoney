@@ -218,11 +218,27 @@ After committing and pushing the release tooling to `main`, prepare and publish
 Android, Linux and Windows together from a clean, synchronized `main` checkout:
 
 ```sh
-uv run inv release --version X.Y.Z
+uv run inv release
 ```
 
-Replace `X.Y.Z` with a new stable version, for example `0.3.7`. This is an
-explicit publication command: it updates `[project].version` and the Android
+The default is the next patch after the highest published stable version:
+`0.3.22` becomes `0.3.23`. Drafts and prereleases do not advance that number.
+If the current project version is newer than all published stable versions
+(or no stable release exists), it is reused rather than incremented. This keeps
+unpublished candidates on the same number after CI failures or code fixes.
+Release history is paginated, not limited to the newest 100 entries.
+Automatic numbering never advances the minor or major component.
+
+To choose a minor, major or another specific stable version instead:
+
+```sh
+uv run inv release --version 0.4.0
+uv run inv release --version 1.0.0
+```
+
+These are alternative examples, not consecutive steps. `--version X.Y.Z` overrides
+automatic selection. In either mode this is an explicit publication command:
+it updates `[project].version` and the Android
 build number in `pyproject.toml`, refreshes `uv.lock` offline, runs
 `uv run inv check`, commits those two files, and pushes `main` to `origin`.
 It dispatches the release workflow with the full candidate commit SHA and version,
@@ -294,9 +310,12 @@ After a candidate's CI/network failure, inspect Actions. To retry failed jobs
 without changing code, or reconnect to a run still in progress:
 
 ```sh
-uv run inv release --version X.Y.Z --resume
+uv run inv release --resume
 ```
 
+Without `--version`, resume uses the current project version, even if publication
+has already finished; it never selects the next patch. An explicit
+`--version X.Y.Z --resume` is also supported.
 Resume requires the matching candidate commit at synchronized `main`. It does
 not increment versions, create another commit/tag, or push. It watches the exact
 existing run and reruns failed jobs if the run has completed unsuccessfully.
@@ -308,10 +327,11 @@ instead of rebuilding an already published version.
 If code or workflow changes are needed, commit and push those fixes, then run:
 
 ```sh
-uv run inv release --version X.Y.Z
+uv run inv release
 ```
 
-Use the **same unpublished version**, without `--resume`. This runs local checks
+Automatic selection reuses the **same unpublished version**, without `--resume`;
+an explicit `--version X.Y.Z` can still select it. This runs local checks
 and dispatches a fresh candidate from the corrected commit, without another
 version/build-number change or release commit. The previous run must have finished
 or been cancelled first. Successful binaries from an older candidate are not mixed

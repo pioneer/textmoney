@@ -947,8 +947,8 @@ def check(context: Context) -> None:
 
 
 @task
-def release(context: Context, version: str, resume: bool = False) -> None:
-    """Prepare or retry a candidate; tag/publish only after all-platform CI succeeds."""
+def release(context: Context, version: str = "", resume: bool = False) -> None:
+    """Release the next patch or an explicit --version; --resume retries the current candidate."""
     try:
         release_tools.start_release(
             ROOT,

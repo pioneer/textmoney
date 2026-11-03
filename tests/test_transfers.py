@@ -15,6 +15,8 @@ from beancount.ops import summarize
 from fava.core import FavaLedger
 from form_controls import change, transaction_form
 from journal_fixtures import review_external_fixture
+from test_daily_summary import walk
+from test_icons import asset, store_at
 
 from app.domain.ledger import BANK_FEES, EPOCH, LedgerError, exchange_values
 from app.domain.storage import ConflictError
@@ -22,7 +24,7 @@ from app.infrastructure.beancount_journal import transaction_time
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.preferences import FeePreferences
 from app.journal import FILENAME, Journal
-from app.localization import translate
+from app.localization import format_amount, translate
 from app.storage import StorageError
 from app.ui.finance import FinanceView
 
@@ -530,16 +532,34 @@ def test_transfer_summary_is_above_details_and_accounts(
         assert isinstance(summary, ft.Text)
         assert summary.value == "Synthetic transfer" and summary.size == 14
         assert isinstance(amount, ft.Text)
-        assert amount.value == ("100.00 USD → 4,200.00 UAH" if exchange else "100.00 UAH")
+        assert amount.value == ("4,200.00 UAH" if exchange else "100.00 UAH")
+        assert amount.size == 13
         if exchange:
-            assert amount.size == 12 and amount.max_lines == 1
-            assert amount.overflow == ft.TextOverflow.ELLIPSIS
-        movement = column.controls[-1]
+            assert amount.text_align == ft.TextAlign.RIGHT
+        movement = column.controls[1] if exchange else column.controls[-1]
         if exchange:
-            assert isinstance(movement, ft.Row)
-            source_cell, destination = movement.controls
-            assert isinstance(source_cell, ft.Text) and source_cell.value == "Dollar"
-            assert isinstance(destination, ft.Row) and destination.expand == 2
+            assert isinstance(movement, ft.ResponsiveRow)
+            assert movement.spacing == 4 and movement.run_spacing == 0
+            source_cell, destination_cell, amount_cell = movement.controls
+            assert isinstance(source_cell, ft.Container) and source_cell.col == 4
+            assert isinstance(destination_cell, ft.Container)
+            assert destination_cell.col == {"xs": 8, "sm": 4}
+            assert isinstance(amount_cell, ft.Container)
+            assert amount_cell.col == {"xs": 12, "sm": 4}
+            assert amount_cell.alignment == ft.Alignment.CENTER_RIGHT
+            debited = amount_cell.content
+            assert isinstance(debited, ft.Text)
+            assert debited.value == "−100.00 USD"
+            assert debited.size == 12
+            assert debited.color == ft.Colors.ON_SURFACE_VARIANT
+            assert debited.style == ft.TextStyle(height=1)
+            assert debited.text_align == ft.TextAlign.RIGHT
+            assert debited.max_lines == 1
+            assert debited.overflow == ft.TextOverflow.ELLIPSIS
+            source_label = source_cell.content
+            destination = destination_cell.content
+            assert isinstance(source_label, ft.Text) and source_label.value == "Dollar"
+            assert isinstance(destination, ft.Row)
             arrow, target_label = destination.controls
             assert isinstance(arrow, ft.Text) and arrow.value == "→"
             assert isinstance(target_label, ft.Text) and target_label.value == "Other bank"
@@ -547,7 +567,7 @@ def test_transfer_summary_is_above_details_and_accounts(
             assert isinstance(movement, ft.Text)
             assert movement.value == "Bank → Other bank"
             assert movement.size == 10
-        details = column.controls[1:-1]
+        details = column.controls[2:] if exchange else column.controls[1:-1]
         assert len(details) == 1
         fee = details[-1]
         assert isinstance(fee, ft.Text)
@@ -557,7 +577,10 @@ def test_transfer_summary_is_above_details_and_accounts(
     asyncio.run(scenario())
 
 
-def test_blank_exchange_heading_is_the_movement_row_with_inline_amounts(tmp_path: Path) -> None:
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_blank_exchange_uses_transfer_title_and_separate_debit_line(
+    tmp_path: Path, language: str
+) -> None:
     async def scenario() -> None:
         journal = await exchange_seeded(tmp_path)
         await transfer(
@@ -568,26 +591,149 @@ def test_blank_exchange_heading_is_the_movement_row_with_inline_amounts(tmp_path
             description="",
         )
         view = FinanceView()
-        view.journal = journal
+        view.journal, view.language = journal, language
         names = {account.id: account.name for account in journal.ledger.accounts}
         row = view._transaction_card(journal.ledger.transactions[-1], names)
         assert isinstance(row, ft.Container) and isinstance(row.content, ft.Row)
         column = row.content.controls[0]
         assert isinstance(column, ft.Column)
-        assert len(column.controls) == 1
-        movement = column.controls[0]
-        assert isinstance(movement, ft.Row)
-        source_cell, destination = movement.controls
-        assert isinstance(source_cell, ft.Row) and source_cell.expand is True
-        source_label, debited = source_cell.controls
+        assert len(column.controls) == 2
+        heading = column.controls[0]
+        assert isinstance(heading, ft.Row)
+        title, received = heading.controls
+        assert isinstance(title, ft.Text) and title.value == translate(language, "kind_transfer")
+        assert isinstance(received, ft.Text)
+        assert received.value == format_amount(Decimal("4200"), language, "UAH")
+        movement = column.controls[1]
+        assert isinstance(movement, ft.ResponsiveRow)
+        source_cell, destination_cell, amount_cell = movement.controls
+        assert isinstance(source_cell, ft.Container)
+        assert isinstance(destination_cell, ft.Container)
+        assert isinstance(amount_cell, ft.Container)
+        debited = amount_cell.content
+        assert isinstance(debited, ft.Text)
+        assert debited.value == f"−{format_amount(Decimal('100'), language, 'USD')}"
+        source_label = source_cell.content
+        destination = destination_cell.content
         assert isinstance(source_label, ft.Text) and source_label.value == "Dollar"
-        assert isinstance(debited, ft.Text) and debited.value == "100.00 USD"
-        assert isinstance(destination, ft.Row) and destination.expand == 2
-        arrow, target_label, credited = destination.controls
+        assert isinstance(destination, ft.Row)
+        arrow, target_label = destination.controls
         assert isinstance(arrow, ft.Text) and arrow.value == "→"
         assert isinstance(target_label, ft.Text) and target_label.value == "Other bank"
-        assert isinstance(credited, ft.Text) and credited.value == "4,200.00 UAH"
-        assert debited.size == credited.size == 13
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("source", "target", "debit", "credit", "debit_text", "credit_text"),
+    [
+        ("Assets:Dollar", "Assets:Bank", "100", "4200", "100.00 USD", "4,200.00 UAH"),
+        ("Assets:Euro", "Assets:Bank", "2", "100", "2.00 EUR", "100.00 UAH"),
+        ("Assets:Bank", "Assets:Euro", "100", "2", "100.00 UAH", "2.00 EUR"),
+        ("Assets:Euro", "Liabilities:Loan", "2", "100", "2.00 EUR", "100.00 UAH"),
+        ("Liabilities:Loan", "Assets:Euro", "100", "2", "100.00 UAH", "2.00 EUR"),
+        ("Assets:Euro", "Assets:Pound", "100", "80", "100.00 EUR", "80.00 GBP"),
+    ],
+)
+@pytest.mark.parametrize("with_icons", [False, True])
+def test_exchange_rows_use_the_same_two_amount_layout_for_all_accounts_and_currencies(
+    tmp_path: Path,
+    source: str,
+    target: str,
+    debit: str,
+    credit: str,
+    debit_text: str,
+    credit_text: str,
+    with_icons: bool,
+) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        await transfer(
+            journal,
+            source_account=source,
+            destination=target,
+            amount=debit,
+            destination_amount=credit,
+        )
+        view = FinanceView()
+        view.journal = journal
+        if with_icons:
+            view.icons = store_at(tmp_path)
+            await view.icons.assign(source, asset("Source"), ())
+            await view.icons.assign(target, asset("Target"), ())
+        names = {account.id: account.name for account in journal.ledger.accounts}
+        card = view._transaction_card(journal.ledger.transactions[-1], names)
+        assert isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
+        column = card.content.controls[0]
+        assert isinstance(column, ft.Column) and column.spacing == 1
+        assert card.padding == ft.Padding.symmetric(vertical=2)
+        heading, movement = column.controls
+        assert isinstance(heading, ft.Row)
+        received = heading.controls[-1]
+        assert isinstance(received, ft.Text) and received.value == credit_text
+        assert isinstance(movement, ft.ResponsiveRow)
+        amount_cell = movement.controls[-1]
+        assert (
+            isinstance(amount_cell, ft.Container)
+            and amount_cell.alignment == ft.Alignment.CENTER_RIGHT
+        )
+        debited = amount_cell.content
+        assert isinstance(debited, ft.Text) and debited.value == f"−{debit_text}"
+        assert debited.color == ft.Colors.ON_SURFACE_VARIANT
+        labels = [control.value for control in walk(card) if isinstance(control, ft.Text)]
+        assert labels.count(credit_text) == labels.count(f"−{debit_text}") == 1
+        assert labels.count("→") == 1
+        assert all("→" not in value for value in (received.value, debited.value))
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_exchange_amounts_are_consistent_in_recent_activity_and_full_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str
+) -> None:
+    async def scenario() -> None:
+        journal = await exchange_seeded(tmp_path)
+        await transfer(
+            journal,
+            source_account="Assets:Bank",
+            destination="Assets:Euro",
+            amount="50000",
+            destination_amount="1000",
+        )
+        source = journal.source
+        view = FinanceView()
+        view.journal, view.language = journal, language
+        page = MagicMock(spec=ft.Page)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view._refresh()
+        for context, action_count in ((view.home_activity, 1), (view.history, 2)):
+            card = next(
+                control
+                for control in context.controls
+                if isinstance(control, ft.Container)
+                and any(
+                    isinstance(label, ft.Text) and label.value == "Synthetic transfer"
+                    for label in walk(control)
+                )
+            )
+            assert isinstance(card.content, ft.Row)
+            assert len(card.content.controls[1:]) == action_count
+            column = card.content.controls[0]
+            assert isinstance(column, ft.Column) and len(column.controls) == 2
+            heading, movement = column.controls
+            assert isinstance(heading, ft.Row) and isinstance(movement, ft.ResponsiveRow)
+            received = heading.controls[-1]
+            amount_cell = movement.controls[-1]
+            assert isinstance(received, ft.Text) and isinstance(amount_cell, ft.Container)
+            assert received.value == format_amount(Decimal("1000"), language, "EUR")
+            assert received.size == 13 and received.text_align == ft.TextAlign.RIGHT
+            debited = amount_cell.content
+            assert isinstance(debited, ft.Text)
+            assert debited.value == f"−{format_amount(Decimal('50000'), language, 'UAH')}"
+            assert debited.size == 12 and debited.color == ft.Colors.ON_SURFACE_VARIANT
+        assert journal.source == source
+        assert (tmp_path / FILENAME).read_text() == source
 
     asyncio.run(scenario())
 

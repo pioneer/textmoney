@@ -324,9 +324,12 @@ at phone and desktop widths and check that the final amount and Edit/Delete
 actions sit above the button and remain clickable. Recheck Home after navigation,
 resizing and label refreshes; the clearance must not disappear or accumulate.
 Empty lists still show their
-normal message. Transfers show exchange amounts beside the title, account
-movement below it, and fees above the movement; blank descriptions do not add
-an empty summary line.
+normal message. Cross-currency transfers show the received amount beside the
+title and a minus-prefixed, secondary-colored debit beside the account movement,
+right-aligned with the received amount. Below 576px, the debit moves to its own
+right-aligned line. Optional exchange fees appear below the movement/debit.
+Same-currency transfers and ordinary transaction rows keep their existing amount
+layout; blank descriptions do not add an empty summary.
 
 ## Reports scrolling clearance
 

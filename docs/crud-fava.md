@@ -317,8 +317,10 @@ the movement, truncated with an ellipsis when necessary. Multiline descriptions
 are flattened for the preview only; the editor retains the full original text.
 Complex entries show the description in their heading without duplicating it.
 Opening entries keep their localized opening-balance label. Cross-currency
-transfers show source and destination accounts with their exchanged amounts
-together on one arrow-aligned movement row.
+transfers show the received amount at the title's right edge. The total debited
+amount is minus-prefixed, smaller and secondary-colored, aligned to that same
+edge beside the source-to-destination account movement. Below 576px it moves to
+a separate line; no arrow appears between the amounts.
 
 ### Incoming money
 

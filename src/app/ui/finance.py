@@ -2031,38 +2031,25 @@ class FinanceView(ft.Row):
         )
         movement_row = movement_icons or exchange_amounts is not None
 
-        def movement_label(
-            amount: ft.Control | None = None, *, include_exchange_amounts: bool = True
-        ) -> ft.Control:
+        def movement_entity_label(identifier: str, text: str) -> ft.Control:
+            return self._entity_label(
+                identifier,
+                ft.Text(text, size=10, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+            )
+
+        def movement_label(amount: ft.Control | None = None) -> ft.Control:
             if not movement_row:
                 return ft.Text(title, size=10, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
 
-            def label(identifier: str, text: str) -> ft.Control:
-                return self._entity_label(
-                    identifier,
-                    ft.Text(
-                        text, size=10, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS
-                    ),
-                )
-
-            source_cell = label(outgoing[0].account, source)
+            source_cell = movement_entity_label(outgoing[0].account, source)
             amounts = [amount] if amount is not None else []
-            if exchange_amounts is not None and include_exchange_amounts:
-                debited, credited = exchange_amounts
-                source_cell = ft.Row(
-                    [source_cell, ft.Text(debited, size=13 if amount is not None else 12)],
-                    spacing=4,
-                    expand=True,
-                )
-                if amount is None:
-                    amounts = [ft.Text(credited, size=12)]
             return ft.Row(
                 [
                     source_cell,
                     ft.Row(
                         [
                             ft.Text("→", size=10),
-                            label(incoming[0].account, target),
+                            movement_entity_label(incoming[0].account, target),
                             *amounts,
                         ],
                         spacing=4,
@@ -2076,7 +2063,11 @@ class FinanceView(ft.Row):
         has_summary = simple and transaction.kind != "opening" and bool(summary)
         heading: list[ft.Control] = [
             ft.Text(
-                summary if has_summary else title,
+                summary
+                if has_summary
+                else self.tr("kind_transfer")
+                if exchange_amounts is not None
+                else title,
                 size=14 if has_summary or not simple else 10,
                 expand=True,
                 max_lines=1,
@@ -2085,37 +2076,73 @@ class FinanceView(ft.Row):
         ]
         if simple:
             movement = abs(cashflow.account.amount) if cashflow else incoming[0].amount
-            heading.append(
-                ft.Text(
-                    f"{exchange_amounts[0]} → {exchange_amounts[1]}",
-                    size=12,
-                    max_lines=1,
-                    overflow=ft.TextOverflow.ELLIPSIS,
-                )
-                if exchange_amounts is not None and has_summary
-                else ft.Text(
-                    format_amount(movement, self.language, incoming[0].currency),
-                    size=13,
-                )
+            amount = ft.Text(
+                exchange_amounts[1]
+                if exchange_amounts is not None
+                else format_amount(movement, self.language, incoming[0].currency),
+                size=13,
             )
+            if exchange_amounts is not None:
+                amount.text_align = ft.TextAlign.RIGHT
+            heading.append(amount)
         else:
             heading.append(ft.Text(self.tr("multiple_postings"), size=12))
         lines: list[ft.Control] = [
             movement_label(heading[-1])
-            if movement_row and not has_summary
+            if movement_icons and not has_summary and exchange_amounts is None
             else ft.Row(heading, spacing=8)
         ]
         fee_details = transfer or cashflow
+        fee_line = None
         if fee_details and fee_details.fee:
+            fee_line = ft.Text(
+                f"{self.tr('transfer_fee')}: "
+                f"{format_amount(fee_details.fee, self.language, fee_details.fee_currency)}",
+                size=12,
+            )
+            if exchange_amounts is None:
+                lines.append(fee_line)
+        if exchange_amounts is not None:
+            debited = ft.Text(
+                f"−{exchange_amounts[0]}",
+                size=12,
+                color=ft.Colors.ON_SURFACE_VARIANT,
+                style=ft.TextStyle(height=1),
+                text_align=ft.TextAlign.RIGHT,
+                max_lines=1,
+                overflow=ft.TextOverflow.ELLIPSIS,
+            )
             lines.append(
-                ft.Text(
-                    f"{self.tr('transfer_fee')}: "
-                    f"{format_amount(fee_details.fee, self.language, fee_details.fee_currency)}",
-                    size=12,
+                ft.ResponsiveRow(
+                    controls=[
+                        ft.Container(
+                            content=movement_entity_label(outgoing[0].account, source),
+                            col=4,
+                        ),
+                        ft.Container(
+                            content=ft.Row(
+                                [
+                                    ft.Text("→", size=10),
+                                    movement_entity_label(incoming[0].account, target),
+                                ],
+                                spacing=4,
+                            ),
+                            col={"xs": 8, "sm": 4},
+                        ),
+                        ft.Container(
+                            content=debited,
+                            alignment=ft.Alignment.CENTER_RIGHT,
+                            col={"xs": 12, "sm": 4},
+                        ),
+                    ],
+                    spacing=4,
+                    run_spacing=0,
                 )
             )
-        if has_summary:
-            lines.append(movement_label(include_exchange_amounts=exchange_amounts is None))
+            if fee_line is not None:
+                lines.append(fee_line)
+        elif has_summary:
+            lines.append(movement_label())
         actions: list[ft.Control] = (
             []
             if read_only

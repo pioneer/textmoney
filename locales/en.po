@@ -102,6 +102,9 @@ msgstr "The icon operation failed. Your selection is retained; check diagnostics
 msgid "ui.icon_delete_failed"
 msgstr "The account/category was deleted, but its old icon assignment could not be removed. Check icon storage before reusing the same category/account code."
 
+msgid "ui.icon_create_failed"
+msgstr "The account/category was created, but its icon could not be saved. Check icon storage, then use Choose icon on the existing account/category. Do not create it again."
+
 msgid "ui.error_migration_incomplete"
 msgstr "The data migration did not finish. Do not edit this folder. Keep the original and retry the migration into a new folder."
 

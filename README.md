@@ -146,6 +146,9 @@ Ubuntu or Arch configuration.
 1. Open TextMoney and choose a dedicated local data folder.
 2. Create an account with its currency and, optionally, an opening balance.
 3. Add expense categories under **Accounting → Categories**.
+   Account and category creation forms offer optional **Choose icon**, with a
+   preview before creation; the same picker is available when creating a category
+   inside a transaction. Canceling creation does not save the icon.
 4. Use **Add transaction**, enter a description in the first
    field, then a positive amount, select the account and category, and save.
    The default **−** records spending; the hint below the amount explains the sign.

@@ -6,7 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
-from form_controls import click_async, transaction_form
+from flet.messaging.session import Session
+from form_controls import click, click_async, transaction_form
 from test_daily_summary import walk
 from test_dialog_keyboard import finance_session, press
 from test_icons import asset, raster, store_at
@@ -15,14 +16,234 @@ from app.domain.budgets import Budget
 from app.domain.reporting import period_report
 from app.icons import IconAsset, IconError, normalize_image
 from app.infrastructure.icon_sources import IconifySearch, bundled_icons
-from app.journal import FILENAME
+from app.journal import FILENAME, Journal
+from app.storage import StorageError
 from app.ui.dialogs import show_dialog
-from app.ui.icons import IconPicker, icon_image
+from app.ui.finance import FinanceView
+from app.ui.icons import IconDraft, IconPicker, icon_image
 from app.ui.tree_picker import TreePicker
 
 
 def images(control: ft.Control) -> list[ft.Image]:
     return [child for child in walk(control) if isinstance(child, ft.Image)]
+
+
+def action(dialog: ft.AlertDialog, index: int) -> ft.TextButton:
+    control = dialog.actions[index]
+    if isinstance(control, ft.KeyboardListener):
+        control = control.content
+    assert isinstance(control, ft.TextButton)
+    return control
+
+
+async def creation_form(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> tuple[Session, FinanceView, Journal, ft.AlertDialog, IconDraft, str]:
+    session, view, journal = await finance_session(tmp_path, monkeypatch)
+    view.language = "en"
+    view.icons = store_at(tmp_path)
+    await view.icons.load()
+    if kind in {"asset", "liability"}:
+        view._create_account(MagicMock())
+        root = "Liabilities" if kind == "liability" else "Assets"
+        identifier = f"{root}:New"
+        view.account_root.value = root
+        view.account_name.value = "New account"
+        view.account_id.value = identifier
+        view.currency.value = "UAH"
+    elif kind.startswith("quick-"):
+        view._transaction_dialog(journal)
+        transaction = session.page._dialogs.controls[-1]
+        assert isinstance(transaction, ft.AlertDialog)
+        form = transaction_form(transaction)
+        form.choose(kind.removeprefix("quick-"))
+        form.amount.value = "125"
+        form.description.value = "Parent draft"
+        click(form.category_create)
+        identifier = "Income:New" if kind == "quick-income" else "Expenses:New"
+        dialog = session.page._dialogs.controls[-1]
+        for control in walk(dialog):
+            if isinstance(control, ft.TextField):
+                if control.data == "quick_category_path":
+                    control.value = identifier
+                elif control.data == "quick_category_name":
+                    control.value = "New category"
+    else:
+        view._create_category(MagicMock())
+        root = "Income" if kind == "income" else "Expenses"
+        identifier = f"{root}:New"
+        view.category_root.value = root
+        view.category_name.value = "New category"
+        view.category_id.value = identifier
+    dialog = session.page._dialogs.controls[-1]
+    assert isinstance(dialog, ft.AlertDialog)
+    draft = next(control for control in walk(dialog) if isinstance(control, IconDraft))
+    return session, view, journal, dialog, draft, identifier
+
+
+@pytest.mark.parametrize(
+    "kind", ["asset", "liability", "expense", "income", "quick-expense", "quick-income"]
+)
+def test_creation_icon_is_a_draft_until_entity_is_saved_and_survives_reload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    async def scenario() -> None:
+        session, view, journal, parent, draft, identifier = await creation_form(
+            tmp_path, monkeypatch, kind
+        )
+        original = journal.source
+        click(draft.choose_button)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        selected = bundled_icons("bank")[0]
+        picker._choose(MagicMock(control=ft.TextButton(data=selected)))
+        await session.dispatch_event(picker.search._i, "focus", {})
+        await press(session, "Enter")
+        assert not picker.open and parent.open
+        assert draft.selected == selected
+        assert images(draft)[0].width == images(draft)[0].height == 16
+        assert journal.source == original
+        assert view.icons is not None and not view.icons.records
+        await click_async(action(parent, -1))
+        assert not parent.open and view.error_message is None
+        assert identifier in view._existing_identifiers(journal)
+        assert view.icons.assets[identifier] == selected
+        assert images(view.home_balances if kind in {"asset", "liability"} else view.category_list)
+        if kind.startswith("quick-"):
+            transaction = next(
+                dialog
+                for dialog in session.page._dialogs.controls
+                if isinstance(dialog, ft.AlertDialog) and dialog.open
+            )
+            assert transaction.open
+            form = transaction_form(transaction)
+            assert form.category.value == identifier
+            assert form.amount.value == "125" and form.description.value == "Parent draft"
+            assert form.category.leading_icon is not None
+            option = next(option for option in form.category.options if option.key == identifier)
+            assert option.leading_icon is not None
+        saved = journal.source
+        reloaded = store_at(tmp_path)
+        await reloaded.load()
+        assert reloaded.assets[identifier] == selected
+        await journal.load()
+        assert journal.source == saved == (tmp_path / FILENAME).read_text()
+        assert selected.label not in saved
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("kind", ["asset", "expense", "quick-expense"])
+@pytest.mark.parametrize("cancel", ["picker", "creation", "remove"])
+def test_creation_icon_cancellation_and_removal_do_not_write_sidecars(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str, cancel: str
+) -> None:
+    async def scenario() -> None:
+        session, view, journal, parent, draft, identifier = await creation_form(
+            tmp_path, monkeypatch, kind
+        )
+        original = journal.source
+        click(draft.choose_button)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        picker._choose(MagicMock(control=ft.TextButton(data=asset())))
+        await click_async(picker.submit)
+        assert draft.selected == asset()
+        click(draft.choose_button)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker) and picker.selected == asset()
+        picker._choose(MagicMock(control=ft.TextButton(data=asset("Another"))))
+        if cancel == "remove":
+            click(picker.remove)
+            await click_async(picker.submit)
+            assert draft.selected is None and not draft.preview.visible
+        else:
+            await session.dispatch_event(picker.search._i, "focus", {})
+            await press(session, "Escape")
+            assert draft.selected == asset()
+        if cancel == "creation":
+            click(action(parent, 0))
+            assert journal.source == original
+            assert identifier not in view._existing_identifiers(journal)
+        else:
+            if cancel == "picker":
+                assert journal.source == original
+                click(action(parent, 0))
+            else:
+                await click_async(action(parent, -1))
+                assert identifier in view._existing_identifiers(journal)
+        assert view.icons is not None and not view.icons.records
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("kind", ["asset", "expense", "quick-expense"])
+def test_failed_entity_creation_keeps_icon_draft_without_assignment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    async def scenario() -> None:
+        _session, view, journal, parent, draft, identifier = await creation_form(
+            tmp_path, monkeypatch, kind
+        )
+        draft.selected = asset()
+        original = journal.source
+        method = "create_account" if kind == "asset" else "create_category"
+        monkeypatch.setattr(journal, method, AsyncMock(side_effect=StorageError("write failed")))
+        await click_async(action(parent, -1))
+        assert parent.open and draft.selected == asset()
+        assert view.error_message == "write failed"
+        assert journal.source == original
+        assert identifier not in view._existing_identifiers(journal)
+        assert view.icons is not None and not view.icons.records
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("kind", ["asset", "expense", "quick-expense"])
+@pytest.mark.parametrize("failure", ["write", "concurrent", "unavailable"])
+def test_post_creation_icon_failure_closes_creation_and_reports_saved_entity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str, failure: str
+) -> None:
+    async def scenario() -> None:
+        session, view, journal, parent, draft, identifier = await creation_form(
+            tmp_path, monkeypatch, kind
+        )
+        assert view.icons is not None
+        draft.selected = asset("Requested")
+        if failure == "write":
+            monkeypatch.setattr(
+                view.icons, "assign", AsyncMock(side_effect=StorageError("write failed"))
+            )
+        elif failure == "concurrent":
+            await view.icons.assign(identifier, asset("Concurrent"), ())
+        else:
+            view.icons = None
+        await click_async(action(parent, -1))
+        assert not parent.open
+        assert identifier in view._existing_identifiers(journal)
+        assert view.error_message == "icon_create_failed"
+        assert view.icon_notice.visible and view.icon_notice.value == view.tr("icon_create_failed")
+        assert "created" in (view.message.value or "")
+        if failure == "concurrent":
+            assert view.icons is not None and view.icons.assets[identifier].label == "Concurrent"
+        if kind.startswith("quick-"):
+            transaction = next(
+                dialog
+                for dialog in session.page._dialogs.controls
+                if isinstance(dialog, ft.AlertDialog) and dialog.open
+            )
+            assert transaction.open
+            assert transaction_form(transaction).category.value == identifier
+        await journal.load()
+        assert (
+            sum(
+                item.id == identifier
+                for item in (*journal.ledger.accounts, *journal.ledger.categories)
+            )
+            == 1
+        )
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("compact", [False, True])

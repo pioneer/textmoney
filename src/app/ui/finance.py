@@ -81,7 +81,7 @@ from app.timekeeping import local_datetime, named_zone
 from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
-from app.ui.icons import IconPicker, icon_image
+from app.ui.icons import IconDraft, IconPicker, icon_image
 from app.ui.tree_style import compact_tree_leaf, compact_tree_theme, compact_tree_tile
 from app.version import release_identity
 
@@ -1616,6 +1616,30 @@ class FinanceView(ft.Row):
             ),
         )
 
+    async def _assign_created_icon(
+        self,
+        journal: Journal,
+        store: IconStore | None,
+        draft: IconDraft,
+        identifier: str,
+        expected: tuple[str, ...],
+    ) -> None:
+        if draft.selected is None:
+            return
+        try:
+            if self.journal is not journal or self.icons is not store or not journal.ready:
+                raise ConflictError("icon_stale")
+            if store is None or not store.loaded:
+                raise IconError("icon_storage")
+            await store.assign(identifier, draft.selected, expected)
+        except (IconError, StorageError, TimeoutError, ConflictError) as exc:
+            self.icon_notice.value = self.tr("icon_create_failed")
+            self.icon_notice.visible = True
+            logger.warning("Entity created; icon assignment failed (%s)", type(exc).__name__)
+            raise IconError("icon_create_failed") from exc
+        self.icon_revision += 1
+        self.fee_choices_state = ()
+
     async def _load_icons(self) -> None:
         if self.icons is None:
             return
@@ -2810,6 +2834,7 @@ class FinanceView(ft.Row):
         *,
         deleting: bool = False,
         stretch: bool = False,
+        after_save: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)
         submit = ft.TextButton(self.tr("crud_delete" if deleting else "crud_save"))
@@ -2827,6 +2852,8 @@ class FinanceView(ft.Row):
                 backup = await save()
                 self.page.pop_dialog()
                 self._saved(backup)
+                if after_save is not None:
+                    await after_save()
 
             try:
                 await self._action(action)
@@ -3649,6 +3676,9 @@ class FinanceView(ft.Row):
                 self._error(exc, notify=True)
 
         def create_category_dialog(event: ft.Event[ft.IconButton]) -> None:
+            icon = IconDraft(self.page, self.language, self.icon_provider)
+            icon_store = self.icons
+            icon_heads = dict(icon_store.heads) if icon_store is not None else {}
             try:
                 category_opened_default = date.fromisoformat(when.values()[0])
             except LedgerError:
@@ -3813,14 +3843,23 @@ class FinanceView(ft.Row):
                     category.hint_text = None
                     category.value = identifier
                     category_values[operation()] = identifier
+                    category.leading_icon = self._entity_dropdown_icon(identifier)
                     self.page.pop_dialog()
                     self._saved(backup)
+                    await self._assign_created_icon(
+                        journal, icon_store, icon, identifier, icon_heads.get(identifier, ())
+                    )
+                    category.leading_icon = self._entity_dropdown_icon(identifier)
+                    for option in category.options:
+                        option.leading_icon = self._entity_dropdown_icon(option.key or "")
 
                 create.disabled = cancel.disabled = True
+                icon.disabled = True
                 try:
                     await self._action(save)
                 finally:
                     create.disabled = cancel.disabled = False
+                    icon.disabled = False
                     self.page.update()
 
             create.on_click = save_category
@@ -3840,6 +3879,7 @@ class FinanceView(ft.Row):
                             ),
                             ft.Row([category_parent]),
                             category_name,
+                            icon,
                             category_path,
                             category_opened,
                             category_status,
@@ -4584,6 +4624,10 @@ class FinanceView(ft.Row):
     def _create_account(self, event: ft.Event[ft.Button]) -> None:
         journal = self._require_journal()
         source = journal.source
+        icon = IconDraft(self.page, self.language, self.icon_provider)
+        icon_store = self.icons
+        icon_heads = dict(icon_store.heads) if icon_store is not None else {}
+        identifier = ""
         today = self._today()
         account_opened = DateTimeFields(
             self.language,
@@ -4605,6 +4649,7 @@ class FinanceView(ft.Row):
         opening_effective.occurred.label = self.tr("opening_balance_date")
 
         async def save() -> str | None:
+            nonlocal identifier
             if journal.source != source:
                 raise ConflictError("crud_stale")
             root = self.account_root.value or "Assets"
@@ -4626,9 +4671,15 @@ class FinanceView(ft.Row):
                 opened=date.fromisoformat(account_opened.values()[0]),
                 opening_date=date.fromisoformat(opening_effective.values()[0]),
             )
+            identifier = code.code
             self.account_id.value = self.account_name.value = self.opening.value = ""
             self.account_code_manual = False
             return backup
+
+        async def save_icon() -> None:
+            await self._assign_created_icon(
+                journal, icon_store, icon, identifier, icon_heads.get(identifier, ())
+            )
 
         self._update_account_suggestion()
         self._edit_dialog(
@@ -4636,6 +4687,7 @@ class FinanceView(ft.Row):
             [
                 ft.Row([self.account_root]),
                 self.account_name,
+                icon,
                 self.account_id,
                 self.account_suggestion_status,
                 self.account_suggestion_regenerate,
@@ -4648,6 +4700,7 @@ class FinanceView(ft.Row):
             journal,
             save,
             stretch=True,
+            after_save=save_icon,
         )
 
     def _account_type_changed(self, event: ft.Event[ft.Dropdown]) -> None:
@@ -4866,6 +4919,10 @@ class FinanceView(ft.Row):
     def _create_category(self, event: ft.Event[ft.Button]) -> None:
         journal = self._require_journal()
         source = journal.source
+        icon = IconDraft(self.page, self.language, self.icon_provider)
+        icon_store = self.icons
+        icon_heads = dict(icon_store.heads) if icon_store is not None else {}
+        identifier = ""
         category_opened = DateTimeFields(
             self.language,
             self._effective_zone(),
@@ -4875,6 +4932,7 @@ class FinanceView(ft.Row):
         category_opened.occurred.label = self.tr("category_available_date")
 
         async def save() -> str | None:
+            nonlocal identifier
             if journal.source != source:
                 raise ConflictError("crud_stale")
             root = self.category_root.value or "Expenses"
@@ -4895,10 +4953,16 @@ class FinanceView(ft.Row):
                 root=root,
                 opened=date.fromisoformat(category_opened.values()[0]),
             )
+            identifier = code.code
             self.category_id.value = self.category_name.value = ""
             self.category_parent.value = ""
             self.category_code_manual = False
             return backup
+
+        async def save_icon() -> None:
+            await self._assign_created_icon(
+                journal, icon_store, icon, identifier, icon_heads.get(identifier, ())
+            )
 
         self._refresh_category_parent_options()
         self._update_category_suggestion()
@@ -4908,6 +4972,7 @@ class FinanceView(ft.Row):
                 ft.Row([self.category_root]),
                 ft.Row([self.category_parent]),
                 self.category_name,
+                icon,
                 self.category_id,
                 self.category_suggestion_status,
                 self.category_suggestion_regenerate,
@@ -4917,6 +4982,7 @@ class FinanceView(ft.Row):
             journal,
             save,
             stretch=True,
+            after_save=save_icon,
         )
 
     def _category_type_changed(self, event: ft.Event[ft.Dropdown]) -> None:

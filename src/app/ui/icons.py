@@ -11,6 +11,7 @@ from app.icons import DISPLAY_SIZE, MAX_INPUT, IconAsset, IconError, normalize_i
 from app.infrastructure.icon_sources import IconifySearch, bundled_icons
 from app.localization import translate
 from app.storage import StorageError
+from app.ui.dialogs import show_dialog
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,37 @@ def icon_image(asset: IconAsset) -> ft.Image:
         semantics_label=asset.label,
         tooltip=f"{asset.label} · {asset.license}",
     )
+
+
+class IconDraft(ft.Column):
+    def __init__(self, page: ft.Page, language: str, provider: IconifySearch) -> None:
+        self.owner = page
+        self.language = language
+        self.provider = provider
+        self.selected: IconAsset | None = None
+        self.preview = ft.Row(spacing=8, visible=False)
+        self.choose_button = ft.TextButton(
+            translate(language, "icon_choose"),
+            icon=ft.Icons.IMAGE_SEARCH,
+            on_click=self._choose,
+        )
+        super().__init__(
+            controls=[self.choose_button, self.preview],
+            spacing=4,
+        )
+
+    def _choose(self, event: ft.Event[ft.TextButton]) -> None:
+        async def select(asset: IconAsset | None) -> None:
+            self.selected = asset
+            self.preview.controls = (
+                [icon_image(asset), ft.Text(asset.label, expand=True)] if asset else []
+            )
+            self.preview.visible = asset is not None
+
+        show_dialog(
+            self.owner,
+            IconPicker(self.owner, self.language, self.selected, self.provider, select),
+        )
 
 
 class IconPicker(ft.AlertDialog):

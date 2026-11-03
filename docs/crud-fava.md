@@ -326,6 +326,10 @@ edge beside the source-to-destination account movement. It uses 10-pixel text
 and stays on that second line on narrow screens. Flexible cells avoid overlaps;
 unusually long values truncate with the full debit available in a tooltip.
 No arrow appears between the amounts.
+Assigned category icons occupy a leading slot spanning the title and details,
+with no duplicate beside the category label. Transfers use the destination
+account icon and opening balances use the opened account icon; other account
+icons remain inline. Home's recent activity uses the same layout.
 
 ### Incoming money
 

@@ -2081,6 +2081,31 @@ class FinanceView(ft.Row):
             self.icons is not None and posting.account in self.icons.assets
             for posting in (*outgoing, *incoming)
         )
+        leading_identifier = ""
+        if simple:
+            if transaction.kind in {"transfer", "opening"}:
+                leading_identifier = target_identifier
+            elif transaction.kind in {"expense", "income", "reimbursement"}:
+                leading_identifier = next(
+                    (
+                        posting.account
+                        for posting in (*outgoing, *incoming)
+                        if posting.account.startswith(("Expenses:", "Income:"))
+                    ),
+                    "",
+                )
+        leading_image = self._entity_icon(leading_identifier)
+        leading_controls: list[ft.Control] = []
+        if leading_image is not None:
+            leading_image.width = leading_image.height = 28.8
+            leading_controls.append(
+                ft.Container(
+                    content=leading_image,
+                    width=40,
+                    margin=ft.Margin.only(right=8),
+                    alignment=ft.Alignment.CENTER,
+                )
+            )
 
         exchange_amounts = (
             (
@@ -2093,9 +2118,11 @@ class FinanceView(ft.Row):
         movement_row = movement_icons or exchange_amounts is not None
 
         def movement_entity_label(identifier: str, text: str) -> ft.Control:
-            return self._entity_label(
-                identifier,
-                ft.Text(text, size=10, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+            label = ft.Text(
+                text, size=10, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS
+            )
+            return (
+                label if identifier == leading_identifier else self._entity_label(identifier, label)
             )
 
         def movement_label(amount: ft.Control | None = None) -> ft.Control:
@@ -2206,8 +2233,23 @@ class FinanceView(ft.Row):
         return ft.Container(
             padding=ft.Padding.symmetric(vertical=2),
             content=ft.Row(
-                [ft.Column(lines, spacing=1, expand=True), *actions],
+                [
+                    *leading_controls,
+                    ft.Column(
+                        lines,
+                        spacing=1,
+                        expand=True,
+                        alignment=ft.MainAxisAlignment.CENTER
+                        if leading_controls
+                        else ft.MainAxisAlignment.START,
+                    ),
+                    *actions,
+                ],
                 spacing=0,
+                intrinsic_height=bool(leading_controls),
+                vertical_alignment=ft.CrossAxisAlignment.STRETCH
+                if leading_controls
+                else ft.CrossAxisAlignment.CENTER,
             ),
         )
 

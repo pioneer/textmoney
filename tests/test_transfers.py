@@ -650,7 +650,7 @@ def test_exchange_rows_use_the_same_two_amount_layout_for_all_accounts_and_curre
         names = {account.id: account.name for account in journal.ledger.accounts}
         card = view._transaction_card(journal.ledger.transactions[-1], names)
         assert isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
-        column = card.content.controls[0]
+        column = next(child for child in card.content.controls if isinstance(child, ft.Column))
         assert isinstance(column, ft.Column) and column.spacing == 1
         assert card.padding == ft.Padding.symmetric(vertical=2)
         heading, movement = column.controls
@@ -710,8 +710,11 @@ def test_exchange_amounts_are_consistent_in_recent_activity_and_full_list(
                 )
             )
             assert isinstance(card.content, ft.Row)
-            assert len(card.content.controls[1:]) == action_count
-            column = card.content.controls[0]
+            assert (
+                len([child for child in card.content.controls if isinstance(child, ft.IconButton)])
+                == action_count
+            )
+            column = next(child for child in card.content.controls if isinstance(child, ft.Column))
             assert isinstance(column, ft.Column) and len(column.controls) == 2
             heading, movement = column.controls
             assert isinstance(heading, ft.Row) and isinstance(movement, ft.Row)

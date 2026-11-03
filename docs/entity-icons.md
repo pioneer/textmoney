@@ -33,9 +33,10 @@ automatic per-image stroke-thickness analysis.
 
 ## Validation and display
 
-Every downloaded/imported candidate is validated before appearing. Images display
+Every downloaded/imported candidate is validated before appearing. Inline images display
 at **16 logical pixels** with proportions preserved, including picker previews.
-This keeps them secondary to nearby labels; stored artwork and existing
+Transaction rows use a **28.8-pixel** leading image in a 40-pixel-wide slot spanning
+the title and details. Stored artwork and existing
 assignments are unchanged by display sizing:
 
 - PNG/JPEG/WebP: non-animated, at most 2 MiB input, each side 48–4096 pixels,
@@ -59,6 +60,12 @@ Transaction movements with icons use consistent source/destination columns, incl
 opening balances and rows without a description. Inline amounts do not move the
 arrow; the destination column has extra room for the amount on narrow screens.
 Long account/category labels truncate instead of overflowing.
+In both Operations and Home's recent activity, expense, income and reimbursement
+category icons move to the leading slot. Transfers use the destination account's
+icon there; opening balances use the opened account's icon. That icon is not
+repeated beside its movement label. Other account icons stay inline. Rows without
+an assigned leading icon keep their existing layout; no fallback artwork is added.
+Theme colors, image proportions and attribution are retained.
 
 ## Storage and synchronization
 

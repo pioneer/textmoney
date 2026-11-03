@@ -205,6 +205,9 @@ credited means 100 USD exchanged at 42 UAH/USD.
 Transaction rows show the received amount above the smaller, minus-prefixed
 debited amount at the same right edge. On narrow screens, the debit stays beside
 the account labels rather than dropping to a third line.
+Assigned category icons lead the entire transaction row before its title, instead
+of repeating beside the category label. Transfers use the destination-account icon;
+opening balances use the opened-account icon. This also applies to Home's recent activity.
 Changing the selected mode never changes entered amounts. To reverse a transfer,
 change its source/destination accounts and exchanged amounts explicitly.
 Fee currency remains explicit under Advanced.

@@ -39,6 +39,11 @@ def action(dialog: ft.AlertDialog, index: int) -> ft.TextButton:
     return control
 
 
+def transaction_body(card: ft.Control) -> ft.Column:
+    assert isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
+    return next(child for child in card.content.controls if isinstance(child, ft.Column))
+
+
 async def creation_form(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> tuple[Session, FinanceView, Journal, ft.AlertDialog, IconDraft, str]:
@@ -281,7 +286,7 @@ def test_icon_movements_keep_consistent_columns_with_or_without_inline_amount(
             transaction, {"Assets:Bank": "Bank", "Expenses:Food": "Food"}, compact
         )
         assert isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
-        details = card.content.controls[0]
+        details = transaction_body(card)
         assert isinstance(details, ft.Column)
         movement = details.controls[-1]
         assert isinstance(movement, ft.Row) and len(movement.controls) == 2
@@ -331,7 +336,11 @@ def test_opening_icons_keep_title_and_account_for_assets_and_liabilities(
             )
             card = view._transaction_card(transaction, {identifier: "Bank"}, compact)
             assert isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
-            details = card.content.controls[0]
+            leading = card.content.controls[0]
+            assert isinstance(leading, ft.Container) and isinstance(leading.content, ft.Image)
+            assert leading.content.semantics_label == "Bank"
+            assert leading.content.width == leading.content.height == 28.8
+            details = transaction_body(card)
             assert isinstance(details, ft.Column) and len(details.controls) == 1
             movement = details.controls[0]
             assert isinstance(movement, ft.Row)
@@ -343,13 +352,209 @@ def test_opening_icons_keep_title_and_account_for_assets_and_liabilities(
             assert labels[0].size == 10
             assert not images(source)
             assert [child.value for child in walk(target) if isinstance(child, ft.Text)] == ["Bank"]
-            assert len(images(target)) == 1 and images(target)[0].semantics_label == "Bank"
+            assert not images(target)
             assert isinstance(arrow, ft.Text) and arrow.value == "→"
             assert isinstance(rendered_amount, ft.Text)
             assert rendered_amount.value == format_amount(abs(amount), language, "UAH")
             assert source.expand is True and target.expand is True and destination.expand == 2
             assert transaction.narration == "Existing opening narration"
             assert transaction.postings[0].amount == amount
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("read_only", [False, True])
+@pytest.mark.parametrize(
+    ("kind", "source", "target", "leading_id", "account_id"),
+    [
+        ("expense", "Assets:Bank", "Expenses:Food", "Expenses:Food", "Assets:Bank"),
+        ("income", "Income:Work", "Assets:Bank", "Income:Work", "Assets:Bank"),
+        ("reimbursement", "Expenses:Food", "Assets:Bank", "Expenses:Food", "Assets:Bank"),
+        ("transfer", "Assets:Bank", "Assets:Other", "Assets:Other", "Assets:Bank"),
+        ("opening", EQUITY, "Assets:Bank", "Assets:Bank", None),
+        ("opening", EQUITY, "Liabilities:Card", "Liabilities:Card", None),
+    ],
+)
+def test_transaction_icon_leads_the_whole_row_without_duplicating_movement_icon(
+    tmp_path: Path,
+    compact: bool,
+    read_only: bool,
+    kind: str,
+    source: str,
+    target: str,
+    leading_id: str,
+    account_id: str | None,
+) -> None:
+    async def scenario() -> None:
+        view = FinanceView()
+        view.icons = store_at(tmp_path)
+        await view.icons.assign(leading_id, asset("Leading"), ())
+        if account_id is not None:
+            await view.icons.assign(account_id, asset("Account"), ())
+        transaction = Transaction(
+            "synthetic",
+            date(2026, 1, 1),
+            "",
+            "",
+            "Synthetic title",
+            (Posting(source, Decimal("-10"), "UAH"), Posting(target, Decimal("10"), "UAH")),
+            kind,
+        )
+        card = view._transaction_card(
+            transaction, {source: "Source", target: "Target"}, compact, read_only=read_only
+        )
+        assert isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
+        leading = card.content.controls[0]
+        assert isinstance(leading, ft.Container)
+        assert leading.width == 40 and leading.height is None
+        assert leading.margin == ft.Margin.only(right=8)
+        assert leading.alignment == ft.Alignment.CENTER
+        image = leading.content
+        assert isinstance(image, ft.Image)
+        assert image.width == image.height == 28.8
+        assert image.semantics_label == "Leading"
+        assert image.fit == ft.BoxFit.CONTAIN and image.color == ft.Colors.ON_SURFACE
+        assert image.tooltip == "Leading · CC0-1.0"
+        assert card.content.intrinsic_height
+        assert card.content.vertical_alignment == ft.CrossAxisAlignment.STRETCH
+        details = transaction_body(card)
+        assert card.content.controls[1] is details
+        assert [item.semantics_label for item in images(details)] == (
+            ["Account"] if account_id is not None else []
+        )
+        assert all(item.width == item.height == 16 for item in images(details))
+        assert len(card.content.controls[2:]) == (0 if read_only else 1 if compact else 2)
+        assert transaction.narration == "Synthetic title"
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("kind", ["expense", "income"])
+@pytest.mark.parametrize("fee_mode", ["added", "deducted"])
+def test_leading_cashflow_icon_uses_principal_category_not_commission(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str, fee_mode: str
+) -> None:
+    async def scenario() -> None:
+        _session, view, journal = await finance_session(tmp_path, monkeypatch)
+        await journal.create_category("Salary", "Salary", root="Income", opened=date(2000, 1, 1))
+        await journal.create_category("Fees", "Fees", opened=date(2000, 1, 1))
+        category = "Expenses:Food" if kind == "expense" else "Income:Salary"
+        view.icons = store_at(tmp_path)
+        for identifier, label in (
+            (category, "Principal"),
+            ("Assets:Bank", "Account"),
+            ("Expenses:Fees", "Commission"),
+        ):
+            await view.icons.assign(identifier, asset(label), ())
+        options = {"fee": "5", "fee_category": "Expenses:Fees", "fee_mode": fee_mode}
+        if kind == "expense":
+            await journal.add_expense(
+                "Assets:Bank", category, "100", "", "2026-01-01", "Synthetic", **options
+            )
+        else:
+            await journal.add_incoming(
+                "Assets:Bank", category, "100", "", "2026-01-01", kind, "Synthetic", **options
+            )
+        source = journal.source
+        view._refresh()
+        for context in (view.home_activity, view.history):
+            rendered = images(context)
+            assert [image.semantics_label for image in rendered] == ["Principal", "Account"]
+            assert [image.width for image in rendered] == [28.8, 16]
+        assert journal.source == source == (tmp_path / FILENAME).read_text()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("with_store", [False, True])
+def test_missing_category_icon_preserves_row_without_fallback_slot(
+    tmp_path: Path, with_store: bool
+) -> None:
+    async def scenario() -> None:
+        view = FinanceView()
+        if with_store:
+            view.icons = store_at(tmp_path)
+            await view.icons.assign("Assets:Bank", asset("Account"), ())
+        transaction = Transaction(
+            "synthetic",
+            date(2026, 1, 1),
+            "",
+            "",
+            "Synthetic title",
+            (
+                Posting("Assets:Bank", Decimal("-10"), "UAH"),
+                Posting("Expenses:Food", Decimal("10"), "UAH"),
+            ),
+            "expense",
+        )
+        card = view._transaction_card(transaction, {"Assets:Bank": "Bank", "Expenses:Food": "Food"})
+        assert isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
+        assert card.content.controls[0] is transaction_body(card)
+        assert not card.content.intrinsic_height
+        assert all(image.width == image.height == 16 for image in images(card))
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("artwork", ["monochrome-svg", "colored-raster"])
+def test_leading_icon_preserves_artwork_and_does_not_resize_other_surfaces(
+    tmp_path: Path, artwork: str
+) -> None:
+    async def scenario() -> None:
+        view = FinanceView()
+        view.icons = store_at(tmp_path)
+        selected = asset("Category")
+        if artwork == "colored-raster":
+            selected = replace(selected, data=normalize_image(raster(48, 96))[0], monochrome=False)
+        await view.icons.assign("Expenses:Food", selected, ())
+        transaction = Transaction(
+            "synthetic",
+            date(2026, 1, 1),
+            "",
+            "",
+            "Synthetic",
+            (
+                Posting("Assets:Bank", Decimal("-10"), "UAH"),
+                Posting("Expenses:Food", Decimal("10"), "UAH"),
+            ),
+            "expense",
+        )
+        card = view._transaction_card(transaction, {})
+        image = images(card)[0]
+        assert image.width == image.height == 28.8
+        assert image.src == selected.data and image.fit == ft.BoxFit.CONTAIN
+        assert image.color == (ft.Colors.ON_SURFACE if selected.monochrome else None)
+        assert image.tooltip == "Category · CC0-1.0"
+        inline = view._entity_icon("Expenses:Food")
+        assert isinstance(inline, ft.Image) and inline.width == inline.height == 16
+        assert view.icons.assets["Expenses:Food"] == selected
+
+    asyncio.run(scenario())
+
+
+def test_complex_transaction_does_not_guess_a_leading_category(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        view = FinanceView()
+        view.icons = store_at(tmp_path)
+        await view.icons.assign("Expenses:Food", asset("Food"), ())
+        transaction = Transaction(
+            "synthetic",
+            date(2026, 1, 1),
+            "",
+            "",
+            "Complex entry",
+            (
+                Posting("Assets:Bank", Decimal("-10"), "UAH"),
+                Posting("Expenses:Food", Decimal("5"), "UAH"),
+                Posting("Expenses:Other", Decimal("5"), "UAH"),
+            ),
+            "external",
+        )
+        card = view._transaction_card(transaction, {})
+        assert isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
+        assert card.content.controls[0] is transaction_body(card)
+        assert not images(card)
 
     asyncio.run(scenario())
 
@@ -498,8 +703,9 @@ def test_entity_icons_reach_lists_settings_transactions_and_reports(
         assert images(view.account_list)
         assert images(view.category_list)
         assert len(images(view.history)) >= 2
-        for context in (view.home_balances, view.account_list, view.category_list, view.history):
+        for context in (view.home_balances, view.account_list, view.category_list):
             assert all(image.width == image.height == 16 for image in images(context))
+        assert [image.width for image in images(view.history)] == [28.8, 16]
         view.default_account.value = "Assets:Bank"
         view._render_default_account()
         assert isinstance(view.default_account.leading_icon, ft.Image)

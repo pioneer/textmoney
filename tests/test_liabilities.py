@@ -363,7 +363,10 @@ def test_repayment_form_crosses_zero_without_liability_warning(
 
 
 @pytest.mark.parametrize("balance", ["-78317.92", "0.00", "500.00"])
-def test_existing_native_liability_journal_loads_losslessly(tmp_path: Path, balance: str) -> None:
+@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_existing_native_liability_journal_loads_losslessly(
+    tmp_path: Path, balance: str, newline: str
+) -> None:
     source = f"""1970-01-01 open Liabilities:People:Alex UAH
     note: "Keep my account annotation"
 1970-01-01 open Equity:Opening-Balances
@@ -371,8 +374,8 @@ def test_existing_native_liability_journal_loads_losslessly(tmp_path: Path, bala
     note: "Keep my transaction annotation"
     Liabilities:People:Alex {balance} UAH
     Equity:Opening-Balances {-Decimal(balance)} UAH
-"""
-    (tmp_path / FILENAME).write_text(source)
+""".replace("\n", newline)
+    (tmp_path / FILENAME).write_text(source, encoding="utf-8", newline="")
 
     async def scenario() -> None:
         journal = Journal(DesktopFolder(str(tmp_path), FILENAME), today=lambda: TODAY)

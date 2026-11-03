@@ -9,6 +9,8 @@ so a stalled test fails explicitly instead of exhausting the CI job deadline.
 Use short descriptive parameter IDs for image/binary fixtures: pytest includes
 them in `PYTEST_CURRENT_TEST`, where large payloads can exceed Windows limits
 and flood failure reports. Text fixtures and subprocess decoding use explicit UTF-8.
+Lossless journal fixtures disable newline translation when writing; test both LF
+and CRLF against the exact source rather than the host's default line endings.
 Run individual Invoke tasks to iterate. Pass focused pytest selectors through
 `PYTEST_ADDOPTS`, using your shell's environment-variable syntax, for example on
 POSIX shells:

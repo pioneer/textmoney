@@ -2097,7 +2097,7 @@ class FinanceView(ft.Row):
         leading_image = self._entity_icon(leading_identifier)
         leading_controls: list[ft.Control] = []
         if leading_image is not None:
-            leading_image.width = leading_image.height = 28.8
+            leading_image.width = leading_image.height = 25.92
             leading_controls.append(
                 ft.Container(
                     content=leading_image,

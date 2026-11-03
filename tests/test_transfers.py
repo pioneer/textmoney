@@ -710,6 +710,9 @@ def test_exchange_amounts_are_consistent_in_recent_activity_and_full_list(
                 )
             )
             assert isinstance(card.content, ft.Row)
+            artwork = [child for child in walk(card) if isinstance(child, ft.Image)]
+            assert [image.width for image in artwork] == ([25.92, 16] if with_icons else [])
+            assert all(image.height == image.width for image in artwork)
             assert (
                 len([child for child in card.content.controls if isinstance(child, ft.IconButton)])
                 == action_count

@@ -35,7 +35,7 @@ automatic per-image stroke-thickness analysis.
 
 Every downloaded/imported candidate is validated before appearing. Inline images display
 at **16 logical pixels** with proportions preserved, including picker previews.
-Transaction rows use a **28.8-pixel** leading image in a 40-pixel-wide slot spanning
+Transaction rows use a **25.92-pixel** leading image in a 40-pixel-wide slot spanning
 the title and details. Stored artwork and existing
 assignments are unchanged by display sizing:
 

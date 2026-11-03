@@ -339,7 +339,7 @@ def test_opening_icons_keep_title_and_account_for_assets_and_liabilities(
             leading = card.content.controls[0]
             assert isinstance(leading, ft.Container) and isinstance(leading.content, ft.Image)
             assert leading.content.semantics_label == "Bank"
-            assert leading.content.width == leading.content.height == 28.8
+            assert leading.content.width == leading.content.height == 25.92
             details = transaction_body(card)
             assert isinstance(details, ft.Column) and len(details.controls) == 1
             movement = details.controls[0]
@@ -412,7 +412,7 @@ def test_transaction_icon_leads_the_whole_row_without_duplicating_movement_icon(
         assert leading.alignment == ft.Alignment.CENTER
         image = leading.content
         assert isinstance(image, ft.Image)
-        assert image.width == image.height == 28.8
+        assert image.width == image.height == 25.92
         assert image.semantics_label == "Leading"
         assert image.fit == ft.BoxFit.CONTAIN and image.color == ft.Colors.ON_SURFACE
         assert image.tooltip == "Leading · CC0-1.0"
@@ -461,7 +461,7 @@ def test_leading_cashflow_icon_uses_principal_category_not_commission(
         for context in (view.home_activity, view.history):
             rendered = images(context)
             assert [image.semantics_label for image in rendered] == ["Principal", "Account"]
-            assert [image.width for image in rendered] == [28.8, 16]
+            assert [image.width for image in rendered] == [25.92, 16]
         assert journal.source == source == (tmp_path / FILENAME).read_text()
 
     asyncio.run(scenario())
@@ -522,7 +522,7 @@ def test_leading_icon_preserves_artwork_and_does_not_resize_other_surfaces(
         )
         card = view._transaction_card(transaction, {})
         image = images(card)[0]
-        assert image.width == image.height == 28.8
+        assert image.width == image.height == 25.92
         assert image.src == selected.data and image.fit == ft.BoxFit.CONTAIN
         assert image.color == (ft.Colors.ON_SURFACE if selected.monochrome else None)
         assert image.tooltip == "Category · CC0-1.0"
@@ -705,7 +705,7 @@ def test_entity_icons_reach_lists_settings_transactions_and_reports(
         assert len(images(view.history)) >= 2
         for context in (view.home_balances, view.account_list, view.category_list):
             assert all(image.width == image.height == 16 for image in images(context))
-        assert [image.width for image in images(view.history)] == [28.8, 16]
+        assert [image.width for image in images(view.history)] == [25.92, 16]
         view.default_account.value = "Assets:Bank"
         view._render_default_account()
         assert isinstance(view.default_account.leading_icon, ft.Image)

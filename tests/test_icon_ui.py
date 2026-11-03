@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import replace
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -13,10 +14,12 @@ from test_dialog_keyboard import finance_session, press
 from test_icons import asset, raster, store_at
 
 from app.domain.budgets import Budget
+from app.domain.ledger import EQUITY, Posting, Transaction
 from app.domain.reporting import period_report
 from app.icons import IconAsset, IconError, normalize_image
 from app.infrastructure.icon_sources import IconifySearch, bundled_icons
 from app.journal import FILENAME, Journal
+from app.localization import format_amount
 from app.storage import StorageError
 from app.ui.dialogs import show_dialog
 from app.ui.finance import FinanceView
@@ -299,6 +302,54 @@ def test_icon_movements_keep_consistent_columns_with_or_without_inline_amount(
         assert all(
             label.max_lines == 1 and label.overflow == ft.TextOverflow.ELLIPSIS for label in labels
         )
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("balance", ["-123.17", "0", "234601.87"])
+def test_opening_icons_keep_title_and_account_for_assets_and_liabilities(
+    tmp_path: Path, language: str, compact: bool, balance: str
+) -> None:
+    async def scenario() -> None:
+        view = FinanceView()
+        view.language = language
+        view.icons = store_at(tmp_path)
+        amount = Decimal(balance)
+        for root in ("Assets", "Liabilities"):
+            identifier = f"{root}:Bank"
+            await view.icons.assign(identifier, asset("Bank"), ())
+            transaction = Transaction(
+                "opening",
+                date(2026, 1, 1),
+                "",
+                "",
+                "Existing opening narration",
+                (Posting(identifier, amount, "UAH"), Posting(EQUITY, -amount, "UAH")),
+                "opening",
+            )
+            card = view._transaction_card(transaction, {identifier: "Bank"}, compact)
+            assert isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
+            details = card.content.controls[0]
+            assert isinstance(details, ft.Column) and len(details.controls) == 1
+            movement = details.controls[0]
+            assert isinstance(movement, ft.Row)
+            source, destination = movement.controls
+            assert isinstance(destination, ft.Row)
+            arrow, target, rendered_amount = destination.controls
+            labels = [child for child in walk(source) if isinstance(child, ft.Text)]
+            assert len(labels) == 1 and labels[0].value == view.tr("kind_opening")
+            assert labels[0].size == 10
+            assert not images(source)
+            assert [child.value for child in walk(target) if isinstance(child, ft.Text)] == ["Bank"]
+            assert len(images(target)) == 1 and images(target)[0].semantics_label == "Bank"
+            assert isinstance(arrow, ft.Text) and arrow.value == "→"
+            assert isinstance(rendered_amount, ft.Text)
+            assert rendered_amount.value == format_amount(abs(amount), language, "UAH")
+            assert source.expand is True and target.expand is True and destination.expand == 2
+            assert transaction.narration == "Existing opening narration"
+            assert transaction.postings[0].amount == amount
 
     asyncio.run(scenario())
 

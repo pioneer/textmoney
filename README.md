@@ -173,7 +173,9 @@ under Settings. The bank-fee category is created automatically on first use.
 For credit cards, loans, or personal debts, choose **Loan / credit** when creating
 an account. This uses native `Liabilities:` accounts, not a special loan type.
 Enter an existing debt as a positive opening amount owed, with its opening date;
-it is not an expense. Record credit-funded purchases and bank interest as ordinary
+it is not an expense. Its transaction row uses the same **Opening balance** label
+as regular accounts, including when the account has an icon.
+Record credit-funded purchases and bank interest as ordinary
 categorized expenses using that account. Repay it with a transfer from an asset
 account, not another expense: only an optional fee affects expenses or budgets.
 Home, accounts, balance hints, and reports label negative liability balances as

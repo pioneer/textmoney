@@ -2052,7 +2052,9 @@ class FinanceView(ft.Row):
                 simple = True
         title = display
         source = target = ""
+        source_identifier = target_identifier = ""
         if simple:
+            source_identifier, target_identifier = outgoing[0].account, incoming[0].account
             source = names.get(
                 outgoing[0].account,
                 self.tr("kind_adjustment" if transaction.kind == "adjustment" else "kind_opening"),
@@ -2064,6 +2066,11 @@ class FinanceView(ft.Row):
                     for p in transaction.postings
                     if p.account.startswith(("Assets:", "Liabilities:"))
                 )
+                source_identifier = next(
+                    p.account for p in transaction.postings if p.account != opened_account
+                )
+                target_identifier = opened_account
+                source = self.tr("kind_opening")
                 target = names.get(opened_account, self.tr("kind_external"))
             title = (
                 f"{self.tr('kind_opening')} → {target}"
@@ -2095,7 +2102,7 @@ class FinanceView(ft.Row):
             if not movement_row:
                 return ft.Text(title, size=10, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
 
-            source_cell = movement_entity_label(outgoing[0].account, source)
+            source_cell = movement_entity_label(source_identifier, source)
             amounts = [amount] if amount is not None else []
             return ft.Row(
                 [
@@ -2103,7 +2110,7 @@ class FinanceView(ft.Row):
                     ft.Row(
                         [
                             ft.Text("→", size=10),
-                            movement_entity_label(incoming[0].account, target),
+                            movement_entity_label(target_identifier, target),
                             *amounts,
                         ],
                         spacing=4,

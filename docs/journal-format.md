@@ -158,6 +158,51 @@ shared sidecar settings, not journal metadata. Unrelated existing user metadata,
 tags, links and comments are preserved; legacy app fields are not globally
 migrated, stripped or used as authoritative transaction identities.
 
+### Liability accounts
+
+Credit cards, loans, and personal debts all use native `Liabilities:` accounts.
+Choose **Loan / credit** when creating an account and enter any existing debt
+as a positive opening amount owed. The existing opening-date workflow writes a
+negative liability posting balanced by `Equity:Opening-Balances`; it does not
+affect expenses, income, or budgets. No credit-specific metadata or directives
+are needed.
+
+Purchases and manually charged interest use ordinary expense categories.
+Repayment is a transfer from an asset account, not a second expense. For example,
+with the referenced accounts declared:
+
+```beancount
+2026-11-03 * "Opening debt"
+  Liabilities:CreditCards:Bank -78317.92 UAH
+  Equity:Opening-Balances 78317.92 UAH
+
+2026-11-04 * "Groceries"
+  Expenses:Food:Groceries 500.00 UAH
+  Liabilities:CreditCards:Bank -500.00 UAH
+
+2026-11-05 * "Credit card repayment"
+  Assets:Bank:Debit -2000.00 UAH
+  Liabilities:CreditCards:Bank 2000.00 UAH
+
+2026-11-06 * "Credit card interest"
+  Expenses:Financial:Interest 300.00 UAH
+  Liabilities:CreditCards:Bank -300.00 UAH
+```
+
+The final liability balance is **-77,117.92 UAH**; the UI shows
+**Outstanding debt: 77,117.92 UAH**. Expenses total **800 UAH**. The opening
+and repayment do not consume expense budgets. Optional transaction fees are
+expenses under the existing commission rules. Refunds credited to a liability
+reduce the expense category through **Expense reimbursement**; use **Balance
+adjustment** only for receipts that should affect neither income nor expenses.
+Liabilities can also be either side of the existing cross-currency transfer.
+
+Zero means no outstanding debt. A positive liability balance is an overpayment,
+displayed as **Credit balance**, never as debt. Underlying balances and
+per-currency totals remain signed, so debt reduces net worth without combining
+unrelated currencies. Negative liabilities do not trigger insufficient-funds
+warnings; negative asset balances retain their normal warning behavior.
+
 ### Purchase and income commissions
 
 Ordinary expenses and income support an optional fixed-amount commission in the

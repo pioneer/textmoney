@@ -167,9 +167,16 @@ The preview shows the transfer direction. For same-currency transfers,
 enable a fee under Advanced and choose whether it is added on top or deducted
 from the amount. Change its category for that transfer, or set the default
 under Settings. The bank-fee category is created automatically on first use.
-For loans, choose **Loan / credit** when creating the account and enter the
-opening amount owed. Balances use standard Beancount signs: debt is negative;
-a transfer into the loan account reduces it.
+For credit cards, loans, or personal debts, choose **Loan / credit** when creating
+an account. This uses native `Liabilities:` accounts, not a special loan type.
+Enter an existing debt as a positive opening amount owed, with its opening date;
+it is not an expense. Record credit-funded purchases and bank interest as ordinary
+categorized expenses using that account. Repay it with a transfer from an asset
+account, not another expense: only an optional fee affects expenses or budgets.
+Home, accounts, balance hints, and reports label negative liability balances as
+positive **Outstanding debt**, zero as zero debt, and positive balances as
+**Credit balance** (overpayment). The journal and per-currency totals retain
+standard signed Beancount values. See the [liability examples](docs/journal-format.md#liability-accounts).
 
 Expenses/purchases and income also support a fixed-amount commission under
 Advanced, added on top or deducted from the entered amount. The preview shows the

@@ -221,7 +221,9 @@ def test_form_transfer_shows_both_balances_and_liability_is_not_an_overdraft(
     form.amount.value, form.second_amount.value = "200", "4"
     change(form.second_amount)
     assert form.account.helper_text == view.tr(
-        "form_balance", now=money("-300"), after=money("-500")
+        "form_liability_balance",
+        now=view.tr("account_debt_balance", amount=money("300")),
+        after=view.tr("account_debt_balance", amount=money("500")),
     )
     assert form.account.helper_style is None
     assert form.second_account.helper_text == view.tr(
@@ -317,7 +319,7 @@ def test_overview_balances_follow_period_and_survive_empty_periods(
             for item in card.content.controls[1:]:
                 assert isinstance(item, ft.Column)
                 row, detail = item.controls
-                assert isinstance(row, ft.Row) and isinstance(detail, ft.Text)
+                assert isinstance(row, (ft.Row, ft.Column)) and isinstance(detail, ft.Text)
                 name, closing = row.controls
                 assert isinstance(name, ft.Text) and isinstance(closing, ft.Text)
                 result.append((name.value, detail.value, closing.value))
@@ -330,6 +332,15 @@ def test_overview_balances_follow_period_and_survive_empty_periods(
             money("900"),
         )
         assert [item[0] for item in march] == ["Bank", "Card", "Cash"]
+        assert march[1] == (
+            "Card",
+            view.tr(
+                "report_balance_detail",
+                start=view.tr("account_debt_balance", amount=money("300")),
+                change=money("0"),
+            ),
+            view.tr("account_debt_balance", amount=money("300")),
+        )
         assert rows(eur)[0][1] == view.tr(
             "report_balance_detail", start=money("20", "EUR"), change=money("0", "EUR")
         )

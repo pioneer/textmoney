@@ -233,9 +233,12 @@ opening amount owed; the opening posting is negative in `Liabilities:` and
 positive in `Equity:Opening-Balances`. A bank-to-loan transfer credits the bank
 negatively and debits the liability positively, reducing debt without creating
 income or an expense other than an optional fee. Borrowing reverses those
-postings. Liability balances are shown with standard signed Beancount values;
-negative debt is not an overdraft warning. No interest, schedules, receivables,
-or debt allocation is implemented.
+postings. Current balance displays label negative Beancount balances as positive
+outstanding debt, zero as zero debt, and positive balances as credit/overpayment;
+the journal and currency totals remain signed. Negative debt is not an overdraft
+warning. Credit-funded purchases and manually charged interest use ordinary
+categorized expenses. Refunds use existing reimbursement or adjustment semantics.
+No automatic interest, schedules, receivables, or debt allocation is implemented.
 
 ### Cross-currency transfers
 

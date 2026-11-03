@@ -316,6 +316,10 @@ this form and use two account postings plus an optional expense-fee posting.
 Standard `Liabilities:` accounts use the existing account model, with credit
 (negative) debt balances and positive repayment postings. Opening amount owed
 is entered as a positive number and stored as a negative liability posting.
+The shared UI balance formatter labels negative liability balances as positive
+outstanding debt, zero as zero debt, and positive balances as credit/overpayment.
+Home, account rows/details, form hints, and report opening/closing balances reuse
+it; signed domain balances, report changes, and per-currency totals are unchanged.
 Cross-currency transfers extend the same posting model with an optional exact
 total price (`@@`) or unit price (`@`) and currency. A bounded exchange shape
 validates Beancount weights: one negative priced principal, one positive

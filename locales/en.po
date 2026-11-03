@@ -675,6 +675,20 @@ msgstr ""
 msgid "ui.kind_transfer"
 msgstr "Transfer"
 
+#. Stable TextMoney key: ui.account_debt_balance; do not translate this identifier.
+msgid "ui.account_debt_balance"
+msgstr "Outstanding debt: {amount}"
+
+#. Stable TextMoney key: ui.account_credit_balance; do not translate this identifier.
+msgid "ui.account_credit_balance"
+msgstr "Credit balance: {amount}"
+
+#. Stable TextMoney key: ui.form_liability_balance; do not translate this identifier.
+msgid "ui.form_liability_balance"
+msgstr ""
+"{now}\n"
+"→ {after}"
+
 #. Stable TextMoney key: ui.transaction_help_transfer; do not translate this
 #. identifier.
 msgid "ui.transaction_help_transfer"

@@ -47,7 +47,11 @@ account currency in operating-currency order. Each row shows the balance at the
 period end, with the balance before the first day and the signed change within
 the inclusive range underneath. The list stays visible for periods without
 income or expenses. Inactive accounts appear only when they had a balance or a
-movement. Liabilities use their signed Beancount balances, as on Home.
+movement. As on Home and the normal accounts list, negative liability balances
+are labeled **Outstanding debt** with a positive amount. Zero is zero outstanding
+debt; a positive liability balance is labeled **Credit balance** (overpayment),
+not debt. Opening balances use the same labels; the period's change stays signed
+in Beancount terms (a positive change reduces debt). The journal is unchanged.
 
 Operations starts with a one-line strip of today's total balance per currency:
 the signed sum of all account balances, so liabilities reduce it. Amounts in
@@ -60,6 +64,9 @@ commission and exchange rules as the journal builders. When editing, the
 original transaction is excluded first. It shows only the current balance until
 the draft is valid. A negative asset result is highlighted. Saving remains
 allowed, as with other negative-balance warnings.
+Liability hints use the same debt/credit labels for both values on separate lines,
+including drafts that repay the debt completely or overpay it. Negative liabilities never trigger
+an insufficient-funds warning; the asset funding a repayment still can.
 
 ## Daily Operations summaries
 

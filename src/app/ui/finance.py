@@ -1027,7 +1027,19 @@ class FinanceView(ft.Row):
                     [
                         ft.Text(self.tr("currency_group", currency=currency), size=16),
                         *[
-                            ft.Row(
+                            ft.Column(
+                                [
+                                    self._entity_label(identifier, ft.Text(name)),
+                                    ft.Text(
+                                        self._account_balance_text(identifier, amount, currency),
+                                        text_align=ft.TextAlign.RIGHT,
+                                    ),
+                                ],
+                                spacing=2,
+                                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                            )
+                            if identifier.startswith("Liabilities:")
+                            else ft.Row(
                                 [
                                     self._entity_label(identifier, ft.Text(name, expand=True)),
                                     ft.Text(format_amount(amount, self.language, currency)),
@@ -1264,19 +1276,27 @@ class FinanceView(ft.Row):
             change = format_amount(item.change, self.language, item.currency)
             detail = self.tr(
                 "report_balance_detail",
-                start=format_amount(item.opening, self.language, item.currency),
+                start=self._account_balance_text(item.identifier, item.opening, item.currency),
                 change=f"+{change}" if item.change > 0 else change,
             )
+            label = self._entity_label(item.identifier, ft.Text(item.name, expand=True))
+            balance = ft.Text(
+                self._account_balance_text(item.identifier, item.closing, item.currency),
+                weight=ft.FontWeight.W_500,
+            )
+            if item.identifier.startswith("Liabilities:"):
+                label.expand = None
+                balance.text_align = ft.TextAlign.RIGHT
             return ft.Column(
                 [
-                    ft.Row(
-                        [
-                            self._entity_label(item.identifier, ft.Text(item.name, expand=True)),
-                            ft.Text(
-                                format_amount(item.closing, self.language, item.currency),
-                                weight=ft.FontWeight.W_500,
-                            ),
-                        ],
+                    ft.Column(
+                        [label, balance],
+                        spacing=2,
+                        horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                    )
+                    if item.identifier.startswith("Liabilities:")
+                    else ft.Row(
+                        [label, balance],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     ),
                     ft.Text(detail, size=12, color=ft.Colors.ON_SURFACE_VARIANT),
@@ -1486,6 +1506,14 @@ class FinanceView(ft.Row):
             ),
         ]
 
+    def _account_balance_text(self, identifier: str, balance: Decimal, currency: str) -> str:
+        if not identifier.startswith("Liabilities:"):
+            return format_amount(balance, self.language, currency)
+        return self.tr(
+            "account_credit_balance" if balance > 0 else "account_debt_balance",
+            amount=format_amount(-balance if balance < 0 else balance, self.language, currency),
+        )
+
     def _entity_card(self, item: Account | Category, balance: Decimal | None = None) -> ft.Control:
         lines: list[ft.Control] = [
             ft.Text(item.name, size=14),
@@ -1493,7 +1521,9 @@ class FinanceView(ft.Row):
         if not item.active:
             lines.append(ft.Text(self.tr("crud_inactive_label")))
         if isinstance(item, Account) and balance is not None:
-            lines.append(ft.Text(format_amount(balance, self.language, item.currency), size=14))
+            lines.append(
+                ft.Text(self._account_balance_text(item.id, balance, item.currency), size=14)
+            )
         return ft.Container(
             padding=ft.Padding.symmetric(vertical=2),
             content=ft.Row(
@@ -3341,19 +3371,19 @@ class FinanceView(ft.Row):
                     field.helper_text = None
                     continue
                 currency = currencies[identifier]
-                now = format_amount(current_balances[identifier], self.language, currency)
+                now = self._account_balance_text(identifier, current_balances[identifier], currency)
                 after = None
                 if identifier in changes:
                     with localcontext() as context:
                         context.prec = 50
                         after = base_balances[identifier] + changes[identifier]
                 field.helper_text = (
-                    self.tr("form_balance_now", now=now)
+                    (now if identifier in liabilities else self.tr("form_balance_now", now=now))
                     if after is None
                     else self.tr(
-                        "form_balance",
+                        "form_liability_balance" if identifier in liabilities else "form_balance",
                         now=now,
-                        after=format_amount(after, self.language, currency),
+                        after=self._account_balance_text(identifier, after, currency),
                     )
                 )
                 field.helper_style = (
@@ -4006,6 +4036,16 @@ class FinanceView(ft.Row):
             ]
             if isinstance(item, Account):
                 controls.append(ft.Text(item.currency))
+                if item.liability:
+                    controls.append(
+                        ft.Text(
+                            self._account_balance_text(
+                                item.id,
+                                journal.ledger.balances(today=journal.today())[item.id],
+                                item.currency,
+                            )
+                        )
+                    )
                 controls.append(
                     opening if opening is not None else ft.Text(self.tr("crud_opening_complex"))
                 )

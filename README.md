@@ -9,7 +9,7 @@ possible. Keep independent backups of important financial data.
 
 TextMoney is being developed with substantial AI assistance.
 
-![Desktop Home with account balances and recent activity](docs/screenshots/home-desktop.png)
+![TextMoney v0.4.0 desktop Home with account icons, liability balances and cross-currency transfers](docs/screenshots/home-desktop.png)
 
 ## Implemented
 
@@ -224,9 +224,10 @@ same checks as its primary button. In multiline descriptions, **Shift+Enter**
 adds a new line. Focused buttons and dropdowns keep their normal keyboard actions;
 disabled actions cannot be submitted.
 
-<img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense in TextMoney's compact phone layout" width="360">
+<img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense with account and category icons in TextMoney v0.4.0's compact phone layout" width="360">
 
-*Editing an expense in the compact layout.*
+*Editing an expense in the compact layout. Screenshots use synthetic data from
+TextMoney v0.4.0 (build 48), not a personal journal.*
 
 Settings lets you choose appearance and timezone. **Advanced → Journal display
 currencies** controls Home balance section order and how compatible applications
@@ -241,7 +242,7 @@ transfer fees remain expenses while transfer/loan principal and balance
 adjustments are excluded. Amounts in different currencies are always shown
 separately; reports do not infer exchange rates.
 
-![TextMoney Reports in the desktop layout, with EUR income, expenses, net result and category totals](docs/screenshots/reports-desktop.png)
+![TextMoney v0.4.0 Reports in the desktop layout, with EUR income, expenses, net result and category totals](docs/screenshots/reports-desktop.png)
 
 *A monthly report with separate income and expense category breakdowns.*
 
@@ -330,6 +331,7 @@ record historical behavior, not current instructions.
 
 | Version | Highlights |
 | --- | --- |
+| [0.4.0](https://github.com/pioneer/textmoney/releases/tag/v0.4.0) | Refined cross-currency transfers with two-line amounts and reciprocal rate previews; clearer native liability debt/credit balances; optional icons during account/category creation, including quick category creation. Refreshed screenshots. Android build 48. |
 | [0.3.16](https://github.com/pioneer/textmoney/releases/tag/v0.3.16) | First TextMoney release: unified application, storage and package identity; Android, Linux and Windows downloads. Includes account/category management, transactions, currency-separated reports, category budgets, conflict protection and verified backups. Android build 39. |
 
 ## Development

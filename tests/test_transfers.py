@@ -538,29 +538,21 @@ def test_transfer_summary_is_above_details_and_accounts(
             assert amount.text_align == ft.TextAlign.RIGHT
         movement = column.controls[1] if exchange else column.controls[-1]
         if exchange:
-            assert isinstance(movement, ft.ResponsiveRow)
-            assert movement.spacing == 4 and movement.run_spacing == 0
-            source_cell, destination_cell, amount_cell = movement.controls
-            assert isinstance(source_cell, ft.Container) and source_cell.col == 4
-            assert isinstance(destination_cell, ft.Container)
-            assert destination_cell.col == {"xs": 8, "sm": 4}
-            assert isinstance(amount_cell, ft.Container)
-            assert amount_cell.col == {"xs": 12, "sm": 4}
-            assert amount_cell.alignment == ft.Alignment.CENTER_RIGHT
-            debited = amount_cell.content
+            assert isinstance(movement, ft.Row) and not movement.wrap
+            assert movement.spacing == 4
+            source_label, destination = movement.controls
+            assert isinstance(source_label, ft.Text) and source_label.expand is True
+            assert isinstance(destination, ft.Row) and destination.expand == 2
+            arrow, target_label, debited = destination.controls
             assert isinstance(debited, ft.Text)
             assert debited.value == "−100.00 USD"
-            assert debited.size == 12
+            assert debited.size == 10
             assert debited.color == ft.Colors.ON_SURFACE_VARIANT
             assert debited.style == ft.TextStyle(height=1)
             assert debited.text_align == ft.TextAlign.RIGHT
             assert debited.max_lines == 1
             assert debited.overflow == ft.TextOverflow.ELLIPSIS
-            source_label = source_cell.content
-            destination = destination_cell.content
             assert isinstance(source_label, ft.Text) and source_label.value == "Dollar"
-            assert isinstance(destination, ft.Row)
-            arrow, target_label = destination.controls
             assert isinstance(arrow, ft.Text) and arrow.value == "→"
             assert isinstance(target_label, ft.Text) and target_label.value == "Other bank"
         else:
@@ -605,19 +597,13 @@ def test_blank_exchange_uses_transfer_title_and_separate_debit_line(
         assert isinstance(received, ft.Text)
         assert received.value == format_amount(Decimal("4200"), language, "UAH")
         movement = column.controls[1]
-        assert isinstance(movement, ft.ResponsiveRow)
-        source_cell, destination_cell, amount_cell = movement.controls
-        assert isinstance(source_cell, ft.Container)
-        assert isinstance(destination_cell, ft.Container)
-        assert isinstance(amount_cell, ft.Container)
-        debited = amount_cell.content
+        assert isinstance(movement, ft.Row) and not movement.wrap
+        source_label, destination = movement.controls
+        assert isinstance(destination, ft.Row)
+        arrow, target_label, debited = destination.controls
         assert isinstance(debited, ft.Text)
         assert debited.value == f"−{format_amount(Decimal('100'), language, 'USD')}"
-        source_label = source_cell.content
-        destination = destination_cell.content
         assert isinstance(source_label, ft.Text) and source_label.value == "Dollar"
-        assert isinstance(destination, ft.Row)
-        arrow, target_label = destination.controls
         assert isinstance(arrow, ft.Text) and arrow.value == "→"
         assert isinstance(target_label, ft.Text) and target_label.value == "Other bank"
 
@@ -671,13 +657,10 @@ def test_exchange_rows_use_the_same_two_amount_layout_for_all_accounts_and_curre
         assert isinstance(heading, ft.Row)
         received = heading.controls[-1]
         assert isinstance(received, ft.Text) and received.value == credit_text
-        assert isinstance(movement, ft.ResponsiveRow)
-        amount_cell = movement.controls[-1]
-        assert (
-            isinstance(amount_cell, ft.Container)
-            and amount_cell.alignment == ft.Alignment.CENTER_RIGHT
-        )
-        debited = amount_cell.content
+        assert isinstance(movement, ft.Row) and not movement.wrap
+        destination = movement.controls[-1]
+        assert isinstance(destination, ft.Row) and destination.expand == 2
+        debited = destination.controls[-1]
         assert isinstance(debited, ft.Text) and debited.value == f"−{debit_text}"
         assert debited.color == ft.Colors.ON_SURFACE_VARIANT
         labels = [control.value for control in walk(card) if isinstance(control, ft.Text)]
@@ -689,8 +672,10 @@ def test_exchange_rows_use_the_same_two_amount_layout_for_all_accounts_and_curre
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
+@pytest.mark.parametrize("width", [320, 390, 599, 1366])
+@pytest.mark.parametrize("with_icons", [False, True])
 def test_exchange_amounts_are_consistent_in_recent_activity_and_full_list(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str, width: int, with_icons: bool
 ) -> None:
     async def scenario() -> None:
         journal = await exchange_seeded(tmp_path)
@@ -705,7 +690,14 @@ def test_exchange_amounts_are_consistent_in_recent_activity_and_full_list(
         view = FinanceView()
         view.journal, view.language = journal, language
         page = MagicMock(spec=ft.Page)
+        page.width = width
         monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view.startup_complete = True
+        view._apply_layout(width)
+        if with_icons:
+            view.icons = store_at(tmp_path)
+            await view.icons.assign("Assets:Bank", asset("Source"), ())
+            await view.icons.assign("Assets:Euro", asset("Target"), ())
         view._refresh()
         for context, action_count in ((view.home_activity, 1), (view.history, 2)):
             card = next(
@@ -722,16 +714,21 @@ def test_exchange_amounts_are_consistent_in_recent_activity_and_full_list(
             column = card.content.controls[0]
             assert isinstance(column, ft.Column) and len(column.controls) == 2
             heading, movement = column.controls
-            assert isinstance(heading, ft.Row) and isinstance(movement, ft.ResponsiveRow)
+            assert isinstance(heading, ft.Row) and isinstance(movement, ft.Row)
+            assert not movement.wrap
             received = heading.controls[-1]
-            amount_cell = movement.controls[-1]
-            assert isinstance(received, ft.Text) and isinstance(amount_cell, ft.Container)
+            destination = movement.controls[-1]
+            assert isinstance(received, ft.Text) and isinstance(destination, ft.Row)
+            assert destination.expand == 2 and destination.spacing == 4 and not destination.wrap
             assert received.value == format_amount(Decimal("1000"), language, "EUR")
             assert received.size == 13 and received.text_align == ft.TextAlign.RIGHT
-            debited = amount_cell.content
+            debited = destination.controls[-1]
             assert isinstance(debited, ft.Text)
             assert debited.value == f"−{format_amount(Decimal('50000'), language, 'UAH')}"
-            assert debited.size == 12 and debited.color == ft.Colors.ON_SURFACE_VARIANT
+            assert debited.size == 10 and debited.color == ft.Colors.ON_SURFACE_VARIANT
+            assert debited.text_align == ft.TextAlign.RIGHT
+            assert debited.expand == 2
+            assert debited.tooltip == debited.value
         assert journal.source == source
         assert (tmp_path / FILENAME).read_text() == source
 

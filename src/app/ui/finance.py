@@ -2166,40 +2166,16 @@ class FinanceView(ft.Row):
         if exchange_amounts is not None:
             debited = ft.Text(
                 f"−{exchange_amounts[0]}",
-                size=12,
+                size=10,
                 color=ft.Colors.ON_SURFACE_VARIANT,
                 style=ft.TextStyle(height=1),
                 text_align=ft.TextAlign.RIGHT,
+                expand=2,
                 max_lines=1,
                 overflow=ft.TextOverflow.ELLIPSIS,
+                tooltip=f"−{exchange_amounts[0]}",
             )
-            lines.append(
-                ft.ResponsiveRow(
-                    controls=[
-                        ft.Container(
-                            content=movement_entity_label(outgoing[0].account, source),
-                            col=4,
-                        ),
-                        ft.Container(
-                            content=ft.Row(
-                                [
-                                    ft.Text("→", size=10),
-                                    movement_entity_label(incoming[0].account, target),
-                                ],
-                                spacing=4,
-                            ),
-                            col={"xs": 8, "sm": 4},
-                        ),
-                        ft.Container(
-                            content=debited,
-                            alignment=ft.Alignment.CENTER_RIGHT,
-                            col={"xs": 12, "sm": 4},
-                        ),
-                    ],
-                    spacing=4,
-                    run_spacing=0,
-                )
-            )
+            lines.append(movement_label(debited))
             if fee_line is not None:
                 lines.append(fee_line)
         elif has_summary:

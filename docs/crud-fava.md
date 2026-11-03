@@ -322,8 +322,10 @@ Complex entries show the description in their heading without duplicating it.
 Opening entries keep their localized opening-balance label. Cross-currency
 transfers show the received amount at the title's right edge. The total debited
 amount is minus-prefixed, smaller and secondary-colored, aligned to that same
-edge beside the source-to-destination account movement. Below 576px it moves to
-a separate line; no arrow appears between the amounts.
+edge beside the source-to-destination account movement. It uses 10-pixel text
+and stays on that second line on narrow screens. Flexible cells avoid overlaps;
+unusually long values truncate with the full debit available in a tooltip.
+No arrow appears between the amounts.
 
 ### Incoming money
 

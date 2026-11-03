@@ -202,6 +202,9 @@ debited total; a destination-currency fee has already been withheld from the
 credited amount. The preview shows the exchanged principal and derived rate
 excluding fees. For example, 105 USD debited with a 5 USD fee and 4200 UAH
 credited means 100 USD exchanged at 42 UAH/USD.
+Transaction rows show the received amount above the smaller, minus-prefixed
+debited amount at the same right edge. On narrow screens, the debit stays beside
+the account labels rather than dropping to a third line.
 Changing the selected mode never changes entered amounts. To reverse a transfer,
 change its source/destination accounts and exchanged amounts explicitly.
 Fee currency remains explicit under Advanced.

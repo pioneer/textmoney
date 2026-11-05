@@ -172,7 +172,9 @@ def test_creation_icon_is_a_draft_until_entity_is_saved_and_survives_reload(
             assert form.amount.value == "125" and form.description.value == "Parent draft"
             assert form.category.leading_icon is not None
             option = next(option for option in form.category.options if option.key == identifier)
-            assert option.leading_icon is not None
+            assert isinstance(option.content, ft.Container)
+            assert option.content.padding == ft.Padding.only(left=0)
+            assert images(option.content)
         saved = journal.source
         reloaded = store_at(tmp_path)
         await reloaded.load()
@@ -778,11 +780,18 @@ def test_entity_icons_reach_lists_settings_transactions_and_reports(
         category_option = next(
             option for option in form.category.options if option.key == "Expenses:Food"
         )
-        for option in (account_option, category_option):
-            assert isinstance(option.leading_icon, ft.Container)
-            assert option.leading_icon.width == option.leading_icon.height == 24
-            assert isinstance(option.leading_icon.content, ft.Image)
-            assert option.leading_icon.content.width == option.leading_icon.content.height == 16
+        assert isinstance(account_option.leading_icon, ft.Container)
+        assert account_option.leading_icon.width == account_option.leading_icon.height == 24
+        assert isinstance(account_option.leading_icon.content, ft.Image)
+        assert (
+            account_option.leading_icon.content.width
+            == account_option.leading_icon.content.height
+            == 16
+        )
+        assert isinstance(category_option.content, ft.Container)
+        assert category_option.content.padding == ft.Padding.only(left=0)
+        assert images(category_option.content)
+        assert all(image.width == image.height == 16 for image in images(category_option.content))
         form.account.value = "Assets:Bank"
         await form.account._trigger_event("select", None)
         assert isinstance(form.account.leading_icon, ft.Container)

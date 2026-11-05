@@ -188,12 +188,19 @@ def test_budget_category_dropdown_is_parent_first_and_indented(
         category, amount, _, _ = fields(dialog)
         assert [(option.key, option.text) for option in category.options] == [
             ("Expenses:Food", "Groceries"),
-            ("Expenses:Food:Meals", "  Expenses:Food:Meals"),
-            ("Expenses:Food:Meals:Lunch", "    Lunch"),
+            ("Expenses:Food:Meals", "Meals"),
+            ("Expenses:Food:Meals:Lunch", "Lunch"),
             ("Expenses:Travel", "Travel"),
-            ("Income:Work", f"{host.tr('kind_income')} · Work"),
-            ("Income:Work:Bonus", f"{host.tr('kind_income')} ·   Bonus"),
+            ("Income:Work", "Work"),
+            ("Income:Work:Bonus", "Bonus"),
         ]
+        assert category.menu_height == (240 if width <= 599 else None)
+        for option, depth in zip(category.options, [0, 1, 2, 0, 0, 1], strict=True):
+            assert isinstance(option.content, ft.Container)
+            assert option.content.padding == ft.Padding.only(left=16 * depth)
+            assert isinstance(option.content.content, ft.Text)
+            assert option.content.content.value == option.text
+            assert not option.content.content.spans
         assert category.value == (None if mode == "add" else "Expenses:Food")
         assert journal.source == before
         category.value = "Expenses:Food:Meals:Lunch"

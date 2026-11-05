@@ -833,15 +833,12 @@ class BudgetView(ft.Column):
             identifiers.setdefault(budget.account, budget.account)
         category = ft.Dropdown(
             expand=True,
+            menu_height=self.host._category_menu_height(),
             label=tr("budget_category"),
             on_select=self.host._entity_dropdown_selected,
             leading_icon=self.host._entity_icon(budget.account) if budget else None,
             options=[
-                ft.DropdownOption(
-                    key=key,
-                    text=self.host._category_label(key, identifiers[key]),
-                    leading_icon=self.host._entity_icon(key),
-                )
+                self.host._category_form_option(key, identifiers[key])
                 for key in sorted(identifiers, key=lambda identifier: identifier.split(":"))
             ],
             value=budget.account if budget else None,

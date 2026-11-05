@@ -3296,6 +3296,7 @@ class FinanceView(ft.Row):
         category = ft.Dropdown(
             data="category",
             expand=True,
+            menu_height=self._category_menu_height(),
             label=self.tr("expense_category"),
             value=original_category,
         )
@@ -3744,12 +3745,8 @@ class FinanceView(ft.Row):
             else:
                 destination.error_text = None
             category.options = [
-                ft.DropdownOption(
-                    key=c.id,
-                    text=self._category_label(c.id, c.name),
-                    leading_icon=self._entity_dropdown_icon(c.id),
-                )
-                for c in journal.ledger.categories
+                self._category_form_option(c.id, c.name)
+                for c in sorted(journal.ledger.categories, key=lambda item: item.id.split(":"))
                 if c.id.startswith(root)
                 and (journal.ledger.category_active(c.id) or c.id == original_category)
             ]
@@ -3959,12 +3956,10 @@ class FinanceView(ft.Row):
                     source = journal.source
                     identifier = code.code
                     category.options = [
-                        ft.DropdownOption(
-                            key=item.id,
-                            text=self._category_label(item.id, item.name),
-                            leading_icon=self._entity_dropdown_icon(item.id),
+                        self._category_form_option(item.id, item.name)
+                        for item in sorted(
+                            journal.ledger.categories, key=lambda item: item.id.split(":")
                         )
-                        for item in journal.ledger.categories
                         if item.id.startswith(f"{root}:") and item.active
                     ]
                     category.hint_text = None
@@ -3977,8 +3972,13 @@ class FinanceView(ft.Row):
                         journal, icon_store, icon, identifier, icon_heads.get(identifier, ())
                     )
                     category.leading_icon = self._entity_dropdown_icon(identifier)
-                    for option in category.options:
-                        option.leading_icon = self._entity_dropdown_icon(option.key or "")
+                    category.options = [
+                        self._category_form_option(item.id, item.name)
+                        for item in sorted(
+                            journal.ledger.categories, key=lambda item: item.id.split(":")
+                        )
+                        if item.id.startswith(f"{root}:") and item.active
+                    ]
 
                 create.disabled = cancel.disabled = True
                 icon.disabled = True
@@ -4706,6 +4706,20 @@ class FinanceView(ft.Row):
         self._update_category_suggestion(regenerate=True)
         if self.page:
             self.page.update()
+
+    def _category_menu_height(self) -> int | None:
+        return 240 if self.screen_class == ScreenClass.COMPACT else None
+
+    def _category_form_option(self, identifier: str, name: str) -> ft.DropdownOption:
+        label = name if name != identifier else identifier.rsplit(":", 1)[-1]
+        return ft.DropdownOption(
+            key=identifier,
+            text=label,
+            content=ft.Container(
+                self._entity_label(identifier, ft.Text(label, size=16)),
+                padding=ft.Padding.only(left=16 * (identifier.count(":") - 1)),
+            ),
+        )
 
     def _category_dropdown_option(self, item: Category) -> ft.DropdownOption:
         return ft.DropdownOption(

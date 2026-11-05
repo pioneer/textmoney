@@ -37,6 +37,55 @@ def toggle(control: ft.ExpansionTile, expanded: bool) -> None:
     cast(Callable[[object], object], control.on_change)(MagicMock(control=control, data=expanded))
 
 
+@pytest.mark.parametrize("width", [390, 599, 600, 1366])
+@pytest.mark.parametrize("kind", ["expense", "income"])
+@pytest.mark.parametrize("editing", [False, True])
+def test_transaction_categories_are_indented_and_menu_height_is_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int, kind: str, editing: bool
+) -> None:
+    async def scenario() -> None:
+        root = "Expenses" if kind == "expense" else "Income"
+        source = ""
+        for path in ("Food-Other", "Food:Shops:Market", "Food", "Food:Shops"):
+            source += f'2000-01-01 open {root}:{path}\n    name: "{path.split(":")[-1]}"\n'
+        if editing:
+            amount = 1 if kind == "expense" else -1
+            source += (
+                '2000-01-01 open Assets:Cash USD\n2000-01-02 * "Original"\n'
+                f"    {root}:Food {amount} USD\n    Assets:Cash {-amount} USD\n"
+            )
+        (tmp_path / FILENAME).write_text(source)
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        page = MagicMock(spec=ft.Page)
+        page.width = width
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view = FinanceView()
+        view.journal = journal
+        view._apply_layout(width)
+        view._transaction_dialog(journal, journal.ledger.transactions[0] if editing else None)
+        form = transaction_form(page.show_dialog.call_args.args[0])
+        if not editing:
+            form.choose(kind)
+        assert form.category.menu_height == (240 if width <= 599 else None)
+        assert [option.key for option in form.category.options] == [
+            f"{root}:Food",
+            f"{root}:Food:Shops",
+            f"{root}:Food:Shops:Market",
+            f"{root}:Food-Other",
+        ]
+        for option, depth in zip(form.category.options, [0, 1, 2, 0], strict=True):
+            assert isinstance(option.content, ft.Container)
+            assert option.content.padding == ft.Padding.only(left=16 * depth)
+            assert option.text == (option.key or "").split(":")[-1]
+            assert isinstance(option.content.content, ft.Text)
+            assert option.content.content.value == option.text
+            assert not option.content.content.spans
+        assert journal.source == source
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("language", ["uk", "en", "ru"])
 def test_income_expense_sections_have_equal_layout_and_nested_actions(language: str) -> None:
     view = FinanceView()

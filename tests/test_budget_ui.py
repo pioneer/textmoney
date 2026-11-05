@@ -38,6 +38,8 @@ def walk(control: ft.Control) -> Iterator[ft.Control]:
             yield from walk(child)
     if isinstance(control, ft.Container) and isinstance(control.content, ft.Control):
         yield from walk(control.content)
+    if isinstance(control, ft.ListTile) and isinstance(control.title, ft.Control):
+        yield from walk(control.title)
     if isinstance(control, ft.ExpansionTile):
         if isinstance(control.title, ft.Control):
             yield from walk(control.title)
@@ -249,6 +251,57 @@ def test_budget_form_dropdowns_fill_the_form(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
+def test_budget_report_non_expanding_rows_have_transaction_actions(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, language: str, width: int
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        host.language = language
+        page.width = width
+        journal = await load(host, tmp_path)
+        journal.ledger = replace(
+            journal.ledger,
+            budgets=(
+                *journal.ledger.budgets,
+                replace(journal.ledger.budgets[0], id="child", account="Expenses:Food:Meals"),
+            ),
+        )
+        await host.budgets.refresh()
+        assert not any(
+            isinstance(control, ft.ExpansionTile) for control in walk(host.budgets.results)
+        )
+        tiles = [
+            control for control in host.budgets.results.controls if isinstance(control, ft.ListTile)
+        ]
+        assert [tile.data.account for tile in tiles] == ["Expenses:Food", "Expenses:Food:Meals"]
+        assert [tile.content_padding for tile in tiles] == [
+            ft.Padding.only(left=0),
+            ft.Padding.only(left=16),
+        ]
+        for tile in tiles:
+            assert tile.on_click is None
+            assert isinstance(tile.title, ft.Column)
+            header = tile.title.controls[0]
+            assert isinstance(header, ft.Row)
+            actions = [control for control in header.controls if isinstance(control, ft.IconButton)]
+            assert [action.tooltip for action in actions] == [
+                host.tr("budget_transactions"),
+                host.tr("crud_edit"),
+                host.tr("crud_delete"),
+            ]
+            transactions = actions[0]
+            assert transactions.icon == ft.Icons.RECEIPT_LONG
+            assert transactions.data is tile.data
+            assert transactions.on_click is not None
+            cast(Callable[[object], None], transactions.on_click)(MagicMock(control=transactions))
+            dialog = page.show_dialog.call_args.args[0]
+            assert isinstance(dialog, ft.AlertDialog) and dialog.scrollable
+        assert journal.source == SOURCE
+
+    asyncio.run(scenario())
+
+
 def test_reports_hide_automatic_parent_totals_and_unbudgeted_categories(
     view: tuple[FinanceView, MagicMock], tmp_path: Path
 ) -> None:
@@ -271,7 +324,7 @@ def test_reports_hide_automatic_parent_totals_and_unbudgeted_categories(
         displayed = [
             item.data
             for item in walk(host.budgets.results)
-            if isinstance(item, ft.ExpansionTile) and isinstance(item.data, BudgetRow)
+            if isinstance(item, ft.ListTile) and isinstance(item.data, BudgetRow)
         ]
         assert {row.account for row in displayed} == {"Expenses:Food"}
         assert all(row.direct_budget for row in displayed)
@@ -297,7 +350,7 @@ def test_report_distinguishes_explicit_zero_budget_from_no_active_budget(
         displayed = [
             item.data.account
             for item in walk(host.budgets.results)
-            if isinstance(item, ft.ExpansionTile) and isinstance(item.data, BudgetRow)
+            if isinstance(item, ft.ListTile) and isinstance(item.data, BudgetRow)
         ]
         assert displayed == ["Expenses:Food"]
         host.budgets.month = date(2025, 12, 1)
@@ -332,7 +385,7 @@ def test_explicit_parent_budget_remains_visible(
         displayed = [
             item.data
             for item in walk(host.budgets.results)
-            if isinstance(item, ft.ExpansionTile) and isinstance(item.data, BudgetRow)
+            if isinstance(item, ft.ListTile) and isinstance(item.data, BudgetRow)
         ]
         assert {row.account for row in displayed} == {"Expenses", "Expenses:Food"}
         assert all(row.direct_budget for row in displayed)
@@ -346,13 +399,15 @@ def test_explicit_parent_budget_remains_visible(
             horizontal_spacing=12, min_leading_width=16, min_vertical_padding=0
         )
         assert listing.theme.icon_theme == ft.IconTheme(size=16)
-        for tile in walk(host.budgets.results):
-            if isinstance(tile, ft.ExpansionTile):
-                assert tile.affinity == ft.TileAffinity.LEADING
-                assert tile.dense and tile.min_tile_height == 40
-                assert tile.tile_padding == 0
-                assert tile.controls_padding == ft.Padding.only(left=40)
-                assert tile.shape == tile.collapsed_shape == ft.RoundedRectangleBorder()
+        tiles = [tile for tile in walk(host.budgets.results) if isinstance(tile, ft.ListTile)]
+        assert [tile.content_padding for tile in tiles] == [
+            ft.Padding.only(left=0),
+            ft.Padding.only(left=16),
+        ]
+        for tile in tiles:
+            assert tile.dense and tile.min_height == 40
+            assert tile.on_click is None
+            assert tile.shape == ft.RoundedRectangleBorder()
 
     asyncio.run(scenario())
 
@@ -371,7 +426,7 @@ def test_deep_budget_stays_visible_without_unbudgeted_ancestors(
         displayed = [
             item.data.account
             for item in walk(host.budgets.results)
-            if isinstance(item, ft.ExpansionTile) and isinstance(item.data, BudgetRow)
+            if isinstance(item, ft.ListTile) and isinstance(item.data, BudgetRow)
         ]
         assert displayed == ["Expenses:Food:Meals"]
 
@@ -509,7 +564,7 @@ def test_budget_crud_controls_match_icon_pattern_in_management_and_reports(
         rows = [
             item
             for item in walk(host.budgets.results)
-            if isinstance(item, ft.ExpansionTile)
+            if isinstance(item, ft.ListTile)
             and isinstance(item.data, BudgetRow)
             and item.data.account in {"Expenses", "Expenses:Food"}
         ]
@@ -561,7 +616,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         food = next(
             item
             for item in walk(host.budgets.results)
-            if isinstance(item, ft.ExpansionTile)
+            if isinstance(item, ft.ListTile)
             and isinstance(item.data, BudgetRow)
             and item.data.account == budget.account
         )
@@ -570,7 +625,11 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         assert label.value == display_name
         assert label.tooltip == budget.account
         assert label.weight == ft.FontWeight.BOLD
-        transaction_button = next(item for item in walk(food) if isinstance(item, ft.TextButton))
+        transaction_button = next(
+            item
+            for item in walk(food)
+            if isinstance(item, ft.IconButton) and item.tooltip == host.tr("budget_transactions")
+        )
         host.budgets._transactions(MagicMock(control=transaction_button))
         dialog = page.show_dialog.call_args.args[0]
         assert isinstance(dialog.content, ft.Column)
@@ -618,11 +677,11 @@ def test_overview_displays_reference_amounts_overspend_and_transactions(
         food = next(
             item
             for item in controls
-            if isinstance(item, ft.ExpansionTile)
+            if isinstance(item, ft.ListTile)
             and isinstance(item.data, BudgetRow)
             and item.data.account == "Expenses:Food"
         )
-        assert isinstance(food, ft.ExpansionTile)
+        assert isinstance(food, ft.ListTile)
         assert isinstance(food.data, BudgetRow)
         assert food.data.budget == {"USD": Decimal("9.999999999999999999999999992")}
         text = [str(item.value) for item in walk(food) if isinstance(item, ft.Text)]
@@ -632,7 +691,11 @@ def test_overview_displays_reference_amounts_overspend_and_transactions(
         assert "Overspent: 2.00 USD" in text
         bars = [item for item in walk(food) if isinstance(item, ft.ProgressBar)]
         assert bars and bars[0].value == 1 and bars[0].color == ft.Colors.ERROR
-        button = next(item for item in walk(food) if isinstance(item, ft.TextButton))
+        button = next(
+            item
+            for item in walk(food)
+            if isinstance(item, ft.IconButton) and item.tooltip == host.tr("budget_transactions")
+        )
         host.budgets._transactions(MagicMock(control=button))
         dialog = page.show_dialog.call_args.args[0]
         assert isinstance(dialog, ft.AlertDialog) and dialog.scrollable
@@ -813,7 +876,7 @@ def displayed_rows(host: FinanceView) -> list[BudgetRow]:
     return [
         control.data
         for control in walk(host.budgets.results)
-        if isinstance(control, ft.ExpansionTile) and isinstance(control.data, BudgetRow)
+        if isinstance(control, ft.ListTile) and isinstance(control.data, BudgetRow)
     ]
 
 
@@ -1308,10 +1371,14 @@ def test_long_filter_names_stay_bounded_and_chips_survive_polling(
     asyncio.run(scenario())
 
 
-def test_budget_controls_initialize_before_a_page_is_attached() -> None:
+def test_budget_controls_initialize_before_a_page_is_attached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(FinanceView, "_today", lambda _: date(2026, 11, 5))
     host = FinanceView()
     assert host.budgets.category_id == ""
     assert not host.budgets.active_filters.visible
+    assert host.budgets.month == date(2026, 11, 1)
 
 
 def report_button(host: FinanceView, budget: Budget) -> ft.TextButton:
@@ -1339,7 +1406,7 @@ def click_report(host: FinanceView, budget: Budget) -> None:
         (date(2027, 5, 9), Decimal(30)),
     ],
 )
-def test_definition_opens_its_month_and_currency_then_reveals_highlighted_nested_report(
+def test_definition_opens_current_month_when_applicable_and_reveals_nested_report(
     view: tuple[FinanceView, MagicMock],
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1350,6 +1417,8 @@ def test_definition_opens_its_month_and_currency_then_reveals_highlighted_nested
 ) -> None:
     async def scenario() -> None:
         host, page = view
+        monkeypatch.setattr(host, "_today", lambda: date(2026, 11, 5))
+        expected_month = date(2026, 11, 1) if effective.year < 2027 else effective.replace(day=1)
         host.language = language
         page.width = width
         journal = await load(host, tmp_path, MULTI_CURRENCY)
@@ -1370,7 +1439,6 @@ def test_definition_opens_its_month_and_currency_then_reveals_highlighted_nested
         host.budgets.account_id = "Assets:Cash"
         host.budgets.currency.value = "USD"
         host.budgets.overspent.value = True
-        host.budgets.expanded[(effective.replace(day=1), parent.account)] = False
         scroll = AsyncMock()
         monkeypatch.setattr(host.body, "scroll_to", scroll)
         worker = MagicMock()
@@ -1382,11 +1450,11 @@ def test_definition_opens_its_month_and_currency_then_reveals_highlighted_nested
         assert host.current_screen == "reports" and host._selected_index() == 3
         assert host.report_tabs.selected_index == 1
         assert host.budgets.visible and not host.report_overview.visible
-        assert host.budgets.month == effective.replace(day=1)
+        assert host.budgets.month == expected_month
         assert host.budgets.category_id == host.budgets.account_id == ""
         assert host.budgets.currency.value == "EUR" and not host.budgets.overspent.value
         await host.budgets.refresh()
-        tiles = [item for item in walk(host.budgets.results) if isinstance(item, ft.ExpansionTile)]
+        tiles = [item for item in walk(host.budgets.results) if isinstance(item, ft.ListTile)]
         target = next(item for item in tiles if item.data.account == budget.account)
         ancestor = next(item for item in tiles if item.data.account == parent.account)
         for tile in (ancestor, target):
@@ -1394,11 +1462,20 @@ def test_definition_opens_its_month_and_currency_then_reveals_highlighted_nested
             label = next(item for item in walk(tile.title) if isinstance(item, ft.Text))
             assert label.tooltip == tile.data.account
             assert label.weight == ft.FontWeight.BOLD
-        assert ancestor.expanded
-        assert ancestor.bgcolor is None and ancestor.collapsed_bgcolor is None
-        assert target.bgcolor == target.collapsed_bgcolor == ft.Colors.SECONDARY_CONTAINER
+        assert ancestor.content_padding == ft.Padding.only(left=0)
+        assert target.content_padding == ft.Padding.only(left=16)
+        assert ancestor.bgcolor is None
+        assert target.bgcolor == ft.Colors.SECONDARY_CONTAINER
         assert target.key == ft.ScrollKey(
-            f"budget-report:{effective.replace(day=1).isoformat()}:{budget.account}"
+            f"budget-report:{expected_month.isoformat()}:{budget.account}"
+        )
+        assert all(
+            not isinstance(control, ft.Text) or control.value != host.tr("budget_direct")
+            for control in walk(host.budgets.results)
+        )
+        assert any(
+            isinstance(control, ft.IconButton) and control.tooltip == host.tr("budget_transactions")
+            for control in walk(ancestor)
         )
         assert target.on_size_change is not None
         scroll.assert_not_awaited()
@@ -1413,7 +1490,7 @@ def test_definition_opens_its_month_and_currency_then_reveals_highlighted_nested
         refreshed = next(
             item
             for item in walk(host.budgets.results)
-            if isinstance(item, ft.ExpansionTile) and item.data.account == budget.account
+            if isinstance(item, ft.ListTile) and item.data.account == budget.account
         )
         assert isinstance(refreshed.title, ft.Column)
         label = next(item for item in walk(refreshed.title) if isinstance(item, ft.Text))
@@ -1424,6 +1501,48 @@ def test_definition_opens_its_month_and_currency_then_reveals_highlighted_nested
         assert not host.budgets.account_warning.visible
         assert {item.data for item in host.budgets.active_filters.controls} == {"currency"}
         assert (tmp_path / FILENAME).read_text() == MULTI_CURRENCY
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "replacement_date,replacement_currency,expected",
+    [
+        (date(2026, 1, 1), "USD", date(2026, 1, 1)),
+        (date(2026, 10, 1), "USD", date(2026, 1, 1)),
+        (date(2026, 11, 1), "USD", date(2026, 1, 1)),
+        (date(2026, 11, 15), "USD", date(2026, 11, 1)),
+        (date(2026, 12, 1), "USD", date(2026, 11, 1)),
+        (date(2026, 10, 1), "EUR", date(2026, 11, 1)),
+    ],
+)
+def test_definition_report_default_month_respects_replacements_and_currency(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    replacement_date: date,
+    replacement_currency: str,
+    expected: date,
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        monkeypatch.setattr(host, "_today", lambda: date(2026, 11, 5))
+        journal = await load(host, tmp_path)
+        budget = journal.ledger.budgets[0]
+        replacement = replace(
+            budget,
+            id="replacement",
+            date=replacement_date,
+            currency=replacement_currency,
+            amount=Decimal(0),
+        )
+        journal.ledger = replace(journal.ledger, budgets=(budget, replacement))
+        host._refresh()
+        click_report(host, budget)
+        assert host.budgets.month == expected
+        assert host.budgets.currency.value == budget.currency
+        assert host.budgets.highlighted == (expected, budget.account)
+        assert journal.source == SOURCE
 
     asyncio.run(scenario())
 
@@ -1487,9 +1606,9 @@ def test_changing_report_context_clears_the_highlight_and_pending_scroll(
         await host.budgets._reveal_report(MagicMock(control=target))
         scroll.assert_not_awaited()
         assert all(
-            item.bgcolor is None and item.collapsed_bgcolor is None
+            item.bgcolor is None
             for item in walk(host.budgets.results)
-            if isinstance(item, ft.ExpansionTile)
+            if isinstance(item, ft.ListTile)
         )
 
     asyncio.run(scenario())
@@ -1554,7 +1673,7 @@ def test_scroll_failure_is_reported_without_discarding_the_budget_highlight(
         await host.budgets._reveal_report(MagicMock(control=target))
         assert host.error_message == "budget_month_error"
         page.show_dialog.assert_called_once()
-        assert target.bgcolor == target.collapsed_bgcolor == ft.Colors.SECONDARY_CONTAINER
+        assert target.bgcolor == ft.Colors.SECONDARY_CONTAINER
         assert not host.budgets.reveal_requested and host.budgets.scroll_target is None
 
     asyncio.run(scenario())

@@ -97,6 +97,24 @@ def interval_next(day: date, interval: str) -> date:
         return date.max
 
 
+def definition_report_month(budgets: tuple[Budget, ...], budget: Budget, today: date) -> date:
+    month = today.replace(day=1)
+    position = budgets.index(budget)
+    replaced = min(
+        (
+            candidate.date
+            for index, candidate in enumerate(budgets)
+            if candidate.account == budget.account
+            and candidate.currency == budget.currency
+            and (candidate.date > budget.date or candidate.date == budget.date and index > position)
+        ),
+        default=date.max,
+    )
+    if max(month, budget.date) < min(interval_next(month, "monthly"), replaced):
+        return month
+    return budget.date.replace(day=1)
+
+
 def report_range(value: str, fiscal_year_end: str = "12-31") -> tuple[date, date]:
     """Fava's explicit date/interval/range notation, including fiscal years."""
     value = value.strip().lower()

@@ -167,6 +167,8 @@ ordinary refreshes; missing entities are cleared. These are session-only UI
 choices and do not modify the journal or shared settings.
 Budget reports show only categories with their own effective budget, hiding
 automatic parent totals without changing domain calculations.
+Report rows do not expand or collapse; budgeted descendants are always visible
+with indentation. A transactions icon sits beside each row's Edit/Delete actions.
 The report UI is monthly only. Searchable component-aware tree selectors filter
 categories and ordinary accounts; account filters restrict complete transactions,
 not budget definitions, with a persistent warning while active. Currency selection

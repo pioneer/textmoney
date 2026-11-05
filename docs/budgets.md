@@ -23,8 +23,9 @@ MIT algorithms and their complete license notice are shipped in
   definitions. Existing definitions use the same CRUD affordances as Accounts
   and Categories: pencil for edit and trash for delete.
 - Each definition has **View in reports**. It opens **Reports → Budgets** at the
-  month the definition starts, selects its currency and clears category, account
-  and overspending filters. Parent budget rows expand so the category is visible;
+  current month when the definition applies during any part of that month;
+  otherwise it opens the month the definition starts. It selects its currency and clears category, account
+  and overspending filters. Budgeted child rows are always visible with indentation;
   the report scrolls to it and highlights it. Changing the month or filters clears
   the highlight. Reports remain monthly category totals, not a separate report
   for each definition: other definitions effective during that month contribute
@@ -63,7 +64,9 @@ No stronger atomic-write guarantee is introduced.
 
 ## Allocation and reports
 
-The report shows one calendar month. All calculation ranges are half-open
+The report defaults to the current calendar month in the app's selected timezone
+and preserves manually selected months during navigation and refreshes.
+All calculation ranges are half-open
 internally: the first day of that month through, but not including, the first day
 of the next month.
 
@@ -80,9 +83,10 @@ For example, January's monthly `100 USD` allocates
 value; long-press/hover the amount to inspect its exact Decimal.
 
 The monthly overview shows **Budget**, **Spent**, **Remaining**, percentage used
-and expense overspending, separately for each currency. Expand a category for
-contributing transactions and, when different from the totals including
-subcategories, an **Excluding subcategories** section for this category alone.
+and expense overspending, separately for each currency. Budget rows do not expand
+or collapse. The transactions icon beside Edit and Delete opens contributing
+transactions; nested budgeted categories remain visible with indentation. Figures include
+subcategories; there is no separate **Excluding subcategories** subitem.
 There is no report-mode selector or reporting-frequency selector. Definition
 frequencies are unchanged: daily, weekly, monthly, quarterly and yearly budgets
 are all allocated into the displayed month.

@@ -13,6 +13,7 @@ from app.domain.budgets import (
     Budget,
     BudgetFilter,
     BudgetRow,
+    definition_report_month,
     interval_next,
     rows,
 )
@@ -22,7 +23,7 @@ from app.localization import date_input, format_budget_number, format_date, loca
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
 from app.ui.tree_picker import TreePicker
-from app.ui.tree_style import compact_tree_theme, compact_tree_tile
+from app.ui.tree_style import compact_tree_theme
 
 if TYPE_CHECKING:
     from app.ui.finance import FinanceView
@@ -37,10 +38,9 @@ class BudgetView(ft.Column):
         self.cache_key: tuple[object, ...] | None = None
         self.model_key: tuple[object, ...] | None = None
         self.filter_key: tuple[object, ...] | None = None
-        self.expanded: dict[tuple[date, str], bool] = {}
         self.highlighted: tuple[date, str] | None = None
         self.reveal_requested = False
-        self.scroll_target: ft.ExpansionTile | None = None
+        self.scroll_target: ft.ListTile | None = None
         self.month = host._today().replace(day=1)
         self.category_id = ""
         self.account_id = ""
@@ -559,8 +559,12 @@ class BudgetView(ft.Column):
             by_account = {row.account: row for row in results if row.begin == begin}
 
             def node(
-                account: str, *, by_account: dict[str, BudgetRow] = by_account, begin: date = begin
-            ) -> ft.Control:
+                account: str,
+                depth: int = 0,
+                *,
+                by_account: dict[str, BudgetRow] = by_account,
+                begin: date = begin,
+            ) -> list[ft.Control]:
                 row = by_account[account]
                 children = [
                     identifier
@@ -568,21 +572,16 @@ class BudgetView(ft.Column):
                     if identifier.rpartition(":")[0] == account
                 ]
                 key = (begin, account)
-                detail: list[ft.Control] = [
-                    *(
-                        [ft.Text(tr("budget_direct"), size=12), *self._figures(row, direct=True)]
-                        if row.direct_budget != row.budget or row.direct_actual != row.actual
-                        else []
-                    ),
-                    ft.TextButton(tr("budget_transactions"), data=row, on_click=self._transactions),
-                    *[node(child) for child in children],
-                ]
-
-                def changed(event: ft.Event[ft.ExpansionTile]) -> None:
-                    self.expanded[key] = event.data is True
-
                 budget = self._active_budget(account, row.end)
-                actions = (
+                actions = [
+                    ft.IconButton(
+                        icon=ft.Icons.RECEIPT_LONG,
+                        tooltip=tr("budget_transactions"),
+                        data=row,
+                        icon_size=20,
+                        on_click=self._transactions,
+                    ),
+                ] + (
                     [
                         ft.IconButton(
                             icon=ft.Icons.EDIT_OUTLINED,
@@ -602,55 +601,56 @@ class BudgetView(ft.Column):
                 )
 
                 highlighted = self.highlighted == key
-                tile = compact_tree_tile(
-                    ft.ExpansionTile(
-                        key=ft.ScrollKey(f"budget-report:{begin.isoformat()}:{account}"),
-                        title=ft.Column(
-                            [
-                                ft.Row(
-                                    [
-                                        *self.host._entity_icon_controls(account),
-                                        ft.Text(
-                                            names.get(account, account.rsplit(":", 1)[-1]),
-                                            size=16,
-                                            weight=ft.FontWeight.BOLD,
-                                            tooltip=account,
-                                            expand=True,
-                                        ),
-                                        *actions,
-                                    ],
-                                    spacing=0,
-                                ),
-                                *(
-                                    [ft.Text(tr("budget_subtree"), size=12)]
-                                    if row.direct_budget != row.budget
-                                    or row.direct_actual != row.actual
-                                    else []
-                                ),
-                                *self._figures(row),
-                            ],
-                            spacing=4,
-                        ),
-                        data=row,
-                        expanded=self.expanded.get(key, account in {"Expenses", "Income"}),
-                        on_change=changed,
-                        controls=detail,
-                        maintain_state=True,
-                        bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
-                        collapsed_bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
-                    )
+                tile = ft.ListTile(
+                    key=ft.ScrollKey(f"budget-report:{begin.isoformat()}:{account}"),
+                    title=ft.Column(
+                        [
+                            ft.Row(
+                                [
+                                    *self.host._entity_icon_controls(account),
+                                    ft.Text(
+                                        names.get(account, account.rsplit(":", 1)[-1]),
+                                        size=16,
+                                        weight=ft.FontWeight.BOLD,
+                                        tooltip=account,
+                                        expand=True,
+                                    ),
+                                    *actions,
+                                ],
+                                spacing=0,
+                            ),
+                            *(
+                                [ft.Text(tr("budget_subtree"), size=12)]
+                                if row.direct_budget != row.budget
+                                or row.direct_actual != row.actual
+                                else []
+                            ),
+                            *self._figures(row),
+                        ],
+                        spacing=4,
+                    ),
+                    data=row,
+                    dense=True,
+                    min_height=40,
+                    min_vertical_padding=0,
+                    visual_density=ft.VisualDensity.COMPACT,
+                    content_padding=ft.Padding.only(left=16 * depth),
+                    shape=ft.RoundedRectangleBorder(),
+                    bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
                 )
-                tile.controls_padding = ft.Padding.only(left=40)
                 if highlighted and self.reveal_requested:
                     # The client must lay out the target before scroll_to can find its key.
                     tile.on_size_change = self._reveal_report
                     self.scroll_target = tile
-                return tile
+                return [
+                    tile,
+                    *[control for child in children for control in node(child, depth + 1)],
+                ]
 
             roots = [
                 account for account in by_account if account.rpartition(":")[0] not in by_account
             ]
-            controls.extend(node(root) for root in roots)
+            controls.extend(control for root in roots for control in node(root))
         self.results.controls = controls or [ft.Text(tr("budget_report_empty"))]
 
     def _show_report(self, event: ft.Event[ft.TextButton]) -> None:
@@ -661,15 +661,12 @@ class BudgetView(ft.Column):
             self.host._error(LedgerError("crud_stale"), notify=True)
             return
         self.cancel()
-        self.month = budget.date.replace(day=1)
+        self.month = definition_report_month(journal.ledger.budgets, budget, self.host._today())
         self.category_id = self.account_id = ""
         self.currency.value = budget.currency
         self.overspent.value = False
         self.highlighted = (self.month, budget.account)
         self.reveal_requested = True
-        parts = budget.account.split(":")
-        for length in range(1, len(parts)):
-            self.expanded[(self.month, ":".join(parts[:length]))] = True
         self.cache_key = None
         self.host.report_tabs.selected_index = 1
         self.host.report_overview.visible = False
@@ -707,7 +704,7 @@ class BudgetView(ft.Column):
             return None
         return max(candidates, key=lambda item: (item[1].date, item[0]))[1]
 
-    def _transactions(self, event: ft.Event[ft.TextButton]) -> None:
+    def _transactions(self, event: ft.Event[ft.IconButton]) -> None:
         row = event.control.data
         assert isinstance(row, BudgetRow)
         names = self._account_names()

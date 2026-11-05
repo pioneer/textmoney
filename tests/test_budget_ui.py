@@ -58,7 +58,7 @@ def view(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]:
 
 
 async def load(view: FinanceView, tmp_path: Path, source: str = SOURCE) -> Journal:
-    (tmp_path / FILENAME).write_text(source, encoding="utf-8")
+    (tmp_path / FILENAME).write_text(source, encoding="utf-8", newline="")
     journal = Journal(DesktopFolder(str(tmp_path), FILENAME), today=lambda: date(2026, 12, 31))
     await journal.load()
     view.journal = journal
@@ -252,14 +252,15 @@ def test_budget_form_dropdowns_fill_the_form(
 
 
 @pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
+@pytest.mark.parametrize("source", [SOURCE, SOURCE.replace("\n", "\r\n")], ids=["lf", "crlf"])
 def test_budget_report_non_expanding_rows_have_transaction_actions(
-    view: tuple[FinanceView, MagicMock], tmp_path: Path, language: str, width: int
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, language: str, width: int, source: str
 ) -> None:
     async def scenario() -> None:
         host, page = view
         host.language = language
         page.width = width
-        journal = await load(host, tmp_path)
+        journal = await load(host, tmp_path, source)
         journal.ledger = replace(
             journal.ledger,
             budgets=(
@@ -297,7 +298,8 @@ def test_budget_report_non_expanding_rows_have_transaction_actions(
             cast(Callable[[object], None], transactions.on_click)(MagicMock(control=transactions))
             dialog = page.show_dialog.call_args.args[0]
             assert isinstance(dialog, ft.AlertDialog) and dialog.scrollable
-        assert journal.source == SOURCE
+        assert journal.source == source
+        assert (tmp_path / FILENAME).read_bytes() == source.encode("utf-8")
 
     asyncio.run(scenario())
 

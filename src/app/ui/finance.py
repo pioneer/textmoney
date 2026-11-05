@@ -83,7 +83,14 @@ from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
 from app.ui.icons import IconDraft, IconPicker, icon_image
-from app.ui.tree_style import compact_tree_leaf, compact_tree_theme, compact_tree_tile
+from app.ui.tree_style import (
+    TREE_MENU_ROW_HEIGHT,
+    TREE_ROW_HEIGHT,
+    CategoryConnectorRow,
+    compact_tree_leaf,
+    compact_tree_theme,
+    compact_tree_tile,
+)
 from app.version import release_identity
 
 logger = logging.getLogger(__name__)
@@ -1134,6 +1141,8 @@ class FinanceView(ft.Row):
                     for item in sorted(items, key=lambda item: item.id.split(":"))
                 ],
             ]
+            if control is self.operations_category:
+                control.options = self._category_option_lines(control.options)
             control.leading_icon = self._entity_dropdown_icon(control.value or "")
             control.disabled = not ready
         self.operations_filter_toggle.tooltip = self.tr("operations_filters")
@@ -1532,7 +1541,7 @@ class FinanceView(ft.Row):
         def changed(event: ft.Event[ft.ExpansionTile]) -> None:
             self.category_expansion[str(event.control.data)] = event.data is True
 
-        def node(identifier: str) -> ft.Control:
+        def node(identifier: str, continued: bool | None = None) -> ft.Control:
             item = items.get(identifier)
             root = identifier in {"Expenses", "Income"}
             title = (
@@ -1556,18 +1565,32 @@ class FinanceView(ft.Row):
                 spacing=0,
             )
             descendants = sorted(children.get(identifier, ()))
+            control: ft.Control
             if descendants or root:
-                return compact_tree_tile(
+                tile = compact_tree_tile(
                     ft.ExpansionTile(
                         data=identifier,
                         title=row,
                         expanded=self.category_expansion.get(identifier, root),
                         on_change=changed,
-                        controls=[node(child) for child in descendants]
+                        controls=[
+                            node(child, index < len(descendants) - 1)
+                            for index, child in enumerate(descendants)
+                        ]
                         or [ft.Text(self.tr("categories_empty"), size=12)],
                     )
                 )
-            return compact_tree_leaf(row, data=identifier)
+                tile.controls_padding = 0
+                control = tile
+            else:
+                control = compact_tree_leaf(row, data=identifier)
+            if continued is not None:
+                return CategoryConnectorRow(
+                    ft.Container(control, padding=ft.Padding.only(left=16)),
+                    (continued,),
+                    header_height=TREE_ROW_HEIGHT,
+                )
+            return control
 
         return [node("Expenses"), node("Income")]
 
@@ -3744,12 +3767,14 @@ class FinanceView(ft.Row):
                 destination.error_text = self.tr("transfer_accounts")
             else:
                 destination.error_text = None
-            category.options = [
-                self._category_form_option(c.id, c.name)
-                for c in sorted(journal.ledger.categories, key=lambda item: item.id.split(":"))
-                if c.id.startswith(root)
-                and (journal.ledger.category_active(c.id) or c.id == original_category)
-            ]
+            category.options = self._category_option_lines(
+                [
+                    self._category_form_option(c.id, c.name)
+                    for c in sorted(journal.ledger.categories, key=lambda item: item.id.split(":"))
+                    if c.id.startswith(root)
+                    and (journal.ledger.category_active(c.id) or c.id == original_category)
+                ]
+            )
             category.hint_text = (
                 self.tr("category_none_available") if not category.options else None
             )
@@ -3955,13 +3980,15 @@ class FinanceView(ft.Row):
                     )
                     source = journal.source
                     identifier = code.code
-                    category.options = [
-                        self._category_form_option(item.id, item.name)
-                        for item in sorted(
-                            journal.ledger.categories, key=lambda item: item.id.split(":")
-                        )
-                        if item.id.startswith(f"{root}:") and item.active
-                    ]
+                    category.options = self._category_option_lines(
+                        [
+                            self._category_form_option(item.id, item.name)
+                            for item in sorted(
+                                journal.ledger.categories, key=lambda item: item.id.split(":")
+                            )
+                            if item.id.startswith(f"{root}:") and item.active
+                        ]
+                    )
                     category.hint_text = None
                     category.value = identifier
                     category_values[operation()] = identifier
@@ -3972,13 +3999,15 @@ class FinanceView(ft.Row):
                         journal, icon_store, icon, identifier, icon_heads.get(identifier, ())
                     )
                     category.leading_icon = self._entity_dropdown_icon(identifier)
-                    category.options = [
-                        self._category_form_option(item.id, item.name)
-                        for item in sorted(
-                            journal.ledger.categories, key=lambda item: item.id.split(":")
-                        )
-                        if item.id.startswith(f"{root}:") and item.active
-                    ]
+                    category.options = self._category_option_lines(
+                        [
+                            self._category_form_option(item.id, item.name)
+                            for item in sorted(
+                                journal.ledger.categories, key=lambda item: item.id.split(":")
+                            )
+                            if item.id.startswith(f"{root}:") and item.active
+                        ]
+                    )
 
                 create.disabled = cancel.disabled = True
                 icon.disabled = True
@@ -4710,13 +4739,45 @@ class FinanceView(ft.Row):
     def _category_menu_height(self) -> int | None:
         return 240 if self.screen_class == ScreenClass.COMPACT else None
 
+    def _category_option_lines(self, options: list[ft.DropdownOption]) -> list[ft.DropdownOption]:
+        paths = [(option.key or "").split(":") for option in options]
+        for index, option in enumerate(options):
+            parts = paths[index]
+            if len(parts) < 2:
+                continue
+            depth = len(parts) - 2
+            continued = tuple(
+                any(
+                    len(future) > level + 2
+                    and future[: level + 2] == parts[: level + 2]
+                    and future[level + 2] != parts[level + 2]
+                    for future in paths[index + 1 :]
+                )
+                for level in range(depth)
+            )
+            content = option.content
+            if not isinstance(content, ft.Container):
+                content = ft.Container(
+                    self._entity_label(
+                        option.key or "",
+                        ft.Text((option.text or "").lstrip(), size=16, max_lines=2),
+                    ),
+                    padding=ft.Padding.only(left=16 * depth),
+                )
+                option.leading_icon = None
+            content.height = TREE_MENU_ROW_HEIGHT
+            content.alignment = ft.Alignment.CENTER_LEFT
+            option.content = CategoryConnectorRow(content, continued, branch_length=11)
+            option.style = ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=12))
+        return options
+
     def _category_form_option(self, identifier: str, name: str) -> ft.DropdownOption:
         label = name if name != identifier else identifier.rsplit(":", 1)[-1]
         return ft.DropdownOption(
             key=identifier,
             text=label,
             content=ft.Container(
-                self._entity_label(identifier, ft.Text(label, size=16)),
+                self._entity_label(identifier, ft.Text(label, size=16, max_lines=2)),
                 padding=ft.Padding.only(left=16 * (identifier.count(":") - 1)),
             ),
         )
@@ -4731,6 +4792,7 @@ class FinanceView(ft.Row):
                     ft.Text(
                         item.name,
                         size=16,
+                        max_lines=2,
                         spans=[ft.TextSpan(f" ({item.id})", style=ft.TextStyle(size=12))],
                     ),
                 ),
@@ -4743,9 +4805,13 @@ class FinanceView(ft.Row):
     ) -> list[ft.DropdownOption]:
         options = [ft.DropdownOption(key="", text=self.tr("category_parent_none"))]
         options.extend(
-            self._category_dropdown_option(item)
-            for item in sorted(categories, key=lambda item: item.id.split(":"))
-            if item.active and item.id.startswith(f"{root}:")
+            self._category_option_lines(
+                [
+                    self._category_dropdown_option(item)
+                    for item in sorted(categories, key=lambda item: item.id.split(":"))
+                    if item.active and item.id.startswith(f"{root}:")
+                ]
+            )
         )
         return options
 
@@ -4951,14 +5017,16 @@ class FinanceView(ft.Row):
             c.id == BANK_FEES for c in journal.ledger.categories
         ) and fee_category_in_branches(BANK_FEES, branches):
             items[BANK_FEES] = self.tr("transfer_bank_fees")
-        return [
-            ft.DropdownOption(
-                key=identifier,
-                text=self._category_label(identifier, items[identifier]),
-                leading_icon=self._entity_icon(identifier),
-            )
-            for identifier in sorted(items, key=lambda identifier: identifier.split(":"))
-        ]
+        return self._category_option_lines(
+            [
+                ft.DropdownOption(
+                    key=identifier,
+                    text=self._category_label(identifier, items[identifier]),
+                    leading_icon=self._entity_icon(identifier),
+                )
+                for identifier in sorted(items, key=lambda identifier: identifier.split(":"))
+            ]
+        )
 
     def _render_fee_settings(self) -> None:
         if self.journal is None or not self.journal.ready:

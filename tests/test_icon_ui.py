@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import pytest
 from flet.messaging.session import Session
-from form_controls import click, click_async, transaction_form
+from form_controls import category_content, click, click_async, transaction_form
 from test_daily_summary import walk
 from test_dialog_keyboard import finance_session, press
 from test_icons import asset, raster, store_at
@@ -58,9 +58,8 @@ def test_operations_filter_icons_hierarchy_and_popup_only_icon_actions(
         child = next(option for option in categories if option.key == "Expenses:Food:Shops")
         assert categories.index(parent) < categories.index(child)
         for option, indent in ((parent, 0), (child, 16)):
-            assert isinstance(option.content, ft.Container)
-            assert option.content.padding == ft.Padding.only(left=indent)
-            assert images(option.content)
+            assert category_content(option).padding == ft.Padding.only(left=indent)
+            assert images(category_content(option))
         for listing in (view.account_list, view.category_list):
             assert not any(
                 isinstance(control, ft.IconButton) and control.on_click == view._choose_entity_icon
@@ -172,9 +171,8 @@ def test_creation_icon_is_a_draft_until_entity_is_saved_and_survives_reload(
             assert form.amount.value == "125" and form.description.value == "Parent draft"
             assert form.category.leading_icon is not None
             option = next(option for option in form.category.options if option.key == identifier)
-            assert isinstance(option.content, ft.Container)
-            assert option.content.padding == ft.Padding.only(left=0)
-            assert images(option.content)
+            assert category_content(option).padding == ft.Padding.only(left=0)
+            assert images(category_content(option))
         saved = journal.source
         reloaded = store_at(tmp_path)
         await reloaded.load()
@@ -788,10 +786,11 @@ def test_entity_icons_reach_lists_settings_transactions_and_reports(
             == account_option.leading_icon.content.height
             == 16
         )
-        assert isinstance(category_option.content, ft.Container)
-        assert category_option.content.padding == ft.Padding.only(left=0)
-        assert images(category_option.content)
-        assert all(image.width == image.height == 16 for image in images(category_option.content))
+        assert category_content(category_option).padding == ft.Padding.only(left=0)
+        assert images(category_content(category_option))
+        assert all(
+            image.width == image.height == 16 for image in images(category_content(category_option))
+        )
         form.account.value = "Assets:Bank"
         await form.account._trigger_event("select", None)
         assert isinstance(form.account.leading_icon, ft.Container)

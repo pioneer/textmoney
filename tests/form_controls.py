@@ -6,8 +6,15 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import flet as ft
+import flet.canvas as fc
 
 from app.ui.datetime_fields import DateTimeFields
+
+
+def category_content(option: ft.DropdownOption) -> ft.Container:
+    assert isinstance(option.content, fc.Canvas)
+    assert isinstance(option.content.content, ft.Container)
+    return option.content.content
 
 
 def change(control: ft.Dropdown | ft.Checkbox | ft.SegmentedButton | ft.TextField) -> None:

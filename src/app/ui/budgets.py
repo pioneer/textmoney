@@ -837,10 +837,12 @@ class BudgetView(ft.Column):
             label=tr("budget_category"),
             on_select=self.host._entity_dropdown_selected,
             leading_icon=self.host._entity_icon(budget.account) if budget else None,
-            options=[
-                self.host._category_form_option(key, identifiers[key])
-                for key in sorted(identifiers, key=lambda identifier: identifier.split(":"))
-            ],
+            options=self.host._category_option_lines(
+                [
+                    self.host._category_form_option(key, identifiers[key])
+                    for key in sorted(identifiers, key=lambda identifier: identifier.split(":"))
+                ]
+            ),
             value=budget.account if budget else None,
         )
         amount = ft.TextField(

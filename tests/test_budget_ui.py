@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
+from form_controls import category_content
 
 from app.domain.budgets import Budget, BudgetFilter, BudgetRow
 from app.domain.ledger import LedgerError
@@ -196,11 +197,11 @@ def test_budget_category_dropdown_is_parent_first_and_indented(
         ]
         assert category.menu_height == (240 if width <= 599 else None)
         for option, depth in zip(category.options, [0, 1, 2, 0, 0, 1], strict=True):
-            assert isinstance(option.content, ft.Container)
-            assert option.content.padding == ft.Padding.only(left=16 * depth)
-            assert isinstance(option.content.content, ft.Text)
-            assert option.content.content.value == option.text
-            assert not option.content.content.spans
+            content = category_content(option)
+            assert content.padding == ft.Padding.only(left=16 * depth)
+            assert isinstance(content.content, ft.Text)
+            assert content.content.value == option.text
+            assert not content.content.spans
         assert category.value == (None if mode == "add" else "Expenses:Food")
         assert journal.source == before
         category.value = "Expenses:Food:Meals:Lunch"

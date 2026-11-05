@@ -62,6 +62,27 @@ versions.
   form in the browser preview; its Cancel button worked. Native interactive
   keyboard behavior, Android SAF runtime and Windows runtime remain unverified.
 
+## Category menu hierarchy
+
+Category menus and the main category tree share 16-pixel hierarchy gutters and
+1.25-pixel Material
+`OUTLINE_VARIANT` connector lines. Ancestor guides continue through descendants;
+the final sibling gets a rounded elbow and its stem stops at the row centre.
+The reusable connector canvas derives geometry from its measured row height;
+the existing 48-pixel menu rows keep guides joined. Child stems start at the
+boundary beneath the parent row, independent of its icons or wrapped label.
+Existing entity icons are unchanged. Menus have no expand/collapse controls;
+the main tree retains its native expansion behavior. Transaction and budget menus retain
+name-only labels and a 240-pixel height limit on compact screens, with the
+default full-height menu on wider screens. Category-parent menus retain codes.
+
+The main Accounting category tree retains its native expansion controls and
+actions. Connector gutters replace, rather than add to, its child indentation;
+ancestor stems span expanded subtrees while branches remain aligned with each
+40-pixel tile header. Menu branches are eleven pixels long with three-pixel
+rounded elbows, keeping a one-pixel gap before the existing content. Main-tree
+branches remain eight pixels long.
+
 ## Required popup keyboard convention
 
 Every new or changed popup must preserve desktop **Escape = Cancel** and

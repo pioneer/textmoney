@@ -6,8 +6,9 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import flet as ft
+import flet.canvas as fc
 import pytest
-from form_controls import change, click, transaction_form
+from form_controls import category_content, change, click, transaction_form
 
 from app.domain.ledger import Category
 from app.icons import DISPLAY_SIZE
@@ -15,9 +16,19 @@ from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import translate
 from app.ui.finance import FinanceView
+from app.ui.tree_style import CategoryConnectorRow
+
+
+def tree_item(control: ft.Control) -> ft.Control:
+    if isinstance(control, CategoryConnectorRow):
+        assert isinstance(control.content, ft.Container)
+        assert isinstance(control.content.content, ft.Control)
+        return control.content.content
+    return control
 
 
 def row(control: ft.Control) -> ft.Row:
+    control = tree_item(control)
     assert isinstance(control, (ft.ExpansionTile, ft.ListTile))
     value = control.title
     assert isinstance(value, ft.Row)
@@ -35,6 +46,123 @@ def label(control: ft.Control) -> ft.Text:
 def toggle(control: ft.ExpansionTile, expanded: bool) -> None:
     assert control.on_change is not None
     cast(Callable[[object], object], control.on_change)(MagicMock(control=control, data=expanded))
+
+
+def test_main_category_tree_uses_connector_gutters_without_losing_native_tiles() -> None:
+    view = FinanceView()
+    expense, _income = view._category_tree(
+        (
+            Category("Expenses:Food", "Food", date(2000, 1, 1)),
+            Category("Expenses:Food:Shops", "Shops", date(2000, 1, 1)),
+            Category("Expenses:Travel", "Travel", date(2000, 1, 1)),
+        )
+    )
+    assert isinstance(expense, ft.ExpansionTile) and expense.controls
+    parent = expense.controls[0]
+    assert isinstance(parent, CategoryConnectorRow)
+    assert isinstance(parent.content, ft.Container)
+    assert parent.content.padding == ft.Padding.only(left=16)
+    assert isinstance(parent.content.content, ft.ExpansionTile)
+    assert parent.content.content.on_change is not None
+    assert parent.continued == (True,)
+    parent._draw(120)
+    assert [
+        (shape.x1, shape.y1, shape.x2, shape.y2)
+        for shape in parent.shapes
+        if isinstance(shape, fc.Line)
+    ] == [(4, 0, 4, 120), (4, 20, 12, 20)]
+    last = expense.controls[-1]
+    assert isinstance(last, CategoryConnectorRow)
+    last._draw(80)
+    elbow = last.shapes[-1]
+    assert isinstance(elbow, fc.Path)
+    assert elbow.elements[-1] == fc.Path.LineTo(12, 20)
+
+
+def test_category_menu_lines_continue_through_descendants_and_end_at_last_sibling() -> None:
+    view = FinanceView()
+    categories = tuple(
+        Category(identifier, identifier.rsplit(":", 1)[-1], date(2000, 1, 1))
+        for identifier in (
+            "Expenses:Food",
+            "Expenses:Food:Shops",
+            "Expenses:Food:Shops:Market",
+            "Expenses:Food:Snacks",
+            "Expenses:Travel",
+        )
+    )
+    options = view._category_parent_options(categories, "Expenses")[1:]
+    last_child = options[3].content
+    assert isinstance(last_child, fc.Canvas)
+    assert isinstance(last_child.shapes[-1], fc.Path)
+    assert any(
+        isinstance(element, fc.Path.QuadraticTo) for element in last_child.shapes[-1].elements
+    )
+    assert last_child.shapes[-1].elements[-1] == fc.Path.LineTo(15, 24)
+    expected = [
+        [],
+        [(4, 0, 4, 48), (4, 24, 15, 24)],
+        [(4, 0, 4, 48)],
+        [],
+        [],
+    ]
+    for option, segments in zip(options, expected, strict=True):
+        assert isinstance(option.content, fc.Canvas)
+        assert option.content.height == 48
+        assert [
+            (shape.x1, shape.y1, shape.x2, shape.y2)
+            for shape in option.content.shapes
+            if isinstance(shape, fc.Line)
+        ] == segments
+        assert option.style == ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=12))
+        for shape in option.content.shapes:
+            assert isinstance(shape, (fc.Line, fc.Path))
+            assert shape.paint.color == ft.Colors.OUTLINE_VARIANT
+            assert shape.paint.stroke_width == 1.25
+            assert shape.paint.style == ft.PaintingStyle.STROKE
+
+
+@pytest.mark.parametrize("height", [32, 48, 72, 96])
+@pytest.mark.parametrize(
+    "continued",
+    [(), (True,), (False,), (True, False), (False, False), (True,) * 7 + (False,)],
+)
+def test_connector_geometry_uses_measured_row_height_and_constant_nesting_gutters(
+    monkeypatch: pytest.MonkeyPatch, height: int, continued: tuple[bool, ...]
+) -> None:
+    content = ft.Container(ft.Text("A category name that can wrap", max_lines=2), height=48)
+    connector = CategoryConnectorRow(content, continued)
+    update = MagicMock()
+    monkeypatch.setattr(connector, "update", update)
+    connector._resized(MagicMock(spec=fc.CanvasResizeEvent, height=height, width=300))
+    assert connector.content is content
+    center = height / 2
+    for shape in connector.shapes:
+        if isinstance(shape, fc.Line):
+            assert shape.x1 % 16 == 4
+            if shape.x1 == shape.x2:
+                assert (shape.y1, shape.y2) == (0, height)
+            else:
+                assert shape.y1 == shape.y2 == center
+                assert shape.x2 - shape.x1 == 8
+    if continued and not continued[-1]:
+        elbow = connector.shapes[-1]
+        assert isinstance(elbow, fc.Path)
+        position = 16 * (len(continued) - 1) + 4
+        assert elbow.elements == [
+            fc.Path.MoveTo(position, 0),
+            fc.Path.LineTo(position, center - 3),
+            fc.Path.QuadraticTo(position, center, position + 3, center),
+            fc.Path.LineTo(position + 8, center),
+        ]
+    if not continued:
+        assert not connector.shapes
+    assert update.call_count == (0 if height == 48 else 1)
+    shapes = connector.shapes
+    connector._resized(MagicMock(spec=fc.CanvasResizeEvent, height=0, width=0))
+    connector._resized(MagicMock(spec=fc.CanvasResizeEvent, height=height, width=600))
+    assert connector.shapes is shapes
+    assert update.call_count == (0 if height == 48 else 1)
 
 
 @pytest.mark.parametrize("width", [390, 599, 600, 1366])
@@ -75,12 +203,12 @@ def test_transaction_categories_are_indented_and_menu_height_is_bounded(
             f"{root}:Food-Other",
         ]
         for option, depth in zip(form.category.options, [0, 1, 2, 0], strict=True):
-            assert isinstance(option.content, ft.Container)
-            assert option.content.padding == ft.Padding.only(left=16 * depth)
+            content = category_content(option)
+            assert content.padding == ft.Padding.only(left=16 * depth)
             assert option.text == (option.key or "").split(":")[-1]
-            assert isinstance(option.content.content, ft.Text)
-            assert option.content.content.value == option.text
-            assert not option.content.content.spans
+            assert isinstance(content.content, ft.Text)
+            assert content.content.value == option.text
+            assert not content.content.spans
         assert journal.source == source
 
     asyncio.run(scenario())
@@ -111,10 +239,10 @@ def test_income_expense_sections_have_equal_layout_and_nested_actions(language: 
         assert section.dense and section.min_tile_height == 40
         assert section.affinity == ft.TileAffinity.LEADING
         assert section.tile_padding == 0
-        assert section.controls_padding == ft.Padding.only(left=16)
+        assert section.controls_padding == 0
         assert section.shape == section.collapsed_shape == ft.RoundedRectangleBorder()
         assert section.controls is not None
-        parent = section.controls[0]
+        parent = tree_item(section.controls[0])
         assert isinstance(parent, ft.ExpansionTile)
         assert parent.dense and parent.min_tile_height == 40
         assert parent.tile_padding == 0
@@ -124,7 +252,7 @@ def test_income_expense_sections_have_equal_layout_and_nested_actions(language: 
         assert not parent.expanded
         assert label(parent).value == category.name
         assert parent.controls is not None
-        leaf = parent.controls[0]
+        leaf = tree_item(parent.controls[0])
         assert isinstance(leaf, ft.ListTile)
         assert leaf.content_padding == 0 and leaf.min_vertical_padding == 0
         assert leaf.min_height == parent.min_tile_height == 40
@@ -158,11 +286,11 @@ def test_missing_parent_nodes_are_visible_but_not_editable_and_inactive_labels_r
     empty = expense.controls[0]
     assert isinstance(empty, ft.Text) and empty.value == view.tr("categories_empty")
     assert isinstance(income, ft.ExpansionTile) and income.controls is not None
-    work = income.controls[0]
+    work = tree_item(income.controls[0])
     assert isinstance(work, ft.ExpansionTile) and work.controls is not None
     assert label(work).value == "Work"
     assert len(row(work).controls) == 1
-    remote = work.controls[0]
+    remote = tree_item(work.controls[0])
     assert isinstance(remote, ft.ExpansionTile) and remote.controls is not None
     salary = remote.controls[0]
     assert label(salary).value == "Salary"
@@ -188,7 +316,7 @@ def test_expansion_state_survives_refresh_language_resize_and_accounting_is_unch
         view._refresh()
         section = view.category_list.controls[0]
         assert isinstance(section, ft.ExpansionTile) and section.controls is not None
-        food = section.controls[0]
+        food = tree_item(section.controls[0])
         assert isinstance(food, ft.ExpansionTile) and food.on_change is not None
         toggle(food, True)
         toggle(section, False)
@@ -198,13 +326,13 @@ def test_expansion_state_survives_refresh_language_resize_and_accounting_is_unch
         rebuilt = view.category_list.controls[0]
         assert isinstance(rebuilt, ft.ExpansionTile) and rebuilt.controls is not None
         assert not rebuilt.expanded
-        rebuilt_food = rebuilt.controls[0]
+        rebuilt_food = tree_item(rebuilt.controls[0])
         assert isinstance(rebuilt_food, ft.ExpansionTile) and rebuilt_food.expanded
         toggle(rebuilt_food, False)
         view._refresh()
         rebuilt = view.category_list.controls[0]
         assert isinstance(rebuilt, ft.ExpansionTile) and rebuilt.controls is not None
-        rebuilt_food = rebuilt.controls[0]
+        rebuilt_food = tree_item(rebuilt.controls[0])
         assert isinstance(rebuilt_food, ft.ExpansionTile) and not rebuilt_food.expanded
         assert label(rebuilt).value == "Витрати"
         assert journal.source == original
@@ -289,8 +417,7 @@ def test_parent_selectors_show_names_smaller_codes_and_contiguous_hierarchy(
             (f"{root}:Hidden:Child", f"Child ({root}:Hidden:Child)"),
         ]
         for option, depth in zip(parent.options[1:], [0, 1, 2, 0, 1], strict=True):
-            content = option.content
-            assert isinstance(content, ft.Container)
+            content = category_content(option)
             assert content.padding == ft.Padding.only(left=16 * depth)
             label = content.content
             assert isinstance(label, ft.Text) and label.size == 16

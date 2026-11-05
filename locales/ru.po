@@ -199,6 +199,18 @@ msgstr "Бюджеты"
 msgid "ui.budget_simple_filters"
 msgstr "Фильтры"
 
+msgid "ui.operations_all_categories"
+msgstr "Все категории"
+
+msgid "ui.operations_filters"
+msgstr "Фильтры"
+
+msgid "ui.operations_no_matches"
+msgstr "Нет операций по этим фильтрам."
+
+msgid "ui.show_operations"
+msgstr "Показать операции"
+
 msgid "ui.budget_account"
 msgstr "Счёт"
 

@@ -84,11 +84,10 @@ def test_income_expense_sections_have_equal_layout_and_nested_actions(language: 
             ":Shops" if category.id.startswith("Expenses") else ":Salary"
         )
         for node in [parent, leaf]:
-            choose, edit, delete = row(node).controls[1:]
-            assert isinstance(choose, ft.IconButton)
-            assert choose.data == node.data
-            assert choose.on_click == view._choose_entity_icon
-            assert choose.tooltip == view.tr("icon_choose")
+            operations, edit, delete = row(node).controls[1:]
+            assert isinstance(operations, ft.IconButton)
+            assert operations.data == ("category", node.data)
+            assert operations.on_click == view._show_entity_operations
             assert isinstance(edit, ft.IconButton) and isinstance(delete, ft.IconButton)
             assert edit.data == delete.data == ("category", node.data)
             assert edit.on_click == view._edit_entity

@@ -114,6 +114,18 @@ msgstr "Budgets"
 msgid "ui.budget_simple_filters"
 msgstr "Filters"
 
+msgid "ui.operations_all_categories"
+msgstr "All categories"
+
+msgid "ui.operations_filters"
+msgstr "Filters"
+
+msgid "ui.operations_no_matches"
+msgstr "No operations match these filters."
+
+msgid "ui.show_operations"
+msgstr "Show operations"
+
 msgid "ui.budget_account"
 msgstr "Account"
 

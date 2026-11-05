@@ -5,6 +5,7 @@ import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future
+from dataclasses import replace
 from datetime import date, datetime
 from decimal import Decimal, localcontext
 from enum import StrEnum
@@ -249,6 +250,24 @@ class FinanceView(ft.Row):
         self.category_list = ft.Column(spacing=4)
         self.category_expansion: dict[str, bool] = {}
         self.history = ft.Column(spacing=0)
+        self.operations_account = ft.Dropdown(
+            value="", expand=True, on_select=self._operations_filter_changed
+        )
+        self.operations_category = ft.Dropdown(
+            value="", expand=True, on_select=self._operations_filter_changed
+        )
+        self.operations_filter_toggle = ft.IconButton(
+            icon=ft.Icons.FILTER_LIST,
+            on_click=self._toggle_operations_filters,
+        )
+        self.operations_filters = ft.Column(
+            [
+                ft.Row([self.operations_account]),
+                ft.Row([self.operations_category]),
+            ],
+            spacing=8,
+            visible=False,
+        )
         self.operations_totals_values = ft.Row(spacing=10, tight=True)
         self.operations_totals_label = ft.Text(
             size=14, color=ft.Colors.ON_SURFACE_VARIANT, no_wrap=True
@@ -717,6 +736,8 @@ class FinanceView(ft.Row):
         self.fab.content = self.tr("add_transaction")
         self.fab.disabled = not ready
         self.transactions_screen.controls = [
+            ft.Row([self.operations_filter_toggle], alignment=ft.MainAxisAlignment.END),
+            self.operations_filters,
             self.operations_totals,
             ft.Container(content=self.history, padding=ft.Padding.only(bottom=96)),
         ]
@@ -967,6 +988,7 @@ class FinanceView(ft.Row):
         self.default_fee.disabled = self.default_fee_save.disabled = not ready
         self.fee_category_settings.disabled = not ready
         self.balance_warning.visible = False
+        self._sync_operations_filters()
         if not ready or self.journal is None:
             self.account_list.controls = [ft.Text(self.tr("accounts_empty"))]
             self.category_list.controls = [ft.Text(self.tr("categories_empty"))]
@@ -1066,8 +1088,14 @@ class FinanceView(ft.Row):
             reverse=True,
         )
         self.history.controls = self._transaction_groups(
-            transactions, names, daily_summary=True
-        ) or [ft.Text(self.tr("transactions_empty"))]
+            self._operations_transactions(transactions), names, daily_summary=True
+        ) or [
+            ft.Text(
+                self.tr("operations_no_matches")
+                if self.operations_account.value or self.operations_category.value
+                else self.tr("transactions_empty")
+            )
+        ]
         self.home_activity.controls = self._transaction_groups(
             transactions[:5], names, compact=True
         ) or [ft.Text(self.tr("home_no_transactions"))]
@@ -1080,6 +1108,74 @@ class FinanceView(ft.Row):
         self._build_home_layout()
         if self.current_screen == "reports":
             self._render_reports()
+
+    def _sync_operations_filters(self) -> None:
+        ready = self.journal is not None and self.journal.ready
+        ledger = self.journal.ledger if ready and self.journal else Ledger()
+        self.operations_account.label = self.tr("budget_account")
+        self.operations_category.label = self.tr("budget_category")
+        for control, items, all_key in (
+            (self.operations_account, ledger.accounts, "budget_all_accounts"),
+            (self.operations_category, ledger.categories, "operations_all_categories"),
+        ):
+            identifiers = {item.id for item in items}
+            if control.value not in identifiers:
+                control.value = ""
+            control.options = [
+                ft.DropdownOption(key="", text=self.tr(all_key)),
+                *[
+                    self._category_dropdown_option(item)
+                    if isinstance(item, Category)
+                    else ft.DropdownOption(
+                        key=item.id,
+                        text=f"{item.name} ({item.id})",
+                        leading_icon=self._entity_dropdown_icon(item.id),
+                    )
+                    for item in sorted(items, key=lambda item: item.id.split(":"))
+                ],
+            ]
+            control.leading_icon = self._entity_dropdown_icon(control.value or "")
+            control.disabled = not ready
+        self.operations_filter_toggle.tooltip = self.tr("operations_filters")
+        self.operations_filter_toggle.selected = self.operations_filters.visible
+        self.operations_filter_toggle.icon_color = (
+            ft.Colors.PRIMARY
+            if self.operations_account.value or self.operations_category.value
+            else None
+        )
+
+    def _operations_transactions(self, transactions: list[Transaction]) -> list[Transaction]:
+        account = self.operations_account.value
+        category = self.operations_category.value
+        return [
+            transaction
+            for transaction in transactions
+            if (not account or any(post.account == account for post in transaction.postings))
+            and (
+                not category
+                or any(
+                    post.account == category or post.account.startswith(category + ":")
+                    for post in transaction.postings
+                )
+            )
+        ]
+
+    def _operations_filter_changed(self, event: ft.Event[ft.Dropdown]) -> None:
+        self._refresh()
+        self.page.update()
+
+    def _toggle_operations_filters(self, event: ft.Event[ft.IconButton]) -> None:
+        self.operations_filters.visible = not self.operations_filters.visible
+        self.operations_filter_toggle.selected = self.operations_filters.visible
+        self.page.update()
+
+    def _show_entity_operations(self, event: ft.Event[ft.IconButton]) -> None:
+        kind, identifier = event.control.data
+        self.operations_account.value = identifier if kind == "account" else ""
+        self.operations_category.value = identifier if kind == "category" else ""
+        self.operations_filters.visible = True
+        self._refresh()
+        self._navigate("transactions")
 
     def _sync_report_period(self) -> None:
         self.report_period.label = self.tr("report_period")
@@ -1479,11 +1575,11 @@ class FinanceView(ft.Row):
         kind = "category" if isinstance(item, Category) else "account"
         return [
             ft.IconButton(
-                icon=ft.Icons.IMAGE_SEARCH,
-                tooltip=self.tr("icon_choose"),
-                data=item.id,
+                icon=ft.Icons.RECEIPT_LONG,
+                tooltip=self.tr("show_operations"),
+                data=(kind, item.id),
                 icon_size=20,
-                on_click=self._choose_entity_icon,
+                on_click=self._show_entity_operations,
                 style=ft.ButtonStyle(visual_density=ft.VisualDensity.COMPACT),
             ),
             ft.IconButton(
@@ -1939,7 +2035,13 @@ class FinanceView(ft.Row):
                 raise ConflictError("crud_stale")
             if not journal.ready:
                 raise LedgerError("report_unavailable")
-            report = period_report(journal.ledger, day, day)
+            ledger = replace(
+                journal.ledger,
+                transactions=tuple(
+                    self._operations_transactions(list(journal.ledger.transactions))
+                ),
+            )
+            report = period_report(ledger, day, day)
             sections: list[ft.Control] = []
             for item in report.currencies:
                 sections.extend(
@@ -4605,26 +4707,29 @@ class FinanceView(ft.Row):
         if self.page:
             self.page.update()
 
+    def _category_dropdown_option(self, item: Category) -> ft.DropdownOption:
+        return ft.DropdownOption(
+            key=item.id,
+            text=f"{item.name} ({item.id})",
+            content=ft.Container(
+                self._entity_label(
+                    item.id,
+                    ft.Text(
+                        item.name,
+                        size=16,
+                        spans=[ft.TextSpan(f" ({item.id})", style=ft.TextStyle(size=12))],
+                    ),
+                ),
+                padding=ft.Padding.only(left=16 * (item.id.count(":") - 1)),
+            ),
+        )
+
     def _category_parent_options(
         self, categories: tuple[Category, ...], root: str
     ) -> list[ft.DropdownOption]:
         options = [ft.DropdownOption(key="", text=self.tr("category_parent_none"))]
         options.extend(
-            ft.DropdownOption(
-                key=item.id,
-                text=f"{item.name} ({item.id})",
-                content=ft.Container(
-                    self._entity_label(
-                        item.id,
-                        ft.Text(
-                            item.name,
-                            size=16,
-                            spans=[ft.TextSpan(f" ({item.id})", style=ft.TextStyle(size=12))],
-                        ),
-                    ),
-                    padding=ft.Padding.only(left=16 * (item.id.count(":") - 1)),
-                ),
-            )
+            self._category_dropdown_option(item)
             for item in sorted(categories, key=lambda item: item.id.split(":"))
             if item.active and item.id.startswith(f"{root}:")
         )

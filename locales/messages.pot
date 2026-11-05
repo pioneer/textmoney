@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TextMoney 0.3.24\n"
+"Project-Id-Version: TextMoney 0.4.1\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-11-03 03:47+0200\n"
-"PO-Revision-Date: 2026-11-03 03:47+0200\n"
+"POT-Creation-Date: 2026-11-05 03:21+0200\n"
+"PO-Revision-Date: 2026-11-05 03:21+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -110,6 +110,18 @@ msgid "ui.budget_title"
 msgstr ""
 
 msgid "ui.budget_simple_filters"
+msgstr ""
+
+msgid "ui.operations_all_categories"
+msgstr ""
+
+msgid "ui.operations_filters"
+msgstr ""
+
+msgid "ui.operations_no_matches"
+msgstr ""
+
+msgid "ui.show_operations"
 msgstr ""
 
 msgid "ui.budget_account"
@@ -2122,3 +2134,4 @@ msgstr ""
 #. Stable TextMoney key; a child category cannot predate its parent.
 msgid "ui.crud_category_before_parent"
 msgstr ""
+

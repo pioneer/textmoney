@@ -1,7 +1,8 @@
 # Account and category icons
 
 Use **Choose icon** while creating an account/category, including quick category
-creation from a transaction, or beside an existing entity and in its Edit dialog.
+creation from a transaction, or in an existing entity's Edit dialog. Accounting
+lists do not have separate icon-changing buttons.
 Icons are optional. In a creation form, the picker saves only a draft and shows
 a preview; the assignment is written only after creating the account/category.
 Canceling the picker keeps the previous draft; canceling creation discards it.
@@ -98,7 +99,7 @@ explicitly distinguish the already-saved journal from failed icon maintenance.
 Creation also commits the journal before its optional icon sidecar. If icon
 saving fails, the creation dialog closes and a visible error explains that the
 entity already exists. Fix icon storage and use **Choose icon** on that entity;
-do not create it again.
+open its Edit dialog rather than creating it again.
 Large icon migrations may need several immutable records.
 
 History is intentionally retained rather than deleted under a sync client.

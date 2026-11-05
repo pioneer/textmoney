@@ -269,7 +269,10 @@ def test_operations_totals_sum_accounts_per_currency_including_liabilities(
         view.journal = await seeded(tmp_path)
         view._build_screens()
         view._refresh()
-        assert view.transactions_screen.controls[0] is view.operations_totals
+        assert view.transactions_screen.controls[1:3] == [
+            view.operations_filters,
+            view.operations_totals,
+        ]
         assert not any(
             isinstance(control, ft.Text) for control in view.transactions_screen.controls
         )

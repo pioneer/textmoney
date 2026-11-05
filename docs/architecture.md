@@ -153,6 +153,18 @@ Accounting has Accounts, Categories and Budgets tabs; Reports has Overview and
 Budgets tabs. Budget management and reporting own separate control trees while
 sharing the same journal and budget view coordinator. The existing four compact
 navigation destinations and five wide rail destinations are unchanged.
+Operations has optional account and category selectors, combined with AND.
+The selectors start collapsed behind a filter icon; collapsing them preserves
+active selections, indicated by the highlighted icon. Each selector includes
+an All choice to remove its own filter. Options show assigned icons, and category
+options reuse the parent-first indented hierarchy from category creation.
+Account matching is exact; category matching includes colon-delimited descendants.
+Filters retain whole transactions, including fees and counterpart postings, and
+apply to daily summaries and their report popups, not Home or account balances.
+Accounting account/category receipt actions open Operations with that entity
+selected, expand the selectors and clear the other filter. Selections survive navigation, resizing and
+ordinary refreshes; missing entities are cleared. These are session-only UI
+choices and do not modify the journal or shared settings.
 Budget reports show only categories with their own effective budget, hiding
 automatic parent totals without changing domain calculations.
 The report UI is monthly only. Searchable component-aware tree selectors filter

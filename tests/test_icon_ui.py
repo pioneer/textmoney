@@ -31,6 +31,49 @@ def images(control: ft.Control) -> list[ft.Image]:
     return [child for child in walk(control) if isinstance(child, ft.Image)]
 
 
+@pytest.mark.parametrize("width", [390, 1366])
+def test_operations_filter_icons_hierarchy_and_popup_only_icon_actions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int
+) -> None:
+    async def scenario() -> None:
+        _session, view, journal = await finance_session(tmp_path, monkeypatch)
+        await journal.create_category("Food:Shops", "Shops")
+        view.icons = store_at(tmp_path)
+        for identifier in ("Assets:Bank", "Expenses:Food", "Expenses:Food:Shops"):
+            await view.icons.assign(identifier, asset(identifier), ())
+        view.operations_account.value = "Assets:Bank"
+        view.operations_category.value = "Expenses:Food:Shops"
+        view._apply_layout(width)
+        view._refresh()
+        account = next(
+            option for option in view.operations_account.options if option.key == "Assets:Bank"
+        )
+        assert isinstance(account.leading_icon, ft.Container) and images(account.leading_icon)
+        assert isinstance(view.operations_account.leading_icon, ft.Container)
+        assert isinstance(view.operations_category.leading_icon, ft.Container)
+        assert images(view.operations_account.leading_icon)
+        assert images(view.operations_category.leading_icon)
+        categories = view.operations_category.options
+        parent = next(option for option in categories if option.key == "Expenses:Food")
+        child = next(option for option in categories if option.key == "Expenses:Food:Shops")
+        assert categories.index(parent) < categories.index(child)
+        for option, indent in ((parent, 0), (child, 16)):
+            assert isinstance(option.content, ft.Container)
+            assert option.content.padding == ft.Padding.only(left=indent)
+            assert images(option.content)
+        for listing in (view.account_list, view.category_list):
+            assert not any(
+                isinstance(control, ft.IconButton) and control.on_click == view._choose_entity_icon
+                for control in walk(listing)
+            )
+        view.operations_account.value = view.operations_category.value = ""
+        view._operations_filter_changed(MagicMock())
+        assert view.operations_account.leading_icon is None
+        assert view.operations_category.leading_icon is None
+
+    asyncio.run(scenario())
+
+
 def action(dialog: ft.AlertDialog, index: int) -> ft.TextButton:
     control = dialog.actions[index]
     if isinstance(control, ft.KeyboardListener):

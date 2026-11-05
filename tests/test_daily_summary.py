@@ -179,6 +179,169 @@ def summaries(view: FinanceView) -> list[ft.TextButton]:
     ]
 
 
+@pytest.mark.parametrize(
+    "account,category,expected",
+    [
+        ("Assets:Cash", "", {"transfer", "opening"}),
+        ("", "Expenses:Food", {"purchase", "refund", "parent-purchase", "other-day"}),
+        ("Assets:Bank", "Expenses:Bank-Fees", {"purchase", "income", "transfer"}),
+        ("Assets:Cash", "Expenses:Food", set()),
+    ],
+)
+def test_operations_filters_whole_transactions_and_combines_selections(
+    view: FinanceView,
+    monkeypatch: pytest.MonkeyPatch,
+    account: str,
+    category: str,
+    expected: set[str],
+) -> None:
+    assert view.journal is not None
+    groups = MagicMock(wraps=view._transaction_groups)
+    monkeypatch.setattr(view, "_transaction_groups", groups)
+    original = view.journal.ledger, view.journal.source
+    view.operations_account.value = account
+    view.operations_category.value = category
+    view._operations_filter_changed(MagicMock())
+    selected = view._operations_transactions(list(view.journal.ledger.transactions))
+    assert {item.id for item in selected} == expected
+    assert all(item in view.journal.ledger.transactions for item in selected)
+    assert {item.id for item in groups.call_args_list[0].args[0]} == expected
+    if not expected:
+        assert texts(view.history) == [view.tr("operations_no_matches")]
+    assert (view.journal.ledger, view.journal.source) == original
+    view.operations_account.value = view.operations_category.value = ""
+    view._operations_filter_changed(MagicMock())
+    assert not view.operations_account.value and not view.operations_category.value
+    assert len(view._operations_transactions(list(view.journal.ledger.transactions))) == 11
+
+
+def test_category_filter_matches_components_not_similar_prefixes(view: FinanceView) -> None:
+    assert view.journal is not None
+    similar = transaction(
+        "similar-prefix",
+        (("Expenses:Food-Other", "10", "UAH"), ("Assets:Bank", "-10", "UAH")),
+    )
+    view.operations_category.value = "Expenses:Food"
+    assert similar not in view._operations_transactions(
+        [*view.journal.ledger.transactions, similar]
+    )
+
+
+@pytest.mark.parametrize("removed", [False, True])
+def test_unavailable_journal_disables_and_resets_operations_filters(
+    view: FinanceView, removed: bool
+) -> None:
+    assert view.journal is not None
+    view.operations_account.value = "Assets:Bank"
+    view.operations_category.value = "Expenses:Food"
+    if removed:
+        view.journal = None
+    else:
+        view.journal.ready = False
+    view._refresh()
+    assert view.operations_account.disabled and view.operations_category.disabled
+    assert view.operations_account.value == view.operations_category.value == ""
+    assert view.operations_filter_toggle.icon_color is None
+    assert texts(view.history) == [view.tr("transactions_empty")]
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+@pytest.mark.parametrize("width", [390, 1366])
+def test_operations_filters_survive_refresh_resize_and_include_inactive_categories(
+    view: FinanceView, language: str, width: int
+) -> None:
+    view.operations_account.value = "Assets:Bank"
+    view.operations_category.value = "Expenses:Food:Groceries"
+    view.language = language
+    view._apply_layout(width)
+    view._refresh()
+    assert view.operations_filters in view.transactions_screen.controls
+    assert view.operations_account.value == "Assets:Bank"
+    assert view.operations_category.value == "Expenses:Food:Groceries"
+    assert view.operations_account.label == view.tr("budget_account")
+    assert view.operations_category.label == view.tr("budget_category")
+    assert view.operations_filter_toggle.icon_color == ft.Colors.PRIMARY
+    buttons = summaries(view)
+    assert len(buttons) == 1
+    assert (
+        f"{view.tr('report_expenses')}: {format_amount(Decimal('-3'), language, 'UAH')}"
+        in texts(buttons[0])
+    )
+    click(buttons[0])
+    dialog = shown_dialog(view)
+    assert "Salary" not in texts(dialog)
+    assert "Groceries" in texts(dialog)
+    assert (
+        f"{view.tr('report_expenses')}: {format_amount(Decimal('-3'), language, 'UAH')}"
+        in texts(dialog)
+    )
+    view.operations_category.value = "Expenses:Missing"
+    view._refresh()
+    assert view.operations_category.value == ""
+    assert view.operations_account.value == "Assets:Bank"
+
+
+@pytest.mark.parametrize(
+    "kind,identifier", [("account", "Assets:Cash"), ("category", "Expenses:Food")]
+)
+def test_accounting_links_open_operations_with_only_the_selected_entity(
+    view: FinanceView, kind: str, identifier: str
+) -> None:
+    assert view.journal is not None
+    view._refresh()
+    view.operations_account.value = "Assets:Bank"
+    view.operations_category.value = "Expenses:Bank-Fees"
+    listing = view.account_list if kind == "account" else view.category_list
+    button = next(
+        item
+        for item in walk(listing)
+        if isinstance(item, ft.IconButton)
+        and item.on_click == view._show_entity_operations
+        and item.data == (kind, identifier)
+    )
+    assert button.tooltip == view.tr("show_operations")
+    view._show_entity_operations(MagicMock(control=button))
+    assert view.current_screen == "transactions"
+    assert view.screen_host.content is view.transactions_screen
+    assert view.operations_account.value == (identifier if kind == "account" else "")
+    assert view.operations_category.value == (identifier if kind == "category" else "")
+    assert view.operations_filters.visible
+    assert view.operations_filter_toggle.selected
+
+
+@pytest.mark.parametrize("width", [390, 1366])
+def test_operations_filters_start_hidden_and_toggle_without_losing_selections(
+    view: FinanceView, width: int
+) -> None:
+    view._apply_layout(width)
+    view._refresh()
+    assert not view.operations_filters.visible
+    assert not view.operations_filter_toggle.selected
+    assert view.operations_filter_toggle.tooltip == view.tr("operations_filters")
+    assert all(isinstance(row, ft.Row) for row in view.operations_filters.controls)
+    assert [
+        row.controls for row in view.operations_filters.controls if isinstance(row, ft.Row)
+    ] == [
+        [view.operations_account],
+        [view.operations_category],
+    ]
+    click(view.operations_filter_toggle)
+    assert view.operations_filters.visible and view.operations_filter_toggle.selected
+    view.operations_account.value = "Assets:Bank"
+    view.operations_category.value = "Expenses:Food"
+    view._operations_filter_changed(MagicMock())
+    click(view.operations_filter_toggle)
+    view._refresh()
+    assert not view.operations_filters.visible
+    assert view.operations_filter_toggle.icon_color == ft.Colors.PRIMARY
+    assert view.operations_account.value == "Assets:Bank"
+    assert view.operations_category.value == "Expenses:Food"
+    assert view.operations_account.options[0].key == ""
+    assert view.operations_account.options[0].text == view.tr("budget_all_accounts")
+    assert view.operations_category.options[0].key == ""
+    assert view.operations_category.options[0].text == view.tr("operations_all_categories")
+
+
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
 @pytest.mark.parametrize("width", [390, 1366])
 def test_operations_show_separate_net_expense_and_income_for_each_day_only(

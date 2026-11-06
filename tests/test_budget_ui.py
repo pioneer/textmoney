@@ -198,7 +198,7 @@ def test_budget_category_dropdown_is_parent_first_and_indented(
             ("Income:Work", "Work"),
             ("Income:Work:Bonus", "Bonus"),
         ]
-        assert category.menu_height == (240 if width <= 599 else None)
+        assert category.menu_height == (320 if width <= 599 else None)
         for option, depth in zip(category.options, [0, 1, 2, 0, 0, 1], strict=True):
             content = category_content(option)
             assert content.padding == ft.Padding.only(left=16 * depth)

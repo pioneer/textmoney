@@ -4830,7 +4830,7 @@ class FinanceView(ft.Row):
             self.page.update()
 
     def _category_menu_height(self) -> int | None:
-        return 240 if self.screen_class == ScreenClass.COMPACT else None
+        return 320 if self.screen_class == ScreenClass.COMPACT else None
 
     def _category_option_lines(self, options: list[ft.DropdownOption]) -> list[ft.DropdownOption]:
         paths = [(option.key or "").split(":") for option in options]

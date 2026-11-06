@@ -195,7 +195,7 @@ def test_transaction_categories_are_indented_and_menu_height_is_bounded(
         form = transaction_form(page.show_dialog.call_args.args[0])
         if not editing:
             form.choose(kind)
-        assert form.category.menu_height == (240 if width <= 599 else None)
+        assert form.category.menu_height == (320 if width <= 599 else None)
         assert [option.key for option in form.category.options] == [
             f"{root}:Food",
             f"{root}:Food:Shops",

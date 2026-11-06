@@ -80,7 +80,8 @@ The reference context is 28-digit, half-even Decimal arithmetic. Daily addition
 order is preserved, not replaced with nominal amounts or a single multiplication.
 For example, January's monthly `100 USD` allocates
 `99.99999999999999999999999992 USD`. Currency precision determines its displayed
-value; long-press/hover the amount to inspect its exact Decimal.
+value. Budget, spent and remaining amounts do not expose the unrounded calculation
+values as hover/long-press hints; the underlying arithmetic is unchanged.
 
 The monthly overview shows **Budget**, **Spent**, **Remaining**, percentage used
 and expense overspending, separately for each currency. Budget rows do not expand

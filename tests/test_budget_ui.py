@@ -319,6 +319,7 @@ def test_budget_report_non_expanding_rows_have_transaction_actions(
                         assert isinstance(line, ft.Container)
                         assert line.padding == ft.Padding.symmetric(horizontal=14)
                         assert isinstance(line.content, ft.Text)
+                        assert line.content.tooltip is None
             assert bars
             transactions = actions[0]
             assert transactions.icon == ft.Icons.RECEIPT_LONG

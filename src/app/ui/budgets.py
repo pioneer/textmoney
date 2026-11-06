@@ -480,18 +480,15 @@ class BudgetView(ft.Column):
             lines: list[ft.Control] = [
                 ft.Text(
                     f"{tr('budget_planned')}: {planned_text}",
-                    tooltip=str(budget.get(currency, "")),
                     selectable=True,
                 ),
                 ft.Text(
                     f"{tr('budget_actual')}: {actual_text}",
-                    tooltip=str(actual.get(currency, Decimal(0))),
                     selectable=True,
                 ),
                 ft.Text(
                     f"{tr('budget_remaining')}: {remaining_text}",
                     color=ft.Colors.ERROR if overspent else None,
-                    tooltip=str(remaining) if remaining is not None else None,
                     selectable=True,
                 ),
             ]

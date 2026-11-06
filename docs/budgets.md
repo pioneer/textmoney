@@ -100,6 +100,10 @@ Fava-compatible actuals, allocation and hierarchy totals are unchanged. Manage
 all definitions, including future ones, in **Accounting → Budgets**.
 For budgeted rows with an active direct definition in the selected period,
 Reports also shows pencil/trash actions for quick edit/delete.
+Report cards use a 16-pixel content inset on every side, with an additional
+16-pixel left indent per visible hierarchy level. Within that area the progress
+bar stays full-width; the category heading and figures have a further 14-pixel
+inset, matching the centered 20-pixel action icons in 48-pixel click/touch targets.
 When a currency filter is selected, those actions target the latest definition
 in that currency; without it, they target the latest definition for the category.
 

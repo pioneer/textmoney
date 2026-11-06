@@ -288,20 +288,38 @@ def test_budget_report_non_expanding_rows_have_transaction_actions(
         ]
         assert [tile.data.account for tile in tiles] == ["Expenses:Food", "Expenses:Food:Meals"]
         assert [tile.content_padding for tile in tiles] == [
-            ft.Padding.only(left=0),
-            ft.Padding.only(left=16),
+            ft.Padding.all(16),
+            ft.Padding(left=32, top=16, right=16, bottom=16),
         ]
         for tile in tiles:
             assert tile.on_click is None
             assert isinstance(tile.title, ft.Column)
             header = tile.title.controls[0]
             assert isinstance(header, ft.Row)
+            inset = header.controls[0]
+            assert isinstance(inset, ft.Container) and inset.width == 14
             actions = [control for control in header.controls if isinstance(control, ft.IconButton)]
             assert [action.tooltip for action in actions] == [
                 host.tr("budget_transactions"),
                 host.tr("crud_edit"),
                 host.tr("crud_delete"),
             ]
+            for action in actions:
+                assert action.alignment is None
+                assert action.padding == 14
+                assert action.visual_density == ft.VisualDensity.STANDARD
+                assert action.size_constraints == ft.BoxConstraints(min_width=48, min_height=48)
+            bars = []
+            for section in tile.title.controls[1:]:
+                lines = section.controls if isinstance(section, ft.Column) else [section]
+                for line in lines:
+                    if isinstance(line, ft.ProgressBar):
+                        bars.append(line)
+                    else:
+                        assert isinstance(line, ft.Container)
+                        assert line.padding == ft.Padding.symmetric(horizontal=14)
+                        assert isinstance(line.content, ft.Text)
+            assert bars
             transactions = actions[0]
             assert transactions.icon == ft.Icons.RECEIPT_LONG
             assert transactions.data is tile.data
@@ -414,8 +432,8 @@ def test_explicit_parent_budget_remains_visible(
         assert listing.theme.icon_theme == ft.IconTheme(size=16)
         tiles = [tile for tile in walk(host.budgets.results) if isinstance(tile, ft.ListTile)]
         assert [tile.content_padding for tile in tiles] == [
-            ft.Padding.only(left=0),
-            ft.Padding.only(left=16),
+            ft.Padding.all(16),
+            ft.Padding(left=32, top=16, right=16, bottom=16),
         ]
         for tile in tiles:
             assert tile.dense and tile.min_height == 40
@@ -1482,8 +1500,8 @@ def test_definition_opens_current_month_when_applicable_and_reveals_nested_repor
             label = next(item for item in walk(tile.title) if isinstance(item, ft.Text))
             assert label.tooltip == tile.data.account
             assert label.weight == ft.FontWeight.BOLD
-        assert ancestor.content_padding == ft.Padding.only(left=0)
-        assert target.content_padding == ft.Padding.only(left=16)
+        assert ancestor.content_padding == ft.Padding.all(16)
+        assert target.content_padding == ft.Padding(left=32, top=16, right=16, bottom=16)
         assert ancestor.bgcolor is None
         assert target.bgcolor == ft.Colors.SECONDARY_CONTAINER
         assert target.key == ft.ScrollKey(

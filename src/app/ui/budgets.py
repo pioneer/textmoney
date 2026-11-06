@@ -28,6 +28,8 @@ from app.ui.tree_style import compact_tree_theme
 if TYPE_CHECKING:
     from app.ui.finance import FinanceView
 
+_REPORT_TEXT_INSET = 14
+
 
 class BudgetView(ft.Column):
     def __init__(self, host: "FinanceView") -> None:
@@ -514,7 +516,19 @@ class BudgetView(ft.Column):
                         selectable=True,
                     )
                 )
-            controls.append(ft.Column(lines, spacing=4))
+            controls.append(
+                ft.Column(
+                    [
+                        line
+                        if isinstance(line, ft.ProgressBar)
+                        else ft.Container(
+                            line, padding=ft.Padding.symmetric(horizontal=_REPORT_TEXT_INSET)
+                        )
+                        for line in lines
+                    ],
+                    spacing=4,
+                )
+            )
         return controls or [ft.Text(tr("budget_missing"))]
 
     def _account_names(self) -> dict[str, str]:
@@ -603,6 +617,10 @@ class BudgetView(ft.Column):
                     if budget is not None
                     else []
                 )
+                for action in actions:
+                    action.padding = _REPORT_TEXT_INSET
+                    action.visual_density = ft.VisualDensity.STANDARD
+                    action.size_constraints = ft.BoxConstraints(min_width=48, min_height=48)
 
                 highlighted = self.highlighted == key
                 tile = ft.ListTile(
@@ -611,6 +629,7 @@ class BudgetView(ft.Column):
                         [
                             ft.Row(
                                 [
+                                    ft.Container(width=_REPORT_TEXT_INSET),
                                     *self.host._entity_icon_controls(account),
                                     ft.Text(
                                         names.get(account, account.rsplit(":", 1)[-1]),
@@ -624,7 +643,12 @@ class BudgetView(ft.Column):
                                 spacing=0,
                             ),
                             *(
-                                [ft.Text(tr("budget_subtree"), size=12)]
+                                [
+                                    ft.Container(
+                                        ft.Text(tr("budget_subtree"), size=12),
+                                        padding=ft.Padding.symmetric(horizontal=_REPORT_TEXT_INSET),
+                                    )
+                                ]
                                 if row.direct_budget != row.budget
                                 or row.direct_actual != row.actual
                                 else []
@@ -638,7 +662,7 @@ class BudgetView(ft.Column):
                     min_height=40,
                     min_vertical_padding=0,
                     visual_density=ft.VisualDensity.COMPACT,
-                    content_padding=ft.Padding.only(left=16 * depth),
+                    content_padding=ft.Padding(left=16 * (depth + 1), top=16, right=16, bottom=16),
                     shape=ft.RoundedRectangleBorder(),
                     bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
                 )

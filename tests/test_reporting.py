@@ -402,11 +402,13 @@ def test_overview_month_arrows_presets_and_refresh_preserve_selected_month(
         view.journal = journal
         view._navigate("reports")
 
-        assert view.report_month_navigation.controls == [
-            view.report_previous,
-            view.report_month_label,
-            view.report_next,
-        ]
+        previous, month_heading, following = view.report_month_navigation.controls
+        assert previous is view.report_previous and following is view.report_next
+        assert isinstance(month_heading, ft.Row)
+        calendar, label = month_heading.controls
+        assert isinstance(calendar, ft.Icon) and calendar.icon == ft.Icons.CALENDAR_TODAY
+        assert calendar.size == 16 and label is view.report_month_label
+        assert month_heading.alignment == ft.MainAxisAlignment.CENTER
         assert view.report_month_navigation.visible
         assert view.report_month_label.value == f"{view.tr('date_month_03')} 2024"
         assert view.report_previous.tooltip == view.tr("budget_previous")

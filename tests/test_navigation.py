@@ -72,7 +72,11 @@ def test_settings_destination_follows_layout_width(
     else:
         assert page.navigation_bar is None
         assert isinstance(view.controls[0], ft.Container)
-        assert view.controls[0].content is view.nav_rail
+        surface = view.controls[0].content
+        assert isinstance(surface, ft.Container)
+        assert surface.content is view.nav_rail
+        assert surface.bgcolor == ft.Colors.SURFACE
+        assert view.controls[0].dark_theme == ft.Theme()
         view.nav_rail.selected_index = 4
         view._rail_changed(MagicMock(control=view.nav_rail))
         assert view.current_screen == "settings"

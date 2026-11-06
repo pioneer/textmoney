@@ -376,7 +376,7 @@ def test_operations_show_separate_net_expense_and_income_for_each_day_only(
     )
     assert view.tr("daily_summary") not in texts(read_only)
     for index, control in enumerate(view.history.controls):
-        if isinstance(control, ft.Container) and isinstance(control.content, ft.Text):
+        if isinstance(control, ft.Container) and control.data == "transaction-date":
             summary = view.history.controls[index + 1]
             assert isinstance(summary, ft.Container) and summary.border is None
             assert view.tr("daily_summary") in texts(summary)

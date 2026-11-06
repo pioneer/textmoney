@@ -83,6 +83,7 @@ from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
 from app.ui.icons import IconDraft, IconPicker, icon_image
+from app.ui.theme import NAVIGATION_SURFACE, summary_theme
 from app.ui.tree_style import (
     TREE_MENU_ROW_HEIGHT,
     TREE_ROW_HEIGHT,
@@ -172,7 +173,15 @@ class FinanceView(ft.Row):
             content=ft.ProgressRing(),
         )
 
-        self.message = ft.Text("", selectable=True)
+        self.message = ft.Text("", selectable=True, expand=True)
+        self.message_icon = ft.Icon(
+            ft.Icons.INFO_OUTLINE, size=18, color=ft.Colors.ON_SURFACE_VARIANT
+        )
+        self.message_status = ft.Row(
+            [self.message_icon, self.message],
+            spacing=8,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
         self.folder_label = ft.Text("", selectable=True)
         self.access = ft.Text("")
         self.balance_warning = ft.Text("", color=ft.Colors.ERROR, visible=False)
@@ -281,14 +290,19 @@ class FinanceView(ft.Row):
         )
         self.operations_totals = ft.Container(
             visible=False,
-            padding=ft.Padding.symmetric(horizontal=14, vertical=10),
-            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=12,
-            content=ft.Row(
-                [self.operations_totals_label, self.operations_totals_values],
-                spacing=10,
-                scroll=ft.ScrollMode.AUTO,
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            theme=summary_theme(),
+            dark_theme=ft.Theme(),
+            content=ft.Container(
+                bgcolor=ft.Colors.SURFACE,
+                padding=ft.Padding.symmetric(horizontal=14, vertical=10),
+                border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+                border_radius=12,
+                content=ft.Row(
+                    [self.operations_totals_label, self.operations_totals_values],
+                    spacing=10,
+                    scroll=ft.ScrollMode.AUTO,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
             ),
         )
         today = self._today()
@@ -304,9 +318,18 @@ class FinanceView(ft.Row):
         self.report_next = ft.IconButton(
             icon=ft.Icons.CHEVRON_RIGHT, on_click=self._report_next_month
         )
-        self.report_month_label = ft.Text(expand=True, text_align=ft.TextAlign.CENTER)
+        self.report_month_label = ft.Text(text_align=ft.TextAlign.CENTER)
         self.report_month_navigation = ft.Row(
-            [self.report_previous, self.report_month_label, self.report_next]
+            [
+                self.report_previous,
+                ft.Row(
+                    [ft.Icon(ft.Icons.CALENDAR_TODAY, size=16), self.report_month_label],
+                    expand=True,
+                    spacing=8,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                ),
+                self.report_next,
+            ]
         )
         self.report_start = DateTimeFields(
             self.language,
@@ -501,7 +524,7 @@ class FinanceView(ft.Row):
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20, vertical=8),
                     content=ft.Column(
-                        [self.message, self.icon_notice, self.shared_notice], spacing=4
+                        [self.message_status, self.icon_notice, self.shared_notice], spacing=4
                     ),
                 ),
                 ft.Container(
@@ -559,7 +582,41 @@ class FinanceView(ft.Row):
     def _set_message(self, key: str) -> None:
         self.message_key = key
         self.error_message = None
-        self.message.value = self.tr(key)
+        self._refresh_message()
+
+    def _refresh_message(self) -> None:
+        self.message.value = (
+            localized_error(self.language, self.error_message)
+            if self.error_message is not None
+            else self.tr(self.message_key)
+        )
+        if (
+            self.error_message is not None
+            or self.message_key.startswith("error_")
+            or self.message_key == "backups_saved_warning"
+        ):
+            self.message_icon.icon = ft.Icons.ERROR_OUTLINE
+            self.message_icon.color = ft.Colors.ERROR
+        elif self.message_key in {
+            "journal_loaded",
+            "journal_new",
+            "external_reloaded",
+            "reloaded",
+            "saved",
+            "saved_backup",
+            "saved_new",
+            "timezone_saved",
+            "backups_setting_saved",
+            "backups_cleaned",
+            "default_account_saved",
+            "default_fee_saved",
+        }:
+            self.message_icon.icon = ft.Icons.CHECK_CIRCLE_OUTLINE
+            self.message_icon.color = ft.Colors.PRIMARY
+        else:
+            self.message_icon.icon = ft.Icons.INFO_OUTLINE
+            self.message_icon.color = ft.Colors.ON_SURFACE_VARIANT
+        self.message_status.visible = bool(self.message.value)
 
     def _set_error(self, exc: Exception) -> None:
         if isinstance(exc, (ConflictError, LedgerError, PreferencesError, StorageError, IconError)):
@@ -580,11 +637,7 @@ class FinanceView(ft.Row):
                 self.journal.ready = False
                 self.journal.storage.loaded = False
             logger.exception("Unexpected journal operation failure")
-        self.message.value = (
-            localized_error(self.language, self.error_message)
-            if self.error_message is not None
-            else self.tr(self.message_key)
-        )
+        self._refresh_message()
 
     def _refresh_labels(self) -> None:
         self.account_root.label = self.tr("transfer_account_type")
@@ -608,11 +661,7 @@ class FinanceView(ft.Row):
                 "settings": "nav_settings",
             }[self.current_screen]
         )
-        self.message.value = (
-            localized_error(self.language, self.error_message)
-            if self.error_message is not None
-            else self.tr(self.message_key)
-        )
+        self._refresh_message()
         self.account_id.label = self.tr("account_code")
         self.account_id.hint_text = self.tr("account_code_hint")
         self.account_name.label = self.tr("account_name")
@@ -906,8 +955,13 @@ class FinanceView(ft.Row):
             self.body.width = min(MAX_CONTENT_WIDTH, max(320, (width or 900) - rail_width))
             self.controls = [
                 ft.Container(
-                    padding=ft.Padding.symmetric(horizontal=5),
-                    content=self.nav_rail,
+                    theme=ft.Theme(color_scheme=ft.ColorScheme(surface=NAVIGATION_SURFACE)),
+                    dark_theme=ft.Theme(),
+                    content=ft.Container(
+                        bgcolor=ft.Colors.SURFACE,
+                        padding=ft.Padding.symmetric(horizontal=5),
+                        content=self.nav_rail,
+                    ),
                 ),
                 ft.VerticalDivider(width=1),
                 self.body,
@@ -1676,7 +1730,7 @@ class FinanceView(ft.Row):
         return [ft.Container(image, margin=ft.Margin.only(right=8))] if image else []
 
     def _entity_dropdown_selected(self, event: ft.Event[ft.Dropdown]) -> None:
-        event.control.leading_icon = self._entity_icon(event.control.value or "")
+        event.control.leading_icon = self._entity_dropdown_icon(event.control.value or "")
         self.page.update()
 
     def _transaction_entity_dropdown_selected(self, event: ft.Event[ft.Dropdown]) -> None:
@@ -1955,7 +2009,11 @@ class FinanceView(ft.Row):
             else None
         )
         for control in self.history.controls:
-            if isinstance(control, ft.Container) and isinstance(control.content, ft.Row):
+            if (
+                isinstance(control, ft.Container)
+                and isinstance(control.content, ft.Row)
+                and control.data != "transaction-date"
+            ):
                 control.border = border
 
     @staticmethod
@@ -1975,15 +2033,27 @@ class FinanceView(ft.Row):
         for day, entries in groupby(transactions, key=lambda item: item.date):
             controls.append(
                 ft.Container(
+                    data="transaction-date",
                     padding=ft.Padding.only(top=8, bottom=4),
                     alignment=ft.Alignment.CENTER,
-                    content=ft.Text(
-                        self.tr("initial_date")
-                        if day == EPOCH
-                        else format_date(day, self.language),
-                        size=14,
-                        weight=ft.FontWeight.W_600,
-                        color=ft.Colors.OUTLINE if day == EPOCH else None,
+                    content=ft.Row(
+                        [
+                            ft.Icon(
+                                ft.Icons.CALENDAR_TODAY,
+                                size=16,
+                                color=ft.Colors.OUTLINE if day == EPOCH else None,
+                            ),
+                            ft.Text(
+                                self.tr("initial_date")
+                                if day == EPOCH
+                                else format_date(day, self.language),
+                                size=14,
+                                weight=ft.FontWeight.W_600,
+                                color=ft.Colors.OUTLINE if day == EPOCH else None,
+                            ),
+                        ],
+                        spacing=8,
+                        alignment=ft.MainAxisAlignment.CENTER,
                     ),
                 )
             )
@@ -2022,6 +2092,8 @@ class FinanceView(ft.Row):
         )
         return ft.Container(
             padding=ft.Padding.only(bottom=4),
+            theme=summary_theme(),
+            dark_theme=ft.Theme(),
             content=ft.Column([ft.Row([button])], spacing=0),
         )
 
@@ -2227,6 +2299,8 @@ class FinanceView(ft.Row):
                 ft.Container(
                     content=leading_image,
                     width=40,
+                    bgcolor=ft.Colors.SECONDARY_CONTAINER,
+                    border_radius=8,
                     margin=ft.Margin.only(right=8),
                     alignment=ft.Alignment.CENTER,
                 )
@@ -4958,7 +5032,9 @@ class FinanceView(ft.Row):
         self.default_account_notice.visible = (
             ready and self.default_account_id is not None and self.default_account_id not in active
         )
-        self.default_account.leading_icon = self._entity_icon(self.default_account.value or "")
+        self.default_account.leading_icon = self._entity_dropdown_icon(
+            self.default_account.value or ""
+        )
 
     async def _save_default_account(self, event: ft.Event[ft.Button]) -> None:
         async def save() -> None:
@@ -5084,7 +5160,7 @@ class FinanceView(ft.Row):
                     ),
                 )
             )
-        self.default_fee.leading_icon = self._entity_icon(self.default_fee.value or "")
+        self.default_fee.leading_icon = self._entity_dropdown_icon(self.default_fee.value or "")
         if [
             (o.key, o.text, o.leading_icon.src if isinstance(o.leading_icon, ft.Image) else None)
             for o in options

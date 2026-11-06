@@ -36,8 +36,12 @@ automatic per-image stroke-thickness analysis.
 
 Every downloaded/imported candidate is validated before appearing. Inline images display
 at **16 logical pixels** with proportions preserved, including picker previews.
-Transaction rows use a **25.92-pixel** leading image in a 40-pixel-wide slot spanning
-the title and details. Stored artwork and existing
+Transaction rows use a **25.92-pixel** leading image in a 40-pixel-wide rounded,
+theme-aware secondary-container background spanning the title and details.
+Selected budget categories and default-account/commission settings use the same
+16-pixel artwork centered in a 24-pixel slot as transaction-form dropdowns.
+Budget deletion confirmations retain the category's assigned icon.
+Stored artwork and existing
 assignments are unchanged by display sizing:
 
 - PNG/JPEG/WebP: non-animated, at most 2 MiB input, each side 48–4096 pixels,

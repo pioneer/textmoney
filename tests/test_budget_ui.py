@@ -74,6 +74,9 @@ def test_budget_navigation_responsive_and_localized(
     view: tuple[FinanceView, MagicMock], language: str
 ) -> None:
     host, page = view
+    assert isinstance(host.budgets.period.icon, ft.Icon)
+    assert host.budgets.period.icon.icon == ft.Icons.CALENDAR_TODAY
+    assert host.budgets.period.icon.size == 16
     host.language = language
     host._navigate("accounts")
     host.accounting_tabs.selected_index = 2
@@ -1198,7 +1201,9 @@ def test_transaction_search_does_not_change_headline_totals_or_journal(
         cards = [
             item
             for item in listing.controls
-            if isinstance(item, ft.Container) and isinstance(item.content, ft.Row)
+            if isinstance(item, ft.Container)
+            and isinstance(item.content, ft.Row)
+            and item.data != "transaction-date"
         ]
         assert len(cards) == 1
         assert any(isinstance(item, ft.Text) and item.value == "Dinner" for item in walk(cards[0]))
@@ -1265,7 +1270,9 @@ def test_budget_transactions_reuse_operations_rows_readonly_newest_first(
         cards = [
             item
             for item in listing.controls
-            if isinstance(item, ft.Container) and isinstance(item.content, ft.Row)
+            if isinstance(item, ft.Container)
+            and isinstance(item.content, ft.Row)
+            and item.data != "transaction-date"
         ]
         assert len(cards) == 4
         assert [
@@ -1306,7 +1313,9 @@ def test_budget_transaction_rows_preserve_currency_and_payee_filters(
             return [
                 next(item.value for item in walk(card) if isinstance(item, ft.Text))
                 for card in listing.controls
-                if isinstance(card, ft.Container) and isinstance(card.content, ft.Row)
+                if isinstance(card, ft.Container)
+                and isinstance(card.content, ft.Row)
+                and card.data != "transaction-date"
             ]
 
         assert narrations() == expected

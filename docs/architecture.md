@@ -95,6 +95,16 @@ language/theme choices are saved locally. Domain functions use Python types and 
 exceptions. Services decide retry, timeout, cancellation, and user-facing failure
 semantics. Adapters expose expected errors without hiding unexpected failures.
 
+The light theme uses white content/input surfaces, faint mint navigation, muted
+mint selection and Operations balance/daily-summary surfaces, and a deep teal
+transaction action. Summary and navigation-gutter overrides are scoped to light
+mode; dark mode retains its inherited Material palette. Application dialogs,
+dropdown menus and date/time picker surfaces are white in light mode.
+Transaction leading icons have a rounded theme-aware background; grouping dates
+and both report-month headings include a calendar icon. The main status line
+uses matching small outlined-circle success, information or error/warning icons.
+Assigned artwork, financial figures and interactions are unchanged.
+
 System language is resolved from `await page.get_device_info()` and its ordered
 client `locales`, not `locale_configuration.current_locale` (the app override).
 `on_locale_change` keeps that cached device choice current even while an explicit

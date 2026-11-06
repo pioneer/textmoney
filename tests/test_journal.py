@@ -355,7 +355,9 @@ def test_ui_success_conflict_reload_and_validation_retain_form_inputs(
         assert view.screen_host.content is view.transactions_screen
         assert (
             sum(
-                isinstance(control, ft.Container) and isinstance(control.content, ft.Row)
+                isinstance(control, ft.Container)
+                and control.data != "transaction-date"
+                and isinstance(control.content, ft.Row)
                 for control in view.history.controls
             )
             == 4

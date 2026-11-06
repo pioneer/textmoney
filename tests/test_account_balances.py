@@ -277,7 +277,9 @@ def test_operations_totals_sum_accounts_per_currency_including_liabilities(
             isinstance(control, ft.Text) for control in view.transactions_screen.controls
         )
         assert view.operations_totals.visible
-        strip = view.operations_totals.content
+        surface = view.operations_totals.content
+        assert isinstance(surface, ft.Container)
+        strip = surface.content
         assert isinstance(strip, ft.Row) and not strip.wrap and strip.scroll
         assert not view.operations_totals_values.wrap
         assert view.operations_totals_label.value == view.tr("operations_totals")

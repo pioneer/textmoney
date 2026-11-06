@@ -314,7 +314,9 @@ def test_navigation_has_consistent_destinations_and_adapts_on_resize(
     assert view.screen_class == ScreenClass.MEDIUM
     assert not view.nav_rail.extended
     assert isinstance(view.controls[0], ft.Container)
-    assert view.controls[0].content is view.nav_rail
+    surface = view.controls[0].content
+    assert isinstance(surface, ft.Container)
+    assert surface.content is view.nav_rail
     assert page.navigation_bar is None
     assert not view.settings_button.visible
     assert view.nav_rail.destinations[-1].label == "Settings"

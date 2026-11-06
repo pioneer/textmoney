@@ -451,6 +451,8 @@ def test_transaction_icon_leads_the_whole_row_without_duplicating_movement_icon(
         leading = card.content.controls[0]
         assert isinstance(leading, ft.Container)
         assert leading.width == 40 and leading.height is None
+        assert leading.bgcolor == ft.Colors.SECONDARY_CONTAINER
+        assert leading.border_radius == 8
         assert leading.margin == ft.Margin.only(right=8)
         assert leading.alignment == ft.Alignment.CENTER
         image = leading.content
@@ -751,7 +753,9 @@ def test_entity_icons_reach_lists_settings_transactions_and_reports(
         assert [image.width for image in images(view.history)] == [25.92, 16]
         view.default_account.value = "Assets:Bank"
         view._render_default_account()
-        assert isinstance(view.default_account.leading_icon, ft.Image)
+        assert isinstance(view.default_account.leading_icon, ft.Container)
+        assert view.default_account.leading_icon.width == 24
+        assert images(view.default_account.leading_icon)[0].width == 16
         assert any(
             isinstance(option.leading_icon, ft.Image) for option in view.default_account.options
         )
@@ -801,6 +805,57 @@ def test_entity_icons_reach_lists_settings_transactions_and_reports(
         assert isinstance(form.category.leading_icon, ft.Container)
         assert form.category.leading_icon.width == form.category.leading_icon.height == 24
         assert isinstance(form.category.leading_icon.content, ft.Image)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("width", [390, 1366])
+def test_budget_and_default_selected_icons_keep_shared_dropdown_proportions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        view._apply_layout(width)
+        view.icons = store_at(tmp_path)
+        for identifier in ("Assets:Bank", "Expenses:Food"):
+            await view.icons.assign(identifier, asset(identifier), ())
+        await journal.save_budget(
+            "Expenses:Food", date(2026, 10, 1), "monthly", "50", "UAH", journal.source
+        )
+        view._refresh()
+        before = journal.source
+        budget = journal.ledger.budgets[-1]
+        view.budgets._form(budget)
+        dialog = session.page._dialogs.controls[-1]
+        assert isinstance(dialog, ft.AlertDialog) and isinstance(dialog.content, ft.Control)
+        category = next(
+            control
+            for control in walk(dialog.content)
+            if isinstance(control, ft.Dropdown) and control.label == view.tr("budget_category")
+        )
+        view.default_account.value = "Assets:Bank"
+        view.default_fee.value = "Expenses:Food"
+        view._render_default_account()
+        view._render_fee_settings()
+        for dropdown in (category, view.default_account, view.default_fee):
+            icon = dropdown.leading_icon
+            assert isinstance(icon, ft.Container)
+            assert icon.width == icon.height == 24
+            assert icon.alignment == ft.Alignment.CENTER
+            assert isinstance(icon.content, ft.Image)
+            assert icon.content.width == icon.content.height == 16
+            dropdown.value = ""
+            view._entity_dropdown_selected(MagicMock(control=dropdown))
+            assert dropdown.leading_icon is None
+        category.value = "Expenses:Food"
+        view._entity_dropdown_selected(MagicMock(control=category))
+        assert isinstance(category.leading_icon, ft.Container)
+        session.page.pop_dialog()
+        view.budgets._delete(budget)
+        deletion = session.page._dialogs.controls[-1]
+        assert isinstance(deletion, ft.AlertDialog) and isinstance(deletion.content, ft.Control)
+        assert [image.semantics_label for image in images(deletion.content)] == ["Expenses:Food"]
+        assert journal.source == before
 
     asyncio.run(scenario())
 

@@ -294,11 +294,15 @@ def test_both_transaction_lists_group_localized_dates_without_changing_order_or_
         current_heading = ""
         for control in listing.controls:
             assert isinstance(control, ft.Container)
-            if isinstance(control.content, ft.Text):
-                current_heading = control.content.value or ""
+            if control.data == "transaction-date":
+                assert isinstance(control.content, ft.Row)
+                calendar, caption = control.content.controls
+                assert isinstance(calendar, ft.Icon) and calendar.icon == ft.Icons.CALENDAR_TODAY
+                assert isinstance(caption, ft.Text)
+                current_heading = caption.value or ""
                 headings.append(current_heading)
-                assert control.content.size == 14
-                assert control.content.weight == ft.FontWeight.W_600
+                assert caption.size == 14
+                assert caption.weight == ft.FontWeight.W_600
                 assert control.alignment == ft.Alignment.CENTER
                 assert control.border is None
             elif isinstance(control.content, ft.Column):
@@ -342,13 +346,21 @@ def test_epoch_group_uses_placeholder_without_changing_dates(
     ]
     controls = view._transaction_groups(transactions, {}, compact)
     dated, _, placeholder, _ = controls
-    assert isinstance(dated, ft.Container) and isinstance(dated.content, ft.Text)
-    assert dated.content.value == format_date(date(1970, 1, 2), language)
-    assert dated.content.color is None
-    assert isinstance(placeholder, ft.Container) and isinstance(placeholder.content, ft.Text)
-    assert placeholder.content.value == initial
-    assert placeholder.content.color == ft.Colors.OUTLINE
-    assert placeholder.content.size == 14
+    assert isinstance(dated, ft.Container) and isinstance(dated.content, ft.Row)
+    dated_icon, dated_text = dated.content.controls
+    assert isinstance(dated_icon, ft.Icon) and dated_icon.icon == ft.Icons.CALENDAR_TODAY
+    assert isinstance(dated_text, ft.Text)
+    assert dated_text.value == format_date(date(1970, 1, 2), language)
+    assert dated_text.color is None
+    assert isinstance(placeholder, ft.Container) and isinstance(placeholder.content, ft.Row)
+    placeholder_icon, placeholder_text = placeholder.content.controls
+    assert isinstance(placeholder_icon, ft.Icon)
+    assert placeholder_icon.icon == ft.Icons.CALENDAR_TODAY
+    assert placeholder_icon.color == ft.Colors.OUTLINE
+    assert isinstance(placeholder_text, ft.Text)
+    assert placeholder_text.value == initial
+    assert placeholder_text.color == ft.Colors.OUTLINE
+    assert placeholder_text.size == 14
     assert placeholder.alignment == ft.Alignment.CENTER
     assert transactions[1].date == EPOCH
     assert format_date(EPOCH, language) not in texts(placeholder)

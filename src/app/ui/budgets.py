@@ -47,7 +47,11 @@ class BudgetView(ft.Column):
         self.category_choices: dict[str, str] = {}
         self.account_choices: dict[str, str] = {}
         self.report_rows: tuple[BudgetRow, ...] = ()
-        self.period = ft.TextButton(expand=True, on_click=self._pick_month)
+        self.period = ft.TextButton(
+            icon=ft.Icon(ft.Icons.CALENDAR_TODAY, size=16),
+            expand=True,
+            on_click=self._pick_month,
+        )
         self.current = ft.TextButton(on_click=self._current_month)
         self.scope = ft.Button(on_click=self._pick_category)
         self.account = ft.Button(on_click=self._pick_account)
@@ -836,7 +840,7 @@ class BudgetView(ft.Column):
             menu_height=self.host._category_menu_height(),
             label=tr("budget_category"),
             on_select=self.host._entity_dropdown_selected,
-            leading_icon=self.host._entity_icon(budget.account) if budget else None,
+            leading_icon=self.host._entity_dropdown_icon(budget.account) if budget else None,
             options=self.host._category_option_lines(
                 [
                     self.host._category_form_option(key, identifiers[key])
@@ -928,10 +932,13 @@ class BudgetView(ft.Column):
         self.host._edit_dialog(
             self.host.tr("crud_delete"),
             [
-                ft.Text(
-                    names.get(budget.account, budget.account),
-                    tooltip=budget.account,
-                    weight=ft.FontWeight.BOLD,
+                self.host._entity_label(
+                    budget.account,
+                    ft.Text(
+                        names.get(budget.account, budget.account),
+                        tooltip=budget.account,
+                        weight=ft.FontWeight.BOLD,
+                    ),
                 ),
                 ft.Text(self.host.tr("budget_delete_help")),
             ],

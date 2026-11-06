@@ -104,6 +104,15 @@ Transaction leading icons have a rounded theme-aware background; grouping dates
 and both report-month headings include a calendar icon. The main status line
 uses matching small outlined-circle success, information or error/warning icons.
 Assigned artwork, financial figures and interactions are unchanged.
+Operations account/category filters use matching input text and 16-pixel artwork
+with name-only labels; category menus retain their hierarchy. Category menu
+labels inherit the same native size and weight as account menu labels, including
+transaction, commission, budget and parent selectors. Their row heights also
+match account menus: 40 pixels on desktop, 48 pixels on mobile. Home currency balance
+cards align along their top edges when displayed side by side.
+Deletion confirmations, blocked-deletion notices and manual backup cleanup use a
+26-pixel outlined warning icon in the theme's error color, inline with the title,
+without changing their actions or shortcuts.
 
 System language is resolved from `await page.get_device_info()` and its ordered
 client `locales`, not `locale_configuration.current_locale` (the app override).

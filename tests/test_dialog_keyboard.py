@@ -10,7 +10,7 @@ import msgpack
 import pytest
 from flet.messaging.protocol import configure_encode_object_for_msgpack
 from flet.messaging.session import Session
-from form_controls import transaction_form
+from form_controls import assert_deletion_title, transaction_form
 
 from app.domain.ledger import EPOCH
 from app.domain.storage import ConflictError
@@ -287,7 +287,7 @@ def test_blocked_delete_escape_cancels_without_opening_or_saving_an_editor(
         )
         blocked = session.page._dialogs.controls[-1]
         assert isinstance(blocked, ft.AlertDialog)
-        assert blocked.title == view.tr("crud_delete_blocked")
+        assert_deletion_title(blocked, view.tr("crud_delete_blocked"))
         if edit:
             action = blocked.actions[-1]
             assert isinstance(action, ft.KeyboardListener)

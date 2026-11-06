@@ -6,7 +6,8 @@ import flet.canvas as fc
 from app.icons import DISPLAY_SIZE
 
 TREE_ROW_HEIGHT = 40
-TREE_MENU_ROW_HEIGHT = 48
+TREE_MENU_ROW_HEIGHT = 40
+TREE_MOBILE_MENU_ROW_HEIGHT = 48
 TREE_INDENT = 16
 
 

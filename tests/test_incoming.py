@@ -9,7 +9,7 @@ import flet as ft
 import pytest
 from beancount import loader
 from fava.core import FavaLedger
-from form_controls import change, transaction_form
+from form_controls import assert_deletion_title, change, transaction_form
 from journal_fixtures import decorate_transaction, review_external_fixture
 
 from app.domain.ledger import ADJUSTMENTS, EPOCH, LedgerError
@@ -569,7 +569,7 @@ def test_unified_form_creates_edits_and_deletes_each_supported_movement(
         )
         view._delete_transaction(event)
         dialog = page.show_dialog.call_args.args[0]
-        assert dialog.title == translate(language, "crud_confirm")
+        assert_deletion_title(dialog, translate(language, "crud_confirm"))
         await dialog.actions[-1].on_click(MagicMock())
         assert all(t.id != created.id for t in journal.ledger.transactions)
         assert journal.ledger.balances()["Assets:Bank"] == 70

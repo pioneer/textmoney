@@ -48,11 +48,19 @@ def test_operations_filter_icons_hierarchy_and_popup_only_icon_actions(
         account = next(
             option for option in view.operations_account.options if option.key == "Assets:Bank"
         )
+        assert account.text == journal.ledger.accounts[0].name
+        assert view.operations_account.text_style == ft.TextStyle(size=16)
+        assert view.operations_category.text_style == view.operations_account.text_style
         assert isinstance(account.leading_icon, ft.Container) and images(account.leading_icon)
         assert isinstance(view.operations_account.leading_icon, ft.Container)
         assert isinstance(view.operations_category.leading_icon, ft.Container)
         assert images(view.operations_account.leading_icon)
         assert images(view.operations_category.leading_icon)
+        for control in (view.operations_account, view.operations_category):
+            assert isinstance(control.leading_icon, ft.Container)
+            assert control.leading_icon.width == control.leading_icon.height == 24
+            assert images(control.leading_icon)[0].width == 16
+            assert images(control.leading_icon)[0].height == 16
         categories = view.operations_category.options
         parent = next(option for option in categories if option.key == "Expenses:Food")
         child = next(option for option in categories if option.key == "Expenses:Food:Shops")
@@ -60,6 +68,16 @@ def test_operations_filter_icons_hierarchy_and_popup_only_icon_actions(
         for option, indent in ((parent, 0), (child, 16)):
             assert category_content(option).padding == ft.Padding.only(left=indent)
             assert images(category_content(option))
+            label = next(
+                control
+                for control in walk(category_content(option))
+                if isinstance(control, ft.Text)
+            )
+            assert option.text == label.value == ("Shops" if option is child else "Food")
+            assert label.size is None and label.weight is None
+            assert not label.spans
+            assert images(category_content(option))[0].width == 16
+            assert images(category_content(option))[0].height == 16
         for listing in (view.account_list, view.category_list):
             assert not any(
                 isinstance(control, ft.IconButton) and control.on_click == view._choose_entity_icon
@@ -795,6 +813,10 @@ def test_entity_icons_reach_lists_settings_transactions_and_reports(
         assert all(
             image.width == image.height == 16 for image in images(category_content(category_option))
         )
+        for option in (*form.category.options, *form.fee_category.options):
+            for label in walk(category_content(option)):
+                if isinstance(label, ft.Text):
+                    assert label.size is None and label.weight is None
         form.account.value = "Assets:Bank"
         await form.account._trigger_event("select", None)
         assert isinstance(form.account.leading_icon, ft.Container)
@@ -844,6 +866,11 @@ def test_budget_and_default_selected_icons_keep_shared_dropdown_proportions(
             assert icon.alignment == ft.Alignment.CENTER
             assert isinstance(icon.content, ft.Image)
             assert icon.content.width == icon.content.height == 16
+            if dropdown is not view.default_account:
+                for option in dropdown.options:
+                    for label in walk(category_content(option)):
+                        if isinstance(label, ft.Text):
+                            assert label.size is None and label.weight is None
             dropdown.value = ""
             view._entity_dropdown_selected(MagicMock(control=dropdown))
             assert dropdown.leading_icon is None
@@ -856,6 +883,33 @@ def test_budget_and_default_selected_icons_keep_shared_dropdown_proportions(
         assert isinstance(deletion, ft.AlertDialog) and isinstance(deletion.content, ft.Control)
         assert [image.semantics_label for image in images(deletion.content)] == ["Expenses:Food"]
         assert journal.source == before
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("identifier", ["Expenses:Food", "Expenses:Food:Shops"])
+def test_parent_category_selected_icons_match_account_dropdowns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, identifier: str
+) -> None:
+    async def scenario() -> None:
+        _session, view, journal = await finance_session(tmp_path, monkeypatch)
+        await journal.create_category("Food:Shops", "Shops")
+        view.icons = store_at(tmp_path)
+        await view.icons.assign(identifier, asset(identifier), ())
+        view.category_parent.value = identifier
+        view._refresh_category_parent_options()
+        icon = view.category_parent.leading_icon
+        assert isinstance(icon, ft.Container)
+        assert icon.width == icon.height == 24
+        assert isinstance(icon.content, ft.Image)
+        assert icon.content.width == icon.content.height == 16
+        for option in view.category_parent.options[1:]:
+            labels = [
+                control
+                for control in walk(category_content(option))
+                if isinstance(control, ft.Text)
+            ]
+            assert labels and all(label.size is None and label.weight is None for label in labels)
 
     asyncio.run(scenario())
 

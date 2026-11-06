@@ -10,7 +10,7 @@ import pytest
 from beancount import loader
 from beancount.core.data import Transaction as OfficialTransaction
 from fava.core import FavaLedger
-from form_controls import transaction_form
+from form_controls import assert_deletion_title, transaction_form
 from journal_fixtures import decorate_transaction, review_external_fixture
 
 from app.domain.ledger import EPOCH, LedgerError
@@ -350,6 +350,7 @@ def test_home_balances_follow_saved_currency_order(
         view.journal = journal
         view._apply_layout(width)
         view._refresh()
+        assert view.home_balances.vertical_alignment == ft.CrossAxisAlignment.START
         assert home_balance_titles(view) == [
             view.tr("currency_group", currency=currency) for currency in expected
         ]
@@ -684,7 +685,7 @@ def test_ui_deletion_requires_confirmation_and_updates_balances(
         view._delete_transaction(event)
         assert view.journal.source == source
         dialog = page.show_dialog.call_args.args[0]
-        assert dialog.title == "Permanently delete?"
+        assert_deletion_title(dialog, "Permanently delete?")
         cancel = dialog.actions[0]
         cancel.on_click(MagicMock())
         assert view.journal.source == source
@@ -792,12 +793,13 @@ def test_delete_with_history_offers_deactivation_instead_of_destroying_records(
         source = view.journal.source
         view._delete_entity(event)
         dialog = page.show_dialog.call_args.args[0]
-        assert dialog.title == "Cannot delete"
+        assert_deletion_title(dialog, "Cannot delete")
         assert not any(isinstance(c, ft.Checkbox) for c in dialog.content.controls)
         assert view.tr("crud_has_history") in [c.value for c in dialog.content.controls]
         dialog.actions[-1].on_click(MagicMock())
         dialog = page.show_dialog.call_args.args[0]
         assert dialog.title == "Edit"
+        assert dialog.icon is None
         assert "cannot change" in dialog.content.controls[1].value
         active = dialog.content.controls[3]
         assert isinstance(active, ft.Checkbox)

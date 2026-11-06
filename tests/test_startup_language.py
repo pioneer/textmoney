@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -6,8 +7,53 @@ import flet as ft
 import pytest
 from flet.controls.device_info import DeviceInfo
 
+from app.domain.ledger import Category
 from app.infrastructure.preferences import DesktopPreferences
 from app.ui.finance import FinanceView
+from app.ui.tree_style import CategoryConnectorRow
+
+
+@pytest.mark.parametrize(
+    ("platform", "height"),
+    [
+        (ft.PagePlatform.LINUX, 40),
+        (ft.PagePlatform.WINDOWS, 40),
+        (ft.PagePlatform.MACOS, 40),
+        (ft.PagePlatform.ANDROID, 48),
+        (ft.PagePlatform.ANDROID_TV, 48),
+        (ft.PagePlatform.IOS, 48),
+    ],
+)
+def test_category_menu_row_height_matches_native_platform_density(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: ft.PagePlatform, height: int
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+        monkeypatch.setenv("APPDATA", str(tmp_path))
+        monkeypatch.setattr(
+            ft, "SharedPreferences", lambda: DesktopPreferences(tmp_path / "preferences.json")
+        )
+        page = MagicMock(spec=ft.Page)
+        page.width = 1366
+        page.platform = platform
+        page.get_device_info = AsyncMock(
+            return_value=DeviceInfo(locales=[ft.Locale(language_code="en")])
+        )
+        page.locale_configuration = ft.LocaleConfiguration()
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view = FinanceView()
+        view._sync_system_zone = AsyncMock()
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
+        with pytest.raises(asyncio.CancelledError):
+            await view._lifecycle()
+        category = Category("Expenses:Food", "Food", date(2000, 1, 1))
+        option = view._category_parent_options((category,), "Expenses")[1]
+        assert isinstance(option.content, CategoryConnectorRow)
+        assert option.content.height == height
+        assert isinstance(option.content.content, ft.Container)
+        assert option.content.content.height == height
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("saved,expected", [(None, "uk"), ("ru", "ru"), ("en", "en")])

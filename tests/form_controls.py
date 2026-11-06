@@ -11,6 +11,16 @@ import flet.canvas as fc
 from app.ui.datetime_fields import DateTimeFields
 
 
+def assert_deletion_title(dialog: ft.AlertDialog, title: str) -> None:
+    assert dialog.icon is None
+    assert isinstance(dialog.title, ft.Row)
+    assert dialog.title.vertical_alignment == ft.CrossAxisAlignment.CENTER
+    icon, label = dialog.title.controls
+    assert isinstance(icon, ft.Icon) and icon.icon == ft.Icons.WARNING_AMBER
+    assert icon.size == 26 and icon.color == ft.Colors.ERROR
+    assert isinstance(label, ft.Text) and label.value == title and label.expand
+
+
 def category_content(option: ft.DropdownOption) -> ft.Container:
     assert isinstance(option.content, fc.Canvas)
     assert isinstance(option.content.content, ft.Container)

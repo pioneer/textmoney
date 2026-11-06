@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
-from form_controls import click
+from form_controls import assert_deletion_title, click
 
 from app.domain.ledger import EPOCH, LedgerError
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -300,7 +300,8 @@ def test_protected_delete_explains_the_reason_before_explicit_edit(
         backups = set((tmp_path / "backups").iterdir())
         view._delete_entity(MagicMock(control=ft.IconButton(data=(kind, identifier))))
         dialog = page.show_dialog.call_args.args[0]
-        assert dialog.title == title and dialog.modal and dialog.scrollable
+        assert_deletion_title(dialog, title)
+        assert dialog.modal and dialog.scrollable
         assert isinstance(dialog.content, ft.Column)
         assert all(isinstance(control, ft.Text) for control in dialog.content.controls)
         text = [c.value for c in dialog.content.controls if isinstance(c, ft.Text)]
@@ -348,7 +349,7 @@ def test_unused_entity_still_gets_a_real_delete_confirmation(
             )
         )
         dialog = page.show_dialog.call_args.args[0]
-        assert dialog.title == view.tr("crud_confirm")
+        assert_deletion_title(dialog, view.tr("crud_confirm"))
         assert dialog.actions[-1].content == view.tr("crud_delete")
         if cancel:
             click(dialog.actions[0])

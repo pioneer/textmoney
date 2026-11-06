@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
 import pytest
-from form_controls import category_content
+from form_controls import assert_deletion_title, category_content
 
 from app.domain.budgets import Budget, BudgetFilter, BudgetRow
 from app.domain.ledger import LedgerError
@@ -651,6 +651,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         assert any(str(item.value).endswith(f"→ {display_name}") for item in texts[1:])
         host.budgets._delete(budget)
         dialog = page.show_dialog.call_args.args[0]
+        assert_deletion_title(dialog, host.tr("crud_delete"))
         assert isinstance(dialog.content, ft.Column)
         confirmation = dialog.content.controls[0]
         assert isinstance(confirmation, ft.Text)

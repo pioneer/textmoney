@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import pytest
 from flet.controls.device_info import DeviceInfo
-from form_controls import click_async
+from form_controls import assert_deletion_title, click_async
 
 from app.domain.backups import BackupEntry, backup_name, backup_time, retention_plan
 from app.domain.storage import ConflictError
@@ -342,6 +342,7 @@ def test_settings_toggle_persists_and_preview_requires_confirmation(
         await view._preview_backup_cleanup(MagicMock())
         dialog = page.show_dialog.call_args.args[0]
         assert isinstance(dialog, ft.AlertDialog)
+        assert_deletion_title(dialog, view.tr("backups_clean"))
         assert isinstance(dialog.content, ft.Text)
         assert "20" in dialog.content.value
         assert len(await journal.storage.folder.list_backups()) == 40

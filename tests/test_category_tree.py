@@ -98,17 +98,17 @@ def test_category_menu_lines_continue_through_descendants_and_end_at_last_siblin
     assert any(
         isinstance(element, fc.Path.QuadraticTo) for element in last_child.shapes[-1].elements
     )
-    assert last_child.shapes[-1].elements[-1] == fc.Path.LineTo(15, 24)
+    assert last_child.shapes[-1].elements[-1] == fc.Path.LineTo(15, 20)
     expected = [
         [],
-        [(4, 0, 4, 48), (4, 24, 15, 24)],
-        [(4, 0, 4, 48)],
+        [(4, 0, 4, 40), (4, 20, 15, 20)],
+        [(4, 0, 4, 40)],
         [],
         [],
     ]
     for option, segments in zip(options, expected, strict=True):
         assert isinstance(option.content, fc.Canvas)
-        assert option.content.height == 48
+        assert option.content.height == 40
         assert [
             (shape.x1, shape.y1, shape.x2, shape.y2)
             for shape in option.content.shapes
@@ -182,7 +182,7 @@ def test_transaction_categories_are_indented_and_menu_height_is_bounded(
                 '2000-01-01 open Assets:Cash USD\n2000-01-02 * "Original"\n'
                 f"    {root}:Food {amount} USD\n    Assets:Cash {-amount} USD\n"
             )
-        (tmp_path / FILENAME).write_text(source)
+        (tmp_path / FILENAME).write_text(source, newline="")
         journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await journal.load()
         page = MagicMock(spec=ft.Page)
@@ -420,7 +420,7 @@ def test_parent_selectors_show_names_smaller_codes_and_contiguous_hierarchy(
             content = category_content(option)
             assert content.padding == ft.Padding.only(left=16 * depth)
             label = content.content
-            assert isinstance(label, ft.Text) and label.size == 16
+            assert isinstance(label, ft.Text) and label.size is None and label.weight is None
             assert label.spans and len(label.spans) == 1
             span = label.spans[0]
             assert span.text == f" ({option.key})"

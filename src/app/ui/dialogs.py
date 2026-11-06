@@ -8,6 +8,18 @@ from typing import cast
 import flet as ft
 
 
+def deletion_title(title: str) -> ft.Row:
+    return ft.Row(
+        [
+            ft.Icon(ft.Icons.WARNING_AMBER, size=26, color=ft.Colors.ERROR),
+            ft.Text(title, expand=True),
+        ],
+        spacing=10,
+        tight=True,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+
+
 def _text_fields(root: ft.Control) -> Iterator[ft.TextField]:
     visited: set[int] = set()
 

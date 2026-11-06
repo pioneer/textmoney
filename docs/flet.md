@@ -68,8 +68,10 @@ Category menus and the main category tree share 16-pixel hierarchy gutters and
 1.25-pixel Material
 `OUTLINE_VARIANT` connector lines. Ancestor guides continue through descendants;
 the final sibling gets a rounded elbow and its stem stops at the row centre.
-The reusable connector canvas derives geometry from its measured row height;
-the existing 48-pixel menu rows keep guides joined. Child stems start at the
+The reusable connector canvas derives geometry from its measured row height.
+Category menu rows match native account menu density: 40 pixels on desktop and
+48 pixels on mobile, independent of window width, keeping guides joined.
+Child stems start at the
 boundary beneath the parent row, independent of its icons or wrapped label.
 Existing entity icons are unchanged. Menus have no expand/collapse controls;
 the main tree retains its native expansion behavior. Transaction and budget menus retain

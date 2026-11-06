@@ -81,11 +81,12 @@ from app.storage import RecoveryRequired, StorageError
 from app.timekeeping import local_datetime, named_zone
 from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
-from app.ui.dialogs import show_dialog
+from app.ui.dialogs import deletion_title, show_dialog
 from app.ui.icons import IconDraft, IconPicker, icon_image
 from app.ui.theme import NAVIGATION_SURFACE, summary_theme
 from app.ui.tree_style import (
     TREE_MENU_ROW_HEIGHT,
+    TREE_MOBILE_MENU_ROW_HEIGHT,
     TREE_ROW_HEIGHT,
     CategoryConnectorRow,
     compact_tree_leaf,
@@ -139,6 +140,7 @@ class FinanceView(ft.Row):
         self.manual_language = False
         self.system_language_name = "en"
         self.theme_name = "system"
+        self.category_menu_row_height = TREE_MENU_ROW_HEIGHT
         self.timezone_name = "system"
         self.auto_backup_cleanup = True
         self.default_account_id: str | None = None
@@ -267,10 +269,16 @@ class FinanceView(ft.Row):
         self.category_expansion: dict[str, bool] = {}
         self.history = ft.Column(spacing=0)
         self.operations_account = ft.Dropdown(
-            value="", expand=True, on_select=self._operations_filter_changed
+            value="",
+            expand=True,
+            text_style=ft.TextStyle(size=16),
+            on_select=self._operations_filter_changed,
         )
         self.operations_category = ft.Dropdown(
-            value="", expand=True, on_select=self._operations_filter_changed
+            value="",
+            expand=True,
+            text_style=ft.TextStyle(size=16),
+            on_select=self._operations_filter_changed,
         )
         self.operations_filter_toggle = ft.IconButton(
             icon=ft.Icons.FILTER_LIST,
@@ -391,7 +399,12 @@ class FinanceView(ft.Row):
             ),
         )
         self.reports_screen = ft.Column([self.report_tabs], spacing=16)
-        self.home_balances = ft.Row(wrap=True, spacing=12, run_spacing=12)
+        self.home_balances = ft.Row(
+            wrap=True,
+            spacing=12,
+            run_spacing=12,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
         self.home_activity = ft.Column(spacing=0)
         self.accounts_panel_content = ft.Column(spacing=16)
         self.categories_panel_content = ft.Column(spacing=16)
@@ -1185,11 +1198,11 @@ class FinanceView(ft.Row):
             control.options = [
                 ft.DropdownOption(key="", text=self.tr(all_key)),
                 *[
-                    self._category_dropdown_option(item)
+                    self._category_form_option(item.id, item.name)
                     if isinstance(item, Category)
                     else ft.DropdownOption(
                         key=item.id,
-                        text=f"{item.name} ({item.id})",
+                        text=item.name,
                         leading_icon=self._entity_dropdown_icon(item.id),
                     )
                     for item in sorted(items, key=lambda item: item.id.split(":"))
@@ -2459,8 +2472,10 @@ class FinanceView(ft.Row):
                 ft.PagePlatform.WINDOWS,
                 ft.PagePlatform.MACOS,
             }:
+                self.category_menu_row_height = TREE_MENU_ROW_HEIGHT
                 self.preferences = DesktopPreferences()
             else:
+                self.category_menu_row_height = TREE_MOBILE_MENU_ROW_HEIGHT
                 self.preferences = ft.SharedPreferences()
             if self.page.platform == ft.PagePlatform.ANDROID:
                 self.bridge = FinanceSaf()
@@ -3015,7 +3030,7 @@ class FinanceView(ft.Row):
                 ft.AlertDialog(
                     modal=True,
                     scrollable=True,
-                    title=self.tr("backups_clean"),
+                    title=deletion_title(self.tr("backups_clean")),
                     content=ft.Text(
                         translate_plural(
                             self.language,
@@ -3093,7 +3108,7 @@ class FinanceView(ft.Row):
             ft.AlertDialog(
                 modal=True,
                 scrollable=True,
-                title=title,
+                title=deletion_title(title) if deleting else title,
                 content=ft.Column(
                     controls,
                     tight=True,
@@ -4003,7 +4018,9 @@ class FinanceView(ft.Row):
 
             def parent_changed(event: ft.Event[ft.Dropdown]) -> None:
                 update_suggestion()
-                category_parent.leading_icon = self._entity_icon(category_parent.value or "")
+                category_parent.leading_icon = self._entity_dropdown_icon(
+                    category_parent.value or ""
+                )
                 self.page.update()
 
             def alternative_selected(event: ft.Event[ft.Dropdown]) -> None:
@@ -4386,7 +4403,7 @@ class FinanceView(ft.Row):
         )
         if parent.value not in {option.key for option in parent.options}:
             parent.value = ""
-        parent.leading_icon = self._entity_icon(parent.value or "")
+        parent.leading_icon = self._entity_dropdown_icon(parent.value or "")
         code = ft.TextField(label=self.tr("category_migration_code_title"), value=components[-1])
         cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)
         review = ft.TextButton(self.tr("category_migration_review"))
@@ -4585,7 +4602,7 @@ class FinanceView(ft.Row):
                     ft.AlertDialog(
                         modal=True,
                         scrollable=True,
-                        title=self.tr("crud_delete_blocked"),
+                        title=deletion_title(self.tr("crud_delete_blocked")),
                         content=ft.Column(
                             [
                                 ft.Text(identifier, selectable=True, weight=ft.FontWeight.BOLD),
@@ -4770,7 +4787,9 @@ class FinanceView(ft.Row):
         self, event: ft.Event[ft.TextField] | ft.Event[ft.Dropdown]
     ) -> None:
         self._update_category_suggestion()
-        self.category_parent.leading_icon = self._entity_icon(self.category_parent.value or "")
+        self.category_parent.leading_icon = self._entity_dropdown_icon(
+            self.category_parent.value or ""
+        )
         if self.page:
             self.page.update()
 
@@ -4834,12 +4853,12 @@ class FinanceView(ft.Row):
                 content = ft.Container(
                     self._entity_label(
                         option.key or "",
-                        ft.Text((option.text or "").lstrip(), size=16, max_lines=2),
+                        ft.Text((option.text or "").lstrip(), max_lines=2),
                     ),
                     padding=ft.Padding.only(left=16 * depth),
                 )
                 option.leading_icon = None
-            content.height = TREE_MENU_ROW_HEIGHT
+            content.height = self.category_menu_row_height
             content.alignment = ft.Alignment.CENTER_LEFT
             option.content = CategoryConnectorRow(content, continued, branch_length=11)
             option.style = ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=12))
@@ -4851,7 +4870,7 @@ class FinanceView(ft.Row):
             key=identifier,
             text=label,
             content=ft.Container(
-                self._entity_label(identifier, ft.Text(label, size=16, max_lines=2)),
+                self._entity_label(identifier, ft.Text(label, max_lines=2)),
                 padding=ft.Padding.only(left=16 * (identifier.count(":") - 1)),
             ),
         )
@@ -4865,7 +4884,6 @@ class FinanceView(ft.Row):
                     item.id,
                     ft.Text(
                         item.name,
-                        size=16,
                         max_lines=2,
                         spans=[ft.TextSpan(f" ({item.id})", style=ft.TextStyle(size=12))],
                     ),
@@ -4903,7 +4921,9 @@ class FinanceView(ft.Row):
         }:
             self.category_parent.value = ""
         self.category_parent.label = self.tr("code_suggestion_parent")
-        self.category_parent.leading_icon = self._entity_icon(self.category_parent.value or "")
+        self.category_parent.leading_icon = self._entity_dropdown_icon(
+            self.category_parent.value or ""
+        )
 
     def _create_account(self, event: ft.Event[ft.Button]) -> None:
         journal = self._require_journal()

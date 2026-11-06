@@ -152,6 +152,9 @@ display-server integration, and graphics drivers. Ubuntu 24.04+ and Manjaro
 are intended targets, but the runtime compatibility matrix has not been
 exhaustively tested.
 
+The AppImage startup smoke test streams launcher output so missing runtime
+libraries and other early startup failures remain visible in release logs.
+
 Flet selects the highest bundled Python satisfying `requires-python` (currently
 3.14.7 for this range), not necessarily the local 3.13 interpreter. Web uses the
 corresponding Pyodide runtime. Check Flet's build output when upgrading; add an

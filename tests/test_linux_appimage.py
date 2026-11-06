@@ -218,13 +218,11 @@ def test_smoke_test_requires_app_to_remain_alive(
 ) -> None:
     artifact = tmp_path / "TextMoney.AppImage"
     monkeypatch.setattr(linux_appimage.shutil, "which", lambda command: f"/usr/bin/{command}")
-    monkeypatch.setattr(
-        linux_appimage,
-        "run_command",
-        MagicMock(return_value=subprocess.CompletedProcess([], 124, "", "")),
-    )
+    command = MagicMock(return_value=subprocess.CompletedProcess([], 124, "", ""))
+    monkeypatch.setattr(linux_appimage, "run_command", command)
 
     linux_appimage.smoke_test_appimage(artifact)
+    assert command.call_args.kwargs["capture"] is False
 
     monkeypatch.setattr(
         linux_appimage,

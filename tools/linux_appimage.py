@@ -376,7 +376,7 @@ def smoke_test_appimage(artifact: Path, *, timeout_seconds: int = 20) -> None:
         f"{timeout_seconds}s",
         str(artifact),
         env={"APPIMAGE_EXTRACT_AND_RUN": "1"},
-        capture=True,
+        capture=False,
     )
     if result.returncode not in {124, 137}:
         raise RuntimeError(

@@ -75,7 +75,7 @@ Child stems start at the
 boundary beneath the parent row, independent of its icons or wrapped label.
 Existing entity icons are unchanged. Menus have no expand/collapse controls;
 the main tree retains its native expansion behavior. Transaction and budget menus retain
-name-only labels and a 320-pixel height limit on compact screens, with the
+name-only labels and a 480-pixel height limit on compact screens, with the
 default full-height menu on wider screens. Category-parent menus retain codes.
 
 Compact transaction and budget menus overlap their category field, extending

@@ -199,7 +199,7 @@ def test_budget_category_dropdown_is_parent_first_and_indented(
             ("Income:Work", "Work"),
             ("Income:Work:Bonus", "Bonus"),
         ]
-        assert category.menu_height == (320 if width <= 599 else None)
+        assert category.menu_height == (480 if width <= 599 else None)
         if width <= 599:
             assert category.menu_style and category.menu_style.alignment
             assert category.menu_style.alignment.y < 0

@@ -50,11 +50,12 @@ def toggle(control: ft.ExpansionTile, expanded: bool) -> None:
 
 @pytest.mark.parametrize("field_height", [40, 56, 80])
 @pytest.mark.parametrize("option_count", [1, 3, 12])
+@pytest.mark.parametrize("height_limit", [320, 480])
 def test_mobile_category_menu_is_centered_on_measured_field(
-    monkeypatch: pytest.MonkeyPatch, field_height: int, option_count: int
+    monkeypatch: pytest.MonkeyPatch, field_height: int, option_count: int, height_limit: int
 ) -> None:
     dropdown = ft.Dropdown(
-        menu_height=320,
+        menu_height=height_limit,
         options=[
             ft.DropdownOption(key=str(index), content=ft.Container(height=48))
             for index in range(option_count)
@@ -67,7 +68,7 @@ def test_mobile_category_menu_is_centered_on_measured_field(
     assert dropdown.menu_style is not None
     alignment = dropdown.menu_style.alignment
     assert alignment is not None
-    menu_height = min(320, option_count * 48 + 16)
+    menu_height = min(height_limit, option_count * 48 + 16)
     assert alignment.x == -1
     assert field_height / 2 + alignment.y * field_height / 2 == pytest.approx(
         (field_height - menu_height) / 2
@@ -77,7 +78,7 @@ def test_mobile_category_menu_is_centered_on_measured_field(
     dropdown.options.pop()
     anchor.before_update()
     assert dropdown.menu_style.alignment == ft.Alignment(
-        -1, -min(320, (option_count - 1) * 48 + 16) / field_height
+        -1, -min(height_limit, (option_count - 1) * 48 + 16) / field_height
     )
 
 
@@ -228,7 +229,7 @@ def test_transaction_categories_are_indented_and_menu_height_is_bounded(
         form = transaction_form(page.show_dialog.call_args.args[0])
         if not editing:
             form.choose(kind)
-        assert form.category.menu_height == (320 if width <= 599 else None)
+        assert form.category.menu_height == (480 if width <= 599 else None)
         if width <= 599:
             assert form.category.menu_style and form.category.menu_style.alignment
             assert form.category.menu_style.alignment.y < 0

@@ -84,6 +84,11 @@ and the option row heights determine the menu alignment, including shorter lists
 Flutter retains screen-edge and keyboard-inset handling. Wide-screen positioning
 is unchanged.
 
+Mobile menu positioning preserves the dropdown's explicit visual style or the
+active light/dark dropdown theme, overriding only alignment and padding. Category
+and account menus therefore share their themed background, including system-theme
+changes; light-mode menus remain white without forcing white in dark mode.
+
 The main Accounting category tree retains its native expansion controls and
 actions. Connector gutters replace, rather than add to, its child indentation;
 ancestor stems span expanded subtrees while branches remain aligned with each

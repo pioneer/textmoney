@@ -4833,9 +4833,25 @@ class FinanceView(ft.Row):
     def _category_menu_height(self) -> int | None:
         return 480 if self.screen_class == ScreenClass.COMPACT else None
 
+    def _category_menu_base_style(self) -> ft.MenuStyle | None:
+        if self.page is None:
+            return None
+        dark = self.page.theme_mode == ft.ThemeMode.DARK or (
+            self.page.theme_mode != ft.ThemeMode.LIGHT
+            and self.page.platform_brightness == ft.Brightness.DARK
+        )
+        theme = self.page.dark_theme if dark else self.page.theme
+        return (
+            theme.dropdown_theme.menu_style
+            if isinstance(theme, ft.Theme) and theme.dropdown_theme is not None
+            else None
+        )
+
     def _category_menu_anchor(self, dropdown: ft.Dropdown) -> ft.Control:
         return (
-            CategoryMenuAnchor(dropdown) if self.screen_class == ScreenClass.COMPACT else dropdown
+            CategoryMenuAnchor(dropdown, menu_style_provider=self._category_menu_base_style)
+            if self.screen_class == ScreenClass.COMPACT
+            else dropdown
         )
 
     def _category_option_lines(self, options: list[ft.DropdownOption]) -> list[ft.DropdownOption]:

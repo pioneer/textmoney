@@ -7,6 +7,7 @@ import pytest
 from app.domain.ledger import LedgerError
 from app.ui.finance import FinanceView
 from app.ui.theme import MINT_SURFACE, NAVIGATION_SURFACE, light_theme
+from app.ui.tree_style import CategoryMenuAnchor
 
 
 def test_light_palette_uses_white_content_and_restrained_mint() -> None:
@@ -55,6 +56,58 @@ def test_light_popup_surfaces_are_white() -> None:
     assert theme.date_picker_theme.header_bgcolor == "#ffffff"
     assert theme.date_picker_theme.range_picker_bgcolor == "#ffffff"
     assert theme.time_picker_theme is not None and theme.time_picker_theme.bgcolor == "#ffffff"
+
+
+@pytest.mark.parametrize("background", ["#ffffff", "#223344", None])
+def test_category_menu_positioning_preserves_visual_style(background: str | None) -> None:
+    style = ft.MenuStyle(bgcolor=background, elevation=5)
+    dropdown = ft.Dropdown(menu_height=480, menu_style=style)
+    anchor = CategoryMenuAnchor(dropdown)
+    assert dropdown.menu_style is not None
+    assert dropdown.menu_style.bgcolor == style.bgcolor
+    assert dropdown.menu_style.elevation == style.elevation
+    assert dropdown.menu_style.alignment is not None
+    assert style.alignment is None
+    anchor.before_update()
+    assert dropdown.menu_style.bgcolor == style.bgcolor
+    assert dropdown.menu_style.elevation == style.elevation
+
+
+@pytest.mark.parametrize(
+    "mode,brightness,dark",
+    [
+        (ft.ThemeMode.LIGHT, ft.Brightness.DARK, False),
+        (ft.ThemeMode.DARK, ft.Brightness.LIGHT, True),
+        (ft.ThemeMode.SYSTEM, ft.Brightness.LIGHT, False),
+        (ft.ThemeMode.SYSTEM, ft.Brightness.DARK, True),
+        (ft.ThemeMode.SYSTEM, None, False),
+    ],
+)
+@pytest.mark.parametrize("dark_background", [None, "#223344"])
+def test_category_menu_uses_active_account_dropdown_theme(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: ft.ThemeMode,
+    brightness: ft.Brightness | None,
+    dark: bool,
+    dark_background: str | None,
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    page.theme = light_theme()
+    page.dark_theme = ft.Theme(
+        dropdown_theme=ft.DropdownTheme(menu_style=ft.MenuStyle(bgcolor=dark_background))
+    )
+    page.theme_mode = mode
+    page.platform_brightness = brightness
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+    view = FinanceView()
+    dropdown = ft.Dropdown(menu_height=480)
+    anchor = view._category_menu_anchor(dropdown)
+    assert isinstance(anchor, CategoryMenuAnchor)
+    assert dropdown.menu_style is not None
+    assert dropdown.menu_style.bgcolor == (dark_background if dark else "#ffffff")
+    page.theme_mode = ft.ThemeMode.DARK if not dark else ft.ThemeMode.LIGHT
+    anchor.before_update()
+    assert dropdown.menu_style.bgcolor == (dark_background if not dark else "#ffffff")
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])

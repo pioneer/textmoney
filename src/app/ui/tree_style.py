@@ -1,5 +1,8 @@
 """Shared layout for category and account hierarchy rows."""
 
+from collections.abc import Callable
+from dataclasses import replace
+
 import flet as ft
 import flet.canvas as fc
 
@@ -12,7 +15,12 @@ TREE_INDENT = 16
 
 
 class CategoryMenuAnchor(fc.Canvas):
-    def __init__(self, dropdown: ft.Dropdown) -> None:
+    def __init__(
+        self,
+        dropdown: ft.Dropdown,
+        *,
+        menu_style_provider: Callable[[], ft.MenuStyle | None] | None = None,
+    ) -> None:
         height = dropdown.height or 56
         super().__init__(
             content=ft.Container(dropdown, alignment=ft.Alignment.CENTER_LEFT),
@@ -21,6 +29,8 @@ class CategoryMenuAnchor(fc.Canvas):
             on_resize=self._resized,
         )
         self.dropdown = dropdown
+        self._base_menu_style = dropdown.menu_style
+        self._menu_style_provider = menu_style_provider
         self._field_height: float | None = float(height)
         self._align_menu()
 
@@ -38,7 +48,11 @@ class CategoryMenuAnchor(fc.Canvas):
             for option in self.dropdown.options
         )
         menu_height = min(float(self.dropdown.menu_height), options_height + 16)
-        self.dropdown.menu_style = ft.MenuStyle(
+        style = self._base_menu_style
+        if style is None and self._menu_style_provider is not None:
+            style = self._menu_style_provider()
+        self.dropdown.menu_style = replace(
+            style or ft.MenuStyle(),
             alignment=ft.Alignment(-1, -menu_height / self._field_height),
             padding=ft.Padding.symmetric(vertical=8),
         )

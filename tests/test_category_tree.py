@@ -16,7 +16,7 @@ from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import translate
 from app.ui.finance import FinanceView
-from app.ui.tree_style import CategoryConnectorRow
+from app.ui.tree_style import CategoryConnectorRow, CategoryMenuAnchor
 
 
 def tree_item(control: ft.Control) -> ft.Control:
@@ -46,6 +46,39 @@ def label(control: ft.Control) -> ft.Text:
 def toggle(control: ft.ExpansionTile, expanded: bool) -> None:
     assert control.on_change is not None
     cast(Callable[[object], object], control.on_change)(MagicMock(control=control, data=expanded))
+
+
+@pytest.mark.parametrize("field_height", [40, 56, 80])
+@pytest.mark.parametrize("option_count", [1, 3, 12])
+def test_mobile_category_menu_is_centered_on_measured_field(
+    monkeypatch: pytest.MonkeyPatch, field_height: int, option_count: int
+) -> None:
+    dropdown = ft.Dropdown(
+        menu_height=320,
+        options=[
+            ft.DropdownOption(key=str(index), content=ft.Container(height=48))
+            for index in range(option_count)
+        ],
+    )
+    anchor = CategoryMenuAnchor(dropdown)
+    update = MagicMock()
+    monkeypatch.setattr(anchor, "update", update)
+    anchor._resized(MagicMock(spec=fc.CanvasResizeEvent, height=field_height, width=300))
+    assert dropdown.menu_style is not None
+    alignment = dropdown.menu_style.alignment
+    assert alignment is not None
+    menu_height = min(320, option_count * 48 + 16)
+    assert alignment.x == -1
+    assert field_height / 2 + alignment.y * field_height / 2 == pytest.approx(
+        (field_height - menu_height) / 2
+    )
+    assert dropdown.menu_style.padding == ft.Padding.symmetric(vertical=8)
+    assert update.call_count == (0 if field_height == 56 else 1)
+    dropdown.options.pop()
+    anchor.before_update()
+    assert dropdown.menu_style.alignment == ft.Alignment(
+        -1, -min(320, (option_count - 1) * 48 + 16) / field_height
+    )
 
 
 def test_main_category_tree_uses_connector_gutters_without_losing_native_tiles() -> None:
@@ -196,6 +229,11 @@ def test_transaction_categories_are_indented_and_menu_height_is_bounded(
         if not editing:
             form.choose(kind)
         assert form.category.menu_height == (320 if width <= 599 else None)
+        if width <= 599:
+            assert form.category.menu_style and form.category.menu_style.alignment
+            assert form.category.menu_style.alignment.y < 0
+        else:
+            assert form.category.menu_style is None
         assert [option.key for option in form.category.options] == [
             f"{root}:Food",
             f"{root}:Food:Shops",

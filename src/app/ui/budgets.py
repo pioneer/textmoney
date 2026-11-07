@@ -934,7 +934,7 @@ class BudgetView(ft.Column):
                         else "budget_new_help"
                     )
                 ),
-                ft.Row([category]),
+                ft.Row([self.host._category_menu_anchor(category)]),
                 amount,
                 currency,
                 ft.Row([interval]),

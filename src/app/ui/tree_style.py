@@ -11,6 +11,45 @@ TREE_MOBILE_MENU_ROW_HEIGHT = 48
 TREE_INDENT = 16
 
 
+class CategoryMenuAnchor(fc.Canvas):
+    def __init__(self, dropdown: ft.Dropdown) -> None:
+        height = dropdown.height or 56
+        super().__init__(
+            content=ft.Container(dropdown, alignment=ft.Alignment.CENTER_LEFT),
+            height=height,
+            expand=dropdown.expand,
+            on_resize=self._resized,
+        )
+        self.dropdown = dropdown
+        self._field_height: float | None = float(height)
+        self._align_menu()
+
+    def before_update(self) -> None:
+        super().before_update()
+        self._align_menu()
+
+    def _align_menu(self) -> None:
+        if not self._field_height or self.dropdown.menu_height is None:
+            return
+        options_height = sum(
+            float(option.content.height or TREE_MOBILE_MENU_ROW_HEIGHT)
+            if isinstance(option.content, (ft.Container, fc.Canvas))
+            else TREE_MOBILE_MENU_ROW_HEIGHT
+            for option in self.dropdown.options
+        )
+        menu_height = min(float(self.dropdown.menu_height), options_height + 16)
+        self.dropdown.menu_style = ft.MenuStyle(
+            alignment=ft.Alignment(-1, -menu_height / self._field_height),
+            padding=ft.Padding.symmetric(vertical=8),
+        )
+
+    def _resized(self, event: fc.CanvasResizeEvent) -> None:
+        if event.height > 0 and event.height != self._field_height:
+            self._field_height = event.height
+            self._align_menu()
+            self.update()
+
+
 class CategoryConnectorRow(fc.Canvas):
     def __init__(
         self,

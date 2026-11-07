@@ -9,6 +9,11 @@ import flet as ft
 import flet.canvas as fc
 
 from app.ui.datetime_fields import DateTimeFields
+from app.ui.tree_style import CategoryMenuAnchor
+
+
+def dropdown_field(control: ft.Control) -> ft.Control:
+    return control.dropdown if isinstance(control, CategoryMenuAnchor) else control
 
 
 def assert_deletion_title(dialog: ft.AlertDialog, title: str) -> None:
@@ -88,6 +93,10 @@ def transaction_form(dialog: ft.AlertDialog) -> TransactionForm:
             when = control
         if isinstance(control.data, str):
             controls[control.data] = control
+        if isinstance(control, (ft.Container, fc.Canvas)) and isinstance(
+            control.content, ft.Control
+        ):
+            visit(control.content)
         if isinstance(control, (ft.Row, ft.Column, ft.ExpansionTile)):
             for child in control.controls or []:
                 visit(child)

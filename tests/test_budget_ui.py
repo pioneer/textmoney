@@ -8,8 +8,9 @@ from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
+import flet.canvas as fc
 import pytest
-from form_controls import assert_deletion_title, category_content
+from form_controls import assert_deletion_title, category_content, dropdown_field
 
 from app.domain.budgets import Budget, BudgetFilter, BudgetRow
 from app.domain.ledger import LedgerError
@@ -37,7 +38,7 @@ def walk(control: ft.Control) -> Iterator[ft.Control]:
     if isinstance(control, (ft.Column, ft.Row)):
         for child in control.controls:
             yield from walk(child)
-    if isinstance(control, ft.Container) and isinstance(control.content, ft.Control):
+    if isinstance(control, (ft.Container, fc.Canvas)) and isinstance(control.content, ft.Control):
         yield from walk(control.content)
     if isinstance(control, ft.ListTile) and isinstance(control.title, ft.Control):
         yield from walk(control.title)
@@ -199,6 +200,11 @@ def test_budget_category_dropdown_is_parent_first_and_indented(
             ("Income:Work:Bonus", "Bonus"),
         ]
         assert category.menu_height == (320 if width <= 599 else None)
+        if width <= 599:
+            assert category.menu_style and category.menu_style.alignment
+            assert category.menu_style.alignment.y < 0
+        else:
+            assert category.menu_style is None
         for option, depth in zip(category.options, [0, 1, 2, 0, 0, 1], strict=True):
             content = category_content(option)
             assert content.padding == ft.Padding.only(left=16 * depth)
@@ -251,7 +257,8 @@ def test_budget_form_dropdowns_fill_the_form(
             row = next(
                 control
                 for control in dialog.content.controls
-                if isinstance(control, ft.Row) and control.controls == [dropdown]
+                if isinstance(control, ft.Row)
+                and [dropdown_field(child) for child in control.controls] == [dropdown]
             )
             assert row.width is None and not row.wrap
             assert dropdown.expand is True and dropdown.width is None

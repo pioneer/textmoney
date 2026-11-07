@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import pytest
 from beancount import loader
-from form_controls import change, click, click_async, transaction_form
+from form_controls import change, click, click_async, dropdown_field, transaction_form
 
 from app.domain.ledger import ADJUSTMENTS, BANK_FEES, EPOCH
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -112,7 +112,8 @@ def test_category_and_date_inputs_use_matching_row_spacing(
             control
             for control in dialog.content.controls
             if isinstance(control, ft.Row)
-            and control.controls == [form.category, form.category_create]
+            and [dropdown_field(child) for child in control.controls]
+            == [form.category, form.category_create]
         )
         date_row = form.when.controls[0]
         assert isinstance(date_row, ft.Row)
@@ -568,7 +569,10 @@ def test_sign_second_account_and_hidden_controls_preserve_draft_and_infer_only_v
         ):
             assert isinstance(row, ft.Row)
             if dropdown is form.category:
-                assert row.controls == [dropdown, form.category_create]
+                assert [dropdown_field(child) for child in row.controls] == [
+                    dropdown,
+                    form.category_create,
+                ]
             else:
                 assert row.controls == [dropdown]
         assert len(form.when.controls) == 1

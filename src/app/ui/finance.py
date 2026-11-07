@@ -89,6 +89,7 @@ from app.ui.tree_style import (
     TREE_MOBILE_MENU_ROW_HEIGHT,
     TREE_ROW_HEIGHT,
     CategoryConnectorRow,
+    CategoryMenuAnchor,
     compact_tree_leaf,
     compact_tree_theme,
     compact_tree_tile,
@@ -3417,7 +3418,7 @@ class FinanceView(ft.Row):
             icon=ft.Icons.ADD,
             tooltip=self.tr("create_category"),
         )
-        category_row = ft.Row([category, category_create], spacing=0)
+        category_row = ft.Row([self._category_menu_anchor(category), category_create], spacing=0)
         amount = ft.TextField(
             data="amount",
             expand=True,
@@ -4831,6 +4832,11 @@ class FinanceView(ft.Row):
 
     def _category_menu_height(self) -> int | None:
         return 320 if self.screen_class == ScreenClass.COMPACT else None
+
+    def _category_menu_anchor(self, dropdown: ft.Dropdown) -> ft.Control:
+        return (
+            CategoryMenuAnchor(dropdown) if self.screen_class == ScreenClass.COMPACT else dropdown
+        )
 
     def _category_option_lines(self, options: list[ft.DropdownOption]) -> list[ft.DropdownOption]:
         paths = [(option.key or "").split(":") for option in options]

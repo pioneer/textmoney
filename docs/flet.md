@@ -78,6 +78,12 @@ the main tree retains its native expansion behavior. Transaction and budget menu
 name-only labels and a 320-pixel height limit on compact screens, with the
 default full-height menu on wider screens. Category-parent menus retain codes.
 
+Compact transaction and budget menus overlap their category field, extending
+above and below it rather than opening only downward. A bounded field measurement
+and the option row heights determine the menu alignment, including shorter lists;
+Flutter retains screen-edge and keyboard-inset handling. Wide-screen positioning
+is unchanged.
+
 The main Accounting category tree retains its native expansion controls and
 actions. Connector gutters replace, rather than add to, its child indentation;
 ancestor stems span expanded subtrees while branches remain aligned with each

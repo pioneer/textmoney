@@ -9,7 +9,7 @@ possible. Keep independent backups of important financial data.
 
 TextMoney is being developed with substantial AI assistance.
 
-![TextMoney v0.4.3 desktop Home with white surfaces, account icons, liability balances and cross-currency transfers](docs/screenshots/home-desktop.png)
+![TextMoney v0.4.7 desktop Home with seven sidebar destinations, account icons, liability balances and recent transactions](docs/screenshots/home-desktop.png)
 
 ## Implemented
 
@@ -25,18 +25,22 @@ TextMoney is being developed with substantial AI assistance.
 - Organize expenses with hierarchical categories.
 - Review balances in the configured currency order and compact transaction rows
   grouped by date, with summaries above account movements.
-- Use compact phone and desktop layouts, with Settings in a top-right gear on
-  mobile and in the navigation rail on wider screens. Transactions, Reports,
-  Accounting and wider-layout Settings reserve scrolling space below content
-  for the floating Add button.
+- Use compact phone and desktop layouts. The desktop sidebar opens Home,
+  Transactions, Budgets, Reports, Accounts, Categories and Settings directly.
+  Mobile shows the first four destinations in the bottom bar, with Accounts and
+  Categories under **More** beside the separate Settings gear. Secondary screens
+  have a Back action, and resizing preserves the current screen.
 - View income, net expenses and net result in currency-specific period reports,
   with current/previous month, year-to-date or custom date ranges and category
   breakdowns.
-- Manage journal-backed category budgets under **Accounting → Budgets** and
-  monitor spending under **Reports → Budgets**: a monthly spending overview,
-  searchable category/account trees, currency-specific figures and overspending.
-  Budget definitions support daily through yearly frequencies and historical
-  or future changes.
+- Manage journal-backed category budgets and monitor spending on one **Budgets**
+  screen, with monthly navigation, collapsible category/overspending filters,
+  currency-specific figures and transaction drilldown. Create budgets or open
+  **Budget history** even when the displayed month has no budget cards.
+  Cards show each limit's effective date and offer Edit, Delete, Change from a
+  date and Discontinue from a date. Dated changes preserve earlier limits;
+  history also exposes superseded, future and stopped definitions.
+  Budget definitions support daily through yearly frequencies.
   Calculations are checked against Fava 1.30.16 within TextMoney's existing
   accounting subset. See [Budgeting](docs/budgets.md).
 - Delete editable transactions after confirmation; deactivate and reactivate
@@ -145,7 +149,7 @@ Ubuntu or Arch configuration.
 
 1. Open TextMoney and choose a dedicated local data folder.
 2. Create an account with its currency and, optionally, an opening balance.
-3. Add expense categories under **Accounting → Categories**.
+3. Add expense categories under **Categories** (under **More** on mobile).
    Account and category creation forms offer optional **Choose icon**, with a
    preview before creation; the same picker is available when creating a category
    inside a transaction. Canceling creation does not save the icon.
@@ -159,7 +163,7 @@ the category selector shows income categories. For special receipts, use
 **Expense reimbursement** reduces an expense category, while
 **Balance adjustment** records receipts that should affect neither
 income nor current expenses (for example, recovery of a pre-tracking purchase).
-Create income categories under **Accounting → Categories** by selecting the Income category type.
+Create income categories under **Categories** by selecting the Income category type.
 Reimbursements reduce expenses on the date received, which can produce negative
 net expenses in that period. A linked expense is a reference, not a tracked debt.
 
@@ -226,16 +230,28 @@ Deleting an account/category with history, or a category with children, opens an
 explanation instead of the editor. Choose **Edit** there to change its Active
 checkbox; Cancel or Escape leaves it unchanged. Unused items still have a
 permanent-deletion confirmation.
+On wider layouts, a subtle row-wide hover highlight connects Edit/Delete actions
+with their account, category, transaction or budget.
 
 On desktop, **Escape** cancels the active popup and **Enter** submits through the
 same checks as its primary button. In multiline descriptions, **Shift+Enter**
 adds a new line. Focused buttons and dropdowns keep their normal keyboard actions;
 disabled actions cannot be submitted.
 
-<img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense with matching account and category selectors in TextMoney v0.4.3's compact phone layout" width="360">
+<img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense with account and category icons in TextMoney v0.4.7's compact phone layout" width="360">
 
-*Editing an expense in the compact layout. Screenshots use synthetic data from
-TextMoney v0.4.3 (build 51), not a personal journal.*
+*Editing an expense in the compact layout. All screenshots use synthetic data
+from TextMoney v0.4.7 (build 55), not a personal journal.*
+
+<img src="docs/screenshots/navigation-mobile.png" alt="TextMoney v0.4.7's four mobile bottom destinations and More menu for Accounts and Categories, beside the Settings gear" width="360">
+
+*The mobile More menu opens Accounts and Categories directly. The bottom bar
+and menu follow the same destination order as the desktop sidebar.*
+
+![TextMoney v0.4.7's unified Budgets screen, with Create budget and Budget history actions, effective limit dates and per-card actions](docs/screenshots/budgets-desktop.png)
+
+*Budgets keeps the selected month visible and filters tucked away. Dated limit
+history is available separately without switching tabs.*
 
 Settings lets you choose appearance and timezone. **Advanced → Journal display
 currencies** controls Home balance section order and how compatible applications
@@ -250,7 +266,7 @@ transfer fees remain expenses while transfer/loan principal and balance
 adjustments are excluded. Amounts in different currencies are always shown
 separately; reports do not infer exchange rates.
 
-![TextMoney v0.4.3 Reports in the desktop layout, with a calendar month heading and EUR income, expenses, net result and category totals](docs/screenshots/reports-desktop.png)
+![TextMoney v0.4.7 Reports in the desktop layout, with EUR income, expenses, net result and hierarchical category totals](docs/screenshots/reports-desktop.png)
 
 *A monthly report with separate income and expense category breakdowns.*
 
@@ -339,6 +355,7 @@ record historical behavior, not current instructions.
 
 | Version | Highlights |
 | --- | --- |
+| [0.4.7](https://github.com/pioneer/textmoney/releases/tag/v0.4.7) | Direct Budgets, Accounts and Categories destinations; shared mobile bottom-bar/More navigation; unified budgets with dated limit history; consistent toolbars and row hover feedback. Refreshed screenshots. Android build 55. |
 | [0.4.3](https://github.com/pioneer/textmoney/releases/tag/v0.4.3) | White light-theme surfaces with restrained mint accents; clearer transaction icons, calendar headings and status indicators; consistent selectors and inline deletion warnings; top-aligned Home balances. Refreshed screenshots. Android build 51. |
 | [0.4.0](https://github.com/pioneer/textmoney/releases/tag/v0.4.0) | Refined cross-currency transfers with two-line amounts and reciprocal rate previews; clearer native liability debt/credit balances; optional icons during account/category creation, including quick category creation. Refreshed screenshots. Android build 48. |
 | [0.3.16](https://github.com/pioneer/textmoney/releases/tag/v0.3.16) | First TextMoney release: unified application, storage and package identity; Android, Linux and Windows downloads. Includes account/category management, transactions, currency-separated reports, category budgets, conflict protection and verified backups. Android build 39. |

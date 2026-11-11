@@ -63,16 +63,21 @@ def test_daily_report_keys_close_without_writes(
     "platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.MACOS]
 )
 @pytest.mark.parametrize("key", ["Escape", "Enter", "Numpad Enter"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
 def test_budget_history_keys_and_nested_editor_preserve_report_state(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: ft.PagePlatform, key: str
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    platform: ft.PagePlatform,
+    key: str,
+    newline: str,
 ) -> None:
     async def scenario() -> None:
         source = (
             "2000-01-01 open Expenses:Food\n"
             '2026-01-01 custom "budget" Expenses:Food "monthly" 10 USD\n'
             '2026-01-15 custom "budget" Expenses:Food "monthly" 20 USD\n'
-        )
-        (tmp_path / FILENAME).write_text(source, encoding="utf-8")
+        ).replace("\n", newline)
+        (tmp_path / FILENAME).write_bytes(source.encode("utf-8"))
         session = keyboard_session(platform)
         monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
         view = FinanceView()
@@ -110,7 +115,7 @@ def test_budget_history_keys_and_nested_editor_preserve_report_state(
         assert report.currency.value == "USD"
         assert report.filters.visible and report.overspent.value
         assert journal.source == source
-        assert (tmp_path / FILENAME).read_text(encoding="utf-8") == source
+        assert (tmp_path / FILENAME).read_bytes() == source.encode("utf-8")
         report._show_history(MagicMock())
         reopened = session.page._dialogs.controls[-1]
         assert isinstance(reopened, ft.AlertDialog) and reopened.open

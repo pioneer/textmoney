@@ -406,9 +406,32 @@ def test_overview_month_arrows_presets_and_refresh_preserve_selected_month(
         assert previous is view.report_previous and following is view.report_next
         assert isinstance(month_heading, ft.Row)
         calendar, label = month_heading.controls
+        assert isinstance(label, ft.Text)
         assert isinstance(calendar, ft.Icon) and calendar.icon == ft.Icons.CALENDAR_TODAY
         assert calendar.size == 16 and label is view.report_month_label
         assert month_heading.alignment == ft.MainAxisAlignment.CENTER
+        assert label.size == 16 and label.weight == ft.FontWeight.W_500
+        assert label.color == calendar.color == ft.Colors.PRIMARY
+        budget_period = view.budgets.controls[1]
+        assert isinstance(budget_period, ft.Column) and budget_period.spacing == 0
+        budget_month, budget_actions = budget_period.controls
+        assert isinstance(budget_month, ft.Row) and isinstance(budget_actions, ft.Row)
+        assert budget_month.controls == [
+            view.budgets.previous,
+            view.budgets.period,
+            view.budgets.next,
+        ]
+        assert view.budgets.current in budget_actions.controls
+        filter_anchor = budget_actions.controls[-1]
+        assert isinstance(filter_anchor, ft.Container)
+        assert filter_anchor.content is view.budgets.filter_toggle
+        assert filter_anchor.alignment == ft.Alignment.CENTER_RIGHT
+        for arrow in (previous, following, view.budgets.previous, view.budgets.next):
+            assert isinstance(arrow, ft.IconButton)
+            assert arrow.icon_size == 20
+            assert arrow.size_constraints == ft.BoxConstraints(min_width=48, min_height=48)
+        assert isinstance(view.budgets.period.style, ft.ButtonStyle)
+        assert view.budgets.period.style.text_style == ft.TextStyle(size=16, weight=label.weight)
         assert view.report_month_navigation.visible
         assert view.report_month_label.value == f"{view.tr('date_month_03')} 2024"
         assert view.report_previous.tooltip == view.tr("budget_previous")

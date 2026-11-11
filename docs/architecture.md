@@ -86,11 +86,11 @@ the required fallback. See the [localization guide](localization.md) for
 validation, compilation and Weblate setup. One width classifier selects bottom navigation for compact displays and
 a navigation rail for medium/expanded displays. Compact layouts have four bottom
 destinations: Home, Transactions, Budgets and Reports. A localized Management
-header menu opens the Accounts or Categories tab of Accounting, separately from
-the Settings gear. Compact Accounting and Settings hide the bottom bar and
-transaction action; their back arrows restore the previous screen. Accounting
-remembers its previous primary screen, including across resizing and Settings.
-Medium/expanded layouts use Home, Transactions, Budgets, Reports, Accounting and
+header menu opens the standalone Accounts or Categories screen, separately from
+the Settings gear. Compact Accounts, Categories and Settings hide the bottom bar and
+transaction action; their back arrows restore the previous screen.
+Management navigation history survives resizing and Settings.
+Medium/expanded layouts use Home, Transactions, Budgets, Reports, Accounts, Categories and
 Settings rail destinations without the header gear or Management menu. Budgets
 selects its own item in both layouts and has no temporary back-to-Reports action.
 This follows available width, not the operating system.
@@ -109,6 +109,18 @@ Transaction leading icons have a rounded theme-aware background; grouping dates
 and both report-month headings include a calendar icon. The main status line
 uses matching small outlined-circle success, information or error/warning icons.
 Assigned artwork, financial figures and interactions are unchanged.
+Primary screens share the same header/status shell and 20-pixel horizontal
+gutters. Accounts and Categories are unframed lists; their right-aligned creation
+toolbars match Budgets, with 240-by-48-pixel buttons and eight-pixel wrapping
+gaps. Borders remain around meaningful Home currency, Operations summary,
+Reports and Settings groups (16-pixel padding, 12-pixel corners), not whole
+management screens. Settings actions align to the right of their own section;
+Cancel precedes Save. Shared action and month-navigation layouts live in
+`app.ui.layout`. Reports and Budgets use matching 16-pixel medium-weight month
+headings, calendar icons and 48-pixel arrow targets. Budgets groups its month
+navigation with Current month and the right-aligned filter toggle to avoid an
+extra toolbar row. The floating transaction action and its scroll clearance
+are unchanged.
 Operations account/category filters use matching input text and 16-pixel artwork
 with name-only labels; category menus retain their hierarchy. Category menu
 labels inherit the same native size and weight as account menu labels, including
@@ -173,7 +185,9 @@ algorithms; its notice is shipped in `app/notices/fava.txt`. It uses a separate
 oracles, not runtime engines. There are no envelopes or rollover rules. See
 [budgeting](budgets.md) for calculation boundaries and reference tests.
 
-Accounting has Accounts and Categories tabs. Budgets is a single screen available
+Accounts and Categories are separate screens, each reusing its existing panel,
+forms and actions; there is no shared Accounting tab container.
+Budgets is a single screen available
 from primary navigation. Reports contains only its reporting overview. Creation sits above the budget report
 cards; dated limit actions reuse the existing budget dialogs, right-aligned beside
 the card title. A Budget history button beside creation opens all dated definitions
@@ -182,7 +196,7 @@ category, currency and overspending, not accounts.
 All controls have a single parent and share the same journal and budget view
 coordinator. Month, filters and open drafts persist across navigation, saves and
 resizing. Compact navigation retains
-four destinations; the medium/wide rail has six, including Budgets.
+four destinations; the medium/wide rail has seven.
 Operations has optional account and category selectors, combined with AND.
 The selectors start collapsed behind a filter icon; collapsing them preserves
 active selections, indicated by the highlighted icon. Each selector includes
@@ -191,7 +205,7 @@ options reuse the parent-first indented hierarchy from category creation.
 Account matching is exact; category matching includes colon-delimited descendants.
 Filters retain whole transactions, including fees and counterpart postings, and
 apply to daily summaries and their report popups, not Home or account balances.
-Accounting account/category receipt actions open Operations with that entity
+Account/category receipt actions open Operations with that entity
 selected, expand the selectors and clear the other filter. Selections survive navigation, resizing and
 ordinary refreshes; missing entities are cleared. These are session-only UI
 choices and do not modify the journal or shared settings.

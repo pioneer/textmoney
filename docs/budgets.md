@@ -7,7 +7,7 @@ medium/wide sidebar. Reports has no Budgets shortcut;
 there is no back-to-Reports action.
 The selected month, filters and open budget drafts survive navigation, saving
 and layout changes.
-Accounting contains only Accounts and Categories. Budgets live exclusively in the selected
+Accounts and Categories have separate screens. Budgets live exclusively in the selected
 `textmoney.beancount` journal:
 
 ```beancount
@@ -38,6 +38,7 @@ MIT algorithms and their complete license notice are shipped in
   future and stopped limits, with the same editing actions. Both buttons remain
   available when no cards are shown. Closing history preserves the month and filters.
   The two buttons have equal widths and stay right-aligned when they wrap on mobile.
+  Their 240-by-48-pixel size and toolbar spacing match Create on Accounts and Categories.
 - Each history definition has **View in reports**. It opens the cards at the
   current month when the definition applies during any part of that month;
   otherwise it opens the month the definition starts. It closes history, selects its currency and clears category
@@ -145,6 +146,8 @@ Overspending does not block transactions.
   category, currency and **Only overspent**, plus active chips and reset.
   Collapsing the panel keeps its selections; the icon is highlighted while any
   filter is active. Month navigation and **Current month** remain visible.
+  Current month and the filter toggle share a row beneath the month navigation;
+  its heading and arrow targets match Reports.
 - **Category** is an Operations-style dropdown with friendly names, assigned
   icons and hierarchy guides. Selecting a parent includes its descendants, not similarly named
   siblings. Only categories budgeted in this month and their ancestors appear
@@ -216,7 +219,7 @@ presentation behavior when Node is available (including exact rounding edges).
 It exercises no-locale and en/uk/ru/de/fr/hi settings; it is explicitly skipped
 without Node, while Python/Fava reference comparisons still run.
 
-UI/storage tests cover localized compact/wide Accounting tabs and budget reporting,
+UI/storage tests cover localized compact/wide management navigation and budget reporting,
 budgeted-only report visibility, month selection/boundaries/leap days, searchable
 tree selection and sibling isolation, unconverted multi-currency figures,
 account-filter warnings, active-chip removal/reset, zero-budget overspending,

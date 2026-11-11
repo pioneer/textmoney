@@ -80,8 +80,8 @@ def test_budget_navigation_responsive_and_localized(
     assert host.budgets.period.icon.icon == ft.Icons.CALENDAR_TODAY
     assert host.budgets.period.icon.size == 16
     host.language = language
-    host._navigate("accounts", accounting_tab=1)
-    assert host.categories_panel.visible and not host.accounts_panel.visible
+    host._navigate("categories")
+    assert host.screen_host.content is host.categories_screen
     assert host.budgets not in list(walk(host.accounts_screen))
     host._navigate("reports")
     assert host.report_overview in host.reports_screen.controls
@@ -116,13 +116,13 @@ def test_budget_navigation_responsive_and_localized(
         assert host.current_screen == "budgets"
         assert host.screen_host.content is host.budgets_screen
         assert host.screen_host.padding == ft.Padding.only(bottom=96)
-        host._navigate("accounts")
-        assert host.accounting_tabs.selected_index == 1 and host.categories_panel.visible
+        host._navigate("categories")
+        assert host.screen_host.content is host.categories_screen
         assert host.accounts_panel.width == host.categories_panel.width
-        assert host._selected_index() == (2 if width <= 599 else 4)
+        assert host._selected_index() == (2 if width <= 599 else 5)
         host._open_settings(MagicMock())
         host._back_from_settings(MagicMock())
-        assert host.current_screen == "accounts" and host.categories_panel.visible
+        assert host.current_screen == "categories"
         host._navigate("budgets")
         assert host.budgets.add.content == host.tr("create_budget")
         assert host.budgets.add.icon == ft.Icons.ADD
@@ -131,7 +131,7 @@ def test_budget_navigation_responsive_and_localized(
     assert host.current_screen == "reports"
     assert host.screen_host.content is host.reports_screen
     host._go_accounts(MagicMock())
-    assert host.accounts_panel.visible and not host.categories_panel.visible
+    assert host.screen_host.content is host.accounts_screen
     host.will_unmount()
 
 

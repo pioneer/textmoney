@@ -21,6 +21,7 @@ from app.domain.reporting import shift_month
 from app.localization import date_input, format_budget_number, format_date, localized_error
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
+from app.ui.layout import action_toolbar, month_navigation
 from app.ui.tree_style import compact_tree_theme
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ _REPORT_TEXT_INSET = 14
 
 class BudgetView(ft.Column):
     def __init__(self, host: "FinanceView") -> None:
-        super().__init__(spacing=12)
+        super().__init__(spacing=16)
         self.host = host
         self.worker: Future[None] | None = None
         self.generation = 0
@@ -48,6 +49,8 @@ class BudgetView(ft.Column):
         self.period = ft.TextButton(
             icon=ft.Icon(ft.Icons.CALENDAR_TODAY, size=16),
             expand=True,
+            height=48,
+            style=ft.ButtonStyle(text_style=ft.TextStyle(size=16, weight=ft.FontWeight.W_500)),
             on_click=self._pick_month,
         )
         self.current = ft.TextButton(on_click=self._current_month)
@@ -65,7 +68,7 @@ class BudgetView(ft.Column):
         self.loading = ft.ProgressRing(visible=False)
         self.results = ft.Column(spacing=12)
         self.definitions = ft.Column(spacing=8)
-        self.add = ft.Button(icon=ft.Icons.ADD, width=240, on_click=self._new)
+        self.add = ft.Button(icon=ft.Icons.ADD, width=240, height=48, on_click=self._new)
         self.previous = ft.IconButton(icon=ft.Icons.CHEVRON_LEFT, on_click=self._previous)
         self.next = ft.IconButton(icon=ft.Icons.CHEVRON_RIGHT, on_click=self._next)
         self.filter_toggle = ft.IconButton(
@@ -85,15 +88,27 @@ class BudgetView(ft.Column):
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
         self.history_help = ft.Text(size=12)
-        self.history = ft.Button(width=240, on_click=self._show_history)
+        self.history = ft.Button(width=240, height=48, on_click=self._show_history)
         self.controls = [
-            ft.Container(
-                ft.Row([self.add, self.history], alignment=ft.MainAxisAlignment.END, wrap=True),
-                alignment=ft.Alignment.CENTER_RIGHT,
+            action_toolbar(self.add, self.history),
+            ft.Column(
+                [
+                    month_navigation(self.previous, self.period, self.next),
+                    ft.Row(
+                        [
+                            ft.Container(expand=True),
+                            self.current,
+                            ft.Container(
+                                self.filter_toggle,
+                                expand=True,
+                                alignment=ft.Alignment.CENTER_RIGHT,
+                            ),
+                        ],
+                        spacing=8,
+                    ),
+                ],
+                spacing=0,
             ),
-            ft.Row([self.previous, self.period, self.next]),
-            ft.Row([self.current], alignment=ft.MainAxisAlignment.CENTER),
-            ft.Row([self.filter_toggle], alignment=ft.MainAxisAlignment.END),
             self.filters,
             self.error,
             self.loading,

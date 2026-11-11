@@ -265,10 +265,18 @@ def test_locale_sensitive_formatting_does_not_change_decimal_value() -> None:
 
 
 @pytest.mark.parametrize(
-    ("language", "label"), [("en", "Accounting"), ("uk", "Облік"), ("ru", "Учёт")]
+    ("language", "accounts", "categories"),
+    [
+        ("en", "Accounts", "Categories"),
+        ("uk", "Рахунки", "Категорії"),
+        ("ru", "Счета", "Категории"),
+    ],
 )
-def test_accounting_navigation_label(language: str, label: str) -> None:
-    assert translate(language, "nav_accounts") == label
+def test_separate_management_navigation_labels(
+    language: str, accounts: str, categories: str
+) -> None:
+    assert translate(language, "accounts_title") == accounts
+    assert translate(language, "categories_title") == categories
 
 
 def test_known_accounting_errors_are_localized() -> None:
@@ -307,7 +315,7 @@ def test_navigation_has_consistent_destinations_and_adapts_on_resize(
         "Reports",
     ]
     assert len(view.navigation_bar.destinations) == 4
-    assert len(view.nav_rail.destinations) == 6
+    assert len(view.nav_rail.destinations) == 7
     assert view.settings_button.visible
     assert view.screen_class == ScreenClass.COMPACT
     assert page.navigation_bar is view.navigation_bar

@@ -83,6 +83,7 @@ from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import deletion_title, show_dialog
 from app.ui.icons import IconDraft, IconPicker, icon_image
+from app.ui.layout import action_toolbar, month_navigation
 from app.ui.theme import NAVIGATION_SURFACE, summary_theme
 from app.ui.tree_style import (
     TREE_MENU_ROW_HEIGHT,
@@ -109,7 +110,15 @@ COMPACT_MAX_WIDTH = 599
 MEDIUM_MAX_WIDTH = 1023
 MAX_CONTENT_WIDTH = 1180
 COMPACT_DESTINATIONS = ("home", "transactions", "budgets", "reports")
-RAIL_DESTINATIONS = ("home", "transactions", "budgets", "reports", "accounts", "settings")
+RAIL_DESTINATIONS = (
+    "home",
+    "transactions",
+    "budgets",
+    "reports",
+    "accounts",
+    "categories",
+    "settings",
+)
 
 
 class ScreenClass(StrEnum):
@@ -168,7 +177,7 @@ class FinanceView(ft.Row):
         self.screen_class = ScreenClass.COMPACT
         self.current_screen = "home"
         self.settings_return_screen = "home"
-        self.accounting_return_screen = "home"
+        self.management_history: list[str] = []
         self.message_key = "no_folder"
         self.error_message: str | None = None
         self.diagnostics_visible = False
@@ -259,11 +268,11 @@ class FinanceView(ft.Row):
                 ft.Text(self.tr("crud_operating_help")),
                 self.operating_currencies,
                 ft.Text(self.tr("display_currency_codes"), size=12),
-                ft.Row([self.operating_save, self.operating_cancel], wrap=True),
+                action_toolbar(self.operating_cancel, self.operating_save),
             ],
             maintain_state=True,
             controls_padding=16,
-            expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
+            expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
         )
         self.operating_source = ""
         self.operating_original = ""
@@ -330,18 +339,24 @@ class FinanceView(ft.Row):
         self.report_next = ft.IconButton(
             icon=ft.Icons.CHEVRON_RIGHT, on_click=self._report_next_month
         )
-        self.report_month_label = ft.Text(text_align=ft.TextAlign.CENTER)
-        self.report_month_navigation = ft.Row(
-            [
-                self.report_previous,
-                ft.Row(
-                    [ft.Icon(ft.Icons.CALENDAR_TODAY, size=16), self.report_month_label],
-                    expand=True,
-                    spacing=8,
-                    alignment=ft.MainAxisAlignment.CENTER,
-                ),
-                self.report_next,
-            ]
+        self.report_month_label = ft.Text(
+            text_align=ft.TextAlign.CENTER,
+            size=16,
+            weight=ft.FontWeight.W_500,
+            color=ft.Colors.PRIMARY,
+        )
+        self.report_month_navigation = month_navigation(
+            self.report_previous,
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.CALENDAR_TODAY, size=16, color=ft.Colors.PRIMARY),
+                    self.report_month_label,
+                ],
+                expand=True,
+                spacing=8,
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
+            self.report_next,
         )
         self.report_start = DateTimeFields(
             self.language,
@@ -404,34 +419,17 @@ class FinanceView(ft.Row):
         self.accounts_panel_content = ft.Column(spacing=16)
         self.categories_panel_content = ft.Column(spacing=16)
         self.accounts_panel = ft.Container(
-            padding=16,
-            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=12,
             content=self.accounts_panel_content,
         )
         self.categories_panel = ft.Container(
             theme=compact_tree_theme(),
-            padding=16,
-            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=12,
             content=self.categories_panel_content,
-            visible=False,
         )
-        self.account_save = ft.Button(icon=ft.Icons.ADD, on_click=self._create_account)
-        self.category_save = ft.Button(icon=ft.Icons.ADD, on_click=self._create_category)
-        self.accounting_tab_bar = ft.TabBar(tabs=[], scrollable=False, secondary=True)
-        self.accounting_tabs = ft.Tabs(
-            length=2,
-            selected_index=0,
-            on_change=self._accounting_tab_changed,
-            content=ft.Column(
-                [
-                    self.accounting_tab_bar,
-                    self.accounts_panel,
-                    self.categories_panel,
-                ],
-                spacing=16,
-            ),
+        self.account_save = ft.Button(
+            icon=ft.Icons.ADD, width=240, height=48, on_click=self._create_account
+        )
+        self.category_save = ft.Button(
+            icon=ft.Icons.ADD, width=240, height=48, on_click=self._create_category
         )
         self.fab = ft.FloatingActionButton(
             icon=ft.Icons.ADD,
@@ -475,6 +473,7 @@ class FinanceView(ft.Row):
         self.home_screen = ft.Column(spacing=20)
         self.transactions_screen = ft.Column(spacing=12)
         self.accounts_screen = ft.Column(spacing=16)
+        self.categories_screen = ft.Column(spacing=16)
         self.settings_screen = ft.Column(spacing=16)
         self.screen_host = ft.Container(expand=True, content=self.home_screen)
 
@@ -491,9 +490,9 @@ class FinanceView(ft.Row):
             on_click=self._back_from_settings,
             visible=False,
         )
-        self.accounting_back = ft.IconButton(
+        self.management_back = ft.IconButton(
             icon=ft.Icons.ARROW_BACK,
-            on_click=self._back_from_accounting,
+            on_click=self._back_from_management,
             visible=False,
         )
         self.management_accounts = ft.PopupMenuItem(on_click=self._manage_accounts)
@@ -530,7 +529,7 @@ class FinanceView(ft.Row):
                     content=ft.Row(
                         [
                             self.settings_back,
-                            self.accounting_back,
+                            self.management_back,
                             self.header_titles,
                             self.management_menu,
                             self.settings_button,
@@ -672,7 +671,8 @@ class FinanceView(ft.Row):
             {
                 "home": "nav_home",
                 "transactions": "nav_transactions",
-                "accounts": "nav_accounts",
+                "accounts": "accounts_title",
+                "categories": "categories_title",
                 "reports": "nav_reports",
                 "budgets": "budget_title",
                 "settings": "nav_settings",
@@ -700,7 +700,7 @@ class FinanceView(ft.Row):
             ft.Text(self.tr("crud_operating_help")),
             self.operating_currencies,
             ft.Text(self.tr("display_currency_codes"), size=12),
-            ft.Row([self.operating_save, self.operating_cancel], wrap=True),
+            action_toolbar(self.operating_cancel, self.operating_save),
         ]
         self.operating_save.content = self.tr("crud_save")
         self.operating_save.disabled = not (self.journal and self.journal.ready)
@@ -757,10 +757,11 @@ class FinanceView(ft.Row):
             ),
             "budgets": ("budget_title", ft.Icons.BAR_CHART_OUTLINED, ft.Icons.BAR_CHART),
             "accounts": (
-                "nav_accounts",
+                "accounts_title",
                 ft.Icons.ACCOUNT_BALANCE_WALLET_OUTLINED,
                 ft.Icons.ACCOUNT_BALANCE_WALLET,
             ),
+            "categories": ("categories_title", ft.Icons.CATEGORY_OUTLINED, ft.Icons.CATEGORY),
             "reports": ("nav_reports", ft.Icons.INSIGHTS, ft.Icons.INSIGHTS),
             "settings": ("nav_settings", ft.Icons.SETTINGS_OUTLINED, ft.Icons.SETTINGS),
         }
@@ -785,12 +786,13 @@ class FinanceView(ft.Row):
         self.management_menu.tooltip = self.tr("management")
         self.management_menu.visible = compact and self.current_screen not in {
             "accounts",
+            "categories",
             "settings",
         }
         self.management_accounts.content = self.tr("accounts_title")
         self.management_categories.content = self.tr("categories_title")
-        self.accounting_back.visible = compact and self.current_screen == "accounts"
-        self.accounting_back.tooltip = self.tr("nav_back")
+        self.management_back.visible = compact and self.current_screen in {"accounts", "categories"}
+        self.management_back.tooltip = self.tr("nav_back")
         self.settings_button.visible = compact and self.current_screen != "settings"
         self.settings_button.tooltip = self.tr("nav_settings")
         self.settings_back.visible = compact and self.current_screen == "settings"
@@ -822,24 +824,21 @@ class FinanceView(ft.Row):
         self.fab.content = self.tr("add_transaction")
         self.fab.disabled = not ready
         self.transactions_screen.controls = [
-            ft.Row([self.operations_filter_toggle], alignment=ft.MainAxisAlignment.END),
+            action_toolbar(self.operations_filter_toggle),
             self.operations_filters,
             self.operations_totals,
             ft.Container(content=self.history, padding=ft.Padding.only(bottom=96)),
         ]
         self.accounts_panel_content.controls = [
-            ft.Row([self.account_save], alignment=ft.MainAxisAlignment.END, wrap=True),
+            action_toolbar(self.account_save),
             self.account_list,
         ]
         self.categories_panel_content.controls = [
-            ft.Row([self.category_save], alignment=ft.MainAxisAlignment.END, wrap=True),
+            action_toolbar(self.category_save),
             self.category_list,
         ]
-        self.accounting_tab_bar.tabs = [
-            ft.Tab(label=self.tr("accounts_title")),
-            ft.Tab(label=self.tr("categories_title")),
-        ]
-        self.accounts_screen.controls = [self.accounting_tabs]
+        self.accounts_screen.controls = [self.accounts_panel]
+        self.categories_screen.controls = [self.categories_panel]
         self.category_root.label = self.tr("incoming_type")
         self.category_root.options = [
             ft.DropdownOption(key="Expenses", text=self.tr("kind_expense")),
@@ -867,7 +866,7 @@ class FinanceView(ft.Row):
                         ft.Text(self.tr("storage_filename")),
                         self.folder_label,
                         self.access,
-                        ft.Row([self.select_button, self.reload_button], wrap=True),
+                        action_toolbar(self.select_button, self.reload_button),
                         ft.TextButton(
                             self.tr("recovery_review"),
                             on_click=self._review_recovery,
@@ -880,7 +879,7 @@ class FinanceView(ft.Row):
                         self.backup_cleanup,
                         ft.Text(self.tr("backups_policy")),
                         ft.Text(self.tr("backups_protected"), size=12),
-                        self.backup_clean_button,
+                        action_toolbar(self.backup_clean_button),
                     ],
                     spacing=12,
                 ),
@@ -898,20 +897,20 @@ class FinanceView(ft.Row):
                         ft.Text(self.tr("timezone"), size=18),
                         ft.Text(self.tr("timezone_help")),
                         self.timezone_choice,
-                        self.timezone_save,
+                        action_toolbar(self.timezone_save),
                         ft.Divider(),
                         ft.Text(self.tr("shared_settings_help"), size=12),
                         self.shared_details,
                         self.shared_review,
                         ft.Row([self.default_account]),
                         ft.Text(self.tr("default_account_help"), size=12),
-                        self.default_account_save,
+                        action_toolbar(self.default_account_save),
                         self.default_account_notice,
                         ft.Divider(),
                         self.fee_category_settings,
                         ft.Text(self.tr("fee_categories_help"), size=12),
                         ft.Row([self.default_fee]),
-                        self.default_fee_save,
+                        action_toolbar(self.default_fee_save),
                         self.default_fee_notice,
                     ],
                     spacing=12,
@@ -942,6 +941,7 @@ class FinanceView(ft.Row):
             "home": self.home_screen,
             "transactions": self.transactions_screen,
             "accounts": self.accounts_screen,
+            "categories": self.categories_screen,
             "reports": self.reports_screen,
             "budgets": self.budgets_screen,
             "settings": self.settings_screen,
@@ -959,8 +959,15 @@ class FinanceView(ft.Row):
             if self.current_screen == "settings"
             else self.current_screen
         )
-        if screen == "accounts":
-            screen = self.accounting_return_screen
+        if screen in {"accounts", "categories"}:
+            screen = next(
+                (
+                    item
+                    for item in reversed(self.management_history)
+                    if item in COMPACT_DESTINATIONS
+                ),
+                "home",
+            )
         return COMPACT_DESTINATIONS.index(screen)
 
     def _apply_layout(self, width: float | None) -> None:
@@ -976,7 +983,9 @@ class FinanceView(ft.Row):
             self.body.width = width
             if self.page:
                 self.page.navigation_bar = (
-                    None if self.current_screen in {"accounts", "settings"} else self.navigation_bar
+                    None
+                    if self.current_screen in {"accounts", "categories", "settings"}
+                    else self.navigation_bar
                 )
             rail_width = 0
         else:
@@ -1000,7 +1009,7 @@ class FinanceView(ft.Row):
             ]
             if self.page:
                 self.page.navigation_bar = None
-        available = max(320, (width or 390) - rail_width - 48)
+        available = max(0, (self.body.width or 390) - 40)
         self.accounts_panel.width = self.categories_panel.width = min(
             MAX_CONTENT_WIDTH - 40, available
         )
@@ -1011,7 +1020,7 @@ class FinanceView(ft.Row):
             ft.Padding.only(bottom=96)
             if self.current_screen in {"home", "budgets"}
             or (
-                self.current_screen in {"accounts", "settings"}
+                self.current_screen in {"accounts", "categories", "settings"}
                 and self.screen_class != ScreenClass.COMPACT
             )
             else None
@@ -1022,7 +1031,7 @@ class FinanceView(ft.Row):
             self.page.floating_action_button = (
                 None
                 if self.screen_class == ScreenClass.COMPACT
-                and self.current_screen in {"accounts", "settings"}
+                and self.current_screen in {"accounts", "categories", "settings"}
                 else self.fab
             )
 
@@ -5342,31 +5351,29 @@ class FinanceView(ft.Row):
         if self.page:
             self.page.update()
 
-    def _select_accounting_tab(self, index: int) -> None:
-        self.accounting_tabs.selected_index = index
-        self.accounts_panel.visible = index == 0
-        self.categories_panel.visible = index == 1
-
-    def _accounting_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
-        self._select_accounting_tab(event.control.selected_index)
-        self.page.update()
-
     def _manage_accounts(self, event: ft.Event[ft.PopupMenuItem]) -> None:
-        self._navigate("accounts", accounting_tab=0)
+        self._navigate("accounts")
 
     def _manage_categories(self, event: ft.Event[ft.PopupMenuItem]) -> None:
-        self._navigate("accounts", accounting_tab=1)
+        self._navigate("categories")
 
-    def _back_from_accounting(self, event: ft.Event[ft.IconButton]) -> None:
-        self._navigate(self.accounting_return_screen)
+    def _back_from_management(self, event: ft.Event[ft.IconButton]) -> None:
+        self._navigate(
+            self.management_history.pop() if self.management_history else "home",
+            remember_return=False,
+        )
 
-    def _navigate(self, screen: str, *, accounting_tab: int | None = None) -> None:
+    def _navigate(self, screen: str, *, remember_return: bool = True) -> None:
         if screen == "settings" and self.current_screen != "settings":
             self.settings_return_screen = self.current_screen
-        if screen == "accounts" and self.current_screen in COMPACT_DESTINATIONS:
-            self.accounting_return_screen = self.current_screen
-        if screen == "accounts" and accounting_tab is not None:
-            self._select_accounting_tab(accounting_tab)
+        if (
+            remember_return
+            and screen in {"accounts", "categories"}
+            and self.current_screen != screen
+        ):
+            if self.current_screen in COMPACT_DESTINATIONS:
+                self.management_history.clear()
+            self.management_history.append(self.current_screen)
         self.current_screen = screen
         self._refresh_labels()
         if screen == "reports":
@@ -5382,14 +5389,14 @@ class FinanceView(ft.Row):
         self._navigate("settings")
 
     def _back_from_settings(self, event: ft.Event[ft.IconButton]) -> None:
-        self._navigate(self.settings_return_screen)
+        self._navigate(self.settings_return_screen, remember_return=False)
 
     def _rail_changed(self, event: ft.Event[ft.NavigationRail]) -> None:
         if event.control.selected_index is not None:
             self._navigate(RAIL_DESTINATIONS[event.control.selected_index])
 
     def _go_accounts(self, event: ft.Event[ft.TextButton]) -> None:
-        self._navigate("accounts", accounting_tab=0)
+        self._navigate("accounts")
 
     def _picker_zone(self) -> str | None:
         if self.bridge is not None and self.system_zone == "system":

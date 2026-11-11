@@ -17,9 +17,8 @@ from app.ui.datetime_fields import DateTimeFields
 from app.ui.finance import FinanceView
 
 
-def select_tab(view: FinanceView, index: int) -> None:
-    view.accounting_tabs.selected_index = index
-    view._accounting_tab_changed(MagicMock(control=view.accounting_tabs, data=str(index)))
+def select_management_screen(view: FinanceView, index: int) -> None:
+    view._navigate("categories" if index else "accounts")
 
 
 def setup_view(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]:
@@ -31,89 +30,84 @@ def setup_view(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]
 
 @pytest.mark.parametrize("width", [390, 1366])
 @pytest.mark.parametrize("index", [0, 1])
-def test_navigation_opens_explicit_accounting_tab(
+def test_navigation_opens_standalone_management_screen(
     monkeypatch: pytest.MonkeyPatch, width: int, index: int
 ) -> None:
     view, page = setup_view(monkeypatch)
     page.width = width
-    select_tab(view, 1 - index)
+    select_management_screen(view, 1 - index)
     view._navigate("home")
-    view._navigate("accounts", accounting_tab=index)
-    assert view.current_screen == "accounts"
-    assert view.screen_host.content is view.accounts_screen
-    assert view.accounting_tabs.selected_index == index
-    assert view.accounts_panel.visible == (index == 0)
-    assert view.categories_panel.visible == (index == 1)
+    screen = "categories" if index else "accounts"
+    view._navigate(screen)
+    assert view.current_screen == screen
+    assert view.screen_host.content is getattr(view, f"{screen}_screen")
+    assert not hasattr(view, "accounting_tabs")
 
 
 @pytest.mark.parametrize("width", [390, 1366])
 @pytest.mark.parametrize("index", [0, 1])
-def test_navigation_preserves_selected_accounting_tab(
+def test_management_navigation_matches_direct_and_sidebar_entry(
     monkeypatch: pytest.MonkeyPatch, width: int, index: int
 ) -> None:
     view, page = setup_view(monkeypatch)
     page.width = width
-    select_tab(view, index)
+    select_management_screen(view, index)
     for entry in ("plain", "sidebar"):
         view._navigate("home")
         if entry == "plain" or width == 390:
-            view._navigate("accounts")
+            view._navigate("categories" if index else "accounts")
         else:
-            view.nav_rail.selected_index = 4
+            view.nav_rail.selected_index = 4 + index
             view._rail_changed(MagicMock(control=view.nav_rail))
-        assert view.current_screen == "accounts"
-        assert view.accounting_tabs.selected_index == index
-        assert view.accounts_panel.visible == (index == 0)
-        assert view.categories_panel.visible == (index == 1)
+        assert view.current_screen == ("categories" if index else "accounts")
+        assert view.screen_host.content is getattr(view, f"{view.current_screen}_screen")
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
-def test_subtabs_share_layout_and_preserve_selection(
+def test_standalone_management_screens_reuse_panels_and_localized_titles(
     monkeypatch: pytest.MonkeyPatch, language: str
 ) -> None:
     view, _ = setup_view(monkeypatch)
-    assert view.accounts_screen.controls == [view.accounting_tabs]
-    assert view.accounting_tabs.length == 2
-    assert view.accounts_panel.visible and not view.categories_panel.visible
-    select_tab(view, 1)
+    assert view.accounts_screen.controls == [view.accounts_panel]
+    assert view.categories_screen.controls == [view.categories_panel]
+    select_management_screen(view, 1)
     for width in [390, 800, 1366]:
         view.language = language
         view._refresh()
         view._apply_layout(width)
         view._navigate("settings")
-        view._navigate("accounts")
-        assert view.accounting_tabs.selected_index == 1
-        assert not view.accounts_panel.visible and view.categories_panel.visible
+        view._navigate("categories")
+        assert view.screen_host.content is view.categories_screen
+        assert view.page_title.value == view.tr("categories_title")
         assert view.accounts_panel.width == view.categories_panel.width
-        assert [tab.label for tab in view.accounting_tab_bar.tabs if isinstance(tab, ft.Tab)] == [
-            view.tr("accounts_title"),
-            view.tr("categories_title"),
-        ]
         for panel, button, listing in [
             (view.accounts_panel, view.account_save, view.account_list),
             (view.categories_panel, view.category_save, view.category_list),
         ]:
-            assert panel.padding == 16 and panel.border_radius == 12
-            assert panel.border == view.accounts_panel.border
+            assert panel.padding is None and panel.border_radius is None
+            assert panel.border is None
             assert isinstance(panel.content, ft.Column)
             toolbar, content = panel.content.controls
-            assert isinstance(toolbar, ft.Row)
+            assert isinstance(toolbar, ft.Container)
+            assert toolbar.alignment == ft.Alignment.CENTER_RIGHT
+            toolbar = toolbar.content
+            assert isinstance(toolbar, ft.Row) and toolbar.alignment == ft.MainAxisAlignment.END
             assert toolbar.controls == [button] and toolbar.wrap
             assert content is listing
             assert button.disabled
-    select_tab(view, 0)
-    assert view.accounts_panel.visible and not view.categories_panel.visible
+    select_management_screen(view, 0)
+    assert view.screen_host.content is view.accounts_screen
+    assert view.page_title.value == view.tr("accounts_title")
 
 
-def test_welcome_create_account_link_opens_accounts_subtab(
+def test_welcome_create_account_link_opens_accounts_screen(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     view, _ = setup_view(monkeypatch)
-    select_tab(view, 1)
+    select_management_screen(view, 1)
     view._go_accounts(MagicMock())
     assert view.current_screen == "accounts"
-    assert view.accounting_tabs.selected_index == 0
-    assert view.accounts_panel.visible and not view.categories_panel.visible
+    assert view.screen_host.content is view.accounts_screen
 
 
 def open_creation(view: FinanceView, page: MagicMock, category: bool) -> ft.AlertDialog:

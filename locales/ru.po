@@ -310,8 +310,8 @@ msgstr "Управление"
 msgid "ui.budget_limit_effective"
 msgstr "Лимит: {amount} {currency} · {interval} · с {date}"
 
-msgid "ui.management"
-msgstr "Управление"
+msgid "ui.nav_more"
+msgstr "Ещё"
 
 msgid "ui.budget_changes"
 msgstr "Изменения по категориям"

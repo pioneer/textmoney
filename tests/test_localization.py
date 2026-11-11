@@ -279,6 +279,11 @@ def test_separate_management_navigation_labels(
     assert translate(language, "categories_title") == categories
 
 
+@pytest.mark.parametrize("language,label", [("en", "More"), ("uk", "Ще"), ("ru", "Ещё")])
+def test_overflow_navigation_accessible_name(language: str, label: str) -> None:
+    assert translate(language, "nav_more") == label
+
+
 def test_known_accounting_errors_are_localized() -> None:
     message = "Insufficient funds: an ordinary account would become negative."
     assert localized_error("en", message) == (

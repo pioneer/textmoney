@@ -84,14 +84,17 @@ Invoke compiles them to packaged MO catalogs in `src/app/locale/`. Runtime
 language choices are discovered from those compiled catalogs, with English as
 the required fallback. See the [localization guide](localization.md) for
 validation, compilation and Weblate setup. One width classifier selects bottom navigation for compact displays and
-a navigation rail for medium/expanded displays. Compact layouts have four bottom
-destinations: Home, Transactions, Budgets and Reports. A localized Management
-header menu opens the standalone Accounts or Categories screen, separately from
-the Settings gear. Compact Accounts, Categories and Settings hide the bottom bar and
-transaction action; their back arrows restore the previous screen.
-Management navigation history survives resizing and Settings.
+a navigation rail for medium/expanded displays. The ordered rail destinations are
+the single source for compact navigation: exclude Settings, show the first four
+in the bottom bar, and put the remainder in an icon-only, localized More menu
+beside the separate Settings gear. Currently the bottom destinations are Home,
+Transactions, Budgets and Reports; overflow destinations are Accounts and Categories.
+The More button is hidden when there is no overflow. Compact overflow screens
+and Settings hide the bottom bar and transaction action; no unrelated bottom
+destination is selected for an overflow screen. Back arrows restore the previous
+screen, with overflow navigation history surviving resizing and Settings.
 Medium/expanded layouts use Home, Transactions, Budgets, Reports, Accounts, Categories and
-Settings rail destinations without the header gear or Management menu. Budgets
+Settings rail destinations without the header gear or More menu. Budgets
 selects its own item in both layouts and has no temporary back-to-Reports action.
 This follows available width, not the operating system.
 The same screens and form state

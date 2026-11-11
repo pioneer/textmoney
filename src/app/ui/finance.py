@@ -109,7 +109,6 @@ FEE_CATEGORIES_KEY = "textmoney.fee-categories.v1"
 COMPACT_MAX_WIDTH = 599
 MEDIUM_MAX_WIDTH = 1023
 MAX_CONTENT_WIDTH = 1180
-COMPACT_DESTINATIONS = ("home", "transactions", "budgets", "reports")
 RAIL_DESTINATIONS = (
     "home",
     "transactions",
@@ -119,6 +118,11 @@ RAIL_DESTINATIONS = (
     "categories",
     "settings",
 )
+
+
+def mobile_destination_groups() -> tuple[tuple[str, ...], tuple[str, ...]]:
+    destinations = tuple(screen for screen in RAIL_DESTINATIONS if screen != "settings")
+    return destinations[:4], destinations[4:]
 
 
 class ScreenClass(StrEnum):
@@ -495,11 +499,7 @@ class FinanceView(ft.Row):
             on_click=self._back_from_management,
             visible=False,
         )
-        self.management_accounts = ft.PopupMenuItem(on_click=self._manage_accounts)
-        self.management_categories = ft.PopupMenuItem(on_click=self._manage_categories)
-        self.management_menu = ft.PopupMenuButton(
-            items=[self.management_accounts, self.management_categories],
-        )
+        self.overflow_menu = ft.PopupMenuButton()
         self.header_titles = ft.Row(
             [self.page_title, self.release_label],
             expand=True,
@@ -531,7 +531,7 @@ class FinanceView(ft.Row):
                             self.settings_back,
                             self.management_back,
                             self.header_titles,
-                            self.management_menu,
+                            self.overflow_menu,
                             self.settings_button,
                         ],
                     ),
@@ -748,6 +748,7 @@ class FinanceView(ft.Row):
             self.budgets.request_refresh()
 
     def _build_navigation(self) -> None:
+        bottom, overflow = mobile_destination_groups()
         destinations = {
             "home": ("nav_home", ft.Icons.HOME_OUTLINED, ft.Icons.HOME),
             "transactions": (
@@ -769,10 +770,12 @@ class FinanceView(ft.Row):
             ft.NavigationBarDestination(
                 label=self.tr(label), icon=icon, selected_icon=selected_icon
             )
-            for screen in COMPACT_DESTINATIONS
+            for screen in bottom
             for label, icon, selected_icon in [destinations[screen]]
         ]
-        self.navigation_bar.selected_index = self._compact_selected_index()
+        selected = self._compact_selected_index()
+        if selected is not None:
+            self.navigation_bar.selected_index = selected
         self.nav_rail.destinations = [
             ft.NavigationRailDestination(
                 label=self.tr(label), icon=icon, selected_icon=selected_icon
@@ -782,16 +785,21 @@ class FinanceView(ft.Row):
         ]
         self.nav_rail.selected_index = RAIL_DESTINATIONS.index(self.current_screen)
         compact = self.screen_class == ScreenClass.COMPACT
-        self.management_menu.content = self.tr("management")
-        self.management_menu.tooltip = self.tr("management")
-        self.management_menu.visible = compact and self.current_screen not in {
-            "accounts",
-            "categories",
-            "settings",
-        }
-        self.management_accounts.content = self.tr("accounts_title")
-        self.management_categories.content = self.tr("categories_title")
-        self.management_back.visible = compact and self.current_screen in {"accounts", "categories"}
+        if tuple(item.data for item in self.overflow_menu.items) != overflow:
+            self.overflow_menu.items = [
+                ft.PopupMenuItem(data=screen, on_click=self._overflow_selected)
+                for screen in overflow
+            ]
+        for item, screen in zip(self.overflow_menu.items, overflow, strict=True):
+            item.content = self.tr(destinations[screen][0])
+        self.overflow_menu.tooltip = self.tr("nav_more")
+        self.overflow_menu.icon = ft.Icon(
+            ft.Icons.MORE_VERT, size=20, semantics_label=self.tr("nav_more")
+        )
+        self.overflow_menu.visible = (
+            compact and bool(overflow) and self.current_screen != "settings"
+        )
+        self.management_back.visible = compact and self.current_screen in overflow
         self.management_back.tooltip = self.tr("nav_back")
         self.settings_button.visible = compact and self.current_screen != "settings"
         self.settings_button.tooltip = self.tr("nav_settings")
@@ -948,30 +956,24 @@ class FinanceView(ft.Row):
         }
         self.screen_host.content = screens[self.current_screen]
 
-    def _selected_index(self) -> int:
+    def _selected_index(self) -> int | None:
         if self.screen_class != ScreenClass.COMPACT:
             return RAIL_DESTINATIONS.index(self.current_screen)
         return self._compact_selected_index()
 
-    def _compact_selected_index(self) -> int:
+    def _compact_selected_index(self) -> int | None:
+        bottom, _overflow = mobile_destination_groups()
         screen = (
             self.settings_return_screen
             if self.current_screen == "settings"
             else self.current_screen
         )
-        if screen in {"accounts", "categories"}:
-            screen = next(
-                (
-                    item
-                    for item in reversed(self.management_history)
-                    if item in COMPACT_DESTINATIONS
-                ),
-                "home",
-            )
-        return COMPACT_DESTINATIONS.index(screen)
+        return bottom.index(screen) if screen in bottom else None
 
     def _apply_layout(self, width: float | None) -> None:
         self.screen_class = screen_class(width)
+        _bottom, overflow = mobile_destination_groups()
+        secondary = self.current_screen == "settings" or self.current_screen in overflow
         if not self.startup_complete:
             self.controls = [self.startup_spinner]
             if self.page:
@@ -982,11 +984,7 @@ class FinanceView(ft.Row):
             self.controls = [self.body]
             self.body.width = width
             if self.page:
-                self.page.navigation_bar = (
-                    None
-                    if self.current_screen in {"accounts", "categories", "settings"}
-                    else self.navigation_bar
-                )
+                self.page.navigation_bar = None if secondary else self.navigation_bar
             rail_width = 0
         else:
             expanded = self.screen_class == ScreenClass.EXPANDED
@@ -1018,21 +1016,15 @@ class FinanceView(ft.Row):
         self._update_transaction_separators()
         self.screen_host.padding = (
             ft.Padding.only(bottom=96)
-            if self.current_screen in {"home", "budgets"}
-            or (
-                self.current_screen in {"accounts", "categories", "settings"}
-                and self.screen_class != ScreenClass.COMPACT
-            )
+            if (self.current_screen in {"home", "budgets"} or secondary)
+            and not (secondary and self.screen_class == ScreenClass.COMPACT)
             else None
         )
         if self.page:
             self.fab.content = self.tr("add_transaction")
             self.fab.disabled = not (self.journal and self.journal.ready)
             self.page.floating_action_button = (
-                None
-                if self.screen_class == ScreenClass.COMPACT
-                and self.current_screen in {"accounts", "categories", "settings"}
-                else self.fab
+                None if self.screen_class == ScreenClass.COMPACT and secondary else self.fab
             )
 
     def _build_home_layout(self) -> None:
@@ -5351,11 +5343,10 @@ class FinanceView(ft.Row):
         if self.page:
             self.page.update()
 
-    def _manage_accounts(self, event: ft.Event[ft.PopupMenuItem]) -> None:
-        self._navigate("accounts")
-
-    def _manage_categories(self, event: ft.Event[ft.PopupMenuItem]) -> None:
-        self._navigate("categories")
+    def _overflow_selected(self, event: ft.Event[ft.PopupMenuItem]) -> None:
+        screen = event.control.data
+        assert isinstance(screen, str)
+        self._navigate(screen)
 
     def _back_from_management(self, event: ft.Event[ft.IconButton]) -> None:
         self._navigate(
@@ -5364,14 +5355,11 @@ class FinanceView(ft.Row):
         )
 
     def _navigate(self, screen: str, *, remember_return: bool = True) -> None:
+        bottom, overflow = mobile_destination_groups()
         if screen == "settings" and self.current_screen != "settings":
             self.settings_return_screen = self.current_screen
-        if (
-            remember_return
-            and screen in {"accounts", "categories"}
-            and self.current_screen != screen
-        ):
-            if self.current_screen in COMPACT_DESTINATIONS:
+        if remember_return and screen in overflow and self.current_screen != screen:
+            if self.current_screen in bottom:
                 self.management_history.clear()
             self.management_history.append(self.current_screen)
         self.current_screen = screen
@@ -5383,7 +5371,8 @@ class FinanceView(ft.Row):
             self.page.update()
 
     def _bar_changed(self, event: ft.Event[ft.NavigationBar]) -> None:
-        self._navigate(COMPACT_DESTINATIONS[event.control.selected_index])
+        bottom, _overflow = mobile_destination_groups()
+        self._navigate(bottom[event.control.selected_index])
 
     def _open_settings(self, event: ft.Event[ft.IconButton]) -> None:
         self._navigate("settings")

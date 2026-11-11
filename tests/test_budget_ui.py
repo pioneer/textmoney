@@ -119,7 +119,7 @@ def test_budget_navigation_responsive_and_localized(
         host._navigate("categories")
         assert host.screen_host.content is host.categories_screen
         assert host.accounts_panel.width == host.categories_panel.width
-        assert host._selected_index() == (2 if width <= 599 else 5)
+        assert host._selected_index() == (None if width <= 599 else 5)
         host._open_settings(MagicMock())
         host._back_from_settings(MagicMock())
         assert host.current_screen == "categories"

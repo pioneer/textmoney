@@ -225,8 +225,8 @@ msgstr "Management"
 msgid "ui.budget_limit_effective"
 msgstr "Limit: {amount} {currency} · {interval} · from {date}"
 
-msgid "ui.management"
-msgstr "Management"
+msgid "ui.nav_more"
+msgstr "More"
 
 msgid "ui.budget_changes"
 msgstr "Category changes"

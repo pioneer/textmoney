@@ -7,6 +7,7 @@ import flet as ft
 import pytest
 from form_controls import click
 
+from app.ui import finance
 from app.ui.finance import FinanceView
 
 
@@ -19,6 +20,84 @@ def navigation(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]
     view.startup_complete = True
     view._apply_layout(page.width)
     return view, page
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        ("home", "transactions", "budgets", "reports", "settings"),
+        ("home", "transactions", "budgets", "reports", "settings", "accounts"),
+        ("home", "transactions", "budgets", "reports", "accounts", "categories", "settings"),
+        ("settings", "categories", "accounts", "home", "reports", "transactions", "budgets"),
+    ],
+    ids=["no-overflow", "added-destination", "two-overflow", "reordered"],
+)
+def test_mobile_groups_follow_the_shared_order_and_navigate_directly(
+    navigation: tuple[FinanceView, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+    order: tuple[str, ...],
+) -> None:
+    view, page = navigation
+    monkeypatch.setattr(finance, "RAIL_DESTINATIONS", order)
+    screens = tuple(screen for screen in order if screen != "settings")
+    bottom, overflow = screens[:4], screens[4:]
+    view._apply_layout(page.width)
+    assert finance.mobile_destination_groups() == (bottom, overflow)
+    assert [item.label for item in view.navigation_bar.destinations] == [
+        view.nav_rail.destinations[order.index(screen)].label for screen in bottom
+    ]
+    assert [item.data for item in view.overflow_menu.items] == list(overflow)
+    assert [item.content for item in view.overflow_menu.items] == [
+        view.nav_rail.destinations[order.index(screen)].label for screen in overflow
+    ]
+    items = tuple(view.overflow_menu.items)
+    view._refresh_labels()
+    view._apply_layout(page.width)
+    assert all(
+        before is after for before, after in zip(items, view.overflow_menu.items, strict=True)
+    )
+    assert view.overflow_menu.visible == bool(overflow)
+    header = view.body.controls[0]
+    assert isinstance(header, ft.Container) and isinstance(header.content, ft.Row)
+    assert header.content.controls[-2:] == [view.overflow_menu, view.settings_button]
+    assert view.overflow_menu.content is None
+    assert isinstance(view.overflow_menu.icon, ft.Icon)
+    assert view.overflow_menu.icon.icon == ft.Icons.MORE_VERT
+    assert view.overflow_menu.icon.semantics_label == view.tr("nav_more")
+    for index, screen in enumerate(bottom):
+        view.navigation_bar.selected_index = index
+        view._bar_changed(MagicMock(control=view.navigation_bar))
+        assert view.current_screen == screen
+        assert view.screen_host.content is getattr(view, f"{screen}_screen")
+        assert view._selected_index() == index
+        assert page.navigation_bar is view.navigation_bar
+        assert not view.management_back.visible
+    for screen in overflow:
+        view._navigate(bottom[0])
+        item = next(item for item in view.overflow_menu.items if item.data == screen)
+        assert item.on_click is not None
+        cast(Callable[[object], object], item.on_click)(MagicMock(control=item))
+        assert view.current_screen == screen
+        assert view.screen_host.content is getattr(view, f"{screen}_screen")
+        assert view._selected_index() is None
+        assert page.navigation_bar is None
+        assert view.management_back.visible and view.overflow_menu.visible
+        for width in (800, 390):
+            page.width = width
+            view._apply_layout(width)
+            assert view.current_screen == screen
+            assert view.nav_rail.selected_index == order.index(screen)
+            assert view.overflow_menu.visible == (width <= 599)
+            assert page.navigation_bar is None
+        view._open_settings(MagicMock())
+        assert not view.overflow_menu.visible
+        view._back_from_settings(MagicMock())
+        assert view.current_screen == screen
+        assert view._selected_index() is None and page.navigation_bar is None
+        click(view.management_back)
+        assert view.current_screen == bottom[0]
+        assert view.navigation_bar.selected_index == 0
+        assert page.navigation_bar is view.navigation_bar
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
@@ -140,7 +219,10 @@ def test_mobile_settings_gear_opens_separate_view_and_back_restores_screen(
         None if screen in {"accounts", "categories"} else view.fab
     )
     assert view.settings_button.visible and not view.settings_back.visible
-    assert view.navigation_bar.selected_index == view._selected_index()
+    if screen in {"accounts", "categories"}:
+        assert view._selected_index() is None
+    else:
+        assert view.navigation_bar.selected_index == view._selected_index()
 
 
 @pytest.mark.parametrize("width", [320, 599, 600, 800, 1023, 1024, 1366])
@@ -231,22 +313,27 @@ def test_compact_management_menu_returns_to_previous_primary_screen(
     view._navigate(primary)
     view.budgets.month = date(2026, 2, 1)
     view.budgets.category_id = "Expenses:Food"
-    assert view.management_menu.visible
-    assert view.management_menu.content == view.tr("management")
-    assert view.management_menu.items == [view.management_accounts, view.management_categories]
-    assert [item.content for item in view.management_menu.items] == [
+    assert view.overflow_menu.visible
+    assert view.overflow_menu.content is None
+    assert isinstance(view.overflow_menu.icon, ft.Icon)
+    assert view.overflow_menu.icon.icon == ft.Icons.MORE_VERT
+    assert view.overflow_menu.icon.semantics_label == view.tr("nav_more")
+    assert view.overflow_menu.tooltip == view.tr("nav_more")
+    assert [item.data for item in view.overflow_menu.items] == ["accounts", "categories"]
+    assert [item.content for item in view.overflow_menu.items] == [
         view.tr("accounts_title"),
         view.tr("categories_title"),
     ]
     assert view.settings_button.visible
-    item = view.management_menu.items[tab]
+    item = view.overflow_menu.items[tab]
     assert item.on_click is not None
     cast(Callable[[object], object], item.on_click)(MagicMock(control=item))
     screen = "categories" if tab else "accounts"
     assert view.current_screen == screen
     assert view.screen_host.content is getattr(view, f"{screen}_screen")
     assert view.management_history == [primary]
-    assert not view.management_menu.visible
+    assert view.overflow_menu.visible
+    assert view._compact_selected_index() is None
     assert view.management_back.visible and view.settings_button.visible
     assert page.navigation_bar is None and page.floating_action_button is None
     view._open_settings(MagicMock())
@@ -261,7 +348,8 @@ def test_compact_management_menu_returns_to_previous_primary_screen(
         assert view.management_back.visible == (width <= 599)
         assert view.nav_rail.selected_index == 4 + tab
         assert page.navigation_bar is None
-        assert not view.management_menu.visible
+        assert view.overflow_menu.visible == (width <= 599)
+        assert view._compact_selected_index() is None
     click(view.management_back)
     assert view.current_screen == primary
     assert page.navigation_bar is view.navigation_bar
@@ -288,7 +376,7 @@ def test_rail_settings_resizes_into_mobile_settings_with_back_navigation(
     assert page.navigation_bar is None
     view._back_from_settings(MagicMock())
     assert view.current_screen == "categories"
-    assert view.navigation_bar.selected_index == 0
+    assert view._selected_index() is None
     assert view.management_back.visible and page.navigation_bar is None
 
 
@@ -309,7 +397,7 @@ def test_management_back_restores_previous_secondary_screen_after_resizing(
         assert view.current_screen == second
         assert view.screen_host.content is getattr(view, f"{second}_screen")
         assert view.nav_rail.selected_index == (4 if second == "accounts" else 5)
-        assert view.navigation_bar.selected_index == 2
+        assert view._compact_selected_index() is None
     view._open_settings(MagicMock())
     view._back_from_settings(MagicMock())
     assert view.management_history == ["budgets", first]
@@ -429,7 +517,7 @@ def test_sidebar_order_and_screen_selection(
     view._rail_changed(MagicMock(control=view.nav_rail))
     assert view.current_screen == screen
     assert view.nav_rail.selected_index == view._selected_index() == index
-    assert not view.management_menu.visible
+    assert not view.overflow_menu.visible
     assert view.budgets_screen.controls == [view.budgets]
 
 

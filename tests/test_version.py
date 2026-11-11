@@ -54,7 +54,7 @@ def test_version_visible_in_every_screen_header(
             view.settings_back,
             view.management_back,
             view.header_titles,
-            view.management_menu,
+            view.overflow_menu,
             view.settings_button,
         ]
         assert view.header_titles.controls == [view.page_title, view.release_label]

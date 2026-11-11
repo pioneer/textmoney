@@ -1,7 +1,9 @@
+from datetime import date
 from unittest.mock import MagicMock
 
 import flet as ft
 import pytest
+from form_controls import click
 
 from app.ui.finance import FinanceView
 
@@ -18,7 +20,7 @@ def navigation(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
-@pytest.mark.parametrize("screen", ["home", "transactions", "accounts", "reports"])
+@pytest.mark.parametrize("screen", ["home", "transactions", "accounts", "reports", "budgets"])
 def test_mobile_settings_gear_opens_separate_view_and_back_restores_screen(
     navigation: tuple[FinanceView, MagicMock], language: str, screen: str
 ) -> None:
@@ -152,6 +154,61 @@ def test_rail_settings_resizes_into_mobile_settings_with_back_navigation(
     assert view.navigation_bar.selected_index == 2
 
 
+@pytest.mark.parametrize("width", [390, 1366])
+def test_budget_report_opens_from_reports_and_returns_without_losing_state(
+    navigation: tuple[FinanceView, MagicMock], width: int
+) -> None:
+    view, page = navigation
+    page.width = width
+    budgets = view.budgets
+    budgets.month = date(2026, 2, 1)
+    budgets.category_id = "Expenses:Food"
+    budgets.account_id = "Assets:Cash"
+    budgets.currency.value = "USD"
+    budgets.overspent.value = True
+    view._navigate("reports")
+    overview = view.report_overview
+    view.report_period.value = "custom"
+    view.report_start.occurred.value = "10/"
+    page.run_task.reset_mock()
+    click(view.budgets_button)
+    page.run_task.assert_called_once_with(budgets.refresh)
+    for resized_width in (width, 800, 390, 1366, 599, 600):
+        page.width = resized_width
+        view._apply_layout(resized_width)
+        view._refresh_labels()
+        assert view.current_screen == "budgets"
+        assert view.screen_host.content is view.budgets_screen
+        assert view.budgets_screen.controls[-1] is budgets
+        assert view.budgets is budgets
+        assert budgets.month == date(2026, 2, 1)
+        assert budgets.category_id == "Expenses:Food"
+        assert budgets.account_id == "Assets:Cash"
+        assert budgets.currency.value == "USD"
+        assert budgets.overspent.value
+        assert view.nav_rail.selected_index == view.navigation_bar.selected_index == 3
+        assert len(view.nav_rail.destinations) == 5
+        assert len(view.navigation_bar.destinations) == 4
+        assert view.screen_host.padding == ft.Padding.only(bottom=96)
+        assert page.navigation_bar is (view.navigation_bar if resized_width <= 599 else None)
+    click(view.budgets_back)
+    assert view.current_screen == "reports"
+    assert view.screen_host.content is view.reports_screen
+    assert view.report_overview is overview
+    assert view.report_period.value == "custom"
+    assert view.report_start.occurred.value == "10/"
+    click(view.budgets_button)
+    assert view.current_screen == "budgets"
+    assert budgets.month == date(2026, 2, 1)
+    assert budgets.category_id == "Expenses:Food"
+    view._navigate("accounts", accounting_tab=2)
+    assert view.screen_host.content is view.accounts_screen
+    assert view.accounting_tabs.selected_index == 2
+    assert view.budgets_panel.visible
+    assert view.budgets_panel.content is budgets.management
+    assert view.nav_rail.selected_index == view.navigation_bar.selected_index == 2
+
+
 @pytest.mark.parametrize("width", [390, 599, 600, 800, 1366])
 def test_home_keeps_scroll_clearance_for_floating_action(
     navigation: tuple[FinanceView, MagicMock], width: int
@@ -215,13 +272,14 @@ def test_screen_clearance_updates_on_resize_and_does_not_accumulate(
     view, page = navigation
     for width in (1366, 390, 599, 600, 800, 390):
         page.width = width
-        for screen in ("accounts", "settings", "reports", "transactions", "home"):
+        for screen in ("accounts", "settings", "reports", "budgets", "transactions", "home"):
             view._navigate(screen)
             view._apply_layout(width)
             view._refresh_labels()
             expected = (
                 ft.Padding.only(bottom=96)
-                if screen in {"home", "accounts"} or (screen == "settings" and width >= 600)
+                if screen in {"home", "accounts", "budgets"}
+                or (screen == "settings" and width >= 600)
                 else None
             )
             assert view.screen_host.padding == expected

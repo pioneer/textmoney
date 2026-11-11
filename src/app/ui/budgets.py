@@ -693,17 +693,13 @@ class BudgetView(ft.Column):
         self.highlighted = (self.month, budget.account)
         self.reveal_requested = True
         self.cache_key = None
-        self.host.report_tabs.selected_index = 1
-        self.host.report_overview.visible = False
-        self.visible = True
-        self.host._navigate("reports")
+        self.host._navigate("budgets")
 
     async def _reveal_report(self, event: ft.LayoutSizeChangeEvent[ft.LayoutControl]) -> None:
         if (
             event.control is not self.scroll_target
             or not self.reveal_requested
-            or self.host.current_screen != "reports"
-            or self.host.report_tabs.selected_index != 1
+            or self.host.current_screen != "budgets"
         ):
             return
         self.reveal_requested = False

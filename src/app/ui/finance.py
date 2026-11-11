@@ -389,17 +389,14 @@ class FinanceView(ft.Row):
         self._report_data: PeriodReport | None = None
         self._report_balances: tuple[AccountBalance, ...] = ()
         self.budgets = BudgetView(self)
-        self.budgets.visible = False
-        self.report_tab_bar = ft.TabBar(tabs=[], scrollable=False, secondary=True)
-        self.report_tabs = ft.Tabs(
-            length=2,
-            selected_index=0,
-            on_change=self._report_tab_changed,
-            content=ft.Column(
-                [self.report_tab_bar, self.report_overview, self.budgets], spacing=16
-            ),
+        self.budgets_button = ft.Button(on_click=self._open_budgets)
+        self.budgets_back = ft.TextButton(
+            icon=ft.Icons.ARROW_BACK, on_click=self._back_from_budgets
         )
-        self.reports_screen = ft.Column([self.report_tabs], spacing=16)
+        self.reports_screen = ft.Column(
+            [ft.Row([self.budgets_button]), self.report_overview], spacing=16
+        )
+        self.budgets_screen = ft.Column([ft.Row([self.budgets_back]), self.budgets], spacing=16)
         self.home_balances = ft.Row(
             wrap=True,
             spacing=12,
@@ -672,6 +669,7 @@ class FinanceView(ft.Row):
                 "transactions": "nav_transactions",
                 "accounts": "nav_accounts",
                 "reports": "nav_reports",
+                "budgets": "budget_title",
                 "settings": "nav_settings",
             }[self.current_screen]
         )
@@ -741,7 +739,7 @@ class FinanceView(ft.Row):
         self._build_navigation()
         self._build_screens()
         self.budgets.sync()
-        if self.current_screen == "reports" and self.report_tabs.selected_index == 1:
+        if self.current_screen == "budgets":
             self.budgets.request_refresh()
 
     def _build_navigation(self) -> None:
@@ -763,7 +761,11 @@ class FinanceView(ft.Row):
             for label, icon, selected_icon in destinations[:-1]
         ]
         self.navigation_bar.selected_index = (
-            ("home", "transactions", "accounts", "reports").index(self.settings_return_screen)
+            ("home", "transactions", "accounts", "reports").index(
+                "reports"
+                if self.settings_return_screen == "budgets"
+                else self.settings_return_screen
+            )
             if self.current_screen == "settings"
             else self._selected_index()
         )
@@ -824,10 +826,9 @@ class FinanceView(ft.Row):
             ft.Tab(label=self.tr("categories_title")),
             ft.Tab(label=self.tr("budget_title")),
         ]
-        self.report_tab_bar.tabs = [
-            ft.Tab(label=self.tr("report_overview")),
-            ft.Tab(label=self.tr("budget_title")),
-        ]
+        self.budgets_button.content = self.tr("budget_title")
+        self.budgets_back.content = self.tr("nav_reports")
+        self.budgets_back.tooltip = self.tr("nav_back")
         self.accounts_screen.controls = [self.accounting_tabs]
         self.category_root.label = self.tr("incoming_type")
         self.category_root.options = [
@@ -932,6 +933,7 @@ class FinanceView(ft.Row):
             "transactions": self.transactions_screen,
             "accounts": self.accounts_screen,
             "reports": self.reports_screen,
+            "budgets": self.budgets_screen,
             "settings": self.settings_screen,
         }
         self.screen_host.content = screens[self.current_screen]
@@ -942,6 +944,7 @@ class FinanceView(ft.Row):
             "transactions": 1,
             "accounts": 2,
             "reports": 3,
+            "budgets": 3,
             "settings": 4,
         }[self.current_screen]
 
@@ -991,8 +994,7 @@ class FinanceView(ft.Row):
         self._update_transaction_separators()
         self.screen_host.padding = (
             ft.Padding.only(bottom=96)
-            if self.current_screen in {"home", "accounts"}
-            or (self.current_screen == "reports" and self.report_tabs.selected_index == 1)
+            if self.current_screen in {"home", "accounts", "budgets"}
             or (self.current_screen == "settings" and self.screen_class != ScreenClass.COMPACT)
             else None
         )
@@ -1788,7 +1790,7 @@ class FinanceView(ft.Row):
                 self.icon_notice.value = self.tr("icon_conflicts") if store.conflicts else ""
                 self.fee_choices_state = ()
                 self._refresh()
-                if self.current_screen == "reports":
+                if self.current_screen == "budgets":
                     await self.budgets.refresh()
 
         show_dialog(
@@ -5331,13 +5333,11 @@ class FinanceView(ft.Row):
         self._select_accounting_tab(event.control.selected_index)
         self.page.update()
 
-    def _report_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
-        self.report_overview.visible = event.control.selected_index == 0
-        self.budgets.visible = event.control.selected_index == 1
-        if self.budgets.visible:
-            self.budgets.request_refresh()
-        self._apply_layout(self.page.width or self.page.window.width)
-        self.page.update()
+    def _open_budgets(self, event: ft.Event[ft.Button]) -> None:
+        self._navigate("budgets")
+
+    def _back_from_budgets(self, event: ft.Event[ft.TextButton]) -> None:
+        self._navigate("reports")
 
     def _navigate(self, screen: str, *, accounting_tab: int | None = None) -> None:
         if screen == "settings" and self.current_screen != "settings":

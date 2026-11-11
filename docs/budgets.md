@@ -1,8 +1,10 @@
 # Category budgets
 
 Manage definitions in the **Accounting → Budgets** tab. Monitor spending and
-overspending in the **Reports → Budgets** tab, alongside the existing report
-**Overview**. Budgets live exclusively in the selected
+overspending on the **Budgets** screen, opened with the **Budgets** button on
+**Reports**. Its back button returns to Reports; both screens share the Reports
+navigation destination. The selected budget month and filters survive navigation
+and layout changes. Budgets live exclusively in the selected
 `textmoney.beancount` journal:
 
 ```beancount
@@ -199,7 +201,7 @@ presentation behavior when Node is available (including exact rounding edges).
 It exercises no-locale and en/uk/ru/de/fr/hi settings; it is explicitly skipped
 without Node, while Python/Fava reference comparisons still run.
 
-UI/storage tests cover localized compact/wide Accounting and Reports tabs,
+UI/storage tests cover localized compact/wide Accounting tabs and budget reporting,
 budgeted-only report visibility, month selection/boundaries/leap days, searchable
 tree selection and sibling isolation, unconverted multi-currency figures,
 account-filter warnings, active-chip removal/reset, zero-budget overspending,

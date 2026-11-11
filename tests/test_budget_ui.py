@@ -79,39 +79,33 @@ def test_budget_navigation_responsive_and_localized(
     assert host.budgets.period.icon.icon == ft.Icons.CALENDAR_TODAY
     assert host.budgets.period.icon.size == 16
     host.language = language
-    host._navigate("accounts")
-    host.accounting_tabs.selected_index = 2
-    host._accounting_tab_changed(MagicMock(control=host.accounting_tabs))
+    host._navigate("accounts", accounting_tab=2)
     assert host.budgets_panel.visible
     assert not host.accounts_panel.visible and not host.categories_panel.visible
     assert host.budgets_panel.content is host.budgets.management
     assert host.budgets.add in list(walk(host.budgets.management))
     assert host.budgets.results not in list(walk(host.budgets.management))
     host._navigate("reports")
-    assert host.reports_screen.controls == [host.report_tabs]
-    assert host.report_tabs.length == 2
-    assert host.report_overview.visible and not host.budgets.visible
-    host.report_tabs.selected_index = 1
-    host._report_tab_changed(MagicMock(control=host.report_tabs))
-    assert host.current_screen == "reports"
-    assert host.screen_host.content is host.reports_screen
-    assert host.budgets.visible and not host.report_overview.visible
+    assert host.report_overview in host.reports_screen.controls
+    assert host.budgets not in list(walk(host.reports_screen))
+    host._open_budgets(MagicMock())
+    assert host.current_screen == "budgets"
+    assert host.screen_host.content is host.budgets_screen
+    assert host.budgets in host.budgets_screen.controls
     assert host.budgets.add not in list(walk(host.budgets))
     assert host.budgets.definitions not in list(walk(host.budgets))
     for width in (320, 390, 800, 1366):
         page.width = width
         host._apply_layout(width)
         host._refresh_labels()
-        assert host.page_title.value == host.tr("nav_reports")
-        assert [tab.label for tab in host.report_tab_bar.tabs if isinstance(tab, ft.Tab)] == [
-            host.tr("report_overview"),
-            host.tr("budget_title"),
-        ]
+        assert host.page_title.value == host.tr("budget_title")
+        assert host.budgets_button.content == host.tr("budget_title")
+        assert host.budgets_back.content == host.tr("nav_reports")
         assert host._selected_index() == 3
         host._open_settings(MagicMock())
         host._back_from_settings(MagicMock())
-        assert host.current_screen == "reports"
-        assert host.report_tabs.selected_index == 1 and host.budgets.visible
+        assert host.current_screen == "budgets"
+        assert host.screen_host.content is host.budgets_screen
         assert host.screen_host.padding == ft.Padding.only(bottom=96)
         host._navigate("accounts")
         assert host.accounting_tabs.selected_index == 2 and host.budgets_panel.visible
@@ -120,14 +114,13 @@ def test_budget_navigation_responsive_and_localized(
         host._open_settings(MagicMock())
         host._back_from_settings(MagicMock())
         assert host.current_screen == "accounts" and host.budgets_panel.visible
-        host._navigate("reports")
+        host._navigate("budgets")
         assert host.budgets.add.content == host.tr("create_budget")
         assert host.budgets.add.icon == ft.Icons.ADD
         assert host.budgets.filters_tile.title == host.tr("budget_simple_filters")
-    host.report_tabs.selected_index = 0
-    host._report_tab_changed(MagicMock(control=host.report_tabs))
+    host._back_from_budgets(MagicMock())
     assert host.current_screen == "reports"
-    assert host.report_overview.visible and not host.budgets.visible
+    assert host.screen_host.content is host.reports_screen
     host._go_accounts(MagicMock())
     assert host.accounts_panel.visible and not host.budgets_panel.visible
     host.will_unmount()
@@ -1493,9 +1486,8 @@ def test_definition_opens_current_month_when_applicable_and_reveals_nested_repor
         click_report(host, budget)
         worker.cancel.assert_called_once()
         page.run_task.assert_called_once_with(host.budgets.refresh)
-        assert host.current_screen == "reports" and host._selected_index() == 3
-        assert host.report_tabs.selected_index == 1
-        assert host.budgets.visible and not host.report_overview.visible
+        assert host.current_screen == "budgets" and host._selected_index() == 3
+        assert host.screen_host.content is host.budgets_screen
         assert host.budgets.month == expected_month
         assert host.budgets.category_id == host.budgets.account_id == ""
         assert host.budgets.currency.value == "EUR" and not host.budgets.overspent.value

@@ -29,6 +29,49 @@ def setup_view(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]
     return FinanceView(), page
 
 
+@pytest.mark.parametrize("width", [390, 1366])
+@pytest.mark.parametrize("index", [0, 1, 2])
+def test_navigation_opens_explicit_accounting_tab(
+    monkeypatch: pytest.MonkeyPatch, width: int, index: int
+) -> None:
+    view, page = setup_view(monkeypatch)
+    page.width = width
+    select_tab(view, (index + 1) % 3)
+    view._navigate("home")
+    view._navigate("accounts", accounting_tab=index)
+    assert view.current_screen == "accounts"
+    assert view.screen_host.content is view.accounts_screen
+    assert view.accounting_tabs.selected_index == index
+    assert view.accounts_panel.visible == (index == 0)
+    assert view.categories_panel.visible == (index == 1)
+    assert view.budgets_panel.visible == (index == 2)
+
+
+@pytest.mark.parametrize("width", [390, 1366])
+@pytest.mark.parametrize("index", [0, 1, 2])
+def test_navigation_preserves_selected_accounting_tab(
+    monkeypatch: pytest.MonkeyPatch, width: int, index: int
+) -> None:
+    view, page = setup_view(monkeypatch)
+    page.width = width
+    select_tab(view, index)
+    for entry in ("plain", "primary"):
+        view._navigate("home")
+        if entry == "plain":
+            view._navigate("accounts")
+        elif width == 390:
+            view.navigation_bar.selected_index = 2
+            view._bar_changed(MagicMock(control=view.navigation_bar))
+        else:
+            view.nav_rail.selected_index = 2
+            view._rail_changed(MagicMock(control=view.nav_rail))
+        assert view.current_screen == "accounts"
+        assert view.accounting_tabs.selected_index == index
+        assert view.accounts_panel.visible == (index == 0)
+        assert view.categories_panel.visible == (index == 1)
+        assert view.budgets_panel.visible == (index == 2)
+
+
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
 def test_subtabs_share_layout_and_preserve_selection(
     monkeypatch: pytest.MonkeyPatch, language: str

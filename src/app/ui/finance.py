@@ -5321,10 +5321,14 @@ class FinanceView(ft.Row):
         if self.page:
             self.page.update()
 
+    def _select_accounting_tab(self, index: int) -> None:
+        self.accounting_tabs.selected_index = index
+        self.accounts_panel.visible = index == 0
+        self.categories_panel.visible = index == 1
+        self.budgets_panel.visible = index == 2
+
     def _accounting_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
-        self.accounts_panel.visible = event.control.selected_index == 0
-        self.categories_panel.visible = event.control.selected_index == 1
-        self.budgets_panel.visible = event.control.selected_index == 2
+        self._select_accounting_tab(event.control.selected_index)
         self.page.update()
 
     def _report_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
@@ -5335,9 +5339,11 @@ class FinanceView(ft.Row):
         self._apply_layout(self.page.width or self.page.window.width)
         self.page.update()
 
-    def _navigate(self, screen: str) -> None:
+    def _navigate(self, screen: str, *, accounting_tab: int | None = None) -> None:
         if screen == "settings" and self.current_screen != "settings":
             self.settings_return_screen = self.current_screen
+        if screen == "accounts" and accounting_tab is not None:
+            self._select_accounting_tab(accounting_tab)
         self.current_screen = screen
         self._refresh_labels()
         if screen == "reports":
@@ -5362,11 +5368,7 @@ class FinanceView(ft.Row):
             self._navigate(screens[event.control.selected_index])
 
     def _go_accounts(self, event: ft.Event[ft.TextButton]) -> None:
-        self.accounting_tabs.selected_index = 0
-        self.accounts_panel.visible = True
-        self.categories_panel.visible = False
-        self.budgets_panel.visible = False
-        self._navigate("accounts")
+        self._navigate("accounts", accounting_tab=0)
 
     def _picker_zone(self) -> str | None:
         if self.bridge is not None and self.system_zone == "system":

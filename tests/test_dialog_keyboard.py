@@ -91,8 +91,8 @@ def test_budget_history_keys_and_nested_editor_preserve_report_state(
         assert isinstance(history.content.content, ft.Column)
         assert history.content.content.controls[-1] is report.definitions
         record = report.definitions.controls[0]
-        assert isinstance(record, ft.Column)
-        actions = record.controls[-1]
+        assert isinstance(record, ft.Container) and isinstance(record.content, ft.Column)
+        actions = record.content.controls[-1]
         assert isinstance(actions, ft.Row)
         edit = actions.controls[0]
         assert isinstance(edit, ft.IconButton) and edit.data == journal.ledger.budgets[0]

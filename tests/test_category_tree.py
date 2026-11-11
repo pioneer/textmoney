@@ -16,6 +16,7 @@ from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import translate
 from app.ui.finance import FinanceView
+from app.ui.layout import HoverRow
 from app.ui.tree_style import CategoryConnectorRow, CategoryMenuAnchor
 
 
@@ -23,7 +24,10 @@ def tree_item(control: ft.Control) -> ft.Control:
     if isinstance(control, CategoryConnectorRow):
         assert isinstance(control.content, ft.Container)
         assert isinstance(control.content.content, ft.Control)
-        return control.content.content
+        control = control.content.content
+    if isinstance(control, HoverRow):
+        assert isinstance(control.content, ft.Control)
+        return control.content
     return control
 
 

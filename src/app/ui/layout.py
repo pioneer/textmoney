@@ -1,6 +1,35 @@
-"""Shared action and period layouts for primary screens."""
+"""Shared layouts and row feedback for primary screens."""
+
+from collections.abc import Callable
 
 import flet as ft
+
+
+class HoverRow(ft.Container):
+    def __init__(
+        self,
+        content: ft.Control,
+        *,
+        enabled: Callable[[], bool],
+        padding: ft.PaddingValue | None = None,
+    ) -> None:
+        super().__init__(content=content, padding=padding, on_hover=self._hovered)
+        self._hover_enabled = enabled
+
+    def before_update(self) -> None:
+        super().before_update()
+        if not self._hover_enabled():
+            self.bgcolor = None
+
+    def _hovered(self, event: ft.Event[ft.Container]) -> None:
+        color = (
+            ft.Colors.with_opacity(0.04, ft.Colors.ON_SURFACE)
+            if event.data is True and self._hover_enabled()
+            else None
+        )
+        if self.bgcolor != color:
+            self.bgcolor = color
+            self.update()
 
 
 def action_toolbar(*controls: ft.Control) -> ft.Container:

@@ -19,6 +19,7 @@ from app.journal import FILENAME, Journal
 from app.localization import date_input, format_date
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.finance import FinanceView
+from app.ui.layout import HoverRow
 
 SOURCE = """option "operating_currency" "USD"
 2000-01-01 open Assets:Cash USD
@@ -69,6 +70,64 @@ async def load(view: FinanceView, tmp_path: Path, source: str = SOURCE) -> Journ
     view.budgets.month = date(2026, 1, 1)
     await view.budgets.refresh()
     return journal
+
+
+@pytest.mark.parametrize("width", [390, 599, 600, 1366])
+@pytest.mark.parametrize("theme", [ft.ThemeMode.LIGHT, ft.ThemeMode.DARK])
+def test_editable_rows_highlight_together_with_their_actions_only_on_larger_layouts(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    width: int,
+    theme: ft.ThemeMode,
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        journal = await load(host, tmp_path)
+        page.theme_mode = theme
+        page.width = width
+        host._apply_layout(width)
+        host.budgets.highlighted = (date(2026, 1, 1), "Expenses:Food")
+        host.budgets._render(host.budgets.report_rows)
+        groups = (
+            host.account_list,
+            host.category_list,
+            host.history,
+            host.home_activity,
+            host.budgets.results,
+            host.budgets.definitions,
+        )
+        hovered = [
+            next(item for item in walk(group) if isinstance(item, HoverRow)) for group in groups
+        ]
+        monkeypatch.setattr(HoverRow, "update", MagicMock())
+        color = ft.Colors.with_opacity(0.04, ft.Colors.ON_SURFACE) if width > 599 else None
+        for row in hovered:
+            actions = [item for item in walk(row) if isinstance(item, ft.IconButton)]
+            assert any(item.tooltip == host.tr("crud_edit") for item in actions)
+            assert row.on_click is None and row.on_hover is not None
+            hover = cast(Callable[[object], object], row.on_hover)
+            hover(MagicMock(control=row, data=True))
+            assert row.bgcolor == color
+            assert all(other.bgcolor is None for other in hovered if other is not row)
+            hover(MagicMock(control=row, data=False))
+            assert row.bgcolor is None
+        budget = next(item for item in walk(host.budgets.results) if isinstance(item, HoverRow))
+        assert isinstance(budget.content, ft.ListTile)
+        assert budget.content.bgcolor == ft.Colors.SECONDARY_CONTAINER
+        read_only = host._transaction_card(journal.ledger.transactions[0], {}, read_only=True)
+        assert isinstance(read_only, ft.Container) and read_only.on_hover is None
+        assert not any(isinstance(item, ft.IconButton) for item in walk(read_only))
+        for row in hovered:
+            assert row.on_hover is not None
+            cast(Callable[[object], object], row.on_hover)(MagicMock(control=row, data=True))
+        host._apply_layout(390)
+        for row in hovered:
+            row.before_update()
+            assert row.bgcolor is None
+        assert budget.content.bgcolor == ft.Colors.SECONDARY_CONTAINER
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
@@ -293,7 +352,7 @@ def test_budget_report_non_expanding_rows_have_transaction_actions(
             isinstance(control, ft.ExpansionTile) for control in walk(host.budgets.results)
         )
         tiles = [
-            control for control in host.budgets.results.controls if isinstance(control, ft.ListTile)
+            control for control in walk(host.budgets.results) if isinstance(control, ft.ListTile)
         ]
         assert [tile.data.account for tile in tiles] == ["Expenses:Food", "Expenses:Food:Meals"]
         assert [tile.content_padding for tile in tiles] == [
@@ -1026,7 +1085,7 @@ def test_card_limit_dates_and_actions_match_each_currency(
             + '2027-01-01 custom "budget" Expenses:Food "monthly" 99 EUR\n',
         )
         host._navigate("budgets")
-        tile = next(item for item in host.budgets.results.controls if isinstance(item, ft.ListTile))
+        tile = next(item for item in walk(host.budgets.results) if isinstance(item, ft.ListTile))
         latest = {
             "EUR": journal.ledger.budgets[1],
             "USD": journal.ledger.budgets[2],

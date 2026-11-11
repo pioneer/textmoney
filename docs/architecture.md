@@ -124,6 +124,12 @@ headings, calendar icons and 48-pixel arrow targets. Budgets groups its month
 navigation with Current month and the right-aligned filter toggle to avoid an
 extra toolbar row. The floating transaction action and its scroll clearance
 are unchanged.
+On medium and expanded layouts, editable list rows use a faint, theme-aware
+hover background spanning their content and actions. This includes Accounts,
+category leaves, Operations and Home transactions, budget cards and dated budget
+history; category parents retain their native header-only hover feedback.
+Hover never makes a row clickable, highlights a whole subtree or replaces a
+budget's existing report-reveal highlight. Compact layouts do not add this feedback.
 Operations account/category filters use matching input text and 16-pixel artwork
 with name-only labels; category menus retain their hierarchy. Category menu
 labels inherit the same native size and weight as account menu labels, including

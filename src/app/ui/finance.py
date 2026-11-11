@@ -83,7 +83,7 @@ from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import deletion_title, show_dialog
 from app.ui.icons import IconDraft, IconPicker, icon_image
-from app.ui.layout import action_toolbar, month_navigation
+from app.ui.layout import HoverRow, action_toolbar, month_navigation
 from app.ui.theme import NAVIGATION_SURFACE, summary_theme
 from app.ui.tree_style import (
     TREE_MENU_ROW_HEIGHT,
@@ -1673,7 +1673,7 @@ class FinanceView(ft.Row):
                 tile.controls_padding = 0
                 control = tile
             else:
-                control = compact_tree_leaf(row, data=identifier)
+                control = self._action_row(compact_tree_leaf(row, data=identifier))
             if continued is not None:
                 return CategoryConnectorRow(
                     ft.Container(control, padding=ft.Padding.only(left=16)),
@@ -1723,6 +1723,15 @@ class FinanceView(ft.Row):
             amount=format_amount(-balance if balance < 0 else balance, self.language, currency),
         )
 
+    def _action_row(
+        self, content: ft.Control, *, padding: ft.PaddingValue | None = None
+    ) -> HoverRow:
+        return HoverRow(
+            content,
+            enabled=lambda: self.screen_class != ScreenClass.COMPACT,
+            padding=padding,
+        )
+
     def _entity_card(self, item: Account | Category, balance: Decimal | None = None) -> ft.Control:
         lines: list[ft.Control] = [
             ft.Text(item.name, size=14),
@@ -1733,7 +1742,7 @@ class FinanceView(ft.Row):
             lines.append(
                 ft.Text(self._account_balance_text(item.id, balance, item.currency), size=14)
             )
-        return ft.Container(
+        return self._action_row(
             padding=ft.Padding.symmetric(vertical=2),
             content=ft.Row(
                 [
@@ -2465,7 +2474,8 @@ class FinanceView(ft.Row):
                     on_click=self._delete_transaction,
                 )
             )
-        return ft.Container(
+        container = ft.Container if read_only else self._action_row
+        return container(
             padding=ft.Padding.symmetric(vertical=2),
             content=ft.Row(
                 [

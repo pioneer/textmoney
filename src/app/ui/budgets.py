@@ -646,7 +646,7 @@ class BudgetView(ft.Column):
                     tile.on_size_change = self._reveal_report
                     self.scroll_target = tile
                 return [
-                    tile,
+                    self.host._action_row(tile),
                     *[control for child in children for control in node(child, depth + 1)],
                 ]
 
@@ -855,37 +855,39 @@ class BudgetView(ft.Column):
     def _definition(self, budget: Budget) -> ft.Control:
         tr = self.host.tr
         names = self._account_names()
-        return ft.Column(
-            [
-                self.host._entity_label(
-                    budget.account,
-                    ft.Text(
-                        f"{names.get(budget.account, budget.account)}"
-                        f" · {format_date(budget.date, self.host.language)}",
-                        tooltip=budget.account,
-                        selectable=True,
-                        weight=ft.FontWeight.BOLD,
-                    ),
-                ),
-                ft.Text(
-                    f"{budget.amount} {budget.currency} · {tr(f'budget_{budget.interval}')}",
-                    selectable=True,
-                ),
-                ft.Row(
-                    [
-                        ft.TextButton(
-                            tr("budget_view_report"),
-                            icon=ft.Icons.BAR_CHART_OUTLINED,
-                            data=budget,
-                            on_click=self._history_report,
+        return self.host._action_row(
+            ft.Column(
+                [
+                    self.host._entity_label(
+                        budget.account,
+                        ft.Text(
+                            f"{names.get(budget.account, budget.account)}"
+                            f" · {format_date(budget.date, self.host.language)}",
+                            tooltip=budget.account,
+                            selectable=True,
+                            weight=ft.FontWeight.BOLD,
                         ),
-                    ],
-                    wrap=True,
-                    spacing=0,
-                ),
-                self._budget_actions(budget),
-            ],
-            spacing=4,
+                    ),
+                    ft.Text(
+                        f"{budget.amount} {budget.currency} · {tr(f'budget_{budget.interval}')}",
+                        selectable=True,
+                    ),
+                    ft.Row(
+                        [
+                            ft.TextButton(
+                                tr("budget_view_report"),
+                                icon=ft.Icons.BAR_CHART_OUTLINED,
+                                data=budget,
+                                on_click=self._history_report,
+                            ),
+                        ],
+                        wrap=True,
+                        spacing=0,
+                    ),
+                    self._budget_actions(budget),
+                ],
+                spacing=4,
+            )
         )
 
     def _new(self, event: ft.Event[ft.Button]) -> None:

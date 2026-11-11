@@ -219,6 +219,9 @@ msgstr "Report"
 msgid "ui.budget_overview"
 msgstr "Monthly overview"
 
+msgid "ui.budget_management"
+msgstr "Management"
+
 msgid "ui.budget_changes"
 msgstr "Category changes"
 

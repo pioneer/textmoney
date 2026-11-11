@@ -168,8 +168,10 @@ algorithms; its notice is shipped in `app/notices/fava.txt`. It uses a separate
 oracles, not runtime engines. There are no envelopes or rollover rules. See
 [budgeting](budgets.md) for calculation boundaries and reference tests.
 
-Accounting has Accounts, Categories and Budgets tabs; Reports has Overview and
-Budgets tabs. Budget management and reporting own separate control trees while
+Accounting has Accounts and Categories tabs. Reports opens a standalone Budgets
+screen with Overview and Management tabs and a return action to Reports.
+Overview is the default; the selected tab persists across navigation and resizing.
+Budget management and reporting own separate single-parent control trees while
 sharing the same journal and budget view coordinator. The existing four compact
 navigation destinations and five wide rail destinations are unchanged.
 Operations has optional account and category selectors, combined with AND.

@@ -304,6 +304,9 @@ msgstr "Звіт"
 msgid "ui.budget_overview"
 msgstr "Огляд за місяць"
 
+msgid "ui.budget_management"
+msgstr "Керування"
+
 msgid "ui.budget_changes"
 msgstr "Зміни за категоріями"
 

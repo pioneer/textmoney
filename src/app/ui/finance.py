@@ -396,7 +396,25 @@ class FinanceView(ft.Row):
         self.reports_screen = ft.Column(
             [ft.Row([self.budgets_button]), self.report_overview], spacing=16
         )
-        self.budgets_screen = ft.Column([ft.Row([self.budgets_back]), self.budgets], spacing=16)
+        self.budget_management_panel = ft.Container(
+            padding=16,
+            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+            border_radius=12,
+            content=self.budgets.management,
+            visible=False,
+        )
+        self.budget_tab_bar = ft.TabBar(tabs=[], scrollable=False, secondary=True)
+        self.budget_tabs = ft.Tabs(
+            length=2,
+            selected_index=0,
+            on_change=self._budget_tab_changed,
+            content=ft.Column(
+                [self.budget_tab_bar, self.budgets, self.budget_management_panel],
+                spacing=16,
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+            ),
+        )
+        self.budgets_screen = ft.Column([ft.Row([self.budgets_back]), self.budget_tabs], spacing=16)
         self.home_balances = ft.Row(
             wrap=True,
             spacing=12,
@@ -420,18 +438,11 @@ class FinanceView(ft.Row):
             content=self.categories_panel_content,
             visible=False,
         )
-        self.budgets_panel = ft.Container(
-            padding=16,
-            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=12,
-            content=self.budgets.management,
-            visible=False,
-        )
         self.account_save = ft.Button(icon=ft.Icons.ADD, on_click=self._create_account)
         self.category_save = ft.Button(icon=ft.Icons.ADD, on_click=self._create_category)
         self.accounting_tab_bar = ft.TabBar(tabs=[], scrollable=False, secondary=True)
         self.accounting_tabs = ft.Tabs(
-            length=3,
+            length=2,
             selected_index=0,
             on_change=self._accounting_tab_changed,
             content=ft.Column(
@@ -439,7 +450,6 @@ class FinanceView(ft.Row):
                     self.accounting_tab_bar,
                     self.accounts_panel,
                     self.categories_panel,
-                    self.budgets_panel,
                 ],
                 spacing=16,
             ),
@@ -824,7 +834,10 @@ class FinanceView(ft.Row):
         self.accounting_tab_bar.tabs = [
             ft.Tab(label=self.tr("accounts_title")),
             ft.Tab(label=self.tr("categories_title")),
-            ft.Tab(label=self.tr("budget_title")),
+        ]
+        self.budget_tab_bar.tabs = [
+            ft.Tab(label=self.tr("report_overview")),
+            ft.Tab(label=self.tr("budget_management")),
         ]
         self.budgets_button.content = self.tr("budget_title")
         self.budgets_back.content = self.tr("nav_reports")
@@ -986,7 +999,7 @@ class FinanceView(ft.Row):
             if self.page:
                 self.page.navigation_bar = None
         available = max(320, (width or 390) - rail_width - 48)
-        self.accounts_panel.width = self.categories_panel.width = self.budgets_panel.width = min(
+        self.accounts_panel.width = self.categories_panel.width = min(
             MAX_CONTENT_WIDTH - 40, available
         )
         self._build_navigation()
@@ -5327,10 +5340,20 @@ class FinanceView(ft.Row):
         self.accounting_tabs.selected_index = index
         self.accounts_panel.visible = index == 0
         self.categories_panel.visible = index == 1
-        self.budgets_panel.visible = index == 2
 
     def _accounting_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
         self._select_accounting_tab(event.control.selected_index)
+        self.page.update()
+
+    def _select_budget_tab(self, index: int) -> None:
+        self.budget_tabs.selected_index = index
+        self.budgets.visible = index == 0
+        self.budget_management_panel.visible = index == 1
+
+    def _budget_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
+        self._select_budget_tab(event.control.selected_index)
+        if self.budgets.visible:
+            self.budgets.request_refresh()
         self.page.update()
 
     def _open_budgets(self, event: ft.Event[ft.Button]) -> None:

@@ -155,8 +155,9 @@ def test_rail_settings_resizes_into_mobile_settings_with_back_navigation(
 
 
 @pytest.mark.parametrize("width", [390, 1366])
+@pytest.mark.parametrize("tab", [0, 1])
 def test_budget_report_opens_from_reports_and_returns_without_losing_state(
-    navigation: tuple[FinanceView, MagicMock], width: int
+    navigation: tuple[FinanceView, MagicMock], width: int, tab: int
 ) -> None:
     view, page = navigation
     page.width = width
@@ -173,13 +174,20 @@ def test_budget_report_opens_from_reports_and_returns_without_losing_state(
     page.run_task.reset_mock()
     click(view.budgets_button)
     page.run_task.assert_called_once_with(budgets.refresh)
+    assert view.budget_tabs.selected_index == 0
+    view.budget_tabs.selected_index = tab
+    view._budget_tab_changed(MagicMock(control=view.budget_tabs))
     for resized_width in (width, 800, 390, 1366, 599, 600):
         page.width = resized_width
         view._apply_layout(resized_width)
         view._refresh_labels()
         assert view.current_screen == "budgets"
         assert view.screen_host.content is view.budgets_screen
-        assert view.budgets_screen.controls[-1] is budgets
+        assert view.budgets_screen.controls[-1] is view.budget_tabs
+        assert view.budget_tabs.selected_index == tab
+        assert budgets.visible == (tab == 0)
+        assert view.budget_management_panel.visible == (tab == 1)
+        assert view.budget_management_panel.content is budgets.management
         assert view.budgets is budgets
         assert budgets.month == date(2026, 2, 1)
         assert budgets.category_id == "Expenses:Food"
@@ -191,6 +199,13 @@ def test_budget_report_opens_from_reports_and_returns_without_losing_state(
         assert len(view.navigation_bar.destinations) == 4
         assert view.screen_host.padding == ft.Padding.only(bottom=96)
         assert page.navigation_bar is (view.navigation_bar if resized_width <= 599 else None)
+        view._navigate("home")
+        view._navigate("budgets")
+        assert view.budget_tabs.selected_index == tab
+        view._open_settings(MagicMock())
+        view._back_from_settings(MagicMock())
+        assert view.current_screen == "budgets"
+        assert view.budget_tabs.selected_index == tab
     click(view.budgets_back)
     assert view.current_screen == "reports"
     assert view.screen_host.content is view.reports_screen
@@ -199,13 +214,14 @@ def test_budget_report_opens_from_reports_and_returns_without_losing_state(
     assert view.report_start.occurred.value == "10/"
     click(view.budgets_button)
     assert view.current_screen == "budgets"
+    assert view.budget_tabs.selected_index == tab
     assert budgets.month == date(2026, 2, 1)
     assert budgets.category_id == "Expenses:Food"
-    view._navigate("accounts", accounting_tab=2)
+    view._navigate("accounts", accounting_tab=1)
     assert view.screen_host.content is view.accounts_screen
-    assert view.accounting_tabs.selected_index == 2
-    assert view.budgets_panel.visible
-    assert view.budgets_panel.content is budgets.management
+    assert view.accounting_tabs.selected_index == 1
+    assert view.categories_panel.visible and not view.accounts_panel.visible
+    assert view.accounting_tabs.length == 2
     assert view.nav_rail.selected_index == view.navigation_bar.selected_index == 2
 
 

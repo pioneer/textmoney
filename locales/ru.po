@@ -304,6 +304,9 @@ msgstr "Отчёт"
 msgid "ui.budget_overview"
 msgstr "Обзор за месяц"
 
+msgid "ui.budget_management"
+msgstr "Управление"
+
 msgid "ui.budget_changes"
 msgstr "Изменения по категориям"
 

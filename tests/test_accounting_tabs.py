@@ -30,13 +30,13 @@ def setup_view(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]
 
 
 @pytest.mark.parametrize("width", [390, 1366])
-@pytest.mark.parametrize("index", [0, 1, 2])
+@pytest.mark.parametrize("index", [0, 1])
 def test_navigation_opens_explicit_accounting_tab(
     monkeypatch: pytest.MonkeyPatch, width: int, index: int
 ) -> None:
     view, page = setup_view(monkeypatch)
     page.width = width
-    select_tab(view, (index + 1) % 3)
+    select_tab(view, 1 - index)
     view._navigate("home")
     view._navigate("accounts", accounting_tab=index)
     assert view.current_screen == "accounts"
@@ -44,11 +44,10 @@ def test_navigation_opens_explicit_accounting_tab(
     assert view.accounting_tabs.selected_index == index
     assert view.accounts_panel.visible == (index == 0)
     assert view.categories_panel.visible == (index == 1)
-    assert view.budgets_panel.visible == (index == 2)
 
 
 @pytest.mark.parametrize("width", [390, 1366])
-@pytest.mark.parametrize("index", [0, 1, 2])
+@pytest.mark.parametrize("index", [0, 1])
 def test_navigation_preserves_selected_accounting_tab(
     monkeypatch: pytest.MonkeyPatch, width: int, index: int
 ) -> None:
@@ -69,7 +68,6 @@ def test_navigation_preserves_selected_accounting_tab(
         assert view.accounting_tabs.selected_index == index
         assert view.accounts_panel.visible == (index == 0)
         assert view.categories_panel.visible == (index == 1)
-        assert view.budgets_panel.visible == (index == 2)
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
@@ -78,7 +76,7 @@ def test_subtabs_share_layout_and_preserve_selection(
 ) -> None:
     view, _ = setup_view(monkeypatch)
     assert view.accounts_screen.controls == [view.accounting_tabs]
-    assert view.accounting_tabs.length == 3
+    assert view.accounting_tabs.length == 2
     assert view.accounts_panel.visible and not view.categories_panel.visible
     select_tab(view, 1)
     for width in [390, 800, 1366]:
@@ -93,7 +91,6 @@ def test_subtabs_share_layout_and_preserve_selection(
         assert [tab.label for tab in view.accounting_tab_bar.tabs if isinstance(tab, ft.Tab)] == [
             view.tr("accounts_title"),
             view.tr("categories_title"),
-            view.tr("budget_title"),
         ]
         for panel, button, listing in [
             (view.accounts_panel, view.account_save, view.account_list),

@@ -1,10 +1,11 @@
 # Category budgets
 
-Manage definitions in the **Accounting → Budgets** tab. Monitor spending and
-overspending on the **Budgets** screen, opened with the **Budgets** button on
+Manage definitions in the **Management** tab and monitor spending and
+overspending in **Overview** on the **Budgets** screen, opened with the **Budgets** button on
 **Reports**. Its back button returns to Reports; both screens share the Reports
-navigation destination. The selected budget month and filters survive navigation
-and layout changes. Budgets live exclusively in the selected
+navigation destination. Overview is the initial tab; the selected tab, budget
+month, filters and open management drafts survive navigation and layout changes.
+Accounting contains only Accounts and Categories. Budgets live exclusively in the selected
 `textmoney.beancount` journal:
 
 ```beancount
@@ -21,10 +22,10 @@ MIT algorithms and their complete license notice are shipped in
 
 ## Management and history
 
-- Use **+ Create budget** at the top of **Accounting → Budgets** for new
+- Use **+ Create budget** at the top of **Budgets → Management** for new
   definitions. Existing definitions use the same CRUD affordances as Accounts
   and Categories: pencil for edit and trash for delete.
-- Each definition has **View in reports**. It opens **Reports → Budgets** at the
+- Each definition has **View in reports**. It selects **Budgets → Overview** at the
   current month when the definition applies during any part of that month;
   otherwise it opens the month the definition starts. It selects its currency and clears category, account
   and overspending filters. Budgeted child rows are always visible with indentation;
@@ -100,7 +101,7 @@ create an Expenses row. A parent appears only when it has its own explicit
 budget. Budgeted descendants remain visible even if their parents are hidden.
 Explicit zero budgets remain visible. This is a presentation filter only:
 Fava-compatible actuals, allocation and hierarchy totals are unchanged. Manage
-all definitions, including future ones, in **Accounting → Budgets**.
+all definitions, including future ones, in **Budgets → Management**.
 For budgeted rows with an active direct definition in the selected period,
 Reports also shows pencil/trash actions for quick edit/delete.
 Report cards use a 16-pixel content inset on every side, with an additional

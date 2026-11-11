@@ -307,6 +307,12 @@ msgstr "Огляд за місяць"
 msgid "ui.budget_management"
 msgstr "Керування"
 
+msgid "ui.budget_limit_effective"
+msgstr "Ліміт: {amount} {currency} · {interval} · з {date}"
+
+msgid "ui.management"
+msgstr "Керування"
+
 msgid "ui.budget_changes"
 msgstr "Зміни за категоріями"
 
@@ -355,8 +361,8 @@ msgstr "Звіти, фільтри та оцінка"
 msgid "ui.budget_semantics"
 msgstr "Правила Fava 1.30.16: щоденний розподіл; бюджети зберігають свої валюти. Звіти категорій використовують дерево рахунків, підсумки інтервалів — буквальні префікси. Розгорніть категорію для прямих сум і транзакцій. Прогрес — показник інтерфейсу TextMoney. Наведіть на суму для точного Decimal."
 
-msgid "ui.budget_definitions"
-msgstr "Визначення та історія бюджетів"
+msgid "ui.budget_limit_history"
+msgstr "Історія бюджетів"
 
 msgid "ui.budget_history_help"
 msgstr "Щоб змінити бюджет на майбутнє й залишити минулі місяці без змін, натисніть «Змінити з дати». Невикористаний залишок не додається до наступного місяця."

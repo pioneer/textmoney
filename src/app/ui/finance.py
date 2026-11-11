@@ -108,7 +108,7 @@ FEE_CATEGORIES_KEY = "textmoney.fee-categories.v1"
 COMPACT_MAX_WIDTH = 599
 MEDIUM_MAX_WIDTH = 1023
 MAX_CONTENT_WIDTH = 1180
-COMPACT_DESTINATIONS = ("home", "transactions", "accounts", "reports")
+COMPACT_DESTINATIONS = ("home", "transactions", "budgets", "reports")
 RAIL_DESTINATIONS = ("home", "transactions", "budgets", "reports", "accounts", "settings")
 
 
@@ -168,6 +168,7 @@ class FinanceView(ft.Row):
         self.screen_class = ScreenClass.COMPACT
         self.current_screen = "home"
         self.settings_return_screen = "home"
+        self.accounting_return_screen = "home"
         self.message_key = "no_folder"
         self.error_message: str | None = None
         self.diagnostics_visible = False
@@ -391,33 +392,8 @@ class FinanceView(ft.Row):
         self._report_data: PeriodReport | None = None
         self._report_balances: tuple[AccountBalance, ...] = ()
         self.budgets = BudgetView(self)
-        self.budgets_button = ft.Button(on_click=self._open_budgets)
-        self.budgets_back = ft.TextButton(
-            icon=ft.Icons.ARROW_BACK, on_click=self._back_from_budgets
-        )
-        self.reports_screen = ft.Column(
-            [ft.Row([self.budgets_button]), self.report_overview], spacing=16
-        )
-        self.budget_management_panel = ft.Container(
-            padding=16,
-            border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-            border_radius=12,
-            content=self.budgets.management,
-            visible=False,
-        )
-        self.budget_tab_bar = ft.TabBar(tabs=[], scrollable=False, secondary=True)
-        self.budget_tabs = ft.Tabs(
-            length=2,
-            selected_index=0,
-            on_change=self._budget_tab_changed,
-            content=ft.Column(
-                [self.budget_tab_bar, self.budgets, self.budget_management_panel],
-                spacing=16,
-                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
-            ),
-        )
-        self.budgets_back_row = ft.Row([self.budgets_back])
-        self.budgets_screen = ft.Column([self.budgets_back_row, self.budget_tabs], spacing=16)
+        self.reports_screen = ft.Column([self.report_overview], spacing=16)
+        self.budgets_screen = ft.Column([self.budgets], spacing=16)
         self.home_balances = ft.Row(
             wrap=True,
             spacing=12,
@@ -515,6 +491,16 @@ class FinanceView(ft.Row):
             on_click=self._back_from_settings,
             visible=False,
         )
+        self.accounting_back = ft.IconButton(
+            icon=ft.Icons.ARROW_BACK,
+            on_click=self._back_from_accounting,
+            visible=False,
+        )
+        self.management_accounts = ft.PopupMenuItem(on_click=self._manage_accounts)
+        self.management_categories = ft.PopupMenuItem(on_click=self._manage_categories)
+        self.management_menu = ft.PopupMenuButton(
+            items=[self.management_accounts, self.management_categories],
+        )
         self.header_titles = ft.Row(
             [self.page_title, self.release_label],
             expand=True,
@@ -542,7 +528,13 @@ class FinanceView(ft.Row):
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20, vertical=16),
                     content=ft.Row(
-                        [self.settings_back, self.header_titles, self.settings_button],
+                        [
+                            self.settings_back,
+                            self.accounting_back,
+                            self.header_titles,
+                            self.management_menu,
+                            self.settings_button,
+                        ],
                     ),
                 ),
                 ft.Container(
@@ -779,14 +771,7 @@ class FinanceView(ft.Row):
             for screen in COMPACT_DESTINATIONS
             for label, icon, selected_icon in [destinations[screen]]
         ]
-        compact_screen = (
-            self.settings_return_screen
-            if self.current_screen == "settings"
-            else self.current_screen
-        )
-        self.navigation_bar.selected_index = COMPACT_DESTINATIONS.index(
-            "reports" if compact_screen == "budgets" else compact_screen
-        )
+        self.navigation_bar.selected_index = self._compact_selected_index()
         self.nav_rail.destinations = [
             ft.NavigationRailDestination(
                 label=self.tr(label), icon=icon, selected_icon=selected_icon
@@ -796,8 +781,16 @@ class FinanceView(ft.Row):
         ]
         self.nav_rail.selected_index = RAIL_DESTINATIONS.index(self.current_screen)
         compact = self.screen_class == ScreenClass.COMPACT
-        self.budgets_back.visible = compact
-        self.budgets_back_row.visible = compact
+        self.management_menu.content = self.tr("management")
+        self.management_menu.tooltip = self.tr("management")
+        self.management_menu.visible = compact and self.current_screen not in {
+            "accounts",
+            "settings",
+        }
+        self.management_accounts.content = self.tr("accounts_title")
+        self.management_categories.content = self.tr("categories_title")
+        self.accounting_back.visible = compact and self.current_screen == "accounts"
+        self.accounting_back.tooltip = self.tr("nav_back")
         self.settings_button.visible = compact and self.current_screen != "settings"
         self.settings_button.tooltip = self.tr("nav_settings")
         self.settings_back.visible = compact and self.current_screen == "settings"
@@ -846,13 +839,6 @@ class FinanceView(ft.Row):
             ft.Tab(label=self.tr("accounts_title")),
             ft.Tab(label=self.tr("categories_title")),
         ]
-        self.budget_tab_bar.tabs = [
-            ft.Tab(label=self.tr("report_overview")),
-            ft.Tab(label=self.tr("budget_management")),
-        ]
-        self.budgets_button.content = self.tr("budget_title")
-        self.budgets_back.content = self.tr("nav_reports")
-        self.budgets_back.tooltip = self.tr("nav_back")
         self.accounts_screen.controls = [self.accounting_tabs]
         self.category_root.label = self.tr("incoming_type")
         self.category_root.options = [
@@ -965,12 +951,17 @@ class FinanceView(ft.Row):
     def _selected_index(self) -> int:
         if self.screen_class != ScreenClass.COMPACT:
             return RAIL_DESTINATIONS.index(self.current_screen)
+        return self._compact_selected_index()
+
+    def _compact_selected_index(self) -> int:
         screen = (
             self.settings_return_screen
             if self.current_screen == "settings"
             else self.current_screen
         )
-        return COMPACT_DESTINATIONS.index("reports" if screen == "budgets" else screen)
+        if screen == "accounts":
+            screen = self.accounting_return_screen
+        return COMPACT_DESTINATIONS.index(screen)
 
     def _apply_layout(self, width: float | None) -> None:
         self.screen_class = screen_class(width)
@@ -985,7 +976,7 @@ class FinanceView(ft.Row):
             self.body.width = width
             if self.page:
                 self.page.navigation_bar = (
-                    None if self.current_screen == "settings" else self.navigation_bar
+                    None if self.current_screen in {"accounts", "settings"} else self.navigation_bar
                 )
             rail_width = 0
         else:
@@ -1018,8 +1009,11 @@ class FinanceView(ft.Row):
         self._update_transaction_separators()
         self.screen_host.padding = (
             ft.Padding.only(bottom=96)
-            if self.current_screen in {"home", "accounts", "budgets"}
-            or (self.current_screen == "settings" and self.screen_class != ScreenClass.COMPACT)
+            if self.current_screen in {"home", "budgets"}
+            or (
+                self.current_screen in {"accounts", "settings"}
+                and self.screen_class != ScreenClass.COMPACT
+            )
             else None
         )
         if self.page:
@@ -1027,7 +1021,8 @@ class FinanceView(ft.Row):
             self.fab.disabled = not (self.journal and self.journal.ready)
             self.page.floating_action_button = (
                 None
-                if self.screen_class == ScreenClass.COMPACT and self.current_screen == "settings"
+                if self.screen_class == ScreenClass.COMPACT
+                and self.current_screen in {"accounts", "settings"}
                 else self.fab
             )
 
@@ -5356,26 +5351,20 @@ class FinanceView(ft.Row):
         self._select_accounting_tab(event.control.selected_index)
         self.page.update()
 
-    def _select_budget_tab(self, index: int) -> None:
-        self.budget_tabs.selected_index = index
-        self.budgets.visible = index == 0
-        self.budget_management_panel.visible = index == 1
+    def _manage_accounts(self, event: ft.Event[ft.PopupMenuItem]) -> None:
+        self._navigate("accounts", accounting_tab=0)
 
-    def _budget_tab_changed(self, event: ft.Event[ft.Tabs]) -> None:
-        self._select_budget_tab(event.control.selected_index)
-        if self.budgets.visible:
-            self.budgets.request_refresh()
-        self.page.update()
+    def _manage_categories(self, event: ft.Event[ft.PopupMenuItem]) -> None:
+        self._navigate("accounts", accounting_tab=1)
 
-    def _open_budgets(self, event: ft.Event[ft.Button]) -> None:
-        self._navigate("budgets")
-
-    def _back_from_budgets(self, event: ft.Event[ft.TextButton]) -> None:
-        self._navigate("reports")
+    def _back_from_accounting(self, event: ft.Event[ft.IconButton]) -> None:
+        self._navigate(self.accounting_return_screen)
 
     def _navigate(self, screen: str, *, accounting_tab: int | None = None) -> None:
         if screen == "settings" and self.current_screen != "settings":
             self.settings_return_screen = self.current_screen
+        if screen == "accounts" and self.current_screen in COMPACT_DESTINATIONS:
+            self.accounting_return_screen = self.current_screen
         if screen == "accounts" and accounting_tab is not None:
             self._select_accounting_tab(accounting_tab)
         self.current_screen = screen

@@ -54,13 +54,10 @@ def test_navigation_preserves_selected_accounting_tab(
     view, page = setup_view(monkeypatch)
     page.width = width
     select_tab(view, index)
-    for entry in ("plain", "primary"):
+    for entry in ("plain", "sidebar"):
         view._navigate("home")
-        if entry == "plain":
+        if entry == "plain" or width == 390:
             view._navigate("accounts")
-        elif width == 390:
-            view.navigation_bar.selected_index = 2
-            view._bar_changed(MagicMock(control=view.navigation_bar))
         else:
             view.nav_rail.selected_index = 4
             view._rail_changed(MagicMock(control=view.nav_rail))

@@ -36,7 +36,7 @@ def test_version_visible_in_every_screen_header(
     view.startup_complete = True
     view._apply_layout(width)
     release, build = tasks.release_identity()
-    for screen in ("home", "transactions", "accounts", "reports", "settings"):
+    for screen in ("home", "transactions", "budgets", "accounts", "reports", "settings"):
         view._navigate(screen)
         assert view.body in view.controls
         header = view.body.controls[0]
@@ -44,12 +44,16 @@ def test_version_visible_in_every_screen_header(
         assert isinstance(header.content, ft.Row)
         assert header.content.controls == [
             view.settings_back,
+            view.accounting_back,
             view.header_titles,
+            view.management_menu,
             view.settings_button,
         ]
         assert view.header_titles.controls == [view.page_title, view.release_label]
         assert view.header_titles.wrap
-        assert view.page_title.value == view.tr(f"nav_{screen}")
+        assert view.page_title.value == view.tr(
+            "budget_title" if screen == "budgets" else f"nav_{screen}"
+        )
         assert view.release_label.value == f"v{release} ({build})"
         assert view.release_label.visible
 

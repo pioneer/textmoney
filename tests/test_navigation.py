@@ -1,4 +1,6 @@
+from collections.abc import Callable
 from datetime import date
+from typing import cast
 from unittest.mock import MagicMock
 
 import flet as ft
@@ -34,7 +36,7 @@ def test_mobile_settings_gear_opens_separate_view_and_back_restores_screen(
     assert view.settings_button.tooltip == view.tr("nav_settings")
     assert view.settings_button.on_click == view._open_settings
     assert [item.label for item in view.navigation_bar.destinations] == [
-        view.tr(f"nav_{name}") for name in ("home", "transactions", "accounts", "reports")
+        view.tr(key) for key in ("nav_home", "nav_transactions", "budget_title", "nav_reports")
     ]
     view._open_settings(MagicMock())
     assert view.current_screen == "settings"
@@ -50,8 +52,8 @@ def test_mobile_settings_gear_opens_separate_view_and_back_restores_screen(
 
     view._back_from_settings(MagicMock())
     assert view.current_screen == screen
-    assert page.navigation_bar is view.navigation_bar
-    assert page.floating_action_button is view.fab
+    assert page.navigation_bar is (None if screen == "accounts" else view.navigation_bar)
+    assert page.floating_action_button is (None if screen == "accounts" else view.fab)
     assert view.settings_button.visible and not view.settings_back.visible
     assert view.navigation_bar.selected_index == view._selected_index()
 
@@ -120,7 +122,7 @@ def test_settings_resize_preserves_return_screen_and_unsaved_preferences(
 
 
 @pytest.mark.parametrize(
-    "index,screen", list(enumerate(("home", "transactions", "accounts", "reports")))
+    "index,screen", list(enumerate(("home", "transactions", "budgets", "reports")))
 )
 def test_bottom_bar_still_navigates_to_each_primary_screen(
     navigation: tuple[FinanceView, MagicMock], index: int, screen: str
@@ -131,6 +133,60 @@ def test_bottom_bar_still_navigates_to_each_primary_screen(
     assert view.current_screen == screen
     assert view.navigation_bar.selected_index == index
     assert view.settings_button.visible
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+@pytest.mark.parametrize("primary", ["home", "transactions", "budgets", "reports"])
+@pytest.mark.parametrize("tab", [0, 1])
+def test_compact_management_menu_returns_to_previous_primary_screen(
+    navigation: tuple[FinanceView, MagicMock], language: str, primary: str, tab: int
+) -> None:
+    view, page = navigation
+    view.language = language
+    view._navigate(primary)
+    view.budgets.month = date(2026, 2, 1)
+    view.budgets.category_id = "Expenses:Food"
+    assert view.management_menu.visible
+    assert view.management_menu.content == view.tr("management")
+    assert view.management_menu.items == [view.management_accounts, view.management_categories]
+    assert [item.content for item in view.management_menu.items] == [
+        view.tr("accounts_title"),
+        view.tr("categories_title"),
+    ]
+    assert view.settings_button.visible
+    item = view.management_menu.items[tab]
+    assert item.on_click is not None
+    cast(Callable[[object], object], item.on_click)(MagicMock(control=item))
+    assert view.current_screen == "accounts"
+    assert view.accounting_tabs.selected_index == tab
+    assert view.accounts_panel.visible == (tab == 0)
+    assert view.categories_panel.visible == (tab == 1)
+    assert view.accounting_return_screen == primary
+    assert not view.management_menu.visible
+    assert view.accounting_back.visible and view.settings_button.visible
+    assert page.navigation_bar is None and page.floating_action_button is None
+    view._open_settings(MagicMock())
+    view._back_from_settings(MagicMock())
+    assert view.current_screen == "accounts"
+    assert view.accounting_return_screen == primary
+    for width in (800, 390, 1366, 599, 600, 390):
+        page.width = width
+        view._apply_layout(width)
+        view._refresh_labels()
+        assert view.current_screen == "accounts"
+        assert view.accounting_tabs.selected_index == tab
+        assert view.accounting_back.visible == (width <= 599)
+        assert view.nav_rail.selected_index == 4
+        assert page.navigation_bar is None
+        assert not view.management_menu.visible
+    click(view.accounting_back)
+    assert view.current_screen == primary
+    assert page.navigation_bar is view.navigation_bar
+    assert view.navigation_bar.destinations[view.navigation_bar.selected_index].label == view.tr(
+        "budget_title" if primary == "budgets" else f"nav_{primary}"
+    )
+    assert view.budgets.month == date(2026, 2, 1)
+    assert view.budgets.category_id == "Expenses:Food"
 
 
 def test_rail_settings_resizes_into_mobile_settings_with_back_navigation(
@@ -151,20 +207,19 @@ def test_rail_settings_resizes_into_mobile_settings_with_back_navigation(
     view._back_from_settings(MagicMock())
     assert view.current_screen == "accounts"
     assert view.accounting_tabs.selected_index == 1
-    assert view.navigation_bar.selected_index == 2
+    assert view.navigation_bar.selected_index == 0
+    assert view.accounting_back.visible and page.navigation_bar is None
 
 
 @pytest.mark.parametrize("width", [390, 1366])
-@pytest.mark.parametrize("tab", [0, 1])
-def test_budget_report_opens_from_reports_and_returns_without_losing_state(
-    navigation: tuple[FinanceView, MagicMock], width: int, tab: int
+def test_budget_report_opens_from_navigation_and_returns_without_losing_state(
+    navigation: tuple[FinanceView, MagicMock], width: int
 ) -> None:
     view, page = navigation
     page.width = width
     budgets = view.budgets
     budgets.month = date(2026, 2, 1)
     budgets.category_id = "Expenses:Food"
-    budgets.account_id = "Assets:Cash"
     budgets.currency.value = "USD"
     budgets.overspent.value = True
     view._navigate("reports")
@@ -172,59 +227,55 @@ def test_budget_report_opens_from_reports_and_returns_without_losing_state(
     view.report_period.value = "custom"
     view.report_start.occurred.value = "10/"
     page.run_task.reset_mock()
-    click(view.budgets_button)
+    assert view.reports_screen.controls == [view.report_overview]
+    assert not hasattr(view, "budgets_button")
+    if width <= 599:
+        view.navigation_bar.selected_index = 2
+        view._bar_changed(MagicMock(control=view.navigation_bar))
+    else:
+        view.nav_rail.selected_index = 2
+        view._rail_changed(MagicMock(control=view.nav_rail))
     page.run_task.assert_called_once_with(budgets.refresh)
-    assert view.budget_tabs.selected_index == 0
-    view.budget_tabs.selected_index = tab
-    view._budget_tab_changed(MagicMock(control=view.budget_tabs))
     for resized_width in (width, 800, 390, 1366, 599, 600):
         page.width = resized_width
         view._apply_layout(resized_width)
         view._refresh_labels()
         assert view.current_screen == "budgets"
         assert view.screen_host.content is view.budgets_screen
-        assert view.budgets_screen.controls[-1] is view.budget_tabs
-        assert view.budget_tabs.selected_index == tab
-        assert budgets.visible == (tab == 0)
-        assert view.budget_management_panel.visible == (tab == 1)
-        assert view.budget_management_panel.content is budgets.management
+        assert view.budgets_screen.controls == [budgets]
         assert view.budgets is budgets
         assert budgets.month == date(2026, 2, 1)
         assert budgets.category_id == "Expenses:Food"
-        assert budgets.account_id == "Assets:Cash"
         assert budgets.currency.value == "USD"
         assert budgets.overspent.value
         assert view.nav_rail.selected_index == 2
-        assert view.navigation_bar.selected_index == 3
-        assert view._selected_index() == (3 if resized_width <= 599 else 2)
-        assert view.budgets_back.visible == (resized_width <= 599)
-        assert view.budgets_back_row.visible == (resized_width <= 599)
+        assert view.navigation_bar.selected_index == 2
+        assert view._selected_index() == 2
+        assert view.budgets_screen.controls == [budgets]
         assert len(view.nav_rail.destinations) == 6
         assert len(view.navigation_bar.destinations) == 4
         assert view.screen_host.padding == ft.Padding.only(bottom=96)
         assert page.navigation_bar is (view.navigation_bar if resized_width <= 599 else None)
         view._navigate("home")
         view._navigate("budgets")
-        assert view.budget_tabs.selected_index == tab
         view._open_settings(MagicMock())
         assert view.settings_return_screen == "budgets"
-        assert view.navigation_bar.selected_index == 3
+        assert view.navigation_bar.selected_index == 2
         assert view.nav_rail.selected_index == 5
         view._back_from_settings(MagicMock())
         assert view.current_screen == "budgets"
-        assert view.budget_tabs.selected_index == tab
     page.width = 390
     view._apply_layout(page.width)
-    assert view.budgets_back.visible
-    click(view.budgets_back)
+    view.navigation_bar.selected_index = 3
+    view._bar_changed(MagicMock(control=view.navigation_bar))
     assert view.current_screen == "reports"
     assert view.screen_host.content is view.reports_screen
     assert view.report_overview is overview
     assert view.report_period.value == "custom"
     assert view.report_start.occurred.value == "10/"
-    click(view.budgets_button)
+    view.navigation_bar.selected_index = 2
+    view._bar_changed(MagicMock(control=view.navigation_bar))
     assert view.current_screen == "budgets"
-    assert view.budget_tabs.selected_index == tab
     assert budgets.month == date(2026, 2, 1)
     assert budgets.category_id == "Expenses:Food"
     view._navigate("accounts", accounting_tab=1)
@@ -262,23 +313,20 @@ def test_sidebar_order_and_screen_selection(
     view._rail_changed(MagicMock(control=view.nav_rail))
     assert view.current_screen == screen
     assert view.nav_rail.selected_index == view._selected_index() == index
-    assert not view.budgets_back.visible
-    assert not view.budgets_back_row.visible
+    assert not view.management_menu.visible
+    assert view.budgets_screen.controls == [view.budgets]
 
 
 @pytest.mark.parametrize("width", [600, 1366])
-@pytest.mark.parametrize("tab", [0, 1])
 def test_sidebar_budget_entry_preserves_state(
-    navigation: tuple[FinanceView, MagicMock], width: int, tab: int
+    navigation: tuple[FinanceView, MagicMock], width: int
 ) -> None:
     view, page = navigation
     page.width = width
     view._navigate("budgets")
-    view._select_budget_tab(tab)
     budgets = view.budgets
     budgets.month = date(2026, 2, 1)
     budgets.category_id = "Expenses:Food"
-    budgets.account_id = "Assets:Cash"
     budgets.currency.value = "USD"
     budgets.overspent.value = True
     view._navigate("home")
@@ -287,11 +335,9 @@ def test_sidebar_budget_entry_preserves_state(
     assert view.current_screen == "budgets"
     assert view.screen_host.content is view.budgets_screen
     assert view.nav_rail.selected_index == 2
-    assert view.budget_tabs.selected_index == tab
     assert view.budgets is budgets
     assert budgets.month == date(2026, 2, 1)
     assert budgets.category_id == "Expenses:Food"
-    assert budgets.account_id == "Assets:Cash"
     assert budgets.currency.value == "USD"
     assert budgets.overspent.value
 
@@ -324,15 +370,16 @@ def test_accounting_keeps_scroll_clearance_for_both_tabs(
     view.accounting_tabs.selected_index = tab
     view._accounting_tab_changed(MagicMock(control=view.accounting_tabs))
     assert view.screen_host.content is view.accounts_screen
-    assert view.screen_host.padding == ft.Padding.only(bottom=96)
+    expected_padding = ft.Padding.only(bottom=96) if width >= 600 else None
+    assert view.screen_host.padding == expected_padding
     assert view.body.scroll == ft.ScrollMode.AUTO
-    assert page.floating_action_button is view.fab
+    assert page.floating_action_button is (view.fab if width >= 600 else None)
     assert view.accounts_panel.visible == (tab == 0)
     assert view.categories_panel.visible == (tab == 1)
     view._open_settings(MagicMock())
     view._back_from_settings(MagicMock())
     assert view.accounting_tabs.selected_index == tab
-    assert view.screen_host.padding == ft.Padding.only(bottom=96)
+    assert view.screen_host.padding == expected_padding
 
 
 @pytest.mark.parametrize("width", [390, 599, 600, 800, 1366])
@@ -365,8 +412,8 @@ def test_screen_clearance_updates_on_resize_and_does_not_accumulate(
             view._refresh_labels()
             expected = (
                 ft.Padding.only(bottom=96)
-                if screen in {"home", "accounts", "budgets"}
-                or (screen == "settings" and width >= 600)
+                if screen in {"home", "budgets"}
+                or (screen in {"accounts", "settings"} and width >= 600)
                 else None
             )
             assert view.screen_host.padding == expected

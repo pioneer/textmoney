@@ -62,6 +62,70 @@ def test_daily_report_keys_close_without_writes(
 @pytest.mark.parametrize(
     "platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.MACOS]
 )
+@pytest.mark.parametrize("key", ["Escape", "Enter", "Numpad Enter"])
+def test_budget_history_keys_and_nested_editor_preserve_report_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: ft.PagePlatform, key: str
+) -> None:
+    async def scenario() -> None:
+        source = (
+            "2000-01-01 open Expenses:Food\n"
+            '2026-01-01 custom "budget" Expenses:Food "monthly" 10 USD\n'
+            '2026-01-15 custom "budget" Expenses:Food "monthly" 20 USD\n'
+        )
+        (tmp_path / FILENAME).write_text(source, encoding="utf-8")
+        session = keyboard_session(platform)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
+        view = FinanceView()
+        journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        report = view.budgets
+        report.month = date(2026, 1, 1)
+        report.category_id = "Expenses:Food"
+        report.currency.value = "USD"
+        report.overspent.value = True
+        report.filters.visible = True
+        report._show_history(MagicMock())
+        history = session.page._dialogs.controls[-1]
+        assert isinstance(history, ft.AlertDialog) and history.open
+        assert isinstance(history.content, ft.KeyboardListener)
+        assert isinstance(history.content.content, ft.Column)
+        assert history.content.content.controls[-1] is report.definitions
+        record = report.definitions.controls[0]
+        assert isinstance(record, ft.Column)
+        actions = record.controls[-1]
+        assert isinstance(actions, ft.Row)
+        edit = actions.controls[0]
+        assert isinstance(edit, ft.IconButton) and edit.data == journal.ledger.budgets[0]
+        await session.dispatch_event(edit._i, "click", None)
+        editor = session.page._dialogs.controls[-1]
+        assert isinstance(editor, ft.AlertDialog) and editor is not history and editor.open
+        await press(session, "Escape")
+        assert not editor.open and history.open
+        await session.dispatch_event(editor._i, "dismiss", None)
+        await press(session, key)
+        assert not history.open
+        await session.dispatch_event(history._i, "dismiss", None)
+        assert report.month == date(2026, 1, 1)
+        assert report.scope.value == report.category_id == "Expenses:Food"
+        assert report.currency.value == "USD"
+        assert report.filters.visible and report.overspent.value
+        assert journal.source == source
+        assert (tmp_path / FILENAME).read_text(encoding="utf-8") == source
+        report._show_history(MagicMock())
+        reopened = session.page._dialogs.controls[-1]
+        assert isinstance(reopened, ft.AlertDialog) and reopened.open
+        assert isinstance(reopened.content, ft.KeyboardListener)
+        assert isinstance(reopened.content.content, ft.Column)
+        assert report.definitions.parent is reopened.content.content
+        await press(session, key)
+        assert not reopened.open
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.MACOS]
+)
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize("focus", ["content", "cancel", "save"])
 def test_escape_dispatches_the_cancel_button_event(

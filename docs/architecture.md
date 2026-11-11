@@ -85,12 +85,15 @@ language choices are discovered from those compiled catalogs, with English as
 the required fallback. See the [localization guide](localization.md) for
 validation, compilation and Weblate setup. One width classifier selects bottom navigation for compact displays and
 a navigation rail for medium/expanded displays. Compact layouts have four bottom
-destinations and a top-right Settings gear. Settings opens separately with a back
-arrow and no bottom bar or transaction action; Back restores the previous screen.
+destinations: Home, Transactions, Budgets and Reports. A localized Management
+header menu opens the Accounts or Categories tab of Accounting, separately from
+the Settings gear. Compact Accounting and Settings hide the bottom bar and
+transaction action; their back arrows restore the previous screen. Accounting
+remembers its previous primary screen, including across resizing and Settings.
 Medium/expanded layouts use Home, Transactions, Budgets, Reports, Accounting and
-Settings rail destinations without the header gear. Budgets selects its own rail
-item, but selects Reports in compact bottom navigation. Its return-to-Reports
-action is compact-only. This follows available width, not the operating system.
+Settings rail destinations without the header gear or Management menu. Budgets
+selects its own item in both layouts and has no temporary back-to-Reports action.
+This follows available width, not the operating system.
 The same screens and form state
 are retained through resizing. Translation resources are separate from controls;
 language/theme choices are saved locally. Domain functions use Python types and return results or raise meaningful
@@ -170,11 +173,15 @@ algorithms; its notice is shipped in `app/notices/fava.txt`. It uses a separate
 oracles, not runtime engines. There are no envelopes or rollover rules. See
 [budgeting](budgets.md) for calculation boundaries and reference tests.
 
-Accounting has Accounts and Categories tabs. Reports opens a standalone Budgets
-screen with Overview and Management tabs and a compact-only return action to Reports.
-Overview is the default; the selected tab persists across navigation and resizing.
-Budget management and reporting own separate single-parent control trees while
-sharing the same journal and budget view coordinator. Compact navigation retains
+Accounting has Accounts and Categories tabs. Budgets is a single screen available
+from primary navigation. Reports contains only its reporting overview. Creation sits above the budget report
+cards; dated limit actions reuse the existing budget dialogs, right-aligned beside
+the card title. A Budget history button beside creation opens all dated definitions
+in a dialog, including superseded, future and stopped limits. Budget filters cover
+category, currency and overspending, not accounts.
+All controls have a single parent and share the same journal and budget view
+coordinator. Month, filters and open drafts persist across navigation, saves and
+resizing. Compact navigation retains
 four destinations; the medium/wide rail has six, including Budgets.
 Operations has optional account and category selectors, combined with AND.
 The selectors start collapsed behind a filter icon; collapsing them preserves
@@ -192,9 +199,10 @@ Budget reports show only categories with their own effective budget, hiding
 automatic parent totals without changing domain calculations.
 Report rows do not expand or collapse; budgeted descendants are always visible
 with indentation. A transactions icon sits beside each row's Edit/Delete actions.
-The report UI is monthly only. Searchable component-aware tree selectors filter
-categories and ordinary accounts; account filters restrict complete transactions,
-not budget definitions, with a persistent warning while active. Currency selection
+The report UI is monthly only. An Operations-style dropdown filters budgeted
+categories and their colon-delimited descendants. There is no Account filter.
+Category, currency and overspending filters start hidden behind the filter icon.
+Currency selection
 filters displayed figures only, never converts amounts. Transaction text search
 is confined to the drilldown. Advanced Fava-compatible domain calculations remain
 covered by oracle tests but are not exposed as report modes.

@@ -222,6 +222,12 @@ msgstr "Monthly overview"
 msgid "ui.budget_management"
 msgstr "Management"
 
+msgid "ui.budget_limit_effective"
+msgstr "Limit: {amount} {currency} · {interval} · from {date}"
+
+msgid "ui.management"
+msgstr "Management"
+
 msgid "ui.budget_changes"
 msgstr "Category changes"
 
@@ -270,8 +276,8 @@ msgstr "Reports, filters and valuation"
 msgid "ui.budget_semantics"
 msgstr "Fava 1.30.16 rules: daily allocation; budgets keep their currencies. Category reports use account trees; interval totals use literal account prefixes. Expand a category for direct values and transactions. Progress is a TextMoney display ratio. Hover amounts for exact Decimals."
 
-msgid "ui.budget_definitions"
-msgstr "Budget definitions and history"
+msgid "ui.budget_limit_history"
+msgstr "Budget history"
 
 msgid "ui.budget_history_help"
 msgstr "To change a future budget without changing past months, use Change from a date. Unused amounts are not added to the next month."

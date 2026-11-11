@@ -933,7 +933,13 @@ def test_budget_definition_tree_and_filters_use_entity_icons(
         view.budgets.category_id = "Expenses:Food"
         view.budgets.category_choices = {"Expenses:Food": "Food"}
         view.budgets._sync_filters()
-        assert isinstance(view.budgets.scope.icon, ft.Image)
+        assert isinstance(view.budgets.scope.leading_icon, ft.Container)
+        assert images(view.budgets.scope.leading_icon)
+        category_option = next(
+            option for option in view.budgets.scope.options if option.key == "Expenses:Food"
+        )
+        assert isinstance(category_option.content, ft.Control)
+        assert images(category_option.content)
         assert isinstance(view.budgets.active_filters.controls[0], ft.Chip)
         assert isinstance(view.budgets.active_filters.controls[0].leading, ft.Image)
         picker = TreePicker(

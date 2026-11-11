@@ -1,13 +1,12 @@
 # Category budgets
 
-Manage definitions in the **Management** tab and monitor spending and
-overspending in **Overview** on the **Budgets** screen, opened with the **Budgets** button on
-**Reports**, or directly from the desktop Budgets sidebar destination.
-On compact screens its back button returns to Reports and Reports remains
-selected in bottom navigation. On medium/wide screens Budgets is selected in
-the sidebar and has no back-to-Reports action.
-Overview is the initial tab; the selected tab, budget
-month, filters and open management drafts survive navigation and layout changes.
+Manage limits and monitor spending on the single **Budgets** screen, opened
+directly from primary navigation.
+Budgets has its own selected item in both compact bottom navigation and the
+medium/wide sidebar. Reports has no Budgets shortcut;
+there is no back-to-Reports action.
+The selected month, filters and open budget drafts survive navigation, saving
+and layout changes.
 Accounting contains only Accounts and Categories. Budgets live exclusively in the selected
 `textmoney.beancount` journal:
 
@@ -25,12 +24,23 @@ MIT algorithms and their complete license notice are shipped in
 
 ## Management and history
 
-- Use **+ Create budget** at the top of **Budgets → Management** for new
-  definitions. Existing definitions use the same CRUD affordances as Accounts
-  and Categories: pencil for edit and trash for delete.
-- Each definition has **View in reports**. It selects **Budgets → Overview** at the
+- Use **+ Create budget** above the cards for new definitions, even when the
+  selected month or filters show no cards.
+- Each card shows the latest applicable limit's amount, currency, interval and
+  effective date, separately for each displayed directly budgeted currency.
+  Monthly allocation figures still include any changes within that month.
+- Cards offer **Edit**, **Delete**, **Change from a date** and
+  **Discontinue from a date**. Change and discontinue append a dated definition
+  (zero for discontinuation), preserving earlier records. Saving does not reset
+  the selected month or filters.
+- Open **Budget history**, next to **Create budget**, for a dialog containing all
+  dated records, including earlier limits superseded within the same month,
+  future and stopped limits, with the same editing actions. Both buttons remain
+  available when no cards are shown. Closing history preserves the month and filters.
+  The two buttons have equal widths and stay right-aligned when they wrap on mobile.
+- Each history definition has **View in reports**. It opens the cards at the
   current month when the definition applies during any part of that month;
-  otherwise it opens the month the definition starts. It selects its currency and clears category, account
+  otherwise it opens the month the definition starts. It closes history, selects its currency and clears category
   and overspending filters. Budgeted child rows are always visible with indentation;
   the report scrolls to it and highlights it. Changing the month or filters clears
   the highlight. Reports remain monthly category totals, not a separate report
@@ -91,7 +101,7 @@ values as hover/long-press hints; the underlying arithmetic is unchanged.
 
 The monthly overview shows **Budget**, **Spent**, **Remaining**, percentage used
 and expense overspending, separately for each currency. Budget rows do not expand
-or collapse. The transactions icon beside Edit and Delete opens contributing
+or collapse. The transactions icon in the card's action row opens contributing
 transactions; nested budgeted categories remain visible with indentation. Figures include
 subcategories; there is no separate **Excluding subcategories** subitem.
 There is no report-mode selector or reporting-frequency selector. Definition
@@ -104,15 +114,16 @@ create an Expenses row. A parent appears only when it has its own explicit
 budget. Budgeted descendants remain visible even if their parents are hidden.
 Explicit zero budgets remain visible. This is a presentation filter only:
 Fava-compatible actuals, allocation and hierarchy totals are unchanged. Manage
-all definitions, including future ones, in **Budgets → Management**.
-For budgeted rows with an active direct definition in the selected period,
-Reports also shows pencil/trash actions for quick edit/delete.
+all definitions, including future ones, through the **Budget history** dialog.
+Edit, Delete, Change from date and Stop from date sit beside the transactions
+button, right-aligned alongside the category title. The action area wraps on
+narrow screens. Actions target the displayed dated limit in its
+own currency, labeled when several currencies are shown.
 Report cards use a 16-pixel content inset on every side, with an additional
 16-pixel left indent per visible hierarchy level. Within that area the progress
 bar stays full-width; the category heading and figures have a further 14-pixel
 inset, matching the centered 20-pixel action icons in 48-pixel click/touch targets.
-When a currency filter is selected, those actions target the latest definition
-in that currency; without it, they target the latest definition for the category.
+When a currency filter is selected, only that currency's limit actions appear.
 
 Category trees use real account components for actuals. Fava budget aggregation
 and interval chart actuals use literal `startswith` matching: a query for
@@ -130,19 +141,19 @@ Overspending does not block transactions.
 
 - Use month arrows, click the month heading to choose a month/year, or select
   **Current month** (using the app timezone). No Fava date notation is required.
-- **Category** opens a searchable tree with friendly names and expandable
-  branches. Selecting a parent includes its descendants, not similarly named
+- Filters are hidden initially. Use the filter icon, as in Operations, to show
+  category, currency and **Only overspent**, plus active chips and reset.
+  Collapsing the panel keeps its selections; the icon is highlighted while any
+  filter is active. Month navigation and **Current month** remain visible.
+- **Category** is an Operations-style dropdown with friendly names, assigned
+  icons and hierarchy guides. Selecting a parent includes its descendants, not similarly named
   siblings. Only categories budgeted in this month and their ancestors appear
   in the selector; selecting an ancestor does not create an aggregate report row.
-- Expand **Filters** for the optional **Account** tree, containing only ordinary
-  asset/liability accounts and their branches. It selects complete transactions
-  involving that account or a descendant. A warning remains visible outside the
-  collapsed section: other accounts' spending is excluded, while budget amounts
-  are unchanged. Displayed totals must not be mistaken for total spending.
+- Budgets has no Account filter; spending includes all accounts.
 - **Only overspent** keeps expense rows whose remaining amount is negative in
   any displayed budget currency. Zero budgets with positive spending qualify;
   missing budgets do not. Income is not treated as overspending.
-- Active category/account/currency selections have removable chips.
+- Active category/currency selections have removable chips.
   **Reset filters** clears all selections and the overspending toggle, without
   changing the month. Changes apply immediately; there is no Apply button.
 - Payee/description search is in **Contributing transactions**, not in the

@@ -11,7 +11,6 @@ import flet as ft
 from app.domain.budgets import (
     INTERVALS,
     Budget,
-    BudgetFilter,
     BudgetRow,
     definition_report_month,
     interval_next,
@@ -22,7 +21,6 @@ from app.domain.reporting import shift_month
 from app.localization import date_input, format_budget_number, format_date, localized_error
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
-from app.ui.tree_picker import TreePicker
 from app.ui.tree_style import compact_tree_theme
 
 if TYPE_CHECKING:
@@ -45,9 +43,7 @@ class BudgetView(ft.Column):
         self.scroll_target: ft.ListTile | None = None
         self.month = host._today().replace(day=1)
         self.category_id = ""
-        self.account_id = ""
         self.category_choices: dict[str, str] = {}
-        self.account_choices: dict[str, str] = {}
         self.report_rows: tuple[BudgetRow, ...] = ()
         self.period = ft.TextButton(
             icon=ft.Icon(ft.Icons.CALENDAR_TODAY, size=16),
@@ -55,54 +51,50 @@ class BudgetView(ft.Column):
             on_click=self._pick_month,
         )
         self.current = ft.TextButton(on_click=self._current_month)
-        self.scope = ft.Button(on_click=self._pick_category)
-        self.account = ft.Button(on_click=self._pick_account)
+        self.scope = ft.Dropdown(
+            value="",
+            expand=True,
+            text_style=ft.TextStyle(size=16),
+            on_select=self._category_changed,
+        )
         self.currency = ft.Dropdown(value="", width=220, on_select=self._changed, visible=False)
         self.overspent = ft.Checkbox(value=False, on_change=self._changed)
         self.reset = ft.TextButton(on_click=self._reset)
         self.active_filters = ft.Row(wrap=True)
-        self.account_warning = ft.Text(size=12, visible=False)
         self.error = ft.Text(color=ft.Colors.ERROR, visible=False, selectable=True)
         self.loading = ft.ProgressRing(visible=False)
         self.results = ft.Column(spacing=12)
         self.definitions = ft.Column(spacing=8)
-        self.add = ft.Button(icon=ft.Icons.ADD, on_click=self._new)
+        self.add = ft.Button(icon=ft.Icons.ADD, width=240, on_click=self._new)
         self.previous = ft.IconButton(icon=ft.Icons.CHEVRON_LEFT, on_click=self._previous)
         self.next = ft.IconButton(icon=ft.Icons.CHEVRON_RIGHT, on_click=self._next)
-        self.filters_tile = ft.ExpansionTile(
-            title=host.tr("budget_simple_filters"),
-            controls=[
-                ft.Column(
-                    [
-                        self.account,
-                    ],
-                    spacing=16,
-                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
-                ),
+        self.filter_toggle = ft.IconButton(
+            icon=ft.Icons.FILTER_LIST,
+            on_click=self._toggle_filters,
+        )
+        self.filters = ft.Column(
+            [
+                ft.Row([self.scope]),
+                self.currency,
+                self.overspent,
+                self.active_filters,
+                self.reset,
             ],
-            controls_padding=ft.Padding.only(top=8),
-            expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
-            maintain_state=True,
+            spacing=8,
+            visible=False,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
         self.history_help = ft.Text(size=12)
-        self.management = ft.Column(
-            [
-                ft.Row([self.add], alignment=ft.MainAxisAlignment.END, wrap=True),
-                self.history_help,
-                self.definitions,
-            ],
-            spacing=16,
-        )
+        self.history = ft.Button(width=240, on_click=self._show_history)
         self.controls = [
+            ft.Container(
+                ft.Row([self.add, self.history], alignment=ft.MainAxisAlignment.END, wrap=True),
+                alignment=ft.Alignment.CENTER_RIGHT,
+            ),
             ft.Row([self.previous, self.period, self.next]),
             ft.Row([self.current], alignment=ft.MainAxisAlignment.CENTER),
-            self.scope,
-            self.currency,
-            self.overspent,
-            self.active_filters,
-            self.filters_tile,
-            self.account_warning,
-            self.reset,
+            ft.Row([self.filter_toggle], alignment=ft.MainAxisAlignment.END),
+            self.filters,
             self.error,
             self.loading,
             ft.Container(self.results, theme=compact_tree_theme()),
@@ -114,6 +106,8 @@ class BudgetView(ft.Column):
         ready = bool(journal and journal.ready)
         self.add.content = tr("create_budget")
         self.add.disabled = not ready
+        self.history.content = tr("budget_limit_history")
+        self.history.disabled = not ready
         self.previous.tooltip = tr("budget_previous")
         self.next.tooltip = tr("budget_next")
         self.period.content = f"{tr(f'date_month_{self.month.month:02}')} {self.month.year}"
@@ -124,10 +118,7 @@ class BudgetView(ft.Column):
         self.currency.label = tr("currency")
         self.overspent.label = tr("budget_only_overspent")
         self.reset.content = tr("budget_reset_filters")
-        self.account_warning.value = tr("budget_account_warning")
-        self.account_warning.visible = bool(self.account_id)
         self.history_help.value = tr("budget_history_help")
-        self.filters_tile.title = tr("budget_simple_filters")
         model_key = (
             id(journal),
             id(journal.ledger) if journal else None,
@@ -138,57 +129,64 @@ class BudgetView(ft.Column):
         if model_key != self.model_key:
             self.model_key = model_key
             if journal and journal.ready:
-                self.account_choices = self._tree_items(
-                    {item.id for item in journal.ledger.accounts}
-                )
                 self.definitions.controls = [
                     self._definition(budget)
                     for budget in sorted(journal.ledger.budgets, key=lambda b: (b.account, b.date))
                 ] or [ft.Text(tr("budget_empty"))]
             else:
-                self.account_choices = {}
                 self.category_choices = {}
                 self.definitions.controls = [ft.Text(tr("report_unavailable"))]
-        self.scope.disabled = self.account.disabled = not ready
+        self.scope.disabled = not ready
         self._sync_filters()
 
     def _sync_filters(self) -> None:
         tr = self.host.tr
         category = self.category_choices.get(self.category_id, self.category_id)
-        account = self.account_choices.get(self.account_id, self.account_id)
-        self.scope.content = f"{tr('budget_category')}: {category or tr('budget_all')}"
-        self.account.content = f"{tr('budget_account')}: {account or tr('budget_all_accounts')}"
+        self.scope.label = tr("budget_category")
+        self.scope.value = self.category_id
         self.scope.tooltip = self.category_id or None
-        self.account.tooltip = self.account_id or None
-        self.scope.icon = self.host._entity_icon(self.category_id)
-        self.account.icon = self.host._entity_icon(self.account_id)
+        self.scope.leading_icon = self.host._entity_dropdown_icon(self.category_id)
+        self.filter_toggle.tooltip = tr("operations_filters")
+        self.filter_toggle.selected = self.filters.visible
+        self.filter_toggle.icon_color = (
+            ft.Colors.PRIMARY
+            if self.category_id or self.currency.value or self.overspent.value
+            else None
+        )
         filter_key = (
             self.host.language,
             self.host.icon_revision,
             self.category_id,
             category,
-            self.account_id,
-            account,
             self.currency.value,
             self.overspent.value,
             self.host.body.width,
+            tuple(sorted(self.category_choices.items())),
         )
         if self.filter_key == filter_key:
             return
         self.filter_key = filter_key
+        self.scope.options = self.host._category_option_lines(
+            [
+                ft.DropdownOption(key="", text=tr("operations_all_categories")),
+                *[
+                    self.host._category_form_option(identifier, name)
+                    for identifier, name in sorted(
+                        self.category_choices.items(), key=lambda item: item[0].split(":")
+                    )
+                ],
+            ]
+        )
         chips: list[ft.Control] = []
         for key, label in (
             ("category", f"{tr('budget_category')}: {category}" if category else ""),
-            ("account", f"{tr('budget_account')}: {account}" if account else ""),
             ("currency", str(self.currency.value or "")),
         ):
             if label:
                 chips.append(
                     ft.Chip(
-                        leading=self.host._entity_icon(
-                            self.category_id if key == "category" else self.account_id
-                        )
-                        if key in {"category", "account"}
+                        leading=self.host._entity_icon(self.category_id)
+                        if key == "category"
                         else None,
                         label=ft.Text(
                             label,
@@ -206,7 +204,6 @@ class BudgetView(ft.Column):
         self.active_filters.controls = chips
         self.active_filters.visible = bool(chips)
         self.reset.visible = bool(chips) or bool(self.overspent.value)
-        self.account_warning.visible = bool(self.account_id)
 
     def _tree_items(self, identifiers: set[str]) -> dict[str, str]:
         names = self._account_names()
@@ -218,33 +215,25 @@ class BudgetView(ft.Column):
                 items[key] = names.get(key, parts[length - 1])
         return items
 
-    def _pick_category(self, event: ft.Event[ft.Button]) -> None:
-        show_dialog(
-            self.host.page,
-            TreePicker(
-                self.host.page,
-                self.host.language,
-                self.host.tr("budget_category"),
-                self.category_choices,
-                self.category_id,
-                self.host.tr("budget_all"),
-                self._select_category,
-                icon=self.host._entity_icon,
-            ),
-        )
+    def _toggle_filters(self, event: ft.Event[ft.IconButton]) -> None:
+        self.filters.visible = not self.filters.visible
+        self.filter_toggle.selected = self.filters.visible
+        self.host.page.update()
 
-    def _pick_account(self, event: ft.Event[ft.Button]) -> None:
+    async def _category_changed(self, event: ft.Event[ft.Dropdown]) -> None:
+        await self._select_category(str(self.scope.value or ""))
+
+    def _show_history(self, event: ft.Event[ft.Button]) -> None:
+        self.sync()
         show_dialog(
             self.host.page,
-            TreePicker(
-                self.host.page,
-                self.host.language,
-                self.host.tr("budget_account"),
-                self.account_choices,
-                self.account_id,
-                self.host.tr("budget_all_accounts"),
-                self._select_account,
-                icon=self.host._entity_icon,
+            ft.AlertDialog(
+                title=self.host.tr("budget_limit_history"),
+                scrollable=True,
+                content=ft.Column([self.history_help, self.definitions], tight=True, width=640),
+                actions=[
+                    ft.TextButton(self.host.tr("daily_report_close"), on_click=self.host._dismiss)
+                ],
             ),
         )
 
@@ -252,22 +241,16 @@ class BudgetView(ft.Column):
         self.category_id = identifier
         await self._refresh_filters()
 
-    async def _select_account(self, identifier: str) -> None:
-        self.account_id = identifier
-        await self._refresh_filters()
-
     async def _clear_filter(self, event: ft.Event[ft.Chip]) -> None:
         key = event.control.data
         if key == "category":
             self.category_id = ""
-        elif key == "account":
-            self.account_id = ""
         elif key == "currency":
             self.currency.value = ""
         await self._refresh_filters()
 
     async def _reset(self, event: ft.Event[ft.TextButton]) -> None:
-        self.category_id = self.account_id = ""
+        self.category_id = ""
         self.currency.value = ""
         self.overspent.value = False
         await self._refresh_filters()
@@ -301,7 +284,6 @@ class BudgetView(ft.Column):
             self.host.language,
             self.host.icon_revision,
             self.month,
-            self.account_id,
             self.category_id,
             self.currency.value,
             self.overspent.value,
@@ -330,7 +312,6 @@ class BudgetView(ft.Column):
         try:
             begin = self.month
             end = interval_next(begin, "monthly")
-            filters = BudgetFilter(account=self.account_id, account_tree=True)
             ledger = journal.ledger
             results = await asyncio.to_thread(
                 rows,
@@ -339,7 +320,6 @@ class BudgetView(ft.Column):
                 end,
                 "monthly",
                 tree=True,
-                filters=filters,
             )
             if generation != self.generation or self._key() != key:
                 return
@@ -587,7 +567,6 @@ class BudgetView(ft.Column):
                     if identifier.rpartition(":")[0] == account
                 ]
                 key = (begin, account)
-                budget = self._active_budget(account, row.end)
                 actions = [
                     ft.IconButton(
                         icon=ft.Icons.RECEIPT_LONG,
@@ -596,24 +575,7 @@ class BudgetView(ft.Column):
                         icon_size=20,
                         on_click=self._transactions,
                     ),
-                ] + (
-                    [
-                        ft.IconButton(
-                            icon=ft.Icons.EDIT_OUTLINED,
-                            tooltip=tr("crud_edit"),
-                            icon_size=20,
-                            on_click=lambda _, current=budget: self._form(current),
-                        ),
-                        ft.IconButton(
-                            icon=ft.Icons.DELETE_OUTLINE,
-                            tooltip=tr("crud_delete"),
-                            icon_size=20,
-                            on_click=lambda _, current=budget: self._delete(current),
-                        ),
-                    ]
-                    if budget is not None
-                    else []
-                )
+                ]
                 for action in actions:
                     action.padding = _REPORT_TEXT_INSET
                     action.visual_density = ft.VisualDensity.STANDARD
@@ -635,10 +597,11 @@ class BudgetView(ft.Column):
                                         tooltip=account,
                                         expand=True,
                                     ),
-                                    *actions,
+                                    self._card_actions(row, actions),
                                 ],
                                 spacing=0,
                             ),
+                            *self._limit_controls(row),
                             *(
                                 [
                                     ft.Container(
@@ -678,6 +641,59 @@ class BudgetView(ft.Column):
             controls.extend(control for root in roots for control in node(root))
         self.results.controls = controls or [ft.Text(tr("budget_report_empty"))]
 
+    def _limit_controls(self, row: BudgetRow) -> list[ft.Control]:
+        controls: list[ft.Control] = []
+        for currency in sorted(row.direct_budget):
+            if self.currency.value and self.currency.value != currency:
+                continue
+            budget = self._active_budget(row.account, row.end, currency)
+            if budget is None:
+                continue
+            controls.append(
+                ft.Container(
+                    ft.Column(
+                        [
+                            ft.Text(
+                                self.host.tr(
+                                    "budget_limit_effective",
+                                    amount=str(budget.amount),
+                                    currency=budget.currency,
+                                    interval=self.host.tr(f"budget_{budget.interval}"),
+                                    date=format_date(budget.date, self.host.language),
+                                ),
+                                selectable=True,
+                            ),
+                        ],
+                        spacing=0,
+                    ),
+                    padding=ft.Padding.symmetric(horizontal=_REPORT_TEXT_INSET),
+                )
+            )
+        return controls
+
+    def _card_actions(self, row: BudgetRow, actions: list[ft.IconButton]) -> ft.Row:
+        controls: list[ft.Control] = list(actions)
+        currencies = [
+            currency
+            for currency in sorted(row.direct_budget)
+            if not self.currency.value or self.currency.value == currency
+        ]
+        for currency in currencies:
+            budget = self._active_budget(row.account, row.end, currency)
+            if budget is None:
+                continue
+            if len(currencies) > 1:
+                controls.append(ft.Text(currency, size=12))
+            controls.extend(self._budget_actions(budget).controls)
+        return ft.Row(
+            controls,
+            expand=2,
+            wrap=True,
+            alignment=ft.MainAxisAlignment.END,
+            spacing=0,
+            run_spacing=0,
+        )
+
     def _show_report(self, event: ft.Event[ft.TextButton]) -> None:
         budget = event.control.data
         assert isinstance(budget, Budget)
@@ -687,13 +703,12 @@ class BudgetView(ft.Column):
             return
         self.cancel()
         self.month = definition_report_month(journal.ledger.budgets, budget, self.host._today())
-        self.category_id = self.account_id = ""
+        self.category_id = ""
         self.currency.value = budget.currency
         self.overspent.value = False
         self.highlighted = (self.month, budget.account)
         self.reveal_requested = True
         self.cache_key = None
-        self.host._select_budget_tab(0)
         self.host._navigate("budgets")
 
     async def _reveal_report(self, event: ft.LayoutSizeChangeEvent[ft.LayoutControl]) -> None:
@@ -701,7 +716,6 @@ class BudgetView(ft.Column):
             event.control is not self.scroll_target
             or not self.reveal_requested
             or self.host.current_screen != "budgets"
-            or self.host.budget_tabs.selected_index != 0
         ):
             return
         self.reveal_requested = False
@@ -712,7 +726,7 @@ class BudgetView(ft.Column):
             self.host._error(exc, notify=True)
             self.host.page.update()
 
-    def _active_budget(self, account: str, end: date) -> Budget | None:
+    def _active_budget(self, account: str, end: date, currency: str | None = None) -> Budget | None:
         journal = self.host.journal
         if journal is None or not journal.ready:
             return None
@@ -721,7 +735,10 @@ class BudgetView(ft.Column):
             for index, budget in enumerate(journal.ledger.budgets)
             if budget.account == account
             and budget.date < end
-            and (not self.currency.value or budget.currency == self.currency.value)
+            and (
+                not (currency or self.currency.value)
+                or budget.currency == (currency or self.currency.value)
+            )
         ]
         if not candidates:
             return None
@@ -787,6 +804,39 @@ class BudgetView(ft.Column):
             ),
         )
 
+    def _budget_actions(self, budget: Budget) -> ft.Row:
+        tr = self.host.tr
+        return ft.Row(
+            [
+                ft.IconButton(
+                    icon=ft.Icons.EDIT_OUTLINED,
+                    tooltip=tr("crud_edit"),
+                    icon_size=20,
+                    data=budget,
+                    on_click=lambda _: self._form(budget),
+                ),
+                ft.IconButton(
+                    icon=ft.Icons.DELETE_OUTLINE,
+                    tooltip=tr("crud_delete"),
+                    icon_size=20,
+                    data=budget,
+                    on_click=lambda _: self._delete(budget),
+                ),
+                ft.TextButton(
+                    tr("budget_change"),
+                    data=budget,
+                    on_click=lambda _: self._form(budget, new=True),
+                ),
+                ft.TextButton(
+                    tr("budget_stop"),
+                    data=budget,
+                    on_click=lambda _: self._form(budget, new=True, stop=True),
+                ),
+            ],
+            wrap=True,
+            spacing=0,
+        )
+
     def _definition(self, budget: Budget) -> ft.Control:
         tr = self.host.tr
         names = self._account_names()
@@ -812,37 +862,23 @@ class BudgetView(ft.Column):
                             tr("budget_view_report"),
                             icon=ft.Icons.BAR_CHART_OUTLINED,
                             data=budget,
-                            on_click=self._show_report,
-                        ),
-                        ft.TextButton(
-                            tr("budget_change"), on_click=lambda _: self._form(budget, new=True)
-                        ),
-                        ft.IconButton(
-                            icon=ft.Icons.EDIT_OUTLINED,
-                            tooltip=tr("crud_edit"),
-                            icon_size=20,
-                            on_click=lambda _: self._form(budget),
-                        ),
-                        ft.TextButton(
-                            tr("budget_stop"),
-                            on_click=lambda _: self._form(budget, new=True, stop=True),
-                        ),
-                        ft.IconButton(
-                            icon=ft.Icons.DELETE_OUTLINE,
-                            tooltip=tr("crud_delete"),
-                            icon_size=20,
-                            on_click=lambda _: self._delete(budget),
+                            on_click=self._history_report,
                         ),
                     ],
                     wrap=True,
                     spacing=0,
                 ),
+                self._budget_actions(budget),
             ],
             spacing=4,
         )
 
     def _new(self, event: ft.Event[ft.Button]) -> None:
         self._form()
+
+    def _history_report(self, event: ft.Event[ft.TextButton]) -> None:
+        self.host.page.pop_dialog()
+        self._show_report(event)
 
     def _form(self, budget: Budget | None = None, *, new: bool = False, stop: bool = False) -> None:
         journal = self.host._require_journal()

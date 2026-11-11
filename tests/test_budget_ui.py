@@ -12,14 +12,13 @@ import flet.canvas as fc
 import pytest
 from form_controls import assert_deletion_title, category_content, click, dropdown_field
 
-from app.domain.budgets import Budget, BudgetFilter, BudgetRow
+from app.domain.budgets import Budget, BudgetRow
 from app.domain.ledger import LedgerError
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
-from app.localization import date_input
+from app.localization import date_input, format_date
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.finance import FinanceView
-from app.ui.tree_picker import TreePicker
 
 SOURCE = """option "operating_currency" "USD"
 2000-01-01 open Assets:Cash USD
@@ -83,40 +82,35 @@ def test_budget_navigation_responsive_and_localized(
     host.language = language
     host._navigate("accounts", accounting_tab=1)
     assert host.categories_panel.visible and not host.accounts_panel.visible
-    assert host.budgets.management not in list(walk(host.accounts_screen))
-    assert host.budget_management_panel.content is host.budgets.management
-    assert host.budgets.add in list(walk(host.budgets.management))
-    assert host.budgets.results not in list(walk(host.budgets.management))
+    assert host.budgets not in list(walk(host.accounts_screen))
     host._navigate("reports")
     assert host.report_overview in host.reports_screen.controls
     assert host.budgets not in list(walk(host.reports_screen))
-    host._open_budgets(MagicMock())
+    host._navigate("budgets")
     assert host.current_screen == "budgets"
     assert host.screen_host.content is host.budgets_screen
-    assert host.budget_tabs.length == 2 and host.budget_tabs.selected_index == 0
-    assert host.budgets.visible and not host.budget_management_panel.visible
+    assert host.budgets_screen.controls == [host.budgets]
     tree = list(walk(host.budgets_screen))
     assert sum(item is host.budgets for item in tree) == 1
-    assert sum(item is host.budgets.management for item in tree) == 1
-    assert host.budgets.add not in list(walk(host.budgets))
-    assert host.budgets.definitions not in list(walk(host.budgets))
+    assert sum(item is host.budgets.add for item in tree) == 1
+    assert host.budgets.definitions not in tree
+    assert not any(isinstance(item, ft.ExpansionTile) for item in tree)
+    toolbar = host.budgets.controls[0]
+    assert isinstance(toolbar, ft.Container)
+    assert toolbar.alignment == ft.Alignment.CENTER_RIGHT
+    toolbar = toolbar.content
+    assert isinstance(toolbar, ft.Row) and toolbar.wrap
+    assert toolbar.alignment == ft.MainAxisAlignment.END
+    assert toolbar.controls == [host.budgets.add, host.budgets.history]
     for width in (320, 390, 800, 1366):
         page.width = width
         host._apply_layout(width)
         host._refresh_labels()
+        assert host.budgets.add.width == host.budgets.history.width == 240
         assert host.page_title.value == host.tr("budget_title")
-        assert host.budgets_button.content == host.tr("budget_title")
-        assert host.budgets_back.content == host.tr("nav_reports")
-        assert [tab.label for tab in host.budget_tab_bar.tabs if isinstance(tab, ft.Tab)] == [
-            host.tr("report_overview"),
-            host.tr("budget_management"),
-        ]
-        for index in (1, 0):
-            host.budget_tabs.selected_index = index
-            host._budget_tab_changed(MagicMock(control=host.budget_tabs))
-            assert host.budgets.visible == (index == 0)
-            assert host.budget_management_panel.visible == (index == 1)
-        assert host._selected_index() == (3 if width <= 599 else 2)
+        assert not any(isinstance(item, ft.Tabs) for item in walk(host.budgets_screen))
+        assert host.budgets.history.content == host.tr("budget_limit_history")
+        assert host._selected_index() == 2
         host._open_settings(MagicMock())
         host._back_from_settings(MagicMock())
         assert host.current_screen == "budgets"
@@ -132,8 +126,8 @@ def test_budget_navigation_responsive_and_localized(
         host._navigate("budgets")
         assert host.budgets.add.content == host.tr("create_budget")
         assert host.budgets.add.icon == ft.Icons.ADD
-        assert host.budgets.filters_tile.title == host.tr("budget_simple_filters")
-    host._back_from_budgets(MagicMock())
+        assert host.budgets.filter_toggle.tooltip == host.tr("operations_filters")
+    host._navigate("reports")
     assert host.current_screen == "reports"
     assert host.screen_host.content is host.reports_screen
     host._go_accounts(MagicMock())
@@ -159,7 +153,7 @@ def test_budget_category_labels_are_short_and_not_transaction_instructions(
             page.width = width
             host._apply_layout(width)
             host._refresh_labels()
-            assert str(host.budgets.scope.content).startswith(label + ": ")
+            assert host.budgets.scope.label == label
             assert host.budgets.category_id == ""
         host.budgets._form()
         category, _, _, _ = fields(page.show_dialog.call_args.args[0])
@@ -313,19 +307,32 @@ def test_budget_report_non_expanding_rows_have_transaction_actions(
             assert isinstance(header, ft.Row)
             inset = header.controls[0]
             assert isinstance(inset, ft.Container) and inset.width == 14
-            actions = [control for control in header.controls if isinstance(control, ft.IconButton)]
+            action_row = header.controls[-1]
+            assert isinstance(action_row, ft.Row) and action_row.wrap
+            assert action_row.alignment == ft.MainAxisAlignment.END
+            assert action_row.expand == 2
+            assert header.controls[-2].expand
+            actions = [
+                control for control in action_row.controls if isinstance(control, ft.IconButton)
+            ]
             assert [action.tooltip for action in actions] == [
                 host.tr("budget_transactions"),
                 host.tr("crud_edit"),
                 host.tr("crud_delete"),
             ]
-            for action in actions:
+            for action in actions[:1]:
                 assert action.alignment is None
                 assert action.padding == 14
                 assert action.visual_density == ft.VisualDensity.STANDARD
                 assert action.size_constraints == ft.BoxConstraints(min_width=48, min_height=48)
             bars = []
             for section in tile.title.controls[1:]:
+                if section is action_row:
+                    continue
+                if isinstance(section, ft.Container) and isinstance(section.content, ft.Column):
+                    (caption,) = section.content.controls
+                    assert isinstance(caption, ft.Text)
+                    continue
                 lines = section.controls if isinstance(section, ft.Column) else [section]
                 for line in lines:
                     if isinstance(line, ft.ProgressBar):
@@ -813,14 +820,13 @@ async def submit(dialog: ft.AlertDialog) -> None:
 
 
 @pytest.mark.parametrize("width", [390, 1366])
-def test_management_draft_survives_tab_navigation_and_resize(
+def test_budget_draft_survives_navigation_and_resize(
     view: tuple[FinanceView, MagicMock], tmp_path: Path, width: int
 ) -> None:
     async def scenario() -> None:
         host, page = view
         journal = await load(host, tmp_path)
         host._navigate("budgets")
-        host._select_budget_tab(1)
         click(host.budgets.add)
         dialog = page.show_dialog.call_args.args[0]
         category, amount, currency, effective = fields(dialog)
@@ -829,18 +835,16 @@ def test_management_draft_survives_tab_navigation_and_resize(
         currency.value = "EUR"
         effective.occurred.value = "unfinished date"
         controls = tuple(host.budgets.controls)
-        management = host.budgets.management
+        history = host.budgets.history
         page.show_dialog.reset_mock()
         for resized_width in (width, 800, 390, 1366):
             page.width = resized_width
             host._apply_layout(resized_width)
             host._refresh()
-            host._select_budget_tab(0)
             host._navigate("reports")
             host._navigate("budgets")
-            host._select_budget_tab(1)
             assert tuple(host.budgets.controls) == controls
-            assert host.budget_management_panel.content is management
+            assert host.budgets.history is history
             assert category.value == "Expenses:Food"
             assert amount.value == "123.456" and currency.value == "EUR"
             assert effective.occurred.value == "unfinished date"
@@ -852,23 +856,21 @@ def test_management_draft_survives_tab_navigation_and_resize(
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("tab", [0, 1])
-def test_budget_tabs_share_crud_refresh(
-    view: tuple[FinanceView, MagicMock], tmp_path: Path, tab: int
+@pytest.mark.parametrize("surface", ["card", "history"])
+def test_budget_cards_and_history_share_crud_refresh(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, surface: str
 ) -> None:
     async def scenario() -> None:
         host, page = view
         journal = await load(host, tmp_path)
         host._navigate("budgets")
-        host._select_budget_tab(tab)
         report = host.budgets
-        management = report.management
+        history = report.history
         for operation in ("edit", "delete", "create"):
             if operation == "create":
-                host._select_budget_tab(1)
                 click(report.add)
             else:
-                root = report.results if tab == 0 else report.definitions
+                root = report.results if surface == "card" else report.definitions
                 button = next(
                     item
                     for item in walk(root)
@@ -887,8 +889,7 @@ def test_budget_tabs_share_crud_refresh(
             await submit(dialog)
             assert host.error_message is None
             assert host.journal is journal and host.budgets is report
-            assert host.budget_management_panel.content is management
-            assert host.budget_tabs.selected_index == (1 if operation == "create" else tab)
+            assert report.history is history
             page.run_task.assert_called_once_with(report.refresh)
             await report.refresh()
             expected = [] if operation == "delete" else [Decimal(25 if operation == "edit" else 30)]
@@ -935,6 +936,276 @@ def test_future_definition_and_discontinuation_preserve_history(
         await submit(dialog)
         assert len(journal.ledger.budgets) == 3
         assert journal.ledger.budgets[-1].amount == 0
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_limit_history_edits_superseded_record_and_close_preserves_report_state(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, language: str
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        host.language = language
+        replacement = '2026-01-15 custom "budget" Expenses:Food "monthly" 25 USD\n'
+        journal = await load(host, tmp_path, SOURCE + replacement)
+        host._navigate("budgets")
+        report = host.budgets
+        report.category_id = "Expenses:Food"
+        report.currency.value = "USD"
+        report.overspent.value = True
+        report.filters.visible = True
+        await report.refresh()
+        original, later = journal.ledger.budgets
+        assert report._active_budget(original.account, date(2026, 2, 1)) == later
+        assert report.history.visible and not report.history.disabled
+        click(report.history)
+        history_dialog = page.show_dialog.call_args.args[0]
+        assert history_dialog.title == host.tr("budget_limit_history")
+        assert isinstance(history_dialog.content, ft.Column)
+        assert sum(item is report.definitions for item in walk(history_dialog.content)) == 1
+        assert report.definitions not in tuple(walk(report))
+        edit = next(
+            item
+            for item in walk(report.definitions)
+            if isinstance(item, ft.IconButton)
+            and item.tooltip == host.tr("crud_edit")
+            and item.data == original
+        )
+        click(edit)
+        edit_dialog = page.show_dialog.call_args.args[0]
+        _, amount, _, effective = fields(edit_dialog)
+        assert amount.value == "10.00"
+        assert effective.occurred.value == date_input(original.date, language)
+        amount.value = "9"
+        await submit(edit_dialog)
+        await report.refresh()
+        assert len(journal.ledger.budgets) == 2
+        assert journal.ledger.budgets[0].amount == Decimal(9)
+        assert journal.ledger.budgets[0].date == original.date
+        assert journal.ledger.budgets[1].amount == later.amount
+        assert journal.ledger.budgets[1].date == later.date
+        assert journal.source.endswith(replacement)
+        assert any(
+            item.data == journal.ledger.budgets[0]
+            for item in walk(report.definitions)
+            if isinstance(item, ft.IconButton)
+        )
+        page.pop_dialog.reset_mock()
+        close = history_dialog.actions[0]
+        assert isinstance(close, ft.TextButton)
+        assert close.content == host.tr("daily_report_close")
+        click(close)
+        page.pop_dialog.assert_called_once()
+        assert host.current_screen == "budgets"
+        assert report.month == date(2026, 1, 1)
+        assert report.category_id == report.scope.value == "Expenses:Food"
+        assert report.currency.value == "USD"
+        assert report.overspent.value and report.filters.visible
+        click(report.history)
+        reopened = page.show_dialog.call_args.args[0]
+        assert isinstance(reopened.content, ft.Column)
+        assert reopened.content.controls[-1] is report.definitions
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
+def test_card_limit_dates_and_actions_match_each_currency(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, language: str, width: int
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        host.language = language
+        page.width = width
+        journal = await load(
+            host,
+            tmp_path,
+            MULTI_CURRENCY
+            + '\n2026-01-15 custom "budget" Expenses:Food "monthly" 25 USD\n'
+            + '2027-01-01 custom "budget" Expenses:Food "monthly" 99 EUR\n',
+        )
+        host._navigate("budgets")
+        tile = next(item for item in host.budgets.results.controls if isinstance(item, ft.ListTile))
+        latest = {
+            "EUR": journal.ledger.budgets[1],
+            "USD": journal.ledger.budgets[2],
+        }
+        assert isinstance(tile.title, ft.Column)
+        limits = [
+            item.content
+            for item in tile.title.controls
+            if isinstance(item, ft.Container) and isinstance(item.content, ft.Column)
+        ]
+        assert len(limits) == 2
+        for section, currency in zip(limits, ("EUR", "USD"), strict=True):
+            budget = latest[currency]
+            (caption,) = section.controls
+            assert isinstance(caption, ft.Text)
+            assert caption.value == host.tr(
+                "budget_limit_effective",
+                amount=str(budget.amount),
+                currency=currency,
+                interval=host.tr("budget_monthly"),
+                date=format_date(budget.date, language),
+            )
+            header = tile.title.controls[0]
+            assert isinstance(header, ft.Row)
+            actions = header.controls[-1]
+            assert isinstance(actions, ft.Row) and actions.alignment == ft.MainAxisAlignment.END
+            buttons = [item for item in actions.controls if item.data == budget]
+            assert len(buttons) == 4
+            edit, delete, change, stop = buttons
+            assert isinstance(edit, ft.IconButton) and edit.tooltip == host.tr("crud_edit")
+            assert isinstance(delete, ft.IconButton) and delete.tooltip == host.tr("crud_delete")
+            assert isinstance(change, ft.TextButton) and change.content == host.tr("budget_change")
+            assert isinstance(stop, ft.TextButton) and stop.content == host.tr("budget_stop")
+            click(change)
+            category, amount, chosen_currency, _ = fields(page.show_dialog.call_args.args[0])
+            assert category.value == budget.account
+            assert amount.value == str(budget.amount)
+            assert chosen_currency.value == currency
+        assert journal.source.endswith(
+            '2027-01-01 custom "budget" Expenses:Food "monthly" 99 EUR\n'
+        )
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("width", [390, 1366])
+def test_card_changes_and_stops_preserve_history_month_and_filters(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, width: int
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        page.width = width
+        journal = await load(host, tmp_path)
+        original = journal.ledger.budgets[0]
+        host._navigate("budgets")
+        report = host.budgets
+        report.category_id = "Expenses:Food"
+        report.currency.value = "USD"
+        report.overspent.value = True
+        report.filters.visible = True
+        await report.refresh()
+        for action, effective_date, expected_amount in (
+            ("budget_change", date(2026, 1, 15), Decimal(5)),
+            ("budget_stop", date(2026, 1, 20), Decimal(0)),
+        ):
+            button = next(
+                item
+                for item in walk(report.results)
+                if isinstance(item, ft.TextButton) and item.content == host.tr(action)
+            )
+            click(button)
+            dialog = page.show_dialog.call_args.args[0]
+            _, amount, _, effective = fields(dialog)
+            if action == "budget_stop":
+                assert amount.value == "0"
+            else:
+                amount.value = str(expected_amount)
+            effective.occurred.value = date_input(effective_date, host.language)
+            await submit(dialog)
+            assert host.error_message is None
+            await report.refresh()
+            assert journal.ledger.budgets[0] == original
+            assert journal.ledger.budgets[-1].date == effective_date
+            assert journal.ledger.budgets[-1].amount == expected_amount
+            assert report.month == date(2026, 1, 1)
+            assert report.category_id == "Expenses:Food"
+            assert report.currency.value == "USD" and report.filters.visible
+            assert report.overspent.value
+            assert host.current_screen == "budgets"
+        assert len(journal.ledger.budgets) == 3
+        assert SOURCE.split("2026-01-05")[0] in journal.source
+        captions = [item.value for item in walk(report.results) if isinstance(item, ft.Text)]
+        assert (
+            host.tr(
+                "budget_limit_effective",
+                amount="0",
+                currency="USD",
+                interval=host.tr("budget_monthly"),
+                date=format_date(date(2026, 1, 20), host.language),
+            )
+            in captions
+        )
+        assert (
+            sum(
+                isinstance(item, ft.IconButton) and item.tooltip == host.tr("crud_edit")
+                for item in walk(report.definitions)
+            )
+            == 3
+        )
+
+    asyncio.run(scenario())
+
+
+def test_empty_budget_screen_keeps_creation_and_future_stopped_history_accessible(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        source = SOURCE.replace(
+            '2026-01-01 custom "budget" Expenses:Food "monthly" 10.00 USD\n', ""
+        )
+        journal = await load(host, tmp_path, source)
+        host._navigate("budgets")
+        report = host.budgets
+        toolbar = report.controls[0]
+        assert isinstance(toolbar, ft.Container)
+        assert toolbar.alignment == ft.Alignment.CENTER_RIGHT
+        toolbar = toolbar.content
+        assert isinstance(toolbar, ft.Row) and toolbar.controls == [report.add, report.history]
+        assert not report.add.disabled
+        assert not report.history.disabled
+        assert not displayed_rows(host)
+        click(report.history)
+        history_dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(history_dialog, ft.AlertDialog) and history_dialog.scrollable
+        assert isinstance(history_dialog.content, ft.Column)
+        assert history_dialog.content.controls == [report.history_help, report.definitions]
+        empty = report.definitions.controls[0]
+        assert isinstance(empty, ft.Text) and empty.value == host.tr("budget_empty")
+        close = history_dialog.actions[0]
+        assert isinstance(close, ft.TextButton)
+        click(close)
+        click(report.add)
+        dialog = page.show_dialog.call_args.args[0]
+        category, amount, _, effective = fields(dialog)
+        category.value = "Expenses:Food"
+        amount.value = "25"
+        effective.occurred.value = date_input(date(2027, 1, 1), host.language)
+        await submit(dialog)
+        await report.refresh()
+        assert report.month == date(2026, 1, 1) and not displayed_rows(host)
+        future = journal.ledger.budgets[0]
+        report._form(future, new=True, stop=True)
+        dialog = page.show_dialog.call_args.args[0]
+        _, _, _, effective = fields(dialog)
+        effective.occurred.value = date_input(date(2027, 2, 1), host.language)
+        await submit(dialog)
+        await report.refresh()
+        assert [item.amount for item in journal.ledger.budgets] == [Decimal(25), Decimal(0)]
+        click(report.history)
+        history_dialog = page.show_dialog.call_args.args[0]
+        assert history_dialog.title == host.tr("budget_limit_history")
+        assert report.definitions not in tuple(walk(report))
+        assert isinstance(history_dialog.content, ft.Column)
+        assert history_dialog.content.controls == [report.history_help, report.definitions]
+        assert len(report.definitions.controls) == 2
+        for definition, budget in zip(
+            report.definitions.controls, journal.ledger.budgets, strict=True
+        ):
+            edit = next(
+                item
+                for item in walk(definition)
+                if isinstance(item, ft.IconButton) and item.tooltip == host.tr("crud_edit")
+            )
+            click(edit)
+            _, amount, _, effective = fields(page.show_dialog.call_args.args[0])
+            assert amount.value == str(budget.amount)
+            assert effective.occurred.value == date_input(budget.date, host.language)
+        assert not displayed_rows(host)
 
     asyncio.run(scenario())
 
@@ -997,6 +1268,7 @@ def test_polling_refresh_keeps_budget_input_controls_and_parents_stable(
         await load(host, tmp_path)
         controls = tuple(host.budgets.controls)
         options = tuple(host.budgets.currency.options)
+        category_options = tuple(host.budgets.scope.options)
         definitions = tuple(host.budgets.definitions.controls)
         host.budgets._pick_month(MagicMock())
         dialog = page.show_dialog.call_args.args[0]
@@ -1004,14 +1276,17 @@ def test_polling_refresh_keeps_budget_input_controls_and_parents_stable(
         year = dialog.content.controls[1]
         assert isinstance(year, ft.TextField)
         year.value = "unfinished year"
-        host.budgets.filters_tile.expanded = True
+        host.budgets.filters.visible = True
         for _ in range(3):
             host._refresh()
             assert tuple(host.budgets.controls) == controls
             assert all(a is b for a, b in zip(host.budgets.controls, controls, strict=True))
             assert tuple(host.budgets.currency.options) == options
+            assert all(
+                a is b for a, b in zip(host.budgets.scope.options, category_options, strict=True)
+            )
             assert tuple(host.budgets.definitions.controls) == definitions
-            assert host.budgets.filters_tile.expanded
+            assert host.budgets.filters.visible
             assert year.value == "unfinished year"
         assert host.budgets.month == date(2026, 1, 1)
 
@@ -1049,11 +1324,11 @@ def test_monthly_report_has_only_simple_filters(
         await load(host, tmp_path)
         assert not host.budgets.currency.visible
         assert not host.budgets.active_filters.visible
-        assert not host.budgets.account_warning.visible
         assert not host.budgets.reset.visible
         assert not any(isinstance(item, ft.TextField) for item in walk(host.budgets))
         assert [item for item in walk(host.budgets) if isinstance(item, ft.Dropdown)] == [
-            host.budgets.currency
+            host.budgets.scope,
+            host.budgets.currency,
         ]
         assert not any(
             hasattr(host.budgets, field)
@@ -1078,7 +1353,7 @@ def test_monthly_report_has_only_simple_filters(
     asyncio.run(scenario())
 
 
-def test_tree_pickers_have_branches_friendly_names_search_and_clear(
+def test_category_dropdown_has_budget_branches_friendly_names_and_clear(
     view: tuple[FinanceView, MagicMock], tmp_path: Path
 ) -> None:
     async def scenario() -> None:
@@ -1090,73 +1365,27 @@ def test_tree_pickers_have_branches_friendly_names_search_and_clear(
             + """
 2000-01-01 open Expenses:FoodOther
     name: "Other groceries"
+2000-01-01 open Expenses:Unbudgeted
+2000-01-01 open Expenses:Future
+2026-02-01 custom "budget" Expenses:Future "monthly" 5 USD
 2026-01-01 custom "budget" Expenses:Food:Meals "monthly" 2 USD
 2026-01-01 custom "budget" Expenses:FoodOther "monthly" 3 USD
 """,
         )
-        host.budgets._pick_category(MagicMock())
-        picker = page.show_dialog.call_args.args[0]
-        assert isinstance(picker, TreePicker)
-        assert isinstance(picker.content, ft.Column)
-        listing = picker.content.controls[-1]
-        assert isinstance(listing, ft.Container) and listing.content is picker.listing
-        assert listing.theme is not None
-        assert listing.theme.list_tile_theme == ft.ListTileTheme(
-            horizontal_spacing=12, min_leading_width=16, min_vertical_padding=0
-        )
-        assert listing.theme.icon_theme == ft.IconTheme(size=16)
-        assert picker.items["Expenses:Food"] == "Groceries"
-        assert "Expenses:Food:Meals" in picker.items
-        branches = {
-            item.data: item for item in walk(picker.listing) if isinstance(item, ft.ExpansionTile)
-        }
-        assert set(branches) == {"Expenses", "Expenses:Food"}
-        for tile in branches.values():
-            assert tile.affinity == ft.TileAffinity.LEADING
-            assert tile.dense and tile.min_tile_height == 40
-            assert tile.tile_padding == 0
-            assert tile.controls_padding == ft.Padding.only(left=16)
-            assert tile.shape == tile.collapsed_shape == ft.RoundedRectangleBorder()
-            assert isinstance(tile.title, ft.TextButton)
-            assert tile.title.style == ft.ButtonStyle(
-                padding=0,
-                alignment=ft.Alignment.CENTER_LEFT,
-                visual_density=ft.VisualDensity.COMPACT,
-            )
-        leaves = [
-            item
-            for item in walk(picker.listing)
-            if isinstance(item, ft.Container) and isinstance(item.content, ft.TextButton)
+        category = host.budgets.scope
+        assert isinstance(category, ft.Dropdown)
+        assert category.text_style == host.operations_category.text_style
+        assert [(option.key, option.text) for option in category.options] == [
+            ("", host.tr("operations_all_categories")),
+            ("Expenses", host.tr("categories_expenses")),
+            ("Expenses:Food", "Groceries"),
+            ("Expenses:Food:Meals", "Meals"),
+            ("Expenses:FoodOther", "Other groceries"),
         ]
-        assert leaves
-        assert all(leaf.padding == 0 for leaf in leaves)
-        branch = branches["Expenses:Food"]
-        assert branch.on_change
-        cast(Callable[[object], None], branch.on_change)(MagicMock(data=True))
-        picker.search.value = "groceries"
-        picker._search(MagicMock())
-        assert picker.search.value == "groceries"
-        assert any(
-            isinstance(item, ft.TextButton) and item.data == "Expenses:Food:Meals"
-            for item in walk(picker.listing)
-        )
-        picker.search.value = "No such category"
-        picker._search(MagicMock())
-        assert isinstance(picker.listing.controls[0], ft.Text)
-        picker.search.value = ""
-        picker._search(MagicMock())
-        branch = next(
-            item
-            for item in walk(picker.listing)
-            if isinstance(item, ft.ExpansionTile) and item.data == "Expenses:Food"
-        )
-        assert branch.expanded
-        button = next(
-            item
-            for item in walk(picker.listing)
-            if isinstance(item, ft.TextButton) and item.data == "Expenses:Food"
-        )
-        await picker._choose(MagicMock(control=button))
+        assert "Assets:Cash" not in {option.key for option in category.options}
+        assert category.options[3].content is not None
+        category.value = "Expenses:Food"
+        await host.budgets._category_changed(MagicMock(control=category))
         assert host.budgets.category_id == "Expenses:Food"
         assert {row.account for row in displayed_rows(host)} == {
             "Expenses:Food",
@@ -1170,24 +1399,77 @@ def test_tree_pickers_have_branches_friendly_names_search_and_clear(
         assert isinstance(chip.label, ft.Text) and chip.label.overflow == ft.TextOverflow.ELLIPSIS
         await host.budgets._clear_filter(MagicMock(control=chip))
         assert not host.budgets.category_id
+        assert category.value == ""
         assert "Expenses:FoodOther" in {row.account for row in displayed_rows(host)}
-        host.budgets._pick_account(MagicMock())
-        account_picker = page.show_dialog.call_args.args[0]
-        assert isinstance(account_picker, TreePicker)
-        assert set(account_picker.items) == {"Assets", "Assets:Cash"}
-        assert not any(key.startswith(("Income", "Expenses")) for key in account_picker.items)
-        await account_picker._choose(MagicMock(control=ft.TextButton(data="")))
-        assert not host.budgets.account_id
+        category.value = "Expenses:Food"
+        await host.budgets._category_changed(MagicMock(control=category))
+        category.value = ""
+        await host.budgets._category_changed(MagicMock(control=category))
+        assert not host.budgets.category_id
+        assert "Expenses:FoodOther" in {row.account for row in displayed_rows(host)}
 
     asyncio.run(scenario())
 
 
-def test_account_tree_filter_keeps_budget_and_warns_outside_collapsed_filters(
+def test_hidden_filters_keep_selections_across_navigation_and_resize(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        await load(host, tmp_path, MULTI_CURRENCY)
+        report = host.budgets
+        host._navigate("budgets")
+        assert not report.filters.visible
+        assert not report.filter_toggle.selected
+        assert report.filter_toggle.icon_color is None
+        assert report.scope in tuple(walk(report.filters))
+        for control in (
+            report.currency,
+            report.overspent,
+            report.active_filters,
+            report.reset,
+        ):
+            assert control in report.filters.controls
+        for control in (report.period, report.current, report.previous, report.next):
+            assert control in tuple(walk(report))
+            assert control not in tuple(walk(report.filters))
+        click(report.filter_toggle)
+        assert report.filters.visible and report.filter_toggle.selected
+        report.scope.value = "Expenses:Food"
+        await report._category_changed(MagicMock(control=report.scope))
+        report.currency.value = "USD"
+        report.overspent.value = True
+        await report._changed(MagicMock(control=report.overspent))
+        assert report.filter_toggle.icon_color == ft.Colors.PRIMARY
+        click(report.filter_toggle)
+        assert not report.filters.visible and not report.filter_toggle.selected
+        for width in (1366, 390):
+            page.width = width
+            host._apply_layout(width)
+            host._navigate("reports")
+            host._navigate("budgets")
+            host._refresh()
+            assert not report.filters.visible
+            assert report.filter_toggle.icon_color == ft.Colors.PRIMARY
+            assert report.month == date(2026, 1, 1)
+            assert report.scope.value == report.category_id == "Expenses:Food"
+            assert report.currency.value == "USD" and report.overspent.value
+        click(report.filter_toggle)
+        assert report.filters.visible and report.filter_toggle.selected
+        await report._reset(MagicMock())
+        assert report.filters.visible
+        assert report.filter_toggle.icon_color is None
+        assert not report.scope.value and not report.overspent.value
+
+    asyncio.run(scenario())
+
+
+def test_budget_report_has_no_account_filter_and_includes_all_accounts(
     view: tuple[FinanceView, MagicMock], tmp_path: Path
 ) -> None:
     async def scenario() -> None:
         host, _ = view
-        journal = await load(
+        await load(
             host,
             tmp_path,
             SOURCE
@@ -1202,28 +1484,20 @@ def test_account_tree_filter_keeps_budget_and_warns_outside_collapsed_filters(
     Assets:Cashbox -50 USD
 """,
         )
-        unfiltered = displayed_rows(host)[0]
-        await host.budgets._select_account("Assets:Cash")
-        filtered = displayed_rows(host)[0]
-        assert unfiltered.actual == {"USD": Decimal(64)}
-        assert filtered.actual == {"USD": Decimal(14)}
-        assert filtered.budget == unfiltered.budget
-        assert not host.budgets.filters_tile.expanded
-        assert host.budgets.account_warning.visible
-        assert host.budgets.account_warning in host.budgets.controls
-        assert any(item.data == "account" for item in host.budgets.active_filters.controls)
-        sibling = journal.ledger.transactions[-1]
-        assert BudgetFilter("Assets:Cash").matches(sibling)
-        assert not BudgetFilter("Assets:Cash", account_tree=True).matches(sibling)
-        assert BudgetFilter("Assets:Cash", account_tree=True).matches(
-            journal.ledger.transactions[-2]
+        assert not any(
+            hasattr(host.budgets, field)
+            for field in ("account", "account_id", "account_choices", "account_warning")
         )
+        assert displayed_rows(host)[0].actual == {"USD": Decimal(64)}
+        assert not host.budgets.filters.visible
+        await host.budgets._select_category("Expenses:Food")
+        assert {item.data for item in host.budgets.active_filters.controls} == {"category"}
+        assert displayed_rows(host)[0].actual == {"USD": Decimal(64)}
         host.budgets.overspent.value = True
         await host.budgets._reset(MagicMock())
-        assert not host.budgets.account_id and not host.budgets.overspent.value
-        assert not host.budgets.account_warning.visible
+        assert not host.budgets.overspent.value
         assert not host.budgets.active_filters.visible
-        assert displayed_rows(host)[0].actual == unfiltered.actual
+        assert displayed_rows(host)[0].actual == {"USD": Decimal(64)}
 
     asyncio.run(scenario())
 
@@ -1587,9 +1861,7 @@ def test_definition_opens_current_month_when_applicable_and_reveals_nested_repor
         journal.ledger = replace(journal.ledger, budgets=(parent, budget))
         host._refresh()
         host._navigate("budgets")
-        host._select_budget_tab(1)
         host.budgets.category_id = "Income:Other"
-        host.budgets.account_id = "Assets:Cash"
         host.budgets.currency.value = "USD"
         host.budgets.overspent.value = True
         scroll = AsyncMock()
@@ -1601,12 +1873,11 @@ def test_definition_opens_current_month_when_applicable_and_reveals_nested_repor
         worker.cancel.assert_called_once()
         page.run_task.assert_called_once_with(host.budgets.refresh)
         assert host.current_screen == "budgets"
-        assert host._selected_index() == (3 if width <= 599 else 2)
+        assert host._selected_index() == 2
         assert host.screen_host.content is host.budgets_screen
-        assert host.budget_tabs.selected_index == 0
-        assert host.budgets.visible and not host.budget_management_panel.visible
+        assert host.budgets_screen.controls == [host.budgets]
         assert host.budgets.month == expected_month
-        assert host.budgets.category_id == host.budgets.account_id == ""
+        assert host.budgets.category_id == ""
         assert host.budgets.currency.value == "EUR" and not host.budgets.overspent.value
         await host.budgets.refresh()
         tiles = [item for item in walk(host.budgets.results) if isinstance(item, ft.ListTile)]
@@ -1653,7 +1924,6 @@ def test_definition_opens_current_month_when_applicable_and_reveals_nested_repor
         assert refreshed.bgcolor == ft.Colors.SECONDARY_CONTAINER
         assert refreshed.on_size_change is None and host.budgets.scroll_target is None
         scroll.assert_awaited_once()
-        assert not host.budgets.account_warning.visible
         assert {item.data for item in host.budgets.active_filters.controls} == {"currency"}
         assert (tmp_path / FILENAME).read_text() == MULTI_CURRENCY
 
@@ -1778,7 +2048,7 @@ def test_stale_definition_action_reports_error_without_changing_screen_or_filter
         journal = await load(host, tmp_path)
         budget = journal.ledger.budgets[0]
         host._navigate("accounts")
-        host.budgets.account_id = "Assets:Cash"
+        host.budgets.category_id = "Expenses:Food"
         if unavailable == "removed":
             journal.ledger = replace(journal.ledger, budgets=())
         elif unavailable == "not-ready":
@@ -1787,7 +2057,7 @@ def test_stale_definition_action_reports_error_without_changing_screen_or_filter
             host.journal = None
         click_report(host, budget)
         assert host.current_screen == "accounts"
-        assert host.budgets.account_id == "Assets:Cash"
+        assert host.budgets.category_id == "Expenses:Food"
         assert host.error_message == "crud_stale"
         page.show_dialog.assert_called_once()
         assert not host.budgets.reveal_requested

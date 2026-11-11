@@ -6,8 +6,9 @@ description: "Verify and implement current Flet controls, services, events, enum
 # Flet
 
 Read [Flet workflow](../../docs/flet.md). Use the workspace stdio server configured
-in .vscode/mcp.json; synchronize with uv first. This project uses imperative Flet
-1.x, never `@ft.component`.
+in [`.mcp.json`](../../.mcp.json); synchronize with uv first and start Copilot
+from the repository root so `uv` finds the project. This project uses imperative
+Flet 1.x, never `@ft.component`.
 
 Call `get_api` first for a known class and inspect the exact member/type. Verify
 enums and icon names with the dedicated tools. Search examples/docs, then retrieve

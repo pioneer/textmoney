@@ -5,11 +5,13 @@ Do not copy deprecated APIs or introduce `@ft.component`.
 Keep the runtime, `all` extras, MCP, and local SAF extension's Python and Dart
 dependencies aligned. Their pins and locked packages are checked by tests.
 
-[.vscode/mcp.json](../.vscode/mcp.json) starts the installed server with
-`uv run flet mcp` from the workspace. Run `uv sync`, trust the workspace/server in
-VS Code, and start its `flet` MCP server. API, icon, example, documentation, and
-CLI tool groups are enabled with the server's verified environment flags. Other
-agents can use the same stdio command and flags; no credentials are required.
+[.mcp.json](../.mcp.json) configures Copilot's `flet` stdio server with
+`uv run flet mcp`. Run `uv sync` and start Copilot from the repository root so
+`uv` finds the project; the configuration does not set a working directory.
+Trust the workspace/server when prompted. API, icon, example, documentation, and
+CLI tool groups are enabled with the server's verified environment flags.
+To verify the connection, ask Copilot to call `get_api("Button", member="on_click")`.
+Other agents can use the same stdio command and flags; no credentials are required.
 
 Before implementing a Flet change:
 

@@ -87,8 +87,10 @@ validation, compilation and Weblate setup. One width classifier selects bottom n
 a navigation rail for medium/expanded displays. Compact layouts have four bottom
 destinations and a top-right Settings gear. Settings opens separately with a back
 arrow and no bottom bar or transaction action; Back restores the previous screen.
-Medium/expanded layouts retain Settings as the fifth rail destination without
-the header gear. This follows available width, not the operating system.
+Medium/expanded layouts use Home, Transactions, Budgets, Reports, Accounting and
+Settings rail destinations without the header gear. Budgets selects its own rail
+item, but selects Reports in compact bottom navigation. Its return-to-Reports
+action is compact-only. This follows available width, not the operating system.
 The same screens and form state
 are retained through resizing. Translation resources are separate from controls;
 language/theme choices are saved locally. Domain functions use Python types and return results or raise meaningful
@@ -169,11 +171,11 @@ oracles, not runtime engines. There are no envelopes or rollover rules. See
 [budgeting](budgets.md) for calculation boundaries and reference tests.
 
 Accounting has Accounts and Categories tabs. Reports opens a standalone Budgets
-screen with Overview and Management tabs and a return action to Reports.
+screen with Overview and Management tabs and a compact-only return action to Reports.
 Overview is the default; the selected tab persists across navigation and resizing.
 Budget management and reporting own separate single-parent control trees while
-sharing the same journal and budget view coordinator. The existing four compact
-navigation destinations and five wide rail destinations are unchanged.
+sharing the same journal and budget view coordinator. Compact navigation retains
+four destinations; the medium/wide rail has six, including Budgets.
 Operations has optional account and category selectors, combined with AND.
 The selectors start collapsed behind a filter icon; collapsing them preserves
 active selections, indicated by the highlighted icon. Each selector includes

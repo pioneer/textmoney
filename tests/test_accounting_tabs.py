@@ -62,7 +62,7 @@ def test_navigation_preserves_selected_accounting_tab(
             view.navigation_bar.selected_index = 2
             view._bar_changed(MagicMock(control=view.navigation_bar))
         else:
-            view.nav_rail.selected_index = 2
+            view.nav_rail.selected_index = 4
             view._rail_changed(MagicMock(control=view.nav_rail))
         assert view.current_screen == "accounts"
         assert view.accounting_tabs.selected_index == index

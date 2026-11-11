@@ -108,6 +108,8 @@ FEE_CATEGORIES_KEY = "textmoney.fee-categories.v1"
 COMPACT_MAX_WIDTH = 599
 MEDIUM_MAX_WIDTH = 1023
 MAX_CONTENT_WIDTH = 1180
+COMPACT_DESTINATIONS = ("home", "transactions", "accounts", "reports")
+RAIL_DESTINATIONS = ("home", "transactions", "budgets", "reports", "accounts", "settings")
 
 
 class ScreenClass(StrEnum):
@@ -414,7 +416,8 @@ class FinanceView(ft.Row):
                 horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
             ),
         )
-        self.budgets_screen = ft.Column([ft.Row([self.budgets_back]), self.budget_tabs], spacing=16)
+        self.budgets_back_row = ft.Row([self.budgets_back])
+        self.budgets_screen = ft.Column([self.budgets_back_row, self.budget_tabs], spacing=16)
         self.home_balances = ft.Row(
             wrap=True,
             spacing=12,
@@ -753,40 +756,48 @@ class FinanceView(ft.Row):
             self.budgets.request_refresh()
 
     def _build_navigation(self) -> None:
-        destinations = [
-            ("nav_home", ft.Icons.HOME_OUTLINED, ft.Icons.HOME),
-            ("nav_transactions", ft.Icons.RECEIPT_LONG_OUTLINED, ft.Icons.RECEIPT_LONG),
-            (
+        destinations = {
+            "home": ("nav_home", ft.Icons.HOME_OUTLINED, ft.Icons.HOME),
+            "transactions": (
+                "nav_transactions",
+                ft.Icons.RECEIPT_LONG_OUTLINED,
+                ft.Icons.RECEIPT_LONG,
+            ),
+            "budgets": ("budget_title", ft.Icons.BAR_CHART_OUTLINED, ft.Icons.BAR_CHART),
+            "accounts": (
                 "nav_accounts",
                 ft.Icons.ACCOUNT_BALANCE_WALLET_OUTLINED,
                 ft.Icons.ACCOUNT_BALANCE_WALLET,
             ),
-            ("nav_reports", ft.Icons.INSIGHTS, ft.Icons.INSIGHTS),
-            ("nav_settings", ft.Icons.SETTINGS_OUTLINED, ft.Icons.SETTINGS),
-        ]
+            "reports": ("nav_reports", ft.Icons.INSIGHTS, ft.Icons.INSIGHTS),
+            "settings": ("nav_settings", ft.Icons.SETTINGS_OUTLINED, ft.Icons.SETTINGS),
+        }
         self.navigation_bar.destinations = [
             ft.NavigationBarDestination(
                 label=self.tr(label), icon=icon, selected_icon=selected_icon
             )
-            for label, icon, selected_icon in destinations[:-1]
+            for screen in COMPACT_DESTINATIONS
+            for label, icon, selected_icon in [destinations[screen]]
         ]
-        self.navigation_bar.selected_index = (
-            ("home", "transactions", "accounts", "reports").index(
-                "reports"
-                if self.settings_return_screen == "budgets"
-                else self.settings_return_screen
-            )
+        compact_screen = (
+            self.settings_return_screen
             if self.current_screen == "settings"
-            else self._selected_index()
+            else self.current_screen
+        )
+        self.navigation_bar.selected_index = COMPACT_DESTINATIONS.index(
+            "reports" if compact_screen == "budgets" else compact_screen
         )
         self.nav_rail.destinations = [
             ft.NavigationRailDestination(
                 label=self.tr(label), icon=icon, selected_icon=selected_icon
             )
-            for label, icon, selected_icon in destinations
+            for screen in RAIL_DESTINATIONS
+            for label, icon, selected_icon in [destinations[screen]]
         ]
-        self.nav_rail.selected_index = self._selected_index()
+        self.nav_rail.selected_index = RAIL_DESTINATIONS.index(self.current_screen)
         compact = self.screen_class == ScreenClass.COMPACT
+        self.budgets_back.visible = compact
+        self.budgets_back_row.visible = compact
         self.settings_button.visible = compact and self.current_screen != "settings"
         self.settings_button.tooltip = self.tr("nav_settings")
         self.settings_back.visible = compact and self.current_screen == "settings"
@@ -952,14 +963,14 @@ class FinanceView(ft.Row):
         self.screen_host.content = screens[self.current_screen]
 
     def _selected_index(self) -> int:
-        return {
-            "home": 0,
-            "transactions": 1,
-            "accounts": 2,
-            "reports": 3,
-            "budgets": 3,
-            "settings": 4,
-        }[self.current_screen]
+        if self.screen_class != ScreenClass.COMPACT:
+            return RAIL_DESTINATIONS.index(self.current_screen)
+        screen = (
+            self.settings_return_screen
+            if self.current_screen == "settings"
+            else self.current_screen
+        )
+        return COMPACT_DESTINATIONS.index("reports" if screen == "budgets" else screen)
 
     def _apply_layout(self, width: float | None) -> None:
         self.screen_class = screen_class(width)
@@ -5376,8 +5387,7 @@ class FinanceView(ft.Row):
             self.page.update()
 
     def _bar_changed(self, event: ft.Event[ft.NavigationBar]) -> None:
-        screens = ("home", "transactions", "accounts", "reports")
-        self._navigate(screens[event.control.selected_index])
+        self._navigate(COMPACT_DESTINATIONS[event.control.selected_index])
 
     def _open_settings(self, event: ft.Event[ft.IconButton]) -> None:
         self._navigate("settings")
@@ -5387,8 +5397,7 @@ class FinanceView(ft.Row):
 
     def _rail_changed(self, event: ft.Event[ft.NavigationRail]) -> None:
         if event.control.selected_index is not None:
-            screens = ("home", "transactions", "accounts", "reports", "settings")
-            self._navigate(screens[event.control.selected_index])
+            self._navigate(RAIL_DESTINATIONS[event.control.selected_index])
 
     def _go_accounts(self, event: ft.Event[ft.TextButton]) -> None:
         self._navigate("accounts", accounting_tab=0)

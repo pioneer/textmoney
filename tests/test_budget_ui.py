@@ -116,7 +116,7 @@ def test_budget_navigation_responsive_and_localized(
             host._budget_tab_changed(MagicMock(control=host.budget_tabs))
             assert host.budgets.visible == (index == 0)
             assert host.budget_management_panel.visible == (index == 1)
-        assert host._selected_index() == 3
+        assert host._selected_index() == (3 if width <= 599 else 2)
         host._open_settings(MagicMock())
         host._back_from_settings(MagicMock())
         assert host.current_screen == "budgets"
@@ -125,7 +125,7 @@ def test_budget_navigation_responsive_and_localized(
         host._navigate("accounts")
         assert host.accounting_tabs.selected_index == 1 and host.categories_panel.visible
         assert host.accounts_panel.width == host.categories_panel.width
-        assert host._selected_index() == 2
+        assert host._selected_index() == (2 if width <= 599 else 4)
         host._open_settings(MagicMock())
         host._back_from_settings(MagicMock())
         assert host.current_screen == "accounts" and host.categories_panel.visible
@@ -1600,7 +1600,8 @@ def test_definition_opens_current_month_when_applicable_and_reveals_nested_repor
         click_report(host, budget)
         worker.cancel.assert_called_once()
         page.run_task.assert_called_once_with(host.budgets.refresh)
-        assert host.current_screen == "budgets" and host._selected_index() == 3
+        assert host.current_screen == "budgets"
+        assert host._selected_index() == (3 if width <= 599 else 2)
         assert host.screen_host.content is host.budgets_screen
         assert host.budget_tabs.selected_index == 0
         assert host.budgets.visible and not host.budget_management_panel.visible

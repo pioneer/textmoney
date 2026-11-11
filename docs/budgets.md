@@ -2,8 +2,11 @@
 
 Manage definitions in the **Management** tab and monitor spending and
 overspending in **Overview** on the **Budgets** screen, opened with the **Budgets** button on
-**Reports**. Its back button returns to Reports; both screens share the Reports
-navigation destination. Overview is the initial tab; the selected tab, budget
+**Reports**, or directly from the desktop Budgets sidebar destination.
+On compact screens its back button returns to Reports and Reports remains
+selected in bottom navigation. On medium/wide screens Budgets is selected in
+the sidebar and has no back-to-Reports action.
+Overview is the initial tab; the selected tab, budget
 month, filters and open management drafts survive navigation and layout changes.
 Accounting contains only Accounts and Categories. Budgets live exclusively in the selected
 `textmoney.beancount` journal:

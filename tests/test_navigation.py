@@ -67,7 +67,7 @@ def test_settings_destination_follows_layout_width(
     assert view.settings_button.visible == compact
     assert not view.settings_back.visible
     assert len(view.navigation_bar.destinations) == 4
-    assert len(view.nav_rail.destinations) == 5
+    assert len(view.nav_rail.destinations) == 6
     assert view.nav_rail.destinations[-1].label == view.tr("nav_settings")
     if compact:
         assert page.navigation_bar is view.navigation_bar
@@ -79,10 +79,10 @@ def test_settings_destination_follows_layout_width(
         assert surface.content is view.nav_rail
         assert surface.bgcolor == ft.Colors.SURFACE
         assert view.controls[0].dark_theme == ft.Theme()
-        view.nav_rail.selected_index = 4
+        view.nav_rail.selected_index = 5
         view._rail_changed(MagicMock(control=view.nav_rail))
         assert view.current_screen == "settings"
-        assert view.nav_rail.selected_index == 4
+        assert view.nav_rail.selected_index == 5
         assert not view.settings_button.visible and not view.settings_back.visible
 
 
@@ -102,7 +102,7 @@ def test_settings_resize_preserves_return_screen_and_unsaved_preferences(
         view._refresh_labels()
         assert view.current_screen == "settings"
         assert view.screen_host.content is view.settings_screen
-        assert view.nav_rail.selected_index == 4
+        assert view.nav_rail.selected_index == 5
         assert view.navigation_bar.selected_index == 3
         assert page.navigation_bar is None
         assert view.settings_back.visible == (width <= 599)
@@ -141,7 +141,7 @@ def test_rail_settings_resizes_into_mobile_settings_with_back_navigation(
     view._apply_layout(page.width)
     view._navigate("accounts")
     view.accounting_tabs.selected_index = 1
-    view.nav_rail.selected_index = 4
+    view.nav_rail.selected_index = 5
     view._rail_changed(MagicMock(control=view.nav_rail))
     page.width = 390
     view._apply_layout(page.width)
@@ -194,8 +194,12 @@ def test_budget_report_opens_from_reports_and_returns_without_losing_state(
         assert budgets.account_id == "Assets:Cash"
         assert budgets.currency.value == "USD"
         assert budgets.overspent.value
-        assert view.nav_rail.selected_index == view.navigation_bar.selected_index == 3
-        assert len(view.nav_rail.destinations) == 5
+        assert view.nav_rail.selected_index == 2
+        assert view.navigation_bar.selected_index == 3
+        assert view._selected_index() == (3 if resized_width <= 599 else 2)
+        assert view.budgets_back.visible == (resized_width <= 599)
+        assert view.budgets_back_row.visible == (resized_width <= 599)
+        assert len(view.nav_rail.destinations) == 6
         assert len(view.navigation_bar.destinations) == 4
         assert view.screen_host.padding == ft.Padding.only(bottom=96)
         assert page.navigation_bar is (view.navigation_bar if resized_width <= 599 else None)
@@ -203,9 +207,15 @@ def test_budget_report_opens_from_reports_and_returns_without_losing_state(
         view._navigate("budgets")
         assert view.budget_tabs.selected_index == tab
         view._open_settings(MagicMock())
+        assert view.settings_return_screen == "budgets"
+        assert view.navigation_bar.selected_index == 3
+        assert view.nav_rail.selected_index == 5
         view._back_from_settings(MagicMock())
         assert view.current_screen == "budgets"
         assert view.budget_tabs.selected_index == tab
+    page.width = 390
+    view._apply_layout(page.width)
+    assert view.budgets_back.visible
     click(view.budgets_back)
     assert view.current_screen == "reports"
     assert view.screen_host.content is view.reports_screen
@@ -222,7 +232,68 @@ def test_budget_report_opens_from_reports_and_returns_without_losing_state(
     assert view.accounting_tabs.selected_index == 1
     assert view.categories_panel.visible and not view.accounts_panel.visible
     assert view.accounting_tabs.length == 2
-    assert view.nav_rail.selected_index == view.navigation_bar.selected_index == 2
+    assert view.nav_rail.selected_index == 4
+    assert view.navigation_bar.selected_index == 2
+
+
+@pytest.mark.parametrize("width", [600, 800, 1366])
+@pytest.mark.parametrize(
+    "index,screen",
+    list(enumerate(("home", "transactions", "budgets", "reports", "accounts", "settings"))),
+)
+def test_sidebar_order_and_screen_selection(
+    navigation: tuple[FinanceView, MagicMock], width: int, index: int, screen: str
+) -> None:
+    view, page = navigation
+    page.width = width
+    view._apply_layout(width)
+    assert [item.label for item in view.nav_rail.destinations] == [
+        view.tr(key)
+        for key in (
+            "nav_home",
+            "nav_transactions",
+            "budget_title",
+            "nav_reports",
+            "nav_accounts",
+            "nav_settings",
+        )
+    ]
+    view.nav_rail.selected_index = index
+    view._rail_changed(MagicMock(control=view.nav_rail))
+    assert view.current_screen == screen
+    assert view.nav_rail.selected_index == view._selected_index() == index
+    assert not view.budgets_back.visible
+    assert not view.budgets_back_row.visible
+
+
+@pytest.mark.parametrize("width", [600, 1366])
+@pytest.mark.parametrize("tab", [0, 1])
+def test_sidebar_budget_entry_preserves_state(
+    navigation: tuple[FinanceView, MagicMock], width: int, tab: int
+) -> None:
+    view, page = navigation
+    page.width = width
+    view._navigate("budgets")
+    view._select_budget_tab(tab)
+    budgets = view.budgets
+    budgets.month = date(2026, 2, 1)
+    budgets.category_id = "Expenses:Food"
+    budgets.account_id = "Assets:Cash"
+    budgets.currency.value = "USD"
+    budgets.overspent.value = True
+    view._navigate("home")
+    view.nav_rail.selected_index = 2
+    view._rail_changed(MagicMock(control=view.nav_rail))
+    assert view.current_screen == "budgets"
+    assert view.screen_host.content is view.budgets_screen
+    assert view.nav_rail.selected_index == 2
+    assert view.budget_tabs.selected_index == tab
+    assert view.budgets is budgets
+    assert budgets.month == date(2026, 2, 1)
+    assert budgets.category_id == "Expenses:Food"
+    assert budgets.account_id == "Assets:Cash"
+    assert budgets.currency.value == "USD"
+    assert budgets.overspent.value
 
 
 @pytest.mark.parametrize("width", [390, 599, 600, 800, 1366])

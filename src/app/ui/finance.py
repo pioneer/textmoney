@@ -4866,7 +4866,7 @@ class FinanceView(ft.Row):
             self.page.update()
 
     def _category_menu_height(self) -> int | None:
-        return 480 if self.screen_class == ScreenClass.COMPACT else None
+        return 672 if self.screen_class == ScreenClass.COMPACT else None
 
     def _category_menu_base_style(self) -> ft.MenuStyle | None:
         if self.page is None:

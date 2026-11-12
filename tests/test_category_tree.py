@@ -53,8 +53,8 @@ def toggle(control: ft.ExpansionTile, expanded: bool) -> None:
 
 
 @pytest.mark.parametrize("field_height", [40, 56, 80])
-@pytest.mark.parametrize("option_count", [1, 3, 12])
-@pytest.mark.parametrize("height_limit", [320, 480])
+@pytest.mark.parametrize("option_count", [1, 3, 20])
+@pytest.mark.parametrize("height_limit", [320, 672])
 def test_mobile_category_menu_is_centered_on_measured_field(
     monkeypatch: pytest.MonkeyPatch, field_height: int, option_count: int, height_limit: int
 ) -> None:
@@ -84,6 +84,34 @@ def test_mobile_category_menu_is_centered_on_measured_field(
     assert dropdown.menu_style.alignment == ft.Alignment(
         -1, -min(height_limit, (option_count - 1) * 48 + 16) / field_height
     )
+
+
+@pytest.mark.parametrize("field_height", [40, 56, 80])
+def test_mobile_category_menu_grows_twenty_percent_on_each_side(
+    monkeypatch: pytest.MonkeyPatch, field_height: int
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    page.width = 390
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+    view = FinanceView()
+    view._apply_layout(390)
+    dropdown = ft.Dropdown(
+        height=field_height,
+        menu_height=view._category_menu_height(),
+        options=[
+            ft.DropdownOption(key=str(index), content=ft.Container(height=48))
+            for index in range(20)
+        ],
+    )
+    anchor = view._category_menu_anchor(dropdown)
+    assert isinstance(anchor, CategoryMenuAnchor)
+    assert dropdown.menu_style and dropdown.menu_style.alignment
+    assert dropdown.menu_height is not None
+    assert dropdown.menu_height == 480 * 1.4
+    top = field_height / 2 + dropdown.menu_style.alignment.y * field_height / 2
+    bottom = top + dropdown.menu_height
+    assert (field_height - 480) / 2 - top == pytest.approx(480 * 0.2)
+    assert bottom - (field_height + 480) / 2 == pytest.approx(480 * 0.2)
 
 
 def test_main_category_tree_uses_connector_gutters_without_losing_native_tiles() -> None:
@@ -233,7 +261,7 @@ def test_transaction_categories_are_indented_and_menu_height_is_bounded(
         form = transaction_form(page.show_dialog.call_args.args[0])
         if not editing:
             form.choose(kind)
-        assert form.category.menu_height == (480 if width <= 599 else None)
+        assert form.category.menu_height == (672 if width <= 599 else None)
         if width <= 599:
             assert form.category.menu_style and form.category.menu_style.alignment
             assert form.category.menu_style.alignment.y < 0

@@ -18,6 +18,35 @@ msgstr ""
 msgid "ui.icon_choose"
 msgstr "Choose icon"
 
+msgid "ui.home_view_budgets"
+msgstr "View budgets"
+
+msgid "ui.home_view_transactions"
+msgstr "View transactions"
+
+msgid "ui.home_budgets_show"
+msgstr "Show budgets on Home"
+
+msgid "ui.home_budgets_count"
+msgstr "Overspent: {count} of {total} budgets this month"
+
+msgid "ui.home_budgets_more"
+msgid_plural "ui.home_budgets_more.plural"
+msgstr[0] "{count} more budget"
+msgstr[1] "{count} more budgets"
+
+msgid "ui.home_budgets_ok"
+msgstr "No budgets are overspent this month."
+
+msgid "ui.home_budgets_failed"
+msgstr "Could not calculate the budget summary. Reload the journal to retry."
+
+msgid "ui.home_budgets_setting_failed"
+msgstr "Could not save the Home budget setting. Check settings storage and try again."
+
+msgid "ui.home_budgets_invalid_setting"
+msgstr "The Home budget setting is invalid. Check settings storage."
+
 msgid "ui.icon_search"
 msgstr "Search icons"
 

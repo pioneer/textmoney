@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TextMoney 0.4.7\n"
+"Project-Id-Version: TextMoney 0.4.9\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-11-12 04:47+0200\n"
-"PO-Revision-Date: 2026-11-12 04:47+0200\n"
+"POT-Creation-Date: 2026-11-13 01:07+0200\n"
+"PO-Revision-Date: 2026-11-13 01:07+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -14,6 +14,35 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 msgid "ui.icon_choose"
+msgstr ""
+
+msgid "ui.home_view_budgets"
+msgstr ""
+
+msgid "ui.home_view_transactions"
+msgstr ""
+
+msgid "ui.home_budgets_show"
+msgstr ""
+
+msgid "ui.home_budgets_count"
+msgstr ""
+
+msgid "ui.home_budgets_more"
+msgid_plural "ui.home_budgets_more.plural"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "ui.home_budgets_ok"
+msgstr ""
+
+msgid "ui.home_budgets_failed"
+msgstr ""
+
+msgid "ui.home_budgets_setting_failed"
+msgstr ""
+
+msgid "ui.home_budgets_invalid_setting"
 msgstr ""
 
 msgid "ui.icon_search"

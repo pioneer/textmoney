@@ -82,6 +82,7 @@ from app.timekeeping import local_datetime, named_zone
 from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import deletion_title, show_dialog
+from app.ui.home_budgets import HomeBudgets, home_heading
 from app.ui.icons import IconDraft, IconPicker, icon_image
 from app.ui.layout import HoverRow, action_toolbar, month_navigation
 from app.ui.theme import NAVIGATION_SURFACE, summary_theme
@@ -103,6 +104,7 @@ LANGUAGE_KEY = "textmoney.language.v1"
 THEME_KEY = "textmoney.theme.v1"
 TIMEZONE_KEY = "textmoney.timezone.v1"
 BACKUP_CLEANUP_KEY = "textmoney.backup-cleanup.v1"
+HOME_BUDGETS_KEY = "textmoney.home-budgets.v1"
 DEFAULT_FEE_KEY = "textmoney.default-fee-category.v1"
 DEFAULT_ACCOUNT_KEY = "textmoney.default-account.v1"
 FEE_CATEGORIES_KEY = "textmoney.fee-categories.v1"
@@ -159,6 +161,7 @@ class FinanceView(ft.Row):
         self.category_menu_row_height = TREE_MENU_ROW_HEIGHT
         self.timezone_name = "system"
         self.auto_backup_cleanup = True
+        self.show_home_budgets = True
         self.default_account_id: str | None = None
         self.default_account_original: str | None = None
         self.shared_defaults: SharedDefaults | None = None
@@ -224,6 +227,10 @@ class FinanceView(ft.Row):
         self.default_fee_save = ft.Button(on_click=self._save_default_fee)
         self.default_fee_notice = ft.Text("", visible=False)
         self.backup_cleanup = ft.Checkbox(value=True, on_change=self._backup_cleanup_changed)
+        self.home_budgets_label = ft.Text()
+        self.home_budgets_toggle = ft.Switch(
+            label=self.home_budgets_label, value=True, on_change=self._home_budgets_changed
+        )
         self.backup_clean_button = ft.Button(on_click=self._preview_backup_cleanup)
         self.default_fee_source = ""
         self.default_fee_original: str | None = None
@@ -420,6 +427,10 @@ class FinanceView(ft.Row):
             vertical_alignment=ft.CrossAxisAlignment.START,
         )
         self.home_activity = ft.Column(spacing=0)
+        self.home_budgets = HomeBudgets(self)
+        self.home_transactions_open = ft.IconButton(
+            icon_size=18, width=48, height=48, on_click=self._home_transactions
+        )
         self.accounts_panel_content = ft.Column(spacing=16)
         self.categories_panel_content = ft.Column(spacing=16)
         self.accounts_panel = ft.Container(
@@ -588,6 +599,7 @@ class FinanceView(ft.Row):
 
     def will_unmount(self) -> None:
         self.budgets.cancel()
+        self.home_budgets.cancel()
         if self.worker is not None:
             self.worker.cancel()
 
@@ -743,6 +755,14 @@ class FinanceView(ft.Row):
         )
         self._build_navigation()
         self._build_screens()
+        self.home_transactions_open.tooltip = self.tr("home_view_transactions")
+        self.home_transactions_open.icon = ft.Icon(
+            ft.Icons.ARROW_FORWARD,
+            size=18,
+            semantics_label=self.tr("home_view_transactions"),
+        )
+        self.home_budgets.sync()
+        self._build_home_layout()
         self.budgets.sync()
         if self.current_screen == "budgets":
             self.budgets.request_refresh()
@@ -902,6 +922,7 @@ class FinanceView(ft.Row):
                         self.language_choice,
                         ft.Text(self.tr("appearance"), size=18),
                         self.theme_choice,
+                        self.home_budgets_toggle,
                         ft.Text(self.tr("timezone"), size=18),
                         ft.Text(self.tr("timezone_help")),
                         self.timezone_choice,
@@ -943,6 +964,8 @@ class FinanceView(ft.Row):
         ]
         self.backup_cleanup.label = self.tr("backups_automatic")
         self.backup_cleanup.value = self.auto_backup_cleanup
+        self.home_budgets_label.value = self.tr("home_budgets_show")
+        self.home_budgets_toggle.value = self.show_home_budgets
         self.backup_clean_button.content = self.tr("backups_clean")
         self.backup_clean_button.disabled = not folder_ready
         screens = {
@@ -1008,10 +1031,12 @@ class FinanceView(ft.Row):
             if self.page:
                 self.page.navigation_bar = None
         available = max(0, (self.body.width or 390) - 40)
+        self.home_budgets_label.width = min(300, max(80, available - 108))
         self.accounts_panel.width = self.categories_panel.width = min(
             MAX_CONTENT_WIDTH - 40, available
         )
         self._build_navigation()
+        self.home_budgets.sync()
         self._build_home_layout()
         self._update_transaction_separators()
         self.screen_host.padding = (
@@ -1043,6 +1068,7 @@ class FinanceView(ft.Row):
                                         weight=ft.FontWeight.W_600,
                                     ),
                                     self.home_balances,
+                                    self.home_budgets,
                                 ],
                                 spacing=12,
                             ),
@@ -1051,10 +1077,8 @@ class FinanceView(ft.Row):
                             expand=2,
                             content=ft.Column(
                                 [
-                                    ft.Text(
-                                        self.tr("home_recent"),
-                                        size=21,
-                                        weight=ft.FontWeight.W_600,
+                                    home_heading(
+                                        self.tr("home_recent"), self.home_transactions_open
                                     ),
                                     self.home_activity,
                                 ],
@@ -1071,9 +1095,11 @@ class FinanceView(ft.Row):
                 self.welcome,
                 ft.Text(self.tr("home_balances"), size=21, weight=ft.FontWeight.W_600),
                 self.home_balances,
-                ft.Text(self.tr("home_recent"), size=21, weight=ft.FontWeight.W_600),
+                home_heading(self.tr("home_recent"), self.home_transactions_open),
                 self.home_activity,
+                self.home_budgets,
             ]
+        self.home_budgets.render()
 
     def _refresh(self) -> None:
         self._refresh_external_notices()
@@ -2544,6 +2570,10 @@ class FinanceView(ft.Row):
             if saved_cleanup not in {None, "on", "off"}:
                 raise PreferencesError(self.tr("backups_invalid_setting"))
             self.auto_backup_cleanup = saved_cleanup != "off"
+            saved_home_budgets = await self.preferences.get(HOME_BUDGETS_KEY)
+            if saved_home_budgets not in {None, "on", "off"}:
+                raise PreferencesError(self.tr("home_budgets_invalid_setting"))
+            self.show_home_budgets = saved_home_budgets != "off"
             try:
                 fee_settings = await self.preferences.get(FEE_CATEGORIES_KEY)
                 if fee_settings is not None:
@@ -2793,6 +2823,7 @@ class FinanceView(ft.Row):
                 self.category_save,
                 self.backup_clean_button,
                 self.backup_cleanup,
+                self.home_budgets_toggle,
             ]:
                 control.disabled = True
             self.page.update()
@@ -2807,6 +2838,7 @@ class FinanceView(ft.Row):
                     self.welcome_select_button,
                     self.reload_button,
                     self.backup_cleanup,
+                    self.home_budgets_toggle,
                 ]:
                     control.disabled = False
                 self._refresh()
@@ -3034,6 +3066,31 @@ class FinanceView(ft.Row):
             self._set_message("backups_setting_saved")
 
         await self._action(save)
+
+    async def _home_budgets_changed(self, event: ft.Event[ft.Switch]) -> None:
+        enabled = event.control.value
+        previous = self.show_home_budgets
+        self.show_home_budgets = enabled
+        self.home_budgets.sync()
+        self.page.update()
+
+        async def save() -> None:
+            try:
+                if self.preferences is None or not await self.preferences.set(
+                    HOME_BUDGETS_KEY, "on" if enabled else "off"
+                ):
+                    raise PreferencesError(self.tr("home_budgets_setting_failed"))
+            except (PreferencesError, OSError, TimeoutError):
+                self.show_home_budgets = previous
+                raise
+
+        await self._action(save)
+
+    def _home_transactions(self, event: ft.Event[ft.IconButton]) -> None:
+        self.operations_account.value = ""
+        self.operations_category.value = ""
+        self._refresh()
+        self._navigate("transactions")
 
     async def _preview_backup_cleanup(self, event: ft.Event[ft.Button]) -> None:
         async def preview() -> None:

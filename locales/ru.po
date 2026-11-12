@@ -103,6 +103,36 @@ msgstr "Журнал уже перенесён, но локальные наст
 msgid "ui.icon_choose"
 msgstr "Выбрать иконку"
 
+msgid "ui.home_view_budgets"
+msgstr "Посмотреть бюджеты"
+
+msgid "ui.home_view_transactions"
+msgstr "Посмотреть операции"
+
+msgid "ui.home_budgets_show"
+msgstr "Показывать бюджеты на главной"
+
+msgid "ui.home_budgets_count"
+msgstr "Превышено: {count} из {total} бюджетов этого месяца"
+
+msgid "ui.home_budgets_more"
+msgid_plural "ui.home_budgets_more.plural"
+msgstr[0] "Ещё {count} бюджет"
+msgstr[1] "Ещё {count} бюджета"
+msgstr[2] "Ещё {count} бюджетов"
+
+msgid "ui.home_budgets_ok"
+msgstr "В этом месяце нет превышенных бюджетов."
+
+msgid "ui.home_budgets_failed"
+msgstr "Не удалось рассчитать сводку бюджетов. Перезагрузите журнал, чтобы повторить."
+
+msgid "ui.home_budgets_setting_failed"
+msgstr "Не удалось сохранить настройку бюджетов на главной. Проверьте хранилище настроек и повторите."
+
+msgid "ui.home_budgets_invalid_setting"
+msgstr "Настройка бюджетов на главной некорректна. Проверьте хранилище настроек."
+
 msgid "ui.icon_search"
 msgstr "Поиск иконок"
 

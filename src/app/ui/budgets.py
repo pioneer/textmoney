@@ -42,6 +42,13 @@ _REPORT_TEXT_INSET = 14
 logger = logging.getLogger(__name__)
 
 
+def budget_progress_bar(consumed: Decimal, overspent: bool) -> ft.ProgressBar:
+    return ft.ProgressBar(
+        value=float(max(Decimal(0), min(Decimal(100), consumed))) / 100,
+        color=ft.Colors.ERROR if overspent else None,
+    )
+
+
 class BudgetView(ft.Column):
     def __init__(self, host: "FinanceView") -> None:
         super().__init__(spacing=16)
@@ -800,10 +807,7 @@ class BudgetView(ft.Column):
                 lines.extend(
                     [
                         progress_label,
-                        ft.ProgressBar(
-                            value=float(max(Decimal(0), min(Decimal(100), consumed))) / 100,
-                            color=ft.Colors.ERROR if overspent else None,
-                        ),
+                        budget_progress_bar(consumed, overspent),
                     ]
                 )
             elif currency in budget:

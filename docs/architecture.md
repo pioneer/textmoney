@@ -12,6 +12,7 @@ src/app/logging_config.py  logging policy and exception reporting
 src/app/application.py     page lifecycle and event boundary
 src/app/ui/finance.py      MVP screens, forms, polling and lifecycle
 src/app/ui/home.py         home composition and preserved storage diagnostics
+src/app/ui/home_budgets.py cached, filter-independent current-month Home summary
 src/app/localization.py    gettext catalog loading, runtime language discovery and locale formatting
 src/app/timekeeping.py     default clock and native date-picker timezone transport
 src/app/ui/datetime_fields.py shared manual/date-picker/time-picker controls

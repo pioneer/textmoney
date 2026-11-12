@@ -147,6 +147,24 @@ Ubuntu or Arch configuration.
 
 ## Getting started
 
+Home shows an independent current-month budget summary, using the configured
+time zone and the same calculations as Budgets, regardless of that screen's
+filters. It counts budget categories (not individual currency amounts) and previews
+up to five in the wide layout or three in the single-column layout. Overspent
+expense budgets come first; the rest are ranked by percentage used, highest first.
+Each category has thin progress bars and percentages, separately labeled when
+multiple currencies are present. Zero limits retain the Budgets screen's
+undefined-percentage message instead of inventing a percentage or progress bar;
+unbudgeted currencies retain its missing-budget message. Multi-currency categories
+are ranked by their highest percentage; budgets with no defined percentage and
+no overspending come last.
+A non-interactive localized count indicates omitted budgets. No budgets means no summary.
+The arrows beside Budgets and Recent transactions open their full screens;
+the Budgets arrow resets the period to the current month and clears filters.
+Settings → **Show budgets on Home** applies immediately, defaults to enabled,
+and is remembered locally. A settings-write failure restores the previous choice
+and displays an error.
+
 1. Open TextMoney and choose a dedicated local data folder.
 2. Create an account with its currency and, optionally, an opening balance.
 3. Add expense categories under **Categories** (under **More** on mobile).

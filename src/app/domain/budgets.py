@@ -309,6 +309,57 @@ class BudgetRow:
             )
 
 
+@dataclass(frozen=True)
+class OverspentBudget:
+    account: str
+    amounts: tuple[tuple[str, Decimal], ...]
+    percentage: Decimal
+
+
+@dataclass(frozen=True)
+class BudgetSummary:
+    total: int
+    overspent: tuple[OverspentBudget, ...]
+    preview: tuple[BudgetRow, ...]
+
+
+def current_month_summary(ledger: "Ledger", today: date) -> BudgetSummary:
+    begin = today.replace(day=1)
+    reports = rows(ledger, begin, interval_next(begin, "monthly"), tree=True)
+    budgets = tuple(row for row in reports if row.direct_budget)
+    overspent = []
+    for row in budgets:
+        if not row.account.startswith("Expenses"):
+            continue
+        amounts = []
+        percentages = []
+        for currency in sorted(row.budget):
+            remaining = row.remaining(currency)
+            if remaining is not None and remaining < 0:
+                amounts.append((currency, remaining.copy_abs()))
+                consumed = row.consumed(currency)
+                percentages.append(
+                    consumed - 100
+                    if consumed is not None and consumed >= 0
+                    else Decimal("Infinity")
+                )
+        if amounts:
+            overspent.append(OverspentBudget(row.account, tuple(amounts), max(percentages)))
+    ordered_overspent = tuple(sorted(overspent, key=lambda item: (-item.percentage, item.account)))
+    overspent_rank = {item.account: item.percentage for item in ordered_overspent}
+
+    def rank(row: BudgetRow) -> tuple[bool, Decimal, str]:
+        percentage = overspent_rank.get(row.account)
+        if percentage is None:
+            percentage = max(
+                (used for currency in row.budget if (used := row.consumed(currency)) is not None),
+                default=Decimal("-Infinity"),
+            )
+        return row.account not in overspent_rank, -percentage, row.account
+
+    return BudgetSummary(len(budgets), ordered_overspent, tuple(sorted(budgets, key=rank)))
+
+
 def rows(
     ledger: "Ledger",
     begin: date,

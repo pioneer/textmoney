@@ -72,6 +72,7 @@ signing_alias = "android-release"
 finance-saf = "extensions/finance-saf"
 
 [tool.flet.android]
+adaptive_icon_background = "#17324d"
 # Parsers and Babel open grammar/locale data using real __file__-relative paths.
 extract_packages = ["autobean_refactor", "beancount_parser", "lark", "babel"]
 

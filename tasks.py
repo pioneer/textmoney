@@ -30,6 +30,7 @@ HOSTS = {"linux": "Linux", "windows": "Windows", "macos": "Darwin"}
 UNATTENDED = "--yes"
 LINUX_DEV_APP_ID = "dev.textmoney.app"
 STOCK_CLIENT_APP_ID = b"com.appveyor.flet"
+ICON_ARTWORK_CANVAS_SIZE = 952
 ANDROID_SIGNING_ENV = (
     "FLET_ANDROID_SIGNING_KEY_STORE",
     "FLET_ANDROID_SIGNING_KEY_ALIAS",
@@ -72,7 +73,7 @@ def debug_env(debug: bool) -> dict[str, str]:
     }
 
 
-def stage_assets(*, linux: bool = False, windows: bool = False) -> None:
+def stage_assets(*, linux: bool = False, windows: bool = False, android: bool = False) -> None:
     validate_icon()
     compile_translations()
     # Flet's exclusions match exact paths, so nested development caches can leak.
@@ -88,13 +89,31 @@ def stage_assets(*, linux: bool = False, windows: bool = False) -> None:
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(ROOT / "assets", destination)
+    if android:
+        # A platform-specific source prevents Flet from adding padding a second time.
+        android_icon().save(destination / "icon_android.png")
     for target, enabled in (("linux", linux), ("windows", windows)):
         if enabled:
-            desktop_icon().save(destination / f"icon_{target}.png")
+            desktop_icon(circular=target == "linux").save(destination / f"icon_{target}.png")
 
 
-def desktop_icon() -> Image.Image:
-    """Remove the Android canvas using an artwork mask, retaining dark outlines."""
+def android_icon() -> Image.Image:
+    """Keep the original adaptive-safe artwork scale on a full-size badge."""
+    validate_icon()
+    with Image.open(ROOT / "assets/icon.png") as source:
+        image = source.convert("RGBA")
+    size = round(1024 * 664 / ICON_ARTWORK_CANVAS_SIZE)
+    result = Image.new("RGBA", (1024, 1024), "#17324d")
+    result.alpha_composite(
+        image.resize((size, size), Image.Resampling.LANCZOS),
+        ((1024 - size) // 2, (1024 - size) // 2),
+    )
+    result.putalpha(image.getchannel("A"))
+    return result
+
+
+def desktop_icon(*, circular: bool = False) -> Image.Image:
+    """Frame the artwork for desktop, optionally on a circular navy badge."""
     validate_icon()
     scale = 3
     mask = Image.new("L", (1024 * scale, 1024 * scale))
@@ -111,7 +130,11 @@ def desktop_icon() -> Image.Image:
     ):
         draw.polygon([(x * scale, y * scale) for x, y in points], fill=255)
     alpha = Image.new("L", (1024, 1024))
-    alpha.paste(mask.resize((664, 664), Image.Resampling.LANCZOS), (180, 180))
+    offset = (1024 - ICON_ARTWORK_CANVAS_SIZE) // 2
+    alpha.paste(
+        mask.resize((ICON_ARTWORK_CANVAS_SIZE, ICON_ARTWORK_CANVAS_SIZE), Image.Resampling.LANCZOS),
+        (offset, offset),
+    )
     with Image.open(ROOT / "assets/icon.png") as source:
         artwork = source.convert("RGBA")
     artwork.putalpha(alpha)
@@ -119,13 +142,20 @@ def desktop_icon() -> Image.Image:
     if bounds is None:
         raise Exit("Desktop icon has no visible artwork.", code=1)
     artwork = artwork.crop(bounds)
-    factor = 944 / max(artwork.size)
+    factor = (600 if circular else 944) / max(artwork.size)
     artwork = artwork.resize(
         (round(artwork.width * factor), round(artwork.height * factor)),
         Image.Resampling.LANCZOS,
     )
     result = Image.new("RGBA", (1024, 1024))
-    result.paste(artwork, ((1024 - artwork.width) // 2, (1024 - artwork.height) // 2))
+    if circular:
+        circle = Image.new("L", (1024 * scale, 1024 * scale))
+        ImageDraw.Draw(circle).ellipse(
+            (40 * scale, 40 * scale, 984 * scale - 1, 984 * scale - 1), fill=255
+        )
+        result.paste("#17324d", (0, 0, 1024, 1024))
+        result.putalpha(circle.resize((1024, 1024), Image.Resampling.LANCZOS))
+    result.alpha_composite(artwork, ((1024 - artwork.width) // 2, (1024 - artwork.height) // 2))
     return result
 
 
@@ -544,7 +574,9 @@ def build_target(
         raise Exit("Production signing is supported only for Android APK builds.", code=1)
     require_host(target)
     (ROOT / "src/app/.debug-mode").unlink(missing_ok=True)
-    stage_assets(linux=target == "linux", windows=target == "windows")
+    stage_assets(
+        linux=target == "linux", windows=target == "windows", android=target in {"apk", "aab"}
+    )
     execute(
         "flet",
         "build",
@@ -583,7 +615,7 @@ def prepare_linux_dev_client() -> Path:
     for item in (stock / "data").iterdir():
         if item.name != "app_icon.png":
             (destination / "data" / item.name).symlink_to(item, target_is_directory=item.is_dir())
-    icon_image = desktop_icon()
+    icon_image = desktop_icon(circular=True)
     icon_bytes = icon_image.tobytes()
     icon = destination / "data" / f"app_icon-{hashlib.sha256(icon_bytes).hexdigest()}.png"
     icon_image.save(icon)
@@ -695,7 +727,7 @@ def probe_beancount_android(context: Context) -> None:
 
 @task
 def app_icon(context: Context) -> None:
-    """Generate a rounded money document and pencil icon."""
+    """Generate the circular money document and pencil icon."""
     scale = 3
     image = Image.new("RGB", (1024 * scale, 1024 * scale), "#17324d")
     draw = ImageDraw.Draw(image)
@@ -781,9 +813,15 @@ def app_icon(context: Context) -> None:
     polygon(((850, 408), (868, 420), (680, 720), (662, 708)), "#d89c3d")
     polygon(((622, 678), (688, 720), (592, 790)), "#edc7a2")
     polygon(((600, 756), (624, 772), (592, 790)), "#17324d")
-    artwork = image.resize((664, 664), Image.Resampling.LANCZOS)
+    artwork = image.resize(
+        (ICON_ARTWORK_CANVAS_SIZE, ICON_ARTWORK_CANVAS_SIZE), Image.Resampling.LANCZOS
+    )
     image = Image.new("RGB", (1024, 1024), "#17324d")
-    image.paste(artwork, (180, 180))
+    offset = (1024 - ICON_ARTWORK_CANVAS_SIZE) // 2
+    image.paste(artwork, (offset, offset))
+    circle = Image.new("L", (1024 * scale, 1024 * scale))
+    ImageDraw.Draw(circle).ellipse((0, 0, 1024 * scale - 1, 1024 * scale - 1), fill=255)
+    image.putalpha(circle.resize((1024, 1024), Image.Resampling.LANCZOS))
     image.save(ROOT / "assets/icon.png")
 
 
@@ -815,7 +853,7 @@ def debug_mobile(target: str, device: str, list_devices: bool) -> None:
     require_host(target)
     if not device and not list_devices:
         raise Exit("Specify --device=DEVICE_ID or use --list-devices first.", code=1)
-    stage_assets()
+    stage_assets(android=target == "android")
     args = ["flet", "debug", target, UNATTENDED, "-v", "--no-compile-app"]
     args += ["--device-id", device or "discover"]
     if list_devices:

@@ -24,8 +24,8 @@ On Linux, `run` and `debug` prepare a branded client under
 `build/linux-dev-client` and register a hidden desktop entry under
 `$XDG_DATA_HOME/applications` (default `~/.local/share/applications`).
 Its GTK identity is `dev.textmoney.app`, separate from the packaged app and other
-Flet apps. This gives the development window a generated transparent, tightly
-framed version of the canonical app icon without
+Flet apps. This gives the development window a generated circular navy badge
+with transparent corners and the canonical artwork without
 modifying Flet's shared client. The adapter checks the pinned client's binary
 identity before patching the local copy and fails explicitly if it changes.
 The runner supplies `FLET_APP_ID=dev.textmoney.app` so Wayland's application
@@ -36,10 +36,12 @@ The desktop entry references a generated icon filename containing its content
 hash, so GNOME/Wayland switchers do not reuse the previous artwork's cached
 filename. Each launch refreshes this generated copy from the canonical asset.
 Restart an already-running development window after changing the artwork.
-Linux and Windows builds stage the same derivative as `src/assets/icon_linux.png`
-and `src/assets/icon_windows.png`, respectively. These are generated, not
-maintained; other targets retain the original Android-safe icon. See
-[branding](branding.md) for the silhouette and framing policy.
+Linux builds stage that circular derivative as `src/assets/icon_linux.png`;
+Windows retains its transparent artwork silhouette as `src/assets/icon_windows.png`.
+Android builds and device-debug runs generate a padded `icon_android.png`
+variant to preserve the previous adaptive-safe artwork size.
+These are generated, not maintained. See [branding](branding.md) for the
+silhouette and framing policy.
 `.env.example` is documentation, not automatically loaded configuration. Set
 variables in your shell/IDE; keep local `.env` files out of version control.
 

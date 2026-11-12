@@ -11,14 +11,24 @@ from zipfile import ZipFile
 
 import flet_desktop
 import pytest
-from flet_platform_assets import render_icons, write
+from flet_platform_assets import IconOptions, render_icons, write
 from invoke.collection import Collection
 from invoke.context import Context
 from invoke.exceptions import Exit
 from invoke.program import Program
+from PIL import Image, ImageChops
 from PIL.IcoImagePlugin import IcoImageFile
 
 import tasks
+
+
+def _icon_artwork_mask(image: Image.Image) -> Image.Image:
+    channels = ImageChops.difference(
+        image.convert("RGB"), Image.new("RGB", image.size, "#17324d")
+    ).split()
+    return ImageChops.lighter(ImageChops.lighter(channels[0], channels[1]), channels[2]).point(
+        [0] * 9 + [255] * 247
+    )
 
 
 @pytest.mark.parametrize(
@@ -58,7 +68,7 @@ def test_desktop_icon_is_large_transparent_and_keeps_android_source(
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nversion = "0.2.2"\n[tool.flet]\nbuild_number = 19\n'
     )
-    image = tasks.desktop_icon()
+    image = tasks.desktop_icon(circular=target == "linux")
     assert image.mode == "RGBA" and image.size == (1024, 1024)
     alpha = image.getchannel("A")
     bounds = alpha.getbbox()
@@ -67,6 +77,12 @@ def test_desktop_icon_is_large_transparent_and_keeps_android_source(
     assert min(bounds[0], bounds[1], 1024 - bounds[2], 1024 - bounds[3]) >= 36
     assert alpha.getpixel((0, 0)) == alpha.getpixel((1023, 1023)) == 0
     assert alpha.getextrema() == (0, 255)
+    if target == "linux":
+        assert alpha.getpixel((128, 128)) == 0
+        assert alpha.getpixel((512, 64)) == 255
+        assert alpha.getpixel((64, 512)) == 255
+        assert alpha.getpixel((512, 960)) == 255
+        assert alpha.getpixel((960, 512)) == 255
     colors = image.getcolors(1024 * 1024)
     assert colors is not None
     assert sum(count for count, pixel in colors if pixel == (23, 50, 77, 255)) > 1000
@@ -86,6 +102,30 @@ def test_desktop_icon_is_large_transparent_and_keeps_android_source(
                     visible = rendered_alpha.point([0] * 128 + [255] * 128).getbbox()
                     assert visible is not None
                     assert max(visible[2] - visible[0], visible[3] - visible[1]) / size >= 0.85
+        else:
+            generated = render_icons(
+                icon,
+                IconOptions(application_id="com.pioneer.textmoney"),
+                platform="linux",
+                derived=False,
+            )
+            expected_paths = {
+                f"linux/icons/hicolor/{size}x{size}/apps/com.pioneer.textmoney.png"
+                for size in (16, 24, 32, 48, 64, 128, 256, 512)
+            } | {"linux/app_icon.png"}
+            assert {asset.relative_path for asset in generated.assets} == expected_paths
+            for asset in generated.assets:
+                rendered_alpha = asset.image.getchannel("A")
+                size = rendered_alpha.width
+                for point, minimum, maximum in (
+                    ((0, 0), 0, 0),
+                    ((size // 16, size // 16), 0, 8),
+                    ((size // 2, size // 8), 250, 255),
+                    ((size // 8, size // 2), 250, 255),
+                ):
+                    value = rendered_alpha.getpixel(point)
+                    assert isinstance(value, int)
+                    assert minimum <= value <= maximum
     assert (assets / "icon.png").read_bytes() == original
     assert (staged / "icon.png").read_bytes() == original
     tasks.stage_assets()
@@ -93,8 +133,8 @@ def test_desktop_icon_is_large_transparent_and_keeps_android_source(
     assert (staged / "icon.png").read_bytes() == original
 
 
-@pytest.mark.parametrize("target", ["linux", "apk", "web", "windows", "macos"])
-def test_build_stages_only_its_desktop_icon(
+@pytest.mark.parametrize("target", ["linux", "apk", "aab", "web", "windows", "macos"])
+def test_build_stages_only_its_platform_icon(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: str
 ) -> None:
     stage = MagicMock()
@@ -104,7 +144,47 @@ def test_build_stages_only_its_desktop_icon(
     monkeypatch.setattr(tasks, "execute", MagicMock(side_effect=Exit("stop after staging")))
     with pytest.raises(Exit, match="stop after staging"):
         tasks.build_target(target)
-    stage.assert_called_once_with(linux=target == "linux", windows=target == "windows")
+    stage.assert_called_once_with(
+        linux=target == "linux", windows=target == "windows", android=target in {"apk", "aab"}
+    )
+
+
+def test_android_icon_staging_preserves_precomposed_round_framing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "assets").mkdir()
+    source = tasks.ROOT / "assets/icon.png"
+    shutil.copyfile(source, tmp_path / "assets/icon.png")
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "compile_translations", lambda: None)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.4.7"\n[tool.flet]\nbuild_number = 55\n'
+    )
+    tasks.stage_assets(android=True)
+    staged = tmp_path / "src/assets/icon_android.png"
+    assert staged.read_bytes() != source.read_bytes()
+    with tasks.Image.open(staged) as image:
+        generated = render_icons(image, platform="android", derived=False)
+        mask = _icon_artwork_mask(image)
+        bounds = mask.getbbox()
+        assert bounds is not None
+        assert max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 1024 == pytest.approx(
+            0.456, abs=0.005
+        )
+        # Android guarantees a central 66-dp circle within its 108-dp adaptive layer.
+        safe_radius = 1024 * 33 / 108
+        for index, value in enumerate(mask.tobytes()):
+            if value:
+                assert math.hypot(index % 1024 - 512, index // 1024 - 512) <= safe_radius
+    assert (tmp_path / "assets/icon.png").read_bytes() == source.read_bytes()
+    assert len(generated.assets) == 10
+    for asset in generated.assets:
+        alpha = asset.image.getchannel("A")
+        assert alpha.getpixel((0, 0)) == 0
+        assert alpha.getpixel((alpha.width // 2, alpha.height // 16)) == 255
+        assert alpha.getpixel((alpha.width // 16, alpha.height // 2)) == 255
+    tasks.stage_assets()
+    assert not staged.exists()
 
 
 def test_app_icon_generates_canonical_currency_artwork(
@@ -116,7 +196,12 @@ def test_app_icon_generates_canonical_currency_artwork(
     tasks.app_icon(Context())
     tasks.validate_icon()
     with tasks.Image.open(tmp_path / "assets/icon.png") as image:
-        assert image.getpixel((0, 0)) == (23, 50, 77)
+        assert image.mode == "RGBA"
+        alpha = image.getchannel("A")
+        for point in ((0, 0), (1023, 0), (0, 1023), (1023, 1023), (128, 128)):
+            assert alpha.getpixel(point) == 0
+        for point in ((512, 8), (8, 512), (512, 1015), (1015, 512)):
+            assert alpha.getpixel(point) == 255
         for x, y, color in (
             (640, 240, (105, 185, 167)),
             (260, 300, (255, 255, 255)),
@@ -124,20 +209,15 @@ def test_app_icon_generates_canonical_currency_artwork(
             (450, 440, (23, 50, 77)),
             (780, 500, (244, 207, 118)),
         ):
-            assert (
-                image.getpixel((180 + round(x * 664 / 1024), 180 + round(y * 664 / 1024))) == color
+            assert image.getpixel((36 + round(x * 952 / 1024), 36 + round(y * 952 / 1024))) == (
+                *color,
+                255,
             )
-        # Android guarantees a central 66-dp circle within its 108-dp adaptive layer.
-        safe_radius = 1024 * 33 / 108
-        for y in range(1024):
-            for x in range(1024):
-                pixel = image.getpixel((x, y))
-                assert isinstance(pixel, tuple)
-                if (
-                    max(abs(value - base) for value, base in zip(pixel, (23, 50, 77), strict=True))
-                    > 8
-                ):
-                    assert math.hypot(x - 512, y - 512) <= safe_radius
+        bounds = _icon_artwork_mask(image).getbbox()
+        assert bounds is not None
+        assert max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 1024 == pytest.approx(
+            0.65, abs=0.005
+        )
 
 
 def test_linux_development_icon_does_not_modify_shared_client(
@@ -166,7 +246,7 @@ def test_linux_development_icon_does_not_modify_shared_client(
     )
     assert (client / "flet").stat().st_mode & 0o111
     with tasks.Image.open(client / "data/app_icon.png") as icon:
-        assert icon.tobytes() == tasks.desktop_icon().tobytes()
+        assert icon.tobytes() == tasks.desktop_icon(circular=True).tobytes()
     assert (client / "lib").resolve() == stock / "lib"
     assert (client / "data/flutter_assets").resolve() == stock / "data/flutter_assets"
     assert (stock / "flet").read_bytes() == binary
@@ -181,7 +261,7 @@ def test_linux_development_icon_does_not_modify_shared_client(
     tasks.Image.new("RGB", (1024, 1024), "blue").save(root / "assets/icon.png")
     tasks.prepare_linux_dev_client()
     with tasks.Image.open(client / "data/app_icon.png") as icon:
-        assert icon.tobytes() == tasks.desktop_icon().tobytes()
+        assert icon.tobytes() == tasks.desktop_icon(circular=True).tobytes()
     updated_line = next(line for line in entry.read_text().splitlines() if line.startswith("Icon="))
     assert updated_line != icon_line
     updated_icon = Path(updated_line.removeprefix("Icon="))
@@ -847,7 +927,8 @@ def test_mobile_debug_marker_cleanup(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     (tmp_path / "src/app").mkdir(parents=True)
     marker = tmp_path / "src/app/.debug-mode"
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
-    monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
+    stage = MagicMock()
+    monkeypatch.setattr(tasks, "stage_assets", stage)
 
     def fail(*args: str, **kwargs: object) -> None:
         assert marker.is_file()
@@ -866,6 +947,7 @@ def test_mobile_debug_marker_cleanup(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     monkeypatch.setattr(tasks, "execute", fail)
     with pytest.raises(Exit, match="simulated device failure"):
         tasks.debug_mobile("android", "test-device", False)
+    stage.assert_called_once_with(android=True)
     assert not marker.exists()
 
 

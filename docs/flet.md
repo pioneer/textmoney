@@ -80,6 +80,11 @@ the main tree retains its native expansion behavior. Transaction and budget menu
 name-only labels and a 480-pixel height limit on compact screens, with the
 default full-height menu on wider screens. Category-parent menus retain codes.
 
+Budget card titles and their entity icons align with the first 48-pixel action
+row, even when actions wrap below it. The title can grow for longer names.
+The percentage uses the normal spacing after the financial amounts, with an
+12-pixel gap below it before the progress bar.
+
 Compact transaction and budget menus overlap their category field, extending
 above and below it rather than opening only downward. A bounded field measurement
 and the option row heights determine the menu alignment, including shorter lists;

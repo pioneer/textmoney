@@ -364,8 +364,13 @@ def test_budget_report_non_expanding_rows_have_transaction_actions(
             assert isinstance(tile.title, ft.Column)
             header = tile.title.controls[0]
             assert isinstance(header, ft.Row)
-            inset = header.controls[0]
-            assert isinstance(inset, ft.Container) and inset.width == 14
+            assert header.vertical_alignment == ft.CrossAxisAlignment.START
+            heading = header.controls[0]
+            assert isinstance(heading, ft.Row) and heading.expand
+            assert heading.vertical_alignment == ft.CrossAxisAlignment.CENTER
+            inset = heading.controls[0]
+            assert isinstance(inset, ft.Container) and inset.width == 14 and inset.height == 48
+            assert isinstance(heading.controls[-1], ft.Text) and heading.controls[-1].expand
             action_row = header.controls[-1]
             assert isinstance(action_row, ft.Row) and action_row.wrap
             assert action_row.alignment == ft.MainAxisAlignment.END
@@ -398,9 +403,15 @@ def test_budget_report_non_expanding_rows_have_transaction_actions(
                         bars.append(line)
                     else:
                         assert isinstance(line, ft.Container)
-                        assert line.padding == ft.Padding.symmetric(horizontal=14)
                         assert isinstance(line.content, ft.Text)
+                        progress = str(line.content.value).startswith(host.tr("budget_consumed"))
+                        assert line.padding == ft.Padding(
+                            left=14, right=14, bottom=8 if progress else 0
+                        )
                         assert line.content.tooltip is None
+                        if progress:
+                            assert isinstance(lines[lines.index(line) + 1], ft.ProgressBar)
+                            assert isinstance(section, ft.Column) and section.spacing == 4
             assert bars
             transactions = actions[0]
             assert transactions.icon == ft.Icons.RECEIPT_LONG

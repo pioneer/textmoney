@@ -487,10 +487,14 @@ class BudgetView(ft.Column):
                     selectable=True,
                 ),
             ]
+            progress_label = None
             if consumed is not None:
+                progress_label = ft.Text(
+                    f"{tr('budget_consumed')}: {format_budget_number(consumed, 2)}%"
+                )
                 lines.extend(
                     [
-                        ft.Text(f"{tr('budget_consumed')}: {format_budget_number(consumed, 2)}%"),
+                        progress_label,
                         ft.ProgressBar(
                             value=float(max(Decimal(0), min(Decimal(100), consumed))) / 100,
                             color=ft.Colors.ERROR if overspent else None,
@@ -514,7 +518,12 @@ class BudgetView(ft.Column):
                         line
                         if isinstance(line, ft.ProgressBar)
                         else ft.Container(
-                            line, padding=ft.Padding.symmetric(horizontal=_REPORT_TEXT_INSET)
+                            line,
+                            padding=ft.Padding(
+                                left=_REPORT_TEXT_INSET,
+                                right=_REPORT_TEXT_INSET,
+                                bottom=8 if line is progress_label else 0,
+                            ),
                         )
                         for line in lines
                     ],
@@ -603,18 +612,25 @@ class BudgetView(ft.Column):
                         [
                             ft.Row(
                                 [
-                                    ft.Container(width=_REPORT_TEXT_INSET),
-                                    *self.host._entity_icon_controls(account),
-                                    ft.Text(
-                                        names.get(account, account.rsplit(":", 1)[-1]),
-                                        size=16,
-                                        weight=ft.FontWeight.BOLD,
-                                        tooltip=account,
+                                    ft.Row(
+                                        [
+                                            ft.Container(width=_REPORT_TEXT_INSET, height=48),
+                                            *self.host._entity_icon_controls(account),
+                                            ft.Text(
+                                                names.get(account, account.rsplit(":", 1)[-1]),
+                                                size=16,
+                                                weight=ft.FontWeight.BOLD,
+                                                tooltip=account,
+                                                expand=True,
+                                            ),
+                                        ],
                                         expand=True,
+                                        spacing=0,
                                     ),
                                     self._card_actions(row, actions),
                                 ],
                                 spacing=0,
+                                vertical_alignment=ft.CrossAxisAlignment.START,
                             ),
                             *self._limit_controls(row),
                             *(

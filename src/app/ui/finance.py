@@ -1890,6 +1890,7 @@ class FinanceView(ft.Row):
         journal = self.journal
         if journal is None or not journal.ready:
             return
+        await self.budgets.load_order()
         if self.shared_defaults_journal is not journal:
             folder = journal.storage.folder
             if not isinstance(folder, (DesktopFolder, AndroidFolder)):
@@ -1972,7 +1973,9 @@ class FinanceView(ft.Row):
                     if isinstance(choice, FeePreferences):
                         formatted.append(f"{choice.default} ({', '.join(choice.branches)})")
                     else:
-                        formatted.append(choice or self.tr("default_account_none"))
+                        formatted.append(
+                            choice if isinstance(choice, str) else self.tr("default_account_none")
+                        )
                 lines.append(f"{self.tr(label)}: {' / '.join(formatted)}")
             if self.legacy_defaults_invalid and set(store.heads) != {"account", "commission"}:
                 lines.append(self.tr("shared_settings_legacy_invalid"))

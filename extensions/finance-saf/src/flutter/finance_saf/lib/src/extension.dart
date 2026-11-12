@@ -186,10 +186,13 @@ class FinanceSafService extends FletService {
       }
     }
     if (method == 'icons_read' || method == 'icons_create' ||
-        method == 'settings_read' || method == 'settings_create') {
-      final settings = method.startsWith('settings_');
+        method == 'settings_read' || method == 'settings_create' ||
+        method == 'budget_order_read' || method == 'budget_order_create') {
+      final budgetOrder = method.startsWith('budget_order_');
+      final settings = method.startsWith('settings_') || budgetOrder;
       final create = method.endsWith('_create');
-      final directoryName = settings ? 'textmoney-settings' : 'textmoney-icons';
+      final directoryName = budgetOrder ? 'textmoney-budget-order'
+          : settings ? 'textmoney-settings' : 'textmoney-icons';
       final maxRecord = settings ? 65536 : 393216;
       final maxTotal = settings ? 4194304 : 16777216;
       var directory = await _util.child(uri, [directoryName]);

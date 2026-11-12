@@ -19,6 +19,8 @@ src/app/ui/dialogs.py       shared desktop popup Escape/Cancel and Enter/Submit 
 src/app/ui/icons.py         optional offline/online/import icon picker
 src/app/icons.py            validated icon assets and immutable sidecar assignment policy
 src/app/shared_defaults.py  journal-scoped immutable default account/commission revisions
+src/app/budget_order.py     isolated budget-order revision group using shared sidecar mechanics
+src/app/domain/budget_order.py hierarchy-preserving budget presentation ordering
 src/app/infrastructure/record_files.py bounded desktop/SAF immutable-record I/O
 src/app/infrastructure/icon_files.py icon-specific record policy
 src/app/infrastructure/icon_sources.py bundled catalogue and explicit Iconify requests

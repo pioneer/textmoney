@@ -83,6 +83,37 @@ Parents are the prior filenames for that same group. Codes are private journal
 references: sidecars are not encrypted, and values are never logged.
 No settings metadata or additional directives are added to Beancount.
 
+## Budget ordering
+
+Budgets has a separate **Budget order** dialog beside its filter control when
+the journal defines at least two budget categories. It lists all budget
+categories, including those outside the selected month or filters. Drag a handle
+or use the up/down arrows to move siblings; moving a parent moves its whole
+subtree. Cancel discards the draft, Save explicitly publishes it, and Restore
+default order takes effect only after Save. Default order follows category codes.
+Names and assigned icons are displayed without financial amounts.
+
+The order belongs to category codes, not dated limit records or currencies, and
+applies across months. Display-name edits preserve positions. New categories
+follow explicitly ordered siblings; missing categories are ignored. Budget
+history remains chronological within each category.
+
+Synchronize the complete `textmoney-budget-order/` directory alongside the
+journal. It uses the same immutable revision, size-limit, stale-save and verified
+publication rules as shared defaults, with a separate revision group and folder.
+This isolation lets older app versions ignore ordering without breaking their
+account or commission settings. Android uses the existing SAF grant and verifies
+new documents; publication is not atomic.
+
+Changes reload on journal attachment, opening the dialog, budget refresh and
+normal shared-settings polling. An open draft never changes underneath the user.
+A stale save is refused: close and reopen the dialog to review the latest order.
+Conflicting histories show a warning and all candidate orders in the dialog;
+arrange and Save to resolve the reviewed heads. Read failures retain the previous
+order (or the default on initial load) with a visible warning, not a silent reset.
+Uncertain writes require reopening and reloading before retrying.
+Ordering does not modify the journal, calculations, selected month or filters.
+
 Desktop uses the same staged, flushed, no-replacement publication as icon
 records. Android uses the existing SAF grant, creates a new document, and
 verifies its name and bytes. **SAF publication is not atomic.**

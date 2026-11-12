@@ -279,6 +279,39 @@ msgstr "Fava 1.30.16 rules: daily allocation; budgets keep their currencies. Cat
 msgid "ui.budget_limit_history"
 msgstr "Budget history"
 
+msgid "ui.budget_order"
+msgstr "Budget order"
+
+msgid "ui.budget_order_help"
+msgstr "Drag the handles or use the arrows. Children stay with their parent. This list includes all budget categories, regardless of month or filters."
+
+msgid "ui.budget_order_up"
+msgstr "Move up"
+
+msgid "ui.budget_order_down"
+msgstr "Move down"
+
+msgid "ui.budget_order_drag"
+msgstr "Drag to reorder"
+
+msgid "ui.budget_order_reset"
+msgstr "Restore default order"
+
+msgid "ui.budget_order_stale"
+msgstr "Budgets or their shared order changed while this dialog was open. Your draft is retained. Close and reopen Budget order to review the latest version before saving."
+
+msgid "ui.budget_order_siblings"
+msgstr "Move a budget within its group. Move the parent to move the whole group."
+
+msgid "ui.budget_order_unavailable"
+msgstr "Budget order could not be loaded. The previous or default order is shown. Finish synchronization and reopen Budget order before saving. Journal access remains available."
+
+msgid "ui.budget_order_conflict"
+msgstr "Budget orders conflict. The previous or default order is shown. Open Budget order, review the conflicting orders, arrange the list and Save to resolve them."
+
+msgid "ui.budget_order_save_failed"
+msgstr "Budget order could not be verified as saved. Your draft is retained. Close and reopen Budget order to reload shared history before retrying. Check access and synchronize the complete textmoney-budget-order/ directory."
+
 msgid "ui.budget_history_help"
 msgstr "To change a future budget without changing past months, use Change from a date. Unused amounts are not added to the next month."
 

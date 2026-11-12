@@ -1,8 +1,10 @@
 import asyncio
+import json
 from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
+from hashlib import sha256
 from pathlib import Path
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock
@@ -10,13 +12,20 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import flet.canvas as fc
 import pytest
-from form_controls import assert_deletion_title, category_content, click, dropdown_field
+from form_controls import (
+    assert_deletion_title,
+    category_content,
+    click,
+    click_async,
+    dropdown_field,
+)
 
 from app.domain.budgets import Budget, BudgetRow
 from app.domain.ledger import LedgerError
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import date_input, format_date
+from app.shared_defaults import SharedDefaultsError
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.finance import FinanceView
 from app.ui.layout import HoverRow
@@ -37,7 +46,7 @@ def walk(control: ft.Control) -> Iterator[ft.Control]:
     yield control
     if isinstance(control, ft.Tabs):
         yield from walk(control.content)
-    if isinstance(control, (ft.Column, ft.Row)):
+    if isinstance(control, (ft.Column, ft.Row, ft.ListView)):
         for child in control.controls:
             yield from walk(child)
     if isinstance(control, (ft.Container, fc.Canvas)) and isinstance(control.content, ft.Control):
@@ -70,6 +79,189 @@ async def load(view: FinanceView, tmp_path: Path, source: str = SOURCE) -> Journ
     view.budgets.month = date(2026, 1, 1)
     await view.budgets.refresh()
     return journal
+
+
+@pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 320)])
+def test_budget_order_dialog_saves_and_resets_without_changing_filters_or_journal(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, language: str, width: int
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        page.width, host.language = width, language
+        source = SOURCE + '2026-01-01 custom "budget" Expenses:Food:Meals "monthly" 5 USD\n'
+        source += "2000-01-01 open Expenses:Home\n"
+        source += '2026-02-01 custom "budget" Expenses:Home "monthly" 100 USD\n'
+        journal = await load(host, tmp_path, source)
+        report = host.budgets
+        report.category_id = "Expenses:Food"
+        report.overspent.value = True
+        report.currency.value = "USD"
+        report.filters.visible = True
+        await report.refresh()
+        assert report.order_button.visible
+        await click_async(report.order_button)
+        dialog = page.show_dialog.call_args.args[0]
+        listing = next(
+            item for item in walk(dialog.content) if isinstance(item, ft.ReorderableListView)
+        )
+        assert [item.data for item in listing.controls] == [
+            "Expenses:Food",
+            "Expenses:Food:Meals",
+            "Expenses:Home",
+        ]
+        assert listing.on_reorder
+        cast(Callable[[object], None], listing.on_reorder)(MagicMock(old_index=0, new_index=2))
+        assert [item.data for item in listing.controls] == [
+            "Expenses:Home",
+            "Expenses:Food",
+            "Expenses:Food:Meals",
+        ]
+        await submit(dialog)
+        assert host.error_message is None
+        expected = ("Expenses:Home", "Expenses:Food", "Expenses:Food:Meals")
+        assert report.order == expected
+        assert report.month == date(2026, 1, 1)
+        assert report.category_id == "Expenses:Food" and report.currency.value == "USD"
+        assert report.filters.visible and report.overspent.value
+        report.category_id, report.currency.value, report.overspent.value = "", "", False
+        report.month = date(2026, 2, 1)
+        await report.refresh()
+        assert [row.account for row in displayed_rows(host)] == list(expected)
+        report.order_store = None
+        report.order = ()
+        await report.refresh()
+        assert report.order == expected
+        assert [row.account for row in displayed_rows(host)] == list(expected)
+        await click_async(report.order_button)
+        dialog = page.show_dialog.call_args.args[0]
+        reset = next(
+            item
+            for item in walk(dialog.content)
+            if isinstance(item, ft.TextButton) and item.content == host.tr("budget_order_reset")
+        )
+        click(reset)
+        await submit(dialog)
+        assert report.order == ()
+        assert [row.account for row in displayed_rows(host)] == [
+            "Expenses:Food",
+            "Expenses:Food:Meals",
+            "Expenses:Home",
+        ]
+        assert journal.source == source
+        assert (tmp_path / FILENAME).read_bytes() == source.encode()
+        assert not (tmp_path / "textmoney-settings").exists()
+
+    asyncio.run(scenario())
+
+
+def test_budget_order_draft_cancel_arrows_and_stale_save(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        source = SOURCE + "2000-01-01 open Expenses:Home\n"
+        source += '2026-01-01 custom "budget" Expenses:Home "monthly" 100 USD\n'
+        await load(host, tmp_path, source)
+        report = host.budgets
+        await click_async(report.order_button)
+        dialog = page.show_dialog.call_args.args[0]
+        listing = next(
+            item for item in walk(dialog.content) if isinstance(item, ft.ReorderableListView)
+        )
+        home = listing.controls[-1]
+        up = next(
+            item
+            for item in walk(home)
+            if isinstance(item, ft.IconButton) and item.data == ("Expenses:Home", -1)
+        )
+        assert up.on_click
+        cast(Callable[[object], None], up.on_click)(MagicMock(control=up))
+        assert [item.data for item in listing.controls] == ["Expenses:Home", "Expenses:Food"]
+        click(dialog.actions[0])
+        assert report.order == ()
+        assert not (tmp_path / "textmoney-budget-order").exists()
+        await click_async(report.order_button)
+        dialog = page.show_dialog.call_args.args[0]
+        assert report.order_store
+        await report.order_store.save("budget_order", ("Expenses:Home", "Expenses:Food"), ())
+        await submit(dialog)
+        assert host.error_message == "budget_order_stale"
+        assert report.order == ()
+        assert page.pop_dialog.call_count == 1
+        await report.refresh()
+        assert report.order == ("Expenses:Home", "Expenses:Food")
+
+    asyncio.run(scenario())
+
+
+def test_budget_order_conflicts_read_failures_and_folder_switch_preserve_journal(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        source = SOURCE + "2000-01-01 open Expenses:Home\n"
+        source += '2026-01-01 custom "budget" Expenses:Home "monthly" 100 USD\n'
+        journal = await load(host, tmp_path, source)
+        report = host.budgets
+        assert report.order_store
+        store = report.order_store
+        directory = tmp_path / "textmoney-budget-order"
+        directory.mkdir()
+        for choice in (("Expenses:Home", "Expenses:Food"), ("Expenses:Food", "Expenses:Home")):
+            data = json.dumps(
+                {
+                    "version": 1,
+                    "changes": {"budget_order": {"parents": [], "value": choice}},
+                }
+            ).encode()
+            (directory / (sha256(data).hexdigest() + ".json")).write_bytes(data)
+        await report.load_order()
+        assert report.order_notice.visible and store.conflicts
+        await click_async(report.order_button)
+        dialog = page.show_dialog.call_args.args[0]
+        await submit(dialog)
+        assert not store.conflicts and not report.order_notice.visible
+        previous = report.order
+        (directory / "broken.json").write_text("bad", encoding="utf-8")
+        await report.refresh()
+        assert journal.ready and report.order == previous
+        assert report.order_notice.visible and report.order_error
+        await click_async(report.order_button)
+        assert host.error_message == "budget_order_unavailable"
+        other = tmp_path / "other"
+        other.mkdir()
+        await load(host, other, source)
+        assert report.order == () and not report.order_notice.visible
+        assert report.order_journal is host.journal and report.order_journal is not journal
+        assert journal.source == source
+
+    asyncio.run(scenario())
+
+
+def test_budget_order_failed_save_retains_draft_and_requires_reload(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        source = SOURCE + "2000-01-01 open Expenses:Home\n"
+        source += '2026-01-01 custom "budget" Expenses:Home "monthly" 100 USD\n'
+        journal = await load(host, tmp_path, source)
+        report = host.budgets
+        await click_async(report.order_button)
+        dialog = page.show_dialog.call_args.args[0]
+        assert report.order_store
+        save = AsyncMock(side_effect=SharedDefaultsError("write"))
+        monkeypatch.setattr(report.order_store, "save", save)
+        await submit(dialog)
+        assert report.order_error and report.order_notice.visible
+        assert host.error_message == "budget_order_save_failed"
+        assert dialog.actions[-1].disabled
+        page.pop_dialog.assert_not_called()
+        await submit(dialog)
+        save.assert_awaited_once()
+        assert report.order == () and journal.source == source and journal.ready
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("width", [390, 599, 600, 1366])

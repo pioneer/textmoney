@@ -12,6 +12,8 @@ import pytest
 from form_controls import click_async, transaction_form
 from test_dialog_keyboard import keyboard_session, press
 
+from app.budget_order import POLICY as ORDER_POLICY
+from app.budget_order import BudgetOrderStore
 from app.domain.storage import ConflictError
 from app.infrastructure.android_storage import AndroidFolder
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -35,6 +37,48 @@ FEES = FeePreferences(("Expenses:Fees",), "Expenses:Fees:Bank")
 
 def store_at(path: Path) -> SharedDefaults:
     return SharedDefaults(DesktopRecordFiles(DesktopFolder(str(path), FILENAME), POLICY))
+
+
+def test_budget_order_is_shared_independently_of_default_settings(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        folder = DesktopFolder(str(tmp_path), FILENAME)
+        a = BudgetOrderStore(DesktopRecordFiles(folder, ORDER_POLICY))
+        b = BudgetOrderStore(DesktopRecordFiles(folder, ORDER_POLICY))
+        order = ("Expenses:Home", "Expenses:Food")
+        await a.save("budget_order", order, ())
+        await b.load()
+        assert b.values["budget_order"] == order
+        heads = b.heads["budget_order"]
+        await a.save("budget_order", tuple(reversed(order)), heads)
+        with pytest.raises(ConflictError):
+            await b.save("budget_order", (), heads)
+        await b.save("budget_order", (), b.heads["budget_order"])
+        await a.load()
+        assert a.values["budget_order"] == ()
+        assert not (tmp_path / FILENAME).exists()
+        await store_at(tmp_path).load()
+        assert not (tmp_path / "textmoney-settings").exists()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "value",
+    [None, "Expenses:Food", ["Expenses:Food", "Expenses:Food"], ["not-an-account"], [7], [{}]],
+)
+def test_invalid_budget_order_records_are_refused(tmp_path: Path, value: object) -> None:
+    async def scenario() -> None:
+        directory = tmp_path / "textmoney-budget-order"
+        directory.mkdir()
+        name, data = record({"budget_order": {"parents": [], "value": value}})
+        (directory / name).write_bytes(data)
+        store = BudgetOrderStore(
+            DesktopRecordFiles(DesktopFolder(str(tmp_path), FILENAME), ORDER_POLICY)
+        )
+        with pytest.raises(SharedDefaultsError, match="shared_settings_invalid"):
+            await store.load()
+
+    asyncio.run(scenario())
 
 
 def record(changes: object, *, version: object = 1) -> tuple[str, bytes]:
@@ -211,17 +255,19 @@ def test_save_failures_preserve_previous_values(tmp_path: Path, failure: str) ->
     asyncio.run(scenario())
 
 
-def test_android_uses_existing_grant_and_settings_namespace() -> None:
+@pytest.mark.parametrize("budget_order", [False, True])
+def test_android_uses_existing_grant_and_settings_namespace(budget_order: bool) -> None:
     async def scenario() -> None:
         records: dict[str, bytes] = {}
+        namespace = "budget_order" if budget_order else "settings"
 
         async def call(method: str, **args: object) -> dict[str, object]:
-            if method == "settings_read":
+            if method == f"{namespace}_read":
                 return {
                     "ok": True,
                     "value": {n: base64.b64encode(d).decode() for n, d in records.items()},
                 }
-            assert method == "settings_create"
+            assert method == f"{namespace}_create"
             assert args["uri"] == "content://synthetic"
             assert args["filename"] == FILENAME
             name, data = args["name"], args["data"]
@@ -230,12 +276,16 @@ def test_android_uses_existing_grant_and_settings_namespace() -> None:
             return {"ok": True, "value": True}
 
         bridge = MagicMock(call=AsyncMock(side_effect=call))
-        store = SharedDefaults(
-            AndroidRecordFiles(AndroidFolder(bridge, "content://synthetic", FILENAME), POLICY)
-        )
-        await store.save("account", "Assets:Bank", ())
-        await store.save("commission", FEES, ())
-        assert store.values == {"account": "Assets:Bank", "commission": FEES}
+        folder = AndroidFolder(bridge, "content://synthetic", FILENAME)
+        if budget_order:
+            store = BudgetOrderStore(AndroidRecordFiles(folder, ORDER_POLICY))
+            await store.save("budget_order", ("Expenses:Food", "Expenses:Home"), ())
+            assert store.values == {"budget_order": ("Expenses:Food", "Expenses:Home")}
+        else:
+            store = SharedDefaults(AndroidRecordFiles(folder, POLICY))
+            await store.save("account", "Assets:Bank", ())
+            await store.save("commission", FEES, ())
+            assert store.values == {"account": "Assets:Bank", "commission": FEES}
 
     asyncio.run(scenario())
 

@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TextMoney 0.4.6\n"
+"Project-Id-Version: TextMoney 0.4.7\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-11-11 22:55+0200\n"
-"PO-Revision-Date: 2026-11-11 22:55+0200\n"
+"POT-Creation-Date: 2026-11-12 04:47+0200\n"
+"PO-Revision-Date: 2026-11-12 04:47+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -275,6 +275,39 @@ msgid "ui.budget_semantics"
 msgstr ""
 
 msgid "ui.budget_limit_history"
+msgstr ""
+
+msgid "ui.budget_order"
+msgstr ""
+
+msgid "ui.budget_order_help"
+msgstr ""
+
+msgid "ui.budget_order_up"
+msgstr ""
+
+msgid "ui.budget_order_down"
+msgstr ""
+
+msgid "ui.budget_order_drag"
+msgstr ""
+
+msgid "ui.budget_order_reset"
+msgstr ""
+
+msgid "ui.budget_order_stale"
+msgstr ""
+
+msgid "ui.budget_order_siblings"
+msgstr ""
+
+msgid "ui.budget_order_unavailable"
+msgstr ""
+
+msgid "ui.budget_order_conflict"
+msgstr ""
+
+msgid "ui.budget_order_save_failed"
 msgstr ""
 
 msgid "ui.budget_history_help"

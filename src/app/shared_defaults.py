@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 from collections.abc import Mapping
 from hashlib import sha256
 from typing import Protocol
@@ -14,7 +15,7 @@ from app.storage import StorageError
 MAX_RECORD = 64 * 1024
 MAX_RECORDS = 4096
 MAX_TOTAL = 4 * 1024 * 1024
-DefaultValue = str | None | FeePreferences
+DefaultValue = str | None | FeePreferences | tuple[str, ...]
 
 
 class SharedDefaultsError(PreferencesError):
@@ -46,6 +47,22 @@ def _value(group: str, value: object) -> DefaultValue:
         return parse_default_account(value)
     if group == "commission":
         return FeePreferences.parse(json.dumps(value))
+    if group == "budget_order":
+        if (
+            not isinstance(value, (list, tuple))
+            or len(value) > MAX_RECORDS
+            or any(
+                not isinstance(item, str)
+                or not re.fullmatch(
+                    r"(?:Assets|Liabilities|Equity|Income|Expenses)(?::[A-Z][A-Za-z0-9-]*)*",
+                    item,
+                )
+                for item in value
+            )
+            or len(set(value)) != len(value)
+        ):
+            raise SharedDefaultsError("shared_settings_invalid")
+        return tuple(value)
     raise SharedDefaultsError("shared_settings_invalid")
 
 
@@ -65,6 +82,8 @@ def _heads(versions: Mapping[str, tuple[tuple[str, ...], DefaultValue]]) -> tupl
 
 
 class SharedDefaults:
+    groups = frozenset({"account", "commission"})
+
     def __init__(self, files: DefaultsFiles) -> None:
         self.files = files
         self.records: dict[str, bytes] = {}
@@ -101,7 +120,7 @@ class SharedDefaults:
                     or record["version"] != 1
                     or not isinstance(record["changes"], dict)
                     or not record["changes"]
-                    or not set(record["changes"]) <= {"account", "commission"}
+                    or not set(record["changes"]) <= self.groups
                 ):
                     raise SharedDefaultsError("shared_settings_invalid")
                 for group, change in record["changes"].items():
@@ -145,7 +164,7 @@ class SharedDefaults:
         self, changes: dict[str, DefaultValue], expected: dict[str, tuple[str, ...]]
     ) -> None:
         async with self.lock:
-            if not changes:
+            if not changes or not changes.keys() <= self.groups:
                 raise SharedDefaultsError("shared_settings_invalid")
             await self._load()
             if any(self.heads.get(group, ()) != expected.get(group) for group in changes):

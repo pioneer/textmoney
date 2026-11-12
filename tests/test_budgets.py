@@ -16,6 +16,7 @@ from fava.core.conversion import conversion_from_str
 from fava.util.date import INTERVALS as FAVA_INTERVALS
 from fava.util.date import parse_date, parse_fye_string
 
+from app.domain.budget_order import move_budget, ordered_budgets
 from app.domain.budgets import BudgetFilter, calculate, report_range, rows
 from app.domain.ledger import EPOCH, LedgerError
 from app.domain.storage import ConflictError
@@ -26,6 +27,40 @@ from app.localization import format_budget_number
 from app.storage import StorageError
 
 TODAY = date(2026, 12, 31)
+
+
+def test_budget_order_keeps_subtrees_and_appends_new_categories() -> None:
+    accounts = {
+        "Expenses:Food",
+        "Expenses:Food:Shops:Market",
+        "Expenses:Home",
+        "Expenses:Travel",
+    }
+    preferred = ("Expenses:Home", "Expenses:Food:Shops:Market", "Expenses:Food")
+    ordered = ordered_budgets(accounts, preferred)
+    assert ordered == (
+        "Expenses:Home",
+        "Expenses:Food",
+        "Expenses:Food:Shops:Market",
+        "Expenses:Travel",
+    )
+    assert move_budget(ordered, "Expenses:Food", "Expenses:Home") == (
+        "Expenses:Food",
+        "Expenses:Food:Shops:Market",
+        "Expenses:Home",
+        "Expenses:Travel",
+    )
+    assert move_budget(ordered, "Expenses:Home", "Expenses:Food:Shops:Market") == (
+        "Expenses:Food",
+        "Expenses:Food:Shops:Market",
+        "Expenses:Home",
+        "Expenses:Travel",
+    )
+    with pytest.raises(LedgerError, match="budget_order_siblings"):
+        move_budget(ordered, "Expenses:Food:Shops:Market", "Expenses:Travel")
+    assert move_budget(ordered, "Expenses:Food", "Expenses:Food:Shops:Market") == ordered
+
+
 HEADER = """option "operating_currency" "USD"
 2000-01-01 open Assets:Cash USD
 2000-01-01 open Assets:Euro EUR

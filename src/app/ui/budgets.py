@@ -1,6 +1,7 @@
 """Budget controls; all arithmetic and journal mutation stay outside the UI."""
 
 import asyncio
+import logging
 from concurrent.futures import Future
 from datetime import date
 from decimal import Decimal
@@ -8,6 +9,9 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
+from app.budget_order import POLICY as ORDER_POLICY
+from app.budget_order import BudgetOrderStore
+from app.domain.budget_order import budget_parent, move_budget, ordered_budgets
 from app.domain.budgets import (
     INTERVALS,
     Budget,
@@ -18,7 +22,14 @@ from app.domain.budgets import (
 )
 from app.domain.ledger import LedgerError
 from app.domain.reporting import shift_month
+from app.domain.storage import ConflictError
+from app.infrastructure.android_storage import AndroidFolder
+from app.infrastructure.desktop_storage import DesktopFolder
+from app.infrastructure.preferences import PreferencesError
+from app.infrastructure.record_files import AndroidRecordFiles, DesktopRecordFiles
 from app.localization import date_input, format_budget_number, format_date, localized_error
+from app.shared_defaults import SharedDefaultsError
+from app.storage import StorageError
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
 from app.ui.layout import action_toolbar, month_navigation
@@ -28,6 +39,7 @@ if TYPE_CHECKING:
     from app.ui.finance import FinanceView
 
 _REPORT_TEXT_INSET = 14
+logger = logging.getLogger(__name__)
 
 
 class BudgetView(ft.Column):
@@ -46,6 +58,12 @@ class BudgetView(ft.Column):
         self.category_id = ""
         self.category_choices: dict[str, str] = {}
         self.report_rows: tuple[BudgetRow, ...] = ()
+        self.order: tuple[str, ...] = ()
+        self.order_store: BudgetOrderStore | None = None
+        self.order_journal = host.journal
+        self.order_error = False
+        self.order_notice = ft.Text(color=ft.Colors.ERROR, visible=False)
+        self.order_button = ft.IconButton(on_click=self._show_order)
         self.period = ft.TextButton(
             icon=ft.Icon(ft.Icons.CALENDAR_TODAY, size=16),
             expand=True,
@@ -96,7 +114,11 @@ class BudgetView(ft.Column):
                     month_navigation(self.previous, self.period, self.next),
                     ft.Row(
                         [
-                            ft.Container(expand=True),
+                            ft.Container(
+                                self.order_button,
+                                expand=True,
+                                alignment=ft.Alignment.CENTER_LEFT,
+                            ),
                             self.current,
                             ft.Container(
                                 self.filter_toggle,
@@ -110,6 +132,7 @@ class BudgetView(ft.Column):
                 spacing=0,
             ),
             self.filters,
+            self.order_notice,
             self.error,
             self.loading,
             ft.Container(self.results, theme=compact_tree_theme()),
@@ -123,6 +146,18 @@ class BudgetView(ft.Column):
         self.add.disabled = not ready
         self.history.content = tr("budget_limit_history")
         self.history.disabled = not ready
+        self.order_button.tooltip = tr("budget_order")
+        self.order_button.icon = ft.Icon(ft.Icons.SORT, semantics_label=tr("budget_order"))
+        self._order_status()
+        self.order_button.visible = bool(
+            ready
+            and journal
+            and (
+                len({budget.account for budget in journal.ledger.budgets}) > 1
+                or self.order_notice.visible
+            )
+        )
+        self.order_button.disabled = not ready
         self.previous.tooltip = tr("budget_previous")
         self.next.tooltip = tr("budget_next")
         self.period.content = f"{tr(f'date_month_{self.month.month:02}')} {self.month.year}"
@@ -252,6 +287,275 @@ class BudgetView(ft.Column):
             ),
         )
 
+    def _order_status(self) -> None:
+        key = (
+            "budget_order_unavailable"
+            if self.order_error
+            else "budget_order_conflict"
+            if self.order_store and self.order_store.conflicts
+            else None
+        )
+        self.order_notice.value = self.host.tr(key) if key else ""
+        self.order_notice.visible = key is not None
+
+    async def load_order(self) -> None:
+        journal = self.host.journal
+        if self.order_journal is not journal:
+            self.order_journal = journal
+            self.order_store = None
+            self.order = ()
+            self.order_error = False
+        if journal is None or not journal.ready:
+            return
+        if self.order_store is None:
+            folder = journal.storage.folder
+            if not isinstance(folder, (DesktopFolder, AndroidFolder)):
+                raise SharedDefaultsError("budget_order_unavailable")
+            self.order_store = BudgetOrderStore(
+                AndroidRecordFiles(folder, ORDER_POLICY)
+                if isinstance(folder, AndroidFolder)
+                else DesktopRecordFiles(folder, ORDER_POLICY)
+            )
+        store = self.order_store
+        try:
+            await store.load()
+        except (PreferencesError, StorageError, TimeoutError):
+            logger.exception("Budget order could not be read")
+            if self.order_journal is journal:
+                self.order_error = True
+                self._order_status()
+            return
+        if self.host.journal is not journal or self.order_store is not store:
+            return
+        self.order_error = False
+        value = store.values.get("budget_order")
+        previous = self.order
+        if "budget_order" not in store.conflicts:
+            self.order = value if isinstance(value, tuple) else ()
+        self._order_status()
+        if (
+            previous != self.order
+            and self.report_rows
+            and self.cache_key
+            and self.cache_key[0] == id(journal)
+        ):
+            self._render(self.report_rows)
+
+    async def _show_order(self, event: ft.Event[ft.IconButton]) -> None:
+        async def open_dialog() -> None:
+            journal = self.host._require_journal()
+            await self.load_order()
+            if self.host.journal is not journal:
+                raise ConflictError("budget_order_stale")
+            store = self.order_store
+            if store is None or self.order_error:
+                raise SharedDefaultsError("budget_order_unavailable")
+            accounts = {budget.account for budget in journal.ledger.budgets}
+            names = self._account_names()
+            draft = ordered_budgets(accounts, self.order)
+            heads = store.heads.get("budget_order", ())
+            reset_order = False
+            busy = False
+            write_failed = False
+            error = ft.Text(color=ft.Colors.ERROR, visible=False)
+            height = self.host.page.height
+            available = height - 400 if isinstance(height, (int, float)) else 360
+            listing = ft.ReorderableListView(
+                show_default_drag_handles=False,
+                height=min(360, max(96, available), max(1, len(accounts)) * 48),
+                spacing=0,
+            )
+            items: dict[str, ft.Row] = {}
+            buttons: dict[str, tuple[ft.IconButton, ft.IconButton]] = {}
+
+            def render() -> None:
+                listing.controls = [items[account] for account in draft]
+                for account in draft:
+                    siblings = [
+                        item
+                        for item in draft
+                        if budget_parent(item, accounts) == budget_parent(account, accounts)
+                    ]
+                    index = siblings.index(account)
+                    up, down = buttons[account]
+                    up.disabled, down.disabled = index == 0, index == len(siblings) - 1
+
+            def move(source: str, target: str) -> None:
+                nonlocal draft, reset_order
+                try:
+                    draft = move_budget(draft, source, target)
+                except LedgerError as exc:
+                    error.value = self.host.tr(str(exc))
+                    error.visible = True
+                else:
+                    reset_order = False
+                    error.visible = False
+                render()
+                self.host.page.update()
+
+            def step(event: ft.Event[ft.IconButton]) -> None:
+                account, direction = event.control.data
+                siblings = [
+                    item
+                    for item in draft
+                    if budget_parent(item, accounts) == budget_parent(account, accounts)
+                ]
+                index = siblings.index(account) + direction
+                if not 0 <= index < len(siblings):
+                    raise LedgerError("budget_order_stale")
+                move(account, siblings[index])
+
+            def reorder(event: ft.OnReorderEvent) -> None:
+                if (
+                    event.old_index is None
+                    or event.new_index is None
+                    or not 0 <= event.old_index < len(draft)
+                    or not 0 <= event.new_index < len(draft)
+                ):
+                    raise LedgerError("budget_order_stale")
+                move(draft[event.old_index], draft[event.new_index])
+
+            listing.on_reorder = reorder
+            for account in draft:
+                parent = budget_parent(account, accounts)
+                depth = 0
+                while parent:
+                    depth += 1
+                    parent = budget_parent(parent, accounts)
+                up, down = (
+                    ft.IconButton(
+                        icon=ft.Icon(icon, semantics_label=self.host.tr(label)),
+                        tooltip=self.host.tr(label),
+                        data=(account, direction),
+                        size_constraints=ft.BoxConstraints(min_width=48, min_height=48),
+                        on_click=step,
+                    )
+                    for icon, label, direction in (
+                        (ft.Icons.ARROW_UPWARD, "budget_order_up", -1),
+                        (ft.Icons.ARROW_DOWNWARD, "budget_order_down", 1),
+                    )
+                )
+                buttons[account] = up, down
+                items[account] = ft.Row(
+                    [
+                        ft.ReorderableDragHandle(
+                            ft.Container(
+                                ft.Icon(
+                                    ft.Icons.DRAG_HANDLE,
+                                    semantics_label=self.host.tr("budget_order_drag"),
+                                ),
+                                width=48,
+                                height=48,
+                                alignment=ft.Alignment.CENTER,
+                            )
+                        ),
+                        ft.Container(width=12 * depth),
+                        *self.host._entity_icon_controls(account),
+                        ft.Text(
+                            names.get(account, account),
+                            expand=True,
+                            max_lines=2,
+                            overflow=ft.TextOverflow.ELLIPSIS,
+                            tooltip=account,
+                        ),
+                        up,
+                        down,
+                    ],
+                    key=account,
+                    data=account,
+                    spacing=0,
+                )
+
+            def restore(event: ft.Event[ft.TextButton]) -> None:
+                nonlocal draft, reset_order
+                draft, reset_order = ordered_budgets(accounts, ()), True
+                error.visible = False
+                render()
+                self.host.page.update()
+
+            restore_button = ft.TextButton(self.host.tr("budget_order_reset"), on_click=restore)
+            cancel = ft.TextButton(self.host.tr("crud_cancel"), on_click=self.host._dismiss)
+
+            async def save(event: ft.Event[ft.TextButton]) -> None:
+                nonlocal busy
+                if busy:
+                    return
+
+                async def persist() -> None:
+                    nonlocal write_failed
+                    if write_failed:
+                        raise SharedDefaultsError("budget_order_save_failed")
+                    if (
+                        self.host.journal is not journal
+                        or self.order_store is not store
+                        or {budget.account for budget in journal.ledger.budgets} != accounts
+                    ):
+                        raise ConflictError("budget_order_stale")
+                    try:
+                        await store.save("budget_order", () if reset_order else draft, heads)
+                    except ConflictError as exc:
+                        raise ConflictError("budget_order_stale") from exc
+                    except (PreferencesError, StorageError, TimeoutError) as exc:
+                        logger.exception("Budget order save failed")
+                        write_failed = True
+                        self.order_error = True
+                        self._order_status()
+                        raise SharedDefaultsError("budget_order_save_failed") from exc
+                    self.order = () if reset_order else draft
+                    self._order_status()
+                    self._render(self.report_rows)
+                    self.host.page.pop_dialog()
+
+                busy = True
+                for control in (listing, restore_button, cancel, save_button):
+                    control.disabled = True
+                try:
+                    await self.host._action(persist)
+                finally:
+                    busy = False
+                    for control in (listing, restore_button, cancel, save_button):
+                        control.disabled = False
+                    save_button.disabled = write_failed
+                    self.host.page.update()
+
+            save_button = ft.TextButton(self.host.tr("crud_save"), on_click=save)
+            render()
+            choices = [
+                ft.Text(
+                    " → ".join(names.get(account, account) for account in choice),
+                    selectable=True,
+                )
+                for choice in store.conflicts.get("budget_order", ())
+                if isinstance(choice, tuple)
+            ]
+            show_dialog(
+                self.host.page,
+                ft.AlertDialog(
+                    modal=True,
+                    inset_padding=ft.Padding.symmetric(horizontal=12, vertical=24),
+                    title=self.host.tr("budget_order"),
+                    scrollable=True,
+                    content=ft.Column(
+                        [
+                            ft.Text(self.host.tr("budget_order_help"), size=12),
+                            *(
+                                [ft.Text(self.host.tr("budget_order_conflict")), *choices]
+                                if choices
+                                else []
+                            ),
+                            listing,
+                            error,
+                            restore_button,
+                        ],
+                        tight=True,
+                        width=480,
+                    ),
+                    actions=[cancel, save_button],
+                ),
+            )
+
+        await self.host._action(open_dialog)
+
     async def _select_category(self, identifier: str) -> None:
         self.category_id = identifier
         await self._refresh_filters()
@@ -325,6 +629,7 @@ class BudgetView(ft.Column):
         self.results.controls = []
         self.host.page.update()
         try:
+            await self.load_order()
             begin = self.month
             end = interval_next(begin, "monthly")
             ledger = journal.ledger
@@ -576,6 +881,9 @@ class BudgetView(ft.Column):
         controls: list[ft.Control] = []
         for begin, _end in periods:
             by_account = {row.account: row for row in results if row.begin == begin}
+            by_account = {
+                account: by_account[account] for account in ordered_budgets(by_account, self.order)
+            }
 
             def node(
                 account: str,
@@ -588,7 +896,7 @@ class BudgetView(ft.Column):
                 children = [
                     identifier
                     for identifier in by_account
-                    if identifier.rpartition(":")[0] == account
+                    if budget_parent(identifier, set(by_account)) == account
                 ]
                 key = (begin, account)
                 actions = [
@@ -667,7 +975,7 @@ class BudgetView(ft.Column):
                 ]
 
             roots = [
-                account for account in by_account if account.rpartition(":")[0] not in by_account
+                account for account in by_account if not budget_parent(account, set(by_account))
             ]
             controls.extend(control for root in roots for control in node(root))
         self.results.controls = controls or [ft.Text(tr("budget_report_empty"))]

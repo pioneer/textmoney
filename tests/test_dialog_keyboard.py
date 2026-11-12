@@ -131,6 +131,58 @@ def test_budget_history_keys_and_nested_editor_preserve_report_state(
 @pytest.mark.parametrize(
     "platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.MACOS]
 )
+@pytest.mark.parametrize("key", ["Escape", "Enter"])
+def test_budget_order_keyboard_cancel_or_save(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: ft.PagePlatform, key: str
+) -> None:
+    async def scenario() -> None:
+        source = (
+            "2000-01-01 open Expenses:Food\n"
+            "2000-01-01 open Expenses:Home\n"
+            '2026-01-01 custom "budget" Expenses:Food "monthly" 10 USD\n'
+            '2026-01-01 custom "budget" Expenses:Home "monthly" 20 USD\n'
+        )
+        (tmp_path / FILENAME).write_bytes(source.encode())
+        session = keyboard_session(platform)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
+        view = FinanceView()
+        journal = view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        report = view.budgets
+        report.month = date(2026, 1, 1)
+        await report.refresh()
+        await report._show_order(MagicMock())
+        dialog = session.page._dialogs.controls[-1]
+        assert isinstance(dialog, ft.AlertDialog)
+        assert isinstance(dialog.content, ft.KeyboardListener)
+        assert isinstance(dialog.content.content, ft.Column)
+        listing = next(
+            item
+            for item in dialog.content.content.controls
+            if isinstance(item, ft.ReorderableListView)
+        )
+        row = listing.controls[-1]
+        assert isinstance(row, ft.Row)
+        up = row.controls[-2]
+        assert isinstance(up, ft.IconButton)
+        await session.dispatch_event(up._i, "click", None)
+        assert [item.data for item in listing.controls] == ["Expenses:Home", "Expenses:Food"]
+        await press(session, key)
+        assert not dialog.open
+        if key == "Escape":
+            assert report.order == ()
+            assert not (tmp_path / "textmoney-budget-order").exists()
+        else:
+            assert report.order == ("Expenses:Home", "Expenses:Food")
+        assert journal.source == source
+        assert (tmp_path / FILENAME).read_bytes() == source.encode()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.MACOS]
+)
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize("focus", ["content", "cancel", "save"])
 def test_escape_dispatches_the_cancel_button_event(

@@ -152,6 +152,24 @@ msgstr "Filters"
 msgid "ui.operations_no_matches"
 msgstr "No operations match these filters."
 
+msgid "ui.operations_newer"
+msgstr "Newer"
+
+msgid "ui.operations_older"
+msgstr "Older"
+
+msgid "ui.operations_latest"
+msgstr "Latest"
+
+msgid "ui.operations_end"
+msgstr "End of history"
+
+msgid "ui.operations_retry"
+msgstr "Retry"
+
+msgid "ui.operations_load_failed"
+msgstr "Could not load this page. The previous page is retained."
+
 msgid "ui.show_operations"
 msgstr "Show operations"
 

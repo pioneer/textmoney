@@ -238,6 +238,24 @@ msgstr "Фільтри"
 msgid "ui.operations_no_matches"
 msgstr "Немає операцій за цими фільтрами."
 
+msgid "ui.operations_newer"
+msgstr "Новіші"
+
+msgid "ui.operations_older"
+msgstr "Старіші"
+
+msgid "ui.operations_latest"
+msgstr "Останні"
+
+msgid "ui.operations_end"
+msgstr "Кінець історії"
+
+msgid "ui.operations_retry"
+msgstr "Повторити"
+
+msgid "ui.operations_load_failed"
+msgstr "Не вдалося завантажити цю сторінку. Попередню сторінку збережено."
+
 msgid "ui.show_operations"
 msgstr "Показати операції"
 

@@ -33,6 +33,8 @@ src/app/domain/storage.py  SHA-256 and conflict error, no Flet imports
 src/app/domain/backups.py  timestamped backup identities and tiered retention
 src/app/domain/recovery.py checksummed, hash-only Android save records and classification
 src/app/domain/ledger.py   explicit accounts, Decimal postings and running-balance checks
+src/app/domain/operations.py bounded keyset history selection over the loaded ledger
+src/app/ui/operations.py   one Operations page, reusable row slots and paging
 src/app/domain/budgets.py  Fava-compatible daily allocation, calendar ranges and budget reports
 src/app/domain/category_migration.py source-bound subtree migration plan and path remapping
 src/app/ui/budgets.py      localized budget overview, report controls and definition management
@@ -100,6 +102,16 @@ Medium/expanded layouts use Home, Transactions, Budgets, Reports, Accounts, Cate
 Settings rail destinations without the header gear or More menu. Budgets
 selects its own item in both layouts and has no temporary back-to-Reports action.
 This follows available width, not the operating system.
+Operations retains one page of at most 50 transactions, selected with a bounded
+heap rather than another sorted copy of the complete transaction list.
+Quiet Newer/Older controls at both ends replace the page; Latest returns to
+recent activity. Reused mutable row slots let Flet update the bounded row tree
+without rebuilding every outer control. Row actions always receive current
+source IDs. Paging runs off the event loop and discards results if the journal or
+filters change while a request is pending. There is no retained page cache.
+Full-day summaries and drill-downs stream the complete filtered history, not
+just the visible page. The existing ledger and source journal still remain
+fully loaded; this is not data-level streaming or a constant-memory parser.
 The same screens and form state
 are retained through resizing. Translation resources are separate from controls;
 language/theme choices are saved locally. Domain functions use Python types and return results or raise meaningful

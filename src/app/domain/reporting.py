@@ -2,11 +2,12 @@
 
 from calendar import monthrange
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, localcontext
 
-from app.domain.ledger import ZERO, Ledger, LedgerError
+from app.domain.ledger import ZERO, Ledger, LedgerError, Transaction
 
 
 @dataclass(frozen=True)
@@ -104,8 +105,18 @@ def period_bounds(preset: str, today: date) -> tuple[date, date]:
     raise LedgerError("report_date_range")
 
 
-def currency_totals(ledger: Ledger, start: date, end: date) -> tuple[CurrencyReport, ...]:
-    totals = ledger.period_totals(start, end)
+def currency_totals(
+    ledger: Ledger,
+    start: date,
+    end: date,
+    *,
+    transactions: Iterable[Transaction] | None = None,
+) -> tuple[CurrencyReport, ...]:
+    totals = (
+        ledger.period_totals(start, end)
+        if transactions is None
+        else ledger.period_totals(start, end, transactions=transactions)
+    )
     return tuple(
         CurrencyReport(
             currency,
@@ -116,7 +127,13 @@ def currency_totals(ledger: Ledger, start: date, end: date) -> tuple[CurrencyRep
     )
 
 
-def period_report(ledger: Ledger, start: date, end: date) -> PeriodReport:
+def period_report(
+    ledger: Ledger,
+    start: date,
+    end: date,
+    *,
+    transactions: Iterable[Transaction] | None = None,
+) -> PeriodReport:
     """Aggregate category postings once; never combine different currencies."""
     if end < start:
         raise LedgerError("report_date_range")
@@ -130,9 +147,10 @@ def period_report(ledger: Ledger, start: date, end: date) -> PeriodReport:
         "Income": {},
         "Expenses": {},
     }
+    totals: dict[str, dict[str, Decimal]] = {"Income": {}, "Expenses": {}}
     with localcontext() as context:
         context.prec = 50
-        for transaction in ledger.transactions:
+        for transaction in ledger.transactions if transactions is None else transactions:
             if not start <= transaction.date <= end:
                 continue
             for posting in transaction.postings:
@@ -146,6 +164,7 @@ def period_report(ledger: Ledger, start: date, end: date) -> PeriodReport:
                 if root is None:
                     continue
                 value = -posting.amount if root == "Income" else posting.amount
+                totals[root][posting.currency] = totals[root].get(posting.currency, ZERO) + value
                 if posting.account in categories:
                     current = amounts[root][posting.account]
                     current[posting.currency] = current.get(posting.currency, ZERO) + value
@@ -200,7 +219,14 @@ def period_report(ledger: Ledger, start: date, end: date) -> PeriodReport:
         return tuple(item for identifier in top_level if (item := build(identifier)) is not None)
 
     return PeriodReport(
-        currency_totals(ledger, start, end),
+        tuple(
+            CurrencyReport(
+                currency,
+                totals["Income"].get(currency, ZERO),
+                totals["Expenses"].get(currency, ZERO),
+            )
+            for currency in sorted(set(totals["Income"]) | set(totals["Expenses"]))
+        ),
         category_roots("Income"),
         category_roots("Expenses"),
         tuple(sorted(unassigned["Income"].items())),

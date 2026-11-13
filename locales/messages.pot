@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TextMoney 0.4.9\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-11-13 01:07+0200\n"
-"PO-Revision-Date: 2026-11-13 01:07+0200\n"
+"POT-Creation-Date: 2026-11-13 06:05+0200\n"
+"PO-Revision-Date: 2026-11-13 06:05+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -148,6 +148,24 @@ msgid "ui.operations_filters"
 msgstr ""
 
 msgid "ui.operations_no_matches"
+msgstr ""
+
+msgid "ui.operations_newer"
+msgstr ""
+
+msgid "ui.operations_older"
+msgstr ""
+
+msgid "ui.operations_latest"
+msgstr ""
+
+msgid "ui.operations_end"
+msgstr ""
+
+msgid "ui.operations_retry"
+msgstr ""
+
+msgid "ui.operations_load_failed"
 msgstr ""
 
 msgid "ui.show_operations"

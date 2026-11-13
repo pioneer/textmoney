@@ -199,6 +199,11 @@ Reimbursements reduce expenses on their recorded dates; fees remain expenses.
 Transfer/loan principal and balance adjustments are excluded. Different currencies
 are always separate; reports do not infer exchange rates.
 Transactions also has clickable per-day summaries.
+It shows up to 50 operations at a time. Use the quiet **Older** and **Newer**
+links above or below the list to browse history; **Latest** returns to recent
+operations. Changing pages scrolls to the top of the screen. Account/category
+filters search the entire history, not just the current page. A date's summary
+includes all matching operations on that day, even when they span several pages.
 See [reporting](reporting.md) for calculations and report scope.
 
 ![Monthly report with currency-specific totals and category breakdowns](screenshots/reports-desktop.png)

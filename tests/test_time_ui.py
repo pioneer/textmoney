@@ -377,10 +377,11 @@ def test_transactions_keep_scroll_clearance_for_floating_action(
     view.startup_complete = True
     for screen in ("transactions", "home", "settings", "transactions"):
         view._navigate(screen)
-    listing = view.transactions_screen.controls[-1]
-    assert isinstance(listing, ft.Container)
-    assert listing.content is view.history
-    assert listing.padding == ft.Padding.only(bottom=96)
+    assert view.history in view.transactions_screen.controls
+    footer = view.transactions_screen.controls[-1]
+    assert isinstance(footer, ft.Container)
+    assert footer.content is view.operations.navigation[1]
+    assert footer.padding == ft.Padding.only(bottom=96)
     assert view.body.scroll == ft.ScrollMode.AUTO
     assert page.floating_action_button is view.fab
 

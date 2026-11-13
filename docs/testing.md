@@ -88,6 +88,42 @@ budget scroll offsets over repeated polls and budget-limit changes. Browser
 compact layout is not verification of physical Android or native Windows
 scrolling; repeat these checks on the target devices.
 
+## Bounded Operations history
+
+The reference budget is at most 50 operation cards, plus that page's date
+headers and full-day summaries, with no retained page cache or full sorted
+transaction-list copy. Synthetic Python tests bound retained page allocations
+to 2 MiB after garbage collection and transient allocations to 12 MiB, excluding
+the already-loaded ledger and executor startup. Flet's discarded control cycles
+can await a later GC generation; do not force collection on every user action.
+These are reference-fixture thresholds, not a total application-memory promise.
+
+A Linux `tracemalloc` probe across 120 page turns retained approximately
+0.52–0.57 MiB for both 1,000- and 10,000-operation journals, with transient
+peaks around 6–7 MiB. Tests also cover a very busy single date, complete-history
+filters, date totals spanning page boundaries, discarded controls, external
+reload/source-ID changes, current row actions, pending-request invalidation on
+filter/navigation changes, explicit load failure/retry and reported scroll failures.
+
+On a large synthetic journal, verify wide and compact layouts:
+
+- Browse several Older pages, return with Newer and Latest, and reach the end
+  of history. Check that the quiet links and loading indicator remain usable,
+  old rows disappear, and paging returns to the full screen top, including its
+  header and upper paging links. Unchanged background refreshes retain scrolling.
+- Measure both Python page overhead and client heap/renderer behavior over
+  repeated page turns. Client heap measurements include Flutter/web runtime
+  overhead and cannot be equated with the Python allocation budget.
+- Check complete daily totals where a date spans pages, whole-history
+  account/category filters, edit/delete/read-only actions after paging and
+  external reloads, and retained unsaved form input.
+- Leave a deep page scrolled during unchanged polling. It must not return to
+  recent history or reset scrolling. Reload a changed journal and verify the
+  current chronological page remains meaningful without reusing stale IDs.
+
+Repeat on native Android, Linux and Windows before release. Browser compact
+layout does not establish native device behavior.
+
 ## Form and report layout
 
 At desktop and narrow viewport widths, compare the rendered control boundaries,

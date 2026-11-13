@@ -1,6 +1,7 @@
 """Explicit monetary movements and bounded price exchanges, not a booking engine."""
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, localcontext
@@ -281,14 +282,16 @@ class Ledger:
     fiscal_year_end: str = "12-31"
     invert_income: bool = False
 
-    def period_totals(self, start: date, end: date) -> dict[str, dict[str, Decimal]]:
+    def period_totals(
+        self, start: date, end: date, *, transactions: Iterable[Transaction] | None = None
+    ) -> dict[str, dict[str, Decimal]]:
         """Inclusive accounting-date totals; income positive, reimbursements net expenses."""
         if end < start:
             raise LedgerError("incoming_period")
         result: dict[str, dict[str, Decimal]] = {"income": {}, "expenses": {}}
         with localcontext() as context:
             context.prec = 50
-            for transaction in self.transactions:
+            for transaction in self.transactions if transactions is None else transactions:
                 if start <= transaction.date <= end:
                     for posting in transaction.postings:
                         group = (

@@ -5,10 +5,10 @@ import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future
-from dataclasses import replace
 from datetime import date, datetime
 from decimal import Decimal, localcontext
 from enum import StrEnum
+from heapq import nlargest
 from itertools import groupby
 from zoneinfo import available_timezones
 
@@ -38,6 +38,7 @@ from app.domain.ledger import (
     exchange_values,
     money,
 )
+from app.domain.operations import matching_transactions, transaction_key
 from app.domain.reporting import (
     AccountBalance,
     CategoryReport,
@@ -85,6 +86,7 @@ from app.ui.dialogs import deletion_title, show_dialog
 from app.ui.home_budgets import HomeBudgets, home_heading
 from app.ui.icons import IconDraft, IconPicker, icon_image
 from app.ui.layout import HoverRow, action_toolbar, month_navigation
+from app.ui.operations import OperationsView
 from app.ui.theme import NAVIGATION_SURFACE, summary_theme
 from app.ui.tree_style import (
     TREE_MENU_ROW_HEIGHT,
@@ -292,7 +294,8 @@ class FinanceView(ft.Row):
         self.account_list = ft.Column(spacing=4)
         self.category_list = ft.Column(spacing=4)
         self.category_expansion: dict[str, bool] = {}
-        self.history = ft.Column(spacing=0)
+        self.operations = OperationsView(self)
+        self.history = self.operations.history
         self.operations_account = ft.Dropdown(
             value="",
             expand=True,
@@ -856,7 +859,10 @@ class FinanceView(ft.Row):
             action_toolbar(self.operations_filter_toggle),
             self.operations_filters,
             self.operations_totals,
-            ft.Container(content=self.history, padding=ft.Padding.only(bottom=96)),
+            self.operations.navigation[0],
+            self.history,
+            self.operations.status,
+            ft.Container(content=self.operations.navigation[1], padding=ft.Padding.only(bottom=96)),
         ]
         self.accounts_panel_content.controls = [
             action_toolbar(self.account_save),
@@ -1130,7 +1136,7 @@ class FinanceView(ft.Row):
         if not ready or self.journal is None:
             self.account_list.controls = [ft.Text(self.tr("accounts_empty"))]
             self.category_list.controls = [ft.Text(self.tr("categories_empty"))]
-            self.history.controls = [ft.Text(self.tr("transactions_empty"))]
+            self.operations.sync()
             self.operations_totals.visible = False
             self.operations_totals_values.controls = []
             self.home_balances.controls = [ft.Text(self.tr("home_no_accounts"))]
@@ -1221,20 +1227,12 @@ class FinanceView(ft.Row):
         self._render_operations_totals(ledger, balances)
         names = {account.id: account.name for account in ledger.accounts}
         names.update({category.id: category.name for category in ledger.categories})
-        transactions = sorted(
+        transactions = nlargest(
+            5,
             ledger.transactions,
             key=self._transaction_sort_key,
-            reverse=True,
         )
-        self.history.controls = self._transaction_groups(
-            self._operations_transactions(transactions), names, daily_summary=True
-        ) or [
-            ft.Text(
-                self.tr("operations_no_matches")
-                if self.operations_account.value or self.operations_category.value
-                else self.tr("transactions_empty")
-            )
-        ]
+        self.operations.sync()
         self.home_activity.controls = self._transaction_groups(
             transactions[:5], names, compact=True
         ) or [ft.Text(self.tr("home_no_transactions"))]
@@ -1287,20 +1285,13 @@ class FinanceView(ft.Row):
         )
 
     def _operations_transactions(self, transactions: list[Transaction]) -> list[Transaction]:
-        account = self.operations_account.value
-        category = self.operations_category.value
-        return [
-            transaction
-            for transaction in transactions
-            if (not account or any(post.account == account for post in transaction.postings))
-            and (
-                not category
-                or any(
-                    post.account == category or post.account.startswith(category + ":")
-                    for post in transaction.postings
-                )
+        return list(
+            matching_transactions(
+                transactions,
+                str(self.operations_account.value or ""),
+                str(self.operations_category.value or ""),
             )
-        ]
+        )
 
     def _operations_filter_changed(self, event: ft.Event[ft.Dropdown]) -> None:
         self._refresh()
@@ -2109,7 +2100,7 @@ class FinanceView(ft.Row):
 
     @staticmethod
     def _transaction_sort_key(transaction: Transaction) -> tuple[date, datetime, str]:
-        return transaction.date, datetime.fromisoformat(transaction.timestamp), transaction.id
+        return transaction_key(transaction)
 
     def _transaction_groups(
         self,
@@ -2119,6 +2110,7 @@ class FinanceView(ft.Row):
         *,
         read_only: bool = False,
         daily_summary: bool = False,
+        daily_totals: dict[date, tuple[CurrencyReport, ...]] | None = None,
     ) -> list[ft.Control]:
         controls: list[ft.Control] = []
         for day, entries in groupby(transactions, key=lambda item: item.date):
@@ -2150,7 +2142,14 @@ class FinanceView(ft.Row):
             )
             day_entries = tuple(entries)
             if daily_summary and self.journal is not None:
-                controls.append(self._daily_summary(self.journal, day, day_entries))
+                controls.append(
+                    self._daily_summary(
+                        self.journal,
+                        day,
+                        day_entries,
+                        totals=daily_totals.get(day) if daily_totals is not None else None,
+                    )
+                )
             controls.extend(
                 self._transaction_card(item, names, compact, read_only=read_only)
                 for item in day_entries
@@ -2158,9 +2157,15 @@ class FinanceView(ft.Row):
         return controls
 
     def _daily_summary(
-        self, journal: Journal, day: date, transactions: tuple[Transaction, ...]
+        self,
+        journal: Journal,
+        day: date,
+        transactions: tuple[Transaction, ...],
+        *,
+        totals: tuple[CurrencyReport, ...] | None = None,
     ) -> ft.Container:
-        totals = currency_totals(Ledger(transactions=transactions), day, day)
+        if totals is None:
+            totals = currency_totals(Ledger(transactions=transactions), day, day)
         button = ft.TextButton(
             data=day,
             expand=True,
@@ -2221,13 +2226,16 @@ class FinanceView(ft.Row):
                 raise ConflictError("crud_stale")
             if not journal.ready:
                 raise LedgerError("report_unavailable")
-            ledger = replace(
+            report = period_report(
                 journal.ledger,
-                transactions=tuple(
-                    self._operations_transactions(list(journal.ledger.transactions))
+                day,
+                day,
+                transactions=matching_transactions(
+                    journal.ledger.transactions,
+                    str(self.operations_account.value or ""),
+                    str(self.operations_category.value or ""),
                 ),
             )
-            report = period_report(ledger, day, day)
             sections: list[ft.Control] = []
             for item in report.currencies:
                 sections.extend(

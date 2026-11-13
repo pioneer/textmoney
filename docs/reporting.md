@@ -70,12 +70,26 @@ an insufficient-funds warning; the asset funding a repayment still can.
 
 ## Daily Operations summaries
 
+Operations uses one 50-operation page with Newer/Older navigation at both ends
+and Latest when browsing older history. It discards the previous page rather
+than accumulating loaded rows. Unchanged polling preserves its controls;
+external reloads keep the first operation where it can be matched, or use the
+nearest remaining chronological page if it was removed. Filters restart at
+their newest matching operations. Explicit page navigation scrolls to the
+full page top, including its header and paging links; it is not continuous or
+item-anchored infinite scrolling.
+Failures retain the previous page and show an error with Retry.
+
 Below each date in Operations, a compact clickable block shows **net expenses**
 and **income** separately for every currency. It follows the same posting-based
 rules as Overview: commissions on purchases, receipts and transfers are expenses;
 reimbursements reduce expenses on their recorded accounting date. Income is not
 reduced by its commission. There is no cross-currency combined total. Days with
 only transfers, opening balances or adjustments show no expenses or income.
+A day split across pages repeats its complete filtered-day totals, never a
+partial-page subtotal. Balances, Reports and budgets still use the complete
+validated ledger. Paging bounds additional Operations UI memory; it does not
+bound the existing journal/ledger memory as a book grows.
 
 Click the block to open a scrollable, read-only category report for that date.
 Expense and income trees are separate, retain inactive categories and include

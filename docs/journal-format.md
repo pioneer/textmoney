@@ -49,6 +49,8 @@ file. See [Category budgets](budgets.md) for intervals, precision and history.
 - Categories are hierarchical `Expenses:` or `Income:` declarations.
   Technical codes use colon-separated ASCII segments starting with `A-Z`;
   display names support Unicode and use `name` metadata on `open`.
+  This follows [refried's display-name convention](https://github.com/scauligi/refried#customization),
+  matching Beancount's commodity `name` metadata.
 - `Equity:Opening-Balances` offsets opening balances.
   `Equity:Balance-Adjustments` offsets balance-only receipts, which are neither
   income nor expenses. These are the existing reserved equity accounts, not
@@ -147,7 +149,8 @@ liability debt balances are not overdraft warnings.
 Transaction `time` is a quoted local `"HH:MM"` or `"HH:MM:SS"` wall-clock string.
 If absent, the reader uses midnight without adding metadata on load. There is no
 stored creation instant or offset. Changing the default clock timezone does not
-convert saved transaction times. Manually entered wall times in DST gaps or
+convert saved transaction times; it changes the default clock and current
+report/budget periods. Manually entered wall times in DST gaps or
 overlaps are accepted as wall-clock labels, not resolved into instants.
 Native date-picker transport separately uses the device timezone to preserve the
 selected calendar day.
@@ -157,6 +160,7 @@ New entries do not generate `id`, `timestamp`, `textmoney-kind`,
 shared sidecar settings, not journal metadata. Unrelated existing user metadata,
 tags, links and comments are preserved; legacy app fields are not globally
 migrated, stripped or used as authoritative transaction identities.
+Any further journal extension requires explicit maintainer approval.
 
 ### Liability accounts
 
@@ -286,7 +290,9 @@ third-currency fees, costs/lots and arbitrary exchange shapes are not supported.
 `option "operating_currency"` entries. New account creation appends a missing
 currency in the same backed-up save. Loading alone does not add options.
 Home balance sections follow the configured currency order; this never converts
-or combines amounts.
+or combines amounts. Account currencies not listed follow alphabetically;
+currencies without accounts do not create empty sections. Save the display
+setting to apply changes.
 
 Supported descriptive directives such as `note`, `event`, `document`,
 `commodity`, `price` and `custom` are retained. Native budget directives are

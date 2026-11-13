@@ -1,634 +1,84 @@
-# TextMoney
+<p align="center">
+  <img src="assets/icon.png" width="96" height="96" alt="TextMoney logo">
+</p>
 
-A local-first personal expense tracker and UI frontend to an ordinary local
-plain-text [Beancount](https://beancount.github.io/) file in a folder you choose.
-Core tracking works fully offline, with no sign-up, backend service, or app-managed
-cloud storage. Optional online icon search contacts Iconify only when requested.
+<h1 align="center">TextMoney</h1>
 
-**Beta software:** features and file support are still limited, and bugs are
-possible. Keep independent backups of important financial data.
+<p align="center">
+Track everyday spending, see what’s left in your accounts, and set monthly
+budgets for things like groceries and eating out.
+</p>
 
-TextMoney is being developed with substantial AI assistance.
+<p align="center"><strong>Android · Windows · Linux</strong></p>
 
-![TextMoney v0.4.9 desktop Home with account icons, liability balances, recent transactions and the current-month budget preview](docs/screenshots/home-desktop.png)
+Works offline with no sign-up. Your records are stored in a plain-text
+[Beancount](https://beancount.github.io/) file in a folder you choose.
+You can [sync the whole folder between Android, Windows and Linux](docs/synchronization.md)
+using an external synchronization tool. TextMoney has no built-in sync;
+each device needs a fully accessible local copy, and sync must finish before
+editing on another device.
 
-## Implemented
+<p align="center">
+  <a href="https://github.com/pioneer/textmoney/releases/latest"><strong>Download TextMoney</strong></a> ·
+  <a href="docs/user-guide.md">User guide</a> ·
+  <a href="docs/synchronization.md">Sync between devices</a> ·
+  <a href="docs/platform-notes.md">Platform notes</a>
+</p>
 
-This README and its screenshots describe **v0.4.9 (build 57)**, including the
-Home budget preview and Material-like app icon. See
-[GitHub Releases](https://github.com/pioneer/textmoney/releases/latest) for downloads.
+<p align="center">
+  <a href="docs/screenshots/home-desktop.png">
+    <img src="docs/screenshots/home-desktop.png" width="780" alt="TextMoney desktop Home showing account balances, recent transactions, and monthly budgets">
+  </a>
+  <br>
+  <em>Desktop layout</em>
+</p>
 
-- Record and edit expenses with an account, category, amount, date/time and
-  description. Add an optional shop/recipient when needed.
-- Record income, expense reimbursements and balance-only adjustments. Partial
-  reimbursements can go to a different account; linking the original expense
-  is optional. Reimbursements reduce net expenses rather than count as income.
-- Manage single-currency accounts and opening balances.
-- Transfer between own accounts, including cash, loan repayments and currency
-  exchanges. Enter both actual amounts for exchanges; the rate is calculated
-  excluding optional fees in either account's currency.
-- Organize expenses with hierarchical categories.
-- Assign optional account/category icons from the bundled offline catalogue,
-  imported images or an explicit online search. Assigned artwork and attribution
-  remain available offline. See [Entity icons](docs/entity-icons.md).
-- Review balances in the configured currency order and compact transaction rows
-  grouped by date, with summaries above account movements.
-- Use compact phone and desktop layouts. The desktop sidebar opens Home,
-  Transactions, Budgets, Reports, Accounts, Categories and Settings directly.
-  Mobile shows the first four destinations in the bottom bar, with Accounts and
-  Categories under **More** beside the separate Settings gear. Secondary screens
-  have a Back action, and resizing preserves the current screen.
-- View income, net expenses and net result in currency-specific period reports,
-  with current/previous month, year-to-date or custom date ranges and category
-  breakdowns.
-- Manage journal-backed category budgets and monitor spending on one **Budgets**
-  screen, with monthly navigation, collapsible category/overspending filters,
-  currency-specific figures and transaction drilldown. Create budgets or open
-  **Budget history** even when the displayed month has no budget cards.
-  Cards show each limit's effective date and offer Edit, Delete, Change from a
-  date and Discontinue from a date. Dated changes preserve earlier limits;
-  history also exposes superseded, future and stopped definitions.
-  Budget definitions support daily through yearly frequencies.
-  Use **Budget order** to arrange sibling categories with drag handles or up/down
-  arrows; moving a parent moves its subtree. Save publishes the order for that
-  journal across months and devices, independently of filters.
-  Calculations are checked against Fava 1.30.16 within TextMoney's existing
-  accounting subset. See [Budgeting](docs/budgets.md).
-- Preview current-month budgets on Home, including within-limit budgets, with an
-  overspent count, progress bars and percentages. Show up to five rows in wide
-  layouts or three in single-column layouts; disable it in Settings if preferred.
-- Publish a journal's default transaction account and commission settings from
-  Settings. These shared defaults apply to newly opened forms without changing
-  existing drafts. See [Shared journal defaults](docs/shared-settings.md).
-- Delete editable transactions after confirmation; deactivate and reactivate
-  accounts and categories with history rather than losing their records.
-- Use system, light or dark appearance, and system or explicit timezones.
-- Available translations: **English, Ukrainian and Russian**.
-- Keep read-verified backups with automatic retention and a manual cleanup
-  preview. Detect conflicting external changes before saving and review
-  interrupted Android saves explicitly.
-- Review external changes through read-only summaries and diffs, without merging
-  or rewriting synchronization copies. Stale saves are rejected while unsaved
-  input remains visible; reopen the edit against the current journal before
-  submitting again.
-- Use standard Beancount journal display currencies, account display names, local
-  transaction times and reimbursement links, without converting or combining
-  different currencies.
-- See the app version and build number in every screen header and Settings.
+<p align="center">
+  <a href="docs/screenshots/expense-mobile.png">
+    <img src="docs/screenshots/expense-mobile.png" height="500" alt="TextMoney mobile expense editor with account and category icons">
+  </a>
+  <a href="docs/screenshots/navigation-mobile.png">
+    <img src="docs/screenshots/navigation-mobile.png" height="500" alt="TextMoney mobile navigation with Accounts and Categories in the More menu">
+  </a>
+  <br>
+  <em>Mobile layout</em>
+</p>
 
-## Future plans
+## What you can do
 
-Planned areas include split-expense editing. Priorities and scope
-may change during beta, with no release dates promised.
+- **See where your money goes.** Record expenses and income, organise spending
+  by category, and see how much you spent this month or over a period you choose.
+- **Keep track of your accounts.** See how much you have in cash and bank
+  accounts, and how much you still owe on credit cards and loans. Record
+  transfers between accounts, including exchanges between currencies.
+- **Stay within your budget.** Set spending limits by category and see how much
+  of each monthly budget you’ve used, right from the home screen.
 
-### Editing and synchronization
+Available in English, Ukrainian, and Russian.
 
-Use one writer at a time. Save and close the editing session, let your external
-synchronization client finish uploading, and wait for it to finish downloading on
-the next device before editing there. TextMoney does not access cloud storage APIs, synchronize files or merge financial
-journal conflicts. Icon assignments, shared defaults and budget ordering have
-their own explicit sidecar-conflict review, not a financial-journal merge.
-A possible-conflict filename notice is advisory, not proof that synchronization
-has completed or that every conflicting copy has been found.
-Hash checks, verified backups and Android interrupted-save review protect local
-saves, but cannot prevent every race with another writer or synchronization tool.
-See [Your data and synchronization](#your-data-and-synchronization) for the
-save guarantees and recovery limits.
+## Get started
 
-Account/category labels use `name:` metadata. Transaction time uses local
-`time: "HH:MM"` or `time: "HH:MM:SS"` metadata, without a timezone or stored
-creation instant; timezone selection affects the default clock and current
-report/budget periods, not saved transaction dates or times.
-Reimbursements can share native Beancount links with expenses. New entries do
-not write app-generated `id:` metadata. Fee-category defaults are journal-folder
-sidecar settings, not Beancount metadata;
-`textmoney-active` remains the visibility/reactivation preference.
-See the [file and synchronization contract](docs/synchronization.md).
+1. Open TextMoney and choose a folder for your records.
+2. Add an account, such as Cash or your bank account.
+3. Record your first expense and choose or create a category for it.
 
-## Get the app
+*TextMoney is in beta. Keep a separate backup of your financial records.*
 
-Download a production-signed Android APK, Linux x86_64 AppImage or Windows x64 installer from
-**[GitHub Releases](https://github.com/pioneer/textmoney/releases/latest)**.
-Android 7.0 or newer is required. You can also track this repository with
-[Obtainium](https://github.com/ImranR98/Obtainium) for updates.
+## Guides and technical details
 
-Android downloads are standalone APKs for `arm64-v8a` (most modern phones),
-`armeabi-v7a` (32-bit Android), and `x86_64` (compatible emulators/devices).
-Choose one matching your device; no universal APK is published.
-Obtainium can select the matching APK when "Attempt to filter APKs by CPU
-architecture if possible" is enabled.
+Already using Beancount? Check the [supported journal format](docs/journal-format.md)
+before opening an existing file. TextMoney supports a subset of Beancount
+in a single journal file. TextMoney preserves unrelated journal content.
+Unsupported accounting semantics prevent loading or saving without modifying
+the file; some supported transactions are view-only.
 
-The Windows x64 per-user EXE installer (not a portable ZIP) is checked in native CI
-for build, install/reinstall, responsive-window startup and uninstall.
-Full interactive Windows testing remains pending.
-Android APKs use application ID `com.pioneer.textmoney` and the maintained
-production signing certificate. Newer TextMoney releases can update an existing
-TextMoney installation in place.
-
-### Linux AppImage
-
-Download `TextMoney-<version>-x86_64.AppImage` from
-[GitHub Releases](https://github.com/pioneer/textmoney/releases).
-The AppImage is built on Ubuntu 24.04; use Ubuntu 24.04 or newer, or an up-to-date
-x86_64 Arch Linux system with a compatible desktop environment. No `uv` or
-separate Python installation is needed.
-
-**Ubuntu 24.04 or newer:** if FUSE 2 compatibility is missing, install its library
-alongside the system's existing FUSE packages:
-
-```sh
-sudo apt update
-sudo apt install libfuse2t64
-```
-
-**Arch Linux:** if FUSE 2 compatibility is missing:
-
-```sh
-sudo pacman -Syu fuse2
-```
-
-Then, on either distribution, open a terminal in the download directory, replace
-`<version>` below with the downloaded version, and run without installing:
-
-```sh
-APPIMAGE="./TextMoney-<version>-x86_64.AppImage"
-chmod +x "$APPIMAGE"
-"$APPIMAGE"
-```
-
-To update, download the newer AppImage and run it instead; remove the old file
-when convenient. Your journal remains in the folder you selected, and Linux
-preferences stay under `${XDG_CONFIG_HOME:-~/.config}/textmoney`. If FUSE is
-unavailable, use `APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE"` instead. See the
-[AppImage FUSE guide](https://docs.appimage.org/user-guide/troubleshooting/fuse.html)
-for distribution details. The AppImage does not include the host graphics driver,
-display server, or glibc; these instructions are not certification of every
-Ubuntu or Arch configuration.
-
-## Getting started
-
-Home shows an independent current-month budget summary, using the configured
-time zone and the same calculations as Budgets, regardless of that screen's
-filters. In wide layouts it sits below balances in the left column, while recent
-transactions remain at the top of the right column. Single-column layouts show
-balances, then recent transactions, then budgets.
-It counts budget categories (not individual currency amounts) and previews
-up to five in the wide layout or three in the single-column layout. Overspent
-expense budgets come first; the rest are ranked by percentage used, highest first.
-Each category has thin progress bars and percentages, separately labeled when
-multiple currencies are present. Zero limits retain the Budgets screen's
-undefined-percentage message instead of inventing a percentage or progress bar;
-unbudgeted currencies retain its missing-budget message. Multi-currency categories
-are ranked by their highest percentage; budgets with no defined percentage and
-no overspending come last.
-A non-interactive localized count indicates omitted budgets. No current-month
-budgets means no summary. Home uses this usage ranking rather than the full
-Budgets screen's saved manual order.
-The arrows beside Budgets and Recent transactions open their full screens;
-the Budgets arrow resets the period to the current month and clears filters.
-Settings → **Show budgets on Home** applies immediately, defaults to enabled,
-and is remembered locally. A settings-write failure restores the previous choice
-and displays an error.
-
-1. Open TextMoney and choose a dedicated local data folder.
-2. Create an account with its currency and, optionally, an opening balance.
-3. Add expense categories under **Categories** (under **More** on mobile).
-   Account and category creation forms offer optional **Choose icon**, with a
-   preview before creation; the same picker is available when creating a category
-   inside a transaction. Canceling creation does not save the icon.
-4. Use **Add transaction**, enter a description in the first
-   field, then a positive amount, select the account and category, and save.
-   The default **−** records spending; the hint below the amount explains the sign.
-
-Switch to **+** for ordinary income; the numeric amount stays unchanged and
-the category selector shows income categories. For special receipts, use
-**Advanced → Money received**:
-**Expense reimbursement** reduces an expense category, while
-**Balance adjustment** records receipts that should affect neither
-income nor current expenses (for example, recovery of a pre-tracking purchase).
-Create income categories under **Categories** by selecting the Income category type.
-Reimbursements reduce expenses on the date received, which can produce negative
-net expenses in that period. A linked expense is a reference, not a tracked debt.
-
-Choose **↔** beside **− / +** to transfer money. Transfer mode shows required
-**source** and **destination** accounts; minus and plus only show one account.
-The hint explains debit, credit or transfer without calling any account "main".
-The preview shows the transfer direction. For same-currency transfers,
-enable a fee under Advanced and choose whether it is added on top or deducted
-from the amount. Change its category for that transfer, or set the default
-under Settings. The bank-fee category is created automatically on first use.
-For credit cards, loans, or personal debts, choose **Loan / credit** when creating
-an account. This uses native `Liabilities:` accounts, not a special loan type.
-Enter an existing debt as a positive opening amount owed, with its opening date;
-it is not an expense. Its transaction row uses the same **Opening balance** label
-as regular accounts, including when the account has an icon.
-Record credit-funded purchases and bank interest as ordinary
-categorized expenses using that account. Repay it with a transfer from an asset
-account, not another expense: only an optional fee affects expenses or budgets.
-Home, accounts, balance hints, and reports label negative liability balances as
-positive **Outstanding debt**, zero as zero debt, and positive balances as
-**Credit balance** (overpayment). The journal and per-currency totals retain
-standard signed Beancount values. See the [liability examples](docs/journal-format.md#liability-accounts).
-
-Expenses/purchases and income also support a fixed-amount commission under
-Advanced, added on top or deducted from the entered amount. The preview shows the
-purchase/gross income and actual debit/net credit. Fees use the selected account's
-currency; percentages and a third currency are not supported. Choose any active
-expense category for the fee; `Expenses:Bank-Fees` is only the initial default.
-Settings lets you select commission category branches (including descendants) and
-a separate default. Save publishes these together for the selected journal in
-`textmoney-settings/`, independently of its default account. They apply to new
-forms; existing drafts keep their choices. Theme, language, timezone and the
-Home-budget toggle remain device-local. See [Shared journal defaults](docs/shared-settings.md).
-Every fee selector shows hierarchy;
-all expense categories remain available until this list is narrowed.
-Purchases and fees stay in the same transaction, using posting
-order instead of custom metadata. Reimbursements and balance adjustments remain fee-free.
-See the [accounting examples](docs/journal-format.md#purchase-and-income-commissions).
-
-For accounts in different currencies, enter **Total debited** and
-**Actually credited**. Neither amount is calculated or replaced.
-If there is a fee, select its currency: a source-currency fee is included in the
-debited total; a destination-currency fee has already been withheld from the
-credited amount. The preview shows the exchanged principal and derived rate
-excluding fees. For example, 105 USD debited with a 5 USD fee and 4200 UAH
-credited means 100 USD exchanged at 42 UAH/USD.
-Transaction rows show the received amount above the smaller, minus-prefixed
-debited amount at the same right edge. On narrow screens, the debit stays beside
-the account labels rather than dropping to a third line.
-Assigned category icons lead the entire transaction row before its title, instead
-of repeating beside the category label. Transfers use the destination-account icon;
-opening balances use the opened-account icon. This also applies to Home's recent activity.
-Changing the selected mode never changes entered amounts. To reverse a transfer,
-change its source/destination accounts and exchanged amounts explicitly.
-Fee currency remains explicit under Advanced.
-
-Negative cash/bank balances—including past overdrafts—show a warning but do not
-prevent saving. Invalid amounts, account selections and accounting still block saving.
-
-Use the pencil and trash icons to edit or delete transactions. The same form
-opens for editing, with the operation type fixed to preserve its accounting
-treatment; transfer direction can still be reversed. Advanced starts collapsed,
-with a summary of saved fees, payee and time when editing. Date remains visible;
-time and optional counterparty are under Advanced. Opening balances can
-be edited from either the account or its opening transaction. Accounts and
-categories with history can be deactivated and reactivated; their records remain.
-Deleting an account/category with history, or a category with children, opens an
-explanation instead of the editor. Choose **Edit** there to change its Active
-checkbox; Cancel or Escape leaves it unchanged. Unused items still have a
-permanent-deletion confirmation.
-On wider layouts, a subtle row-wide hover highlight connects Edit/Delete actions
-with their account, category, transaction or budget.
-
-On desktop, **Escape** cancels the active popup and **Enter** submits through the
-same checks as its primary button. In multiline descriptions, **Shift+Enter**
-adds a new line. Focused buttons and dropdowns keep their normal keyboard actions;
-disabled actions cannot be submitted.
-
-<img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense with account and category icons in TextMoney v0.4.9's compact phone layout" width="360">
-
-*Editing an expense in the compact layout. All screenshots use synthetic data
-from TextMoney v0.4.9 (build 57), not a personal journal.*
-
-<img src="docs/screenshots/navigation-mobile.png" alt="TextMoney v0.4.9's four mobile bottom destinations and More menu for Accounts and Categories, beside the Settings gear" width="360">
-
-*The mobile More menu opens Accounts and Categories directly. The bottom bar
-and menu follow the same destination order as the desktop sidebar.*
-
-<img src="docs/screenshots/home-mobile.png" alt="TextMoney v0.4.9 single-column Home with balances, recent activity and a three-row budget preview" width="360">
-
-*On a phone, the budget preview follows recent activity. Its heading arrow opens
-the full current-month list; the remaining-budget count is informational.*
-
-![TextMoney v0.4.9's unified Budgets screen, with budget ordering, effective limit dates and per-card actions](docs/screenshots/budgets-desktop.png)
-
-*Budgets keeps the selected month visible and filters tucked away. Dated limit
-history is available separately without switching tabs.*
-
-Settings lets you choose appearance and timezone. **Advanced → Journal display
-currencies** controls Home balance section order and how compatible applications
-organize amounts. Account currencies not listed appear afterward alphabetically;
-currencies without accounts do not create empty sections. Save the settings to
-apply the order. This does not exchange currencies or combine balances.
-
-The **Reports** section summarizes recognized income, net expenses and their
-difference for the current month, previous month, year to date or a custom date
-range. Category totals include reimbursements on their recorded dates, and
-transfer fees remain expenses while transfer/loan principal and balance
-adjustments are excluded. Amounts in different currencies are always shown
-separately; reports do not infer exchange rates.
-
-![TextMoney v0.4.9 Reports in the desktop layout, with EUR income, expenses, net result and hierarchical category totals](docs/screenshots/reports-desktop.png)
-
-*A monthly report with separate income and expense category breakdowns.*
-
-## Your data and synchronization
-
-Your selected folder contains a single UTF-8 journal, `textmoney.beancount`,
-and a `backups/` directory. Optional sidecar directories hold icon assignments
-(`textmoney-icons/`), published account/commission defaults (`textmoney-settings/`)
-and saved budget ordering (`textmoney-budget-order/`). Android additionally keeps
-interrupted-save recovery records. TextMoney accesses these files directly; it does not upload
-them or maintain a separate database. Edits preserve unrelated comments,
-metadata, tags and links.
-
-Dropbox, Google Drive, Syncthing and other synchronization tools are supported
-only when they provide a **fully accessible local copy** on each device, readable
-and writable while offline. Cloud-only files and placeholders are not enough.
-Google Drive requires an appropriate local synchronization client; its official
-Android app alone does not provide the local folder TextMoney needs. On Android,
-select the local folder through the system folder picker, not a cloud-only provider.
-See [local-folder requirements](docs/synchronization.md#local-folders-and-sync-clients).
-
-Your external client must synchronize the **whole folder, including backups,
-all sidecar directories and hidden recovery files**. Sidecars contain immutable
-revision history; do not prune individual ancestor records. Let synchronization
-finish before editing on another device, and
-avoid simultaneous edits. Local checks cannot establish that uploading/downloading
-is finished.
-
-While open, the app polls for external changes roughly every five seconds.
-Valid changes are reloaded without merging; invalid or unsupported journals
-block saving instead of being rewritten. Changed source invalidates stale
-edit forms. Review the read-only differences, reload if needed, and explicitly
-reopen/review an edit before resubmitting; an automatic reload does not rebase
-an old form. Unsaved input remains visible in memory, but does not survive
-app termination.
-
-Possible conflicted-copy names produce a nonblocking, filename-only notice.
-There is no cross-device merge or ancestry tracking.
-Sibling files are never automatically activated, rewritten or deleted.
-See [sequential editing and recovery limits](docs/synchronization.md).
-
-Before saving, TextMoney validates the candidate journal, compares the current
-file's SHA-256 hash with the loaded baseline, and backs up and read-verifies the
-previous bytes. It checks the baseline again after backup and at the platform
-write boundary, then reads back the saved bytes. A failed backup or a detected
-conflict prevents the overwrite; read-back verifies the observed contents, not
-physical durability.
-
-On Linux and Windows, saves stage the complete journal in an exclusively created
-file in the same directory, flush and synchronize it, recheck the original hash,
-then use `os.replace()`. On filesystems supporting atomic replacement, readers
-opening the journal see complete old or new content, not a partial write.
-Linux also synchronizes the parent directory where supported; Windows does not,
-so atomicity is not a universal power-loss durability guarantee.
-**Android SAF still writes directly and non-atomically.** Before writing, it
-persists and read-verifies a hash-only recovery record in the selected folder.
-On reopening, incomplete or damaged recovery records and unaccounted pending
-backups block saving until reviewed, even if the journal still parses. Opening
-an existing Android journal without a recovery record also requires a one-time
-review.
-**Settings → Review interrupted save** shows the current journal's recovery
-status, validates it, and reports whether the referenced backup could be
-verified. It does not show a full version diff or restore anything automatically;
-keep a reviewed version explicitly or restore externally and review again.
-Provider read-back is not proof of physical durability.
-
-Hash checks cannot eliminate the final check/replace race or protect against two
-writers or synchronization tools overwriting each other. There are no
-cross-process locks or unattended merges, and no persistent ancestry check to
-detect an older journal replacing the current one while the app was closed.
-A save reported as uncertain may already have committed: inspect and reload
-before retrying, to avoid duplicate entries.
-Backups require manual recovery; they are not automatic undo or a substitute for
-an independent copy. See [desktop write guarantees](docs/data-safety.md#desktop-atomic-replacement).
-See [Android recovery and device-testing limits](docs/android-storage-validation.md#current-android-save-recovery).
-Automatic retention keeps the 20 most recent completed-write backups, plus the
-latest available snapshot from each day in the last 30 days and each month in
-the last 12 calendar months, counting overlapping snapshots once. Settings
-offers a toggle and a cleanup preview. Protected recovery copies and legacy
-undated backups are never pruned. See [backup retention](docs/data-safety.md#backup-retention).
-
-TextMoney supports a limited, single-file Beancount profile, not arbitrary
-Beancount books. Unsupported accounting features or invalid data block saving
-rather than being silently discarded. See the [supported format and editing guide](docs/journal-format.md)
-and [data-safety guide](docs/data-safety.md) for the current contracts.
-The [MVP report](docs/mvp-0.1.md) and [CRUD milestone archive](docs/crud-fava.md)
-record historical behavior, not current instructions.
-
-## Version history
-
-| Version | Highlights |
+| You want to… | Read |
 | --- | --- |
-| [0.4.9](https://github.com/pioneer/textmoney/releases/tag/v0.4.9) | Current-month Home budget preview with progress, usage ranking and a persisted visibility toggle; matching Home heading shortcuts; Material-like app icon with Android/Linux/Windows variants. Beta documentation and refreshed screenshots. Android build 57. |
-| [0.4.8](https://github.com/pioneer/textmoney/releases/tag/v0.4.8) | Shared manual budget ordering; refined budget-card spacing; taller compact category menus; circular app icons with Android-safe and desktop framing. Android build 56. |
-| [0.4.7](https://github.com/pioneer/textmoney/releases/tag/v0.4.7) | Direct Budgets, Accounts and Categories destinations; shared mobile bottom-bar/More navigation; unified budgets with dated limit history; consistent toolbars and row hover feedback. Refreshed screenshots. Android build 55. |
-| [0.4.3](https://github.com/pioneer/textmoney/releases/tag/v0.4.3) | White light-theme surfaces with restrained mint accents; clearer transaction icons, calendar headings and status indicators; consistent selectors and inline deletion warnings; top-aligned Home balances. Refreshed screenshots. Android build 51. |
-| [0.4.0](https://github.com/pioneer/textmoney/releases/tag/v0.4.0) | Refined cross-currency transfers with two-line amounts and reciprocal rate previews; clearer native liability debt/credit balances; optional icons during account/category creation, including quick category creation. Refreshed screenshots. Android build 48. |
-| [0.3.16](https://github.com/pioneer/textmoney/releases/tag/v0.3.16) | First TextMoney release: unified application, storage and package identity; Android, Linux and Windows downloads. Includes account/category management, transactions, currency-separated reports, category budgets, conflict protection and verified backups. Android build 39. |
-
-## Development
-
-Requires **Python 3.13+** and [uv](https://docs.astral.sh/uv/).
-Clone the repository, then use Invoke for project operations:
-
-```sh
-git clone https://github.com/pioneer/textmoney.git
-cd textmoney
-uv sync
-uv run inv run
-```
-
-Other useful commands:
-
-```sh
-uv run inv run-web        # Run in a local browser
-uv run inv check          # Format check, lint, Pyright and tests
-uv run inv build-android  # Build an Android APK
-uv run inv build-linux    # Build the Linux x86_64 AppImage
-uv run inv build-local    # Build for the current desktop OS
-uv run inv --list         # All available tasks
-```
-
-The browser is a development UI preview, not a supported journal-storage target.
-Folder selection is unavailable in web mode. Static web packaging does not add
-browser filesystem integration; see [web deployment limits](docs/deployment.md).
-Apple build tasks are also tooling, not a claim of supported or device-tested
-iOS/macOS distributions.
-
-To create the next Android, Linux and Windows release together, use a clean,
-synchronized `main` checkout with authenticated GitHub CLI:
-
-```sh
-uv run inv release
-```
-
-It selects the next patch after the highest published stable version, or reuses
-the current project version if it is still unpublished. Use
-`uv run inv release --version 0.4.0` (or `1.0.0`, etc.) to choose a specific
-minor, major or patch version; automatic numbering never changes minor/major.
-This command **commits and pushes** a new version/build-number update and dispatches
-an exact-commit CI candidate. After CI validates three production-signed architecture
-APKs, an AppImage and a Windows EXE installer, it verifies all uploads, creates
-the final release tag, and publishes the binaries together with SHA-256 checksums.
-It does not need platform SDKs locally. A failed candidate does not consume another
-version: commit/push fixes and run the same command; it reuses the **same version**.
-To retry failed jobs without code changes, use
-`uv run inv release --resume` (the current project version, not the next patch).
-Published versions, final tags and
-existing release assets are never overwritten.
-Windows installers are initially unsigned and may trigger
-SmartScreen warnings. See [one-command releases](docs/development.md#one-command-releases)
-for prerequisites, protected signing approvals, failure recovery and testing limits.
-
-For production signing setup, run `uv run inv setup-android-release`; add
-`--upload-secrets` to configure GitHub signing secrets after private password
-prompts and confirmation. It never installs system packages or publishes a
-release. See [signing setup](docs/development.md#one-time-setup-helper).
-
-### Beancount Ecosystem Compatibility Testing
-
-Install the Python tools in a separate Python 3.13 environment; this does not
-modify TextMoney's project environment or the system Python:
-
-**Ubuntu:** install `uv` using its
-[official standalone installer](https://docs.astral.sh/uv/getting-started/installation/).
-Inspect the installer before running it if desired:
-
-```sh
-sudo apt update
-sudo apt install curl
-curl -LsSf https://astral.sh/uv/install.sh | sh
-. "$HOME/.local/bin/env"
-```
-
-**Arch Linux:** install the official repository package:
-
-```sh
-sudo pacman -Syu uv
-```
-
-Then create the isolated compatibility environment on either distribution:
-
-```sh
-uv python install 3.13
-COMPAT="$HOME/.local/share/textmoney-compat-venv"
-uv venv --python 3.13 "$COMPAT"
-uv pip install --python "$COMPAT/bin/python" \
-  'beancount>=3,<4' beanquery fava
-```
-
-Check versions and command provenance:
-
-```sh
-COMPAT="$HOME/.local/share/textmoney-compat-venv"
-"$COMPAT/bin/python" -c \
-  'from importlib.metadata import version; print(*(f"{name} {version(name)}" for name in ("beancount", "beanquery", "fava")), sep="\n")'
-"$COMPAT/bin/bean-check" --version
-"$COMPAT/bin/bean-query" --version
-"$COMPAT/bin/fava" --version
-command -v rledger && rledger --version
-```
-
-The official query executable is named `bean-query` (with a hyphen). Use the
-environment's explicit `bean-check` path: RustLedger can optionally install
-`bean-*` compatibility wrappers, so an unqualified `bean-check` may run a
-different implementation.
-
-**Ubuntu:** download the Linux x86_64 GNU archive and matching `.sha256` file
-from [RustLedger v0.24.0](https://github.com/rustledger/rustledger/releases/tag/v0.24.0),
-the version used by TextMoney's compatibility CI. In a separate download directory,
-verify the checksum and extract the archive:
-
-```sh
-sha256sum -c rustledger-v0.24.0-x86_64-unknown-linux-gnu.tar.gz.sha256
-tar -xzf rustledger-v0.24.0-x86_64-unknown-linux-gnu.tar.gz
-```
-
-Only continue if checksum verification succeeds. Locate the extracted `rledger`
-executable, replace the source path below, and ensure `~/.local/bin` is on your
-`PATH`:
-
-```sh
-install -Dm755 /path/to/extracted/rledger "$HOME/.local/bin/rledger"
-```
-
-This uses an upstream binary, not an Ubuntu repository package.
-
-**Arch Linux:** the community-maintained
-[rustledger-bin AUR package](https://aur.archlinux.org/packages/rustledger-bin)
-provides prebuilt binaries. Review its build files before installing with an
-already-configured AUR helper such as `yay`:
-
-```sh
-yay -S rustledger-bin
-```
-
-On either distribution, check the selected executable and disposable journal:
-
-```sh
-rledger --version
-rledger check /path/to/disposable/journal.beancount
-rledger report --format json /path/to/disposable/journal.beancount balances
-```
-
-To query balances with the official Python tools or open Fava on localhost:
-
-```sh
-COMPAT="$HOME/.local/share/textmoney-compat-venv"
-"$COMPAT/bin/bean-check" /path/to/disposable/journal.beancount
-"$COMPAT/bin/bean-query" /path/to/disposable/journal.beancount \
-  'SELECT account, currency, SUM(number) GROUP BY account, currency'
-"$COMPAT/bin/fava" /path/to/disposable/journal.beancount \
-  --host 127.0.0.1 --port 5000
-```
-
-Open `http://127.0.0.1:5000` while Fava is running. Run TextMoney's synthetic
-cross-engine suite with:
-
-```sh
-uv run inv check-compat
-RUSTFAVA_APPIMAGE="$HOME/AppImages/rustfava.appimage" uv run inv check-compat --strict
-```
-
-The suite checks explicit posting rows and currency-specific balances with
-official Beancount, Beanquery and RustLedger, and uses Fava's annual interval
-reports for income and expenses. `--strict` requires Beanquery, Fava, RustLedger
-and a rustfava AppImage to be discoverable. It does not automate desktop GUI
-interaction. RustLedger's report JSON may round fractional display values; exact
-comparisons use its BQL query interface instead.
-
-The rustfava AppImage is searched in `RUSTFAVA_APPIMAGE`, `~/Applications` and
-`~/AppImages`. Its `--appimage-version` flag reports the AppImage runtime, not
-the rustfava application version. It requires GTK for launch; `--help` and
-`--version` are not usable as headless validation commands. The user has manually
-opened the real journal with no visible errors, which is evidence of basic
-loading only—not report equivalence. Follow the GUI checklist in
-[the compatibility report](docs/beancount-compatibility.md) before claiming
-Accounts, Journal, Balance Sheet or Income Statement GUI compatibility.
-
-Always validate a **disposable copy**, never a live or actively synchronized journal.
-For local tests:
-
-```sh
-SOURCE=/path/to/textmoney.beancount
-TEST_DIR="$(mktemp -d)"
-cp -- "$SOURCE" "$TEST_DIR/textmoney.beancount"
-JOURNAL="$TEST_DIR/textmoney.beancount"
-# Run the validation commands above against "$JOURNAL".
-```
-
-Before sharing a test journal, replace payees, narrations, display names and
-institution-specific account path components consistently in the copy.
-Preserve posting relationships, account hierarchy, currencies, amounts,
-precision, transaction dates, IDs and relevant metadata types. Never commit
-real financial data. Remove the temporary test directory when finished.
-
-Passing `bean-check` verifies syntax and Beancount's validations; it does not
-prove that TextMoney can safely edit every valid Beancount feature or that
-another engine presents the same reports. Compare currency-specific balances
-and reports across engines. Fava and rustfava are separate applications:
-verify their GUI views independently; parser/loading success alone does not
-verify the Accounts, Journal, Balance Sheet or Income Statement screens.
-TextMoney supports simple explicit unit-price (`@`) currency exchanges as well
-as its existing total-price (`@@`) transfer format. It preserves their original
-syntax during unrelated edits; transactions containing `@` are read-only in
-the transaction editor. Cost lots, inferred postings and other unsupported
-Beancount constructs remain blocked from editing.
-
-The APK is written to `build/apk/textmoney-<version>.apk`. Native builds require
-platform toolchains; see [development and packaging](docs/development.md).
-See also [architecture](docs/architecture.md) and [testing](docs/testing.md).
-Translation maintenance and the planned Weblate configuration are documented in
-[the localization guide](docs/localization.md).
+| Record expenses, income, refunds, transfers or debt repayments | [User guide](docs/user-guide.md) |
+| Set spending limits and review monthly budgets | [Budgeting](docs/budgets.md) |
+| Understand spending reports and currency-separated totals | [Reporting](docs/reporting.md) |
+| Use the same records on several devices | [Synchronization](docs/synchronization.md) |
+| Keep backups or recover from an interrupted save | [Backups and recovery](docs/data-safety.md) |
+| Choose a release file or troubleshoot platform requirements | [Platform notes](docs/platform-notes.md) |
+| Run from source or build the app | [Development and builds](docs/development.md) |
+| See what changed between releases | [Release notes](https://github.com/pioneer/textmoney/releases) |

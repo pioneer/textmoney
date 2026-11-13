@@ -8,6 +8,51 @@ for that client before opening another device. TextMoney does not synchronize,
 access cloud APIs, merge changes, resolve conflicts or certify cloud completion.
 See [Sequential editing](synchronization.md).
 
+## Recover from an interrupted or uncertain save
+
+1. Stop editing and pause external synchronization. Do not blindly retry a save:
+   some or all of it may already be committed, and retrying can duplicate it.
+2. Keep an independent copy of the folder, including the journal, `backups/`,
+   optional sidecars and hidden recovery records, before making recovery changes.
+3. Inspect the current journal and relevant previous backup externally. A backup
+   is the previous contents, not an unsaved draft or automatic undo. Compare
+   records, amounts and dates; valid syntax alone cannot reveal every missing
+   transaction from a partial write.
+4. On Android, use **Settings → Review interrupted save**. The review shows the
+   current version's classification/validation and associated backup status,
+   not a complete financial diff or automatic restoration.
+5. If the present version is the desired, validated one, explicitly keep it in
+   the review. This creates a protected snapshot and archives prior recovery
+   metadata without rewriting the journal or replaying transactions.
+   Otherwise restore the chosen complete copy externally, then review again.
+   Missing/invalid journals must be repaired externally before acceptance.
+   Cancel changes nothing.
+6. Reload and check the accepted journal before any retry or new transaction.
+   Resume synchronization only after deciding which version is authoritative,
+   then wait for the whole folder to arrive before using another device.
+
+Existing Android journals can require a one-time review when first opened under
+the save protection. Damaged/unfinished recovery records or unaccounted pending
+backups block normal use even if the current journal parses.
+On desktop there is no Android recovery acceptance step: inspect the journal,
+backup and any retained staging file, restore externally if necessary, and reload.
+Do not automatically promote a staging file.
+For stale-edit conflicts, cancel/reopen the edit against the reviewed current
+version; memory-only drafts do not survive closing TextMoney.
+
+## Keep and review backups
+
+TextMoney read-verifies the previous journal backup before a write, and refuses
+modification if backup creation fails. Use the snapshots in `backups/` for manual
+recovery; keep another independent copy outside the synchronized folder.
+Read-back verifies observed bytes, not physical durability or cloud completion.
+Backups do not supply automatic undo.
+
+In **Settings → Backups**, disable automatic cleanup while investigating sync
+or recovery problems. **Clean up old backups** previews eligible count/bytes
+before confirmation. The [retention rules](#backup-retention) below explain
+which copies remain protected.
+
 ## Validation and conflicts
 
 Before editing, the lossless parser must round-trip the source exactly. Candidate
@@ -154,13 +199,8 @@ pending backups block normal loading/saving and require review. Existing journal
 can require a one-time review when first opened with this protection. Valid
 syntax alone does not establish that a partial write preserved every transaction.
 
-**Settings → Review interrupted save** shows current-version classification,
-validation and associated backup status. Cancel changes nothing. After pausing
-external synchronization and inspecting the files, explicitly keep the present,
-validated version or restore externally and review again. Keeping a reviewed
-version creates a protected snapshot and archives the prior metadata; it does
-not rewrite the journal or replay transactions. Missing/invalid journals must
-be fixed externally before acceptance.
+Use the [recovery steps](#recover-from-an-interrupted-or-uncertain-save) above to
+keep a validated present version or restore externally and review again.
 
 The native queue prevents operations within one Flutter process overtaking a
 still-running save after timeout/cancellation. It is not a cross-process lock.

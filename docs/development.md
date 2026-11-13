@@ -1,9 +1,41 @@
 # Development
 
-Install uv, then follow the [README development commands](../README.md#development).
+## Setup and run
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
+Clone the repository, then use Invoke for project operations:
+
+```sh
+git clone https://github.com/pioneer/textmoney.git
+cd textmoney
+uv sync
+uv run inv run
+```
+
 `.python-version` selects Python 3.13 for development;
 the application supports Python 3.13 and newer. CI checks 3.13 on every desktop
 OS and 3.14 on Linux.
+
+Other useful commands:
+
+```sh
+uv run inv run-web        # Local browser UI preview
+uv run inv check          # Format check, lint, Pyright, catalogs and tests
+uv run inv build-android  # Development Android APK
+uv run inv build-linux    # Linux x86_64 AppImage
+uv run inv build-local    # Build for the current desktop OS
+uv run inv --list         # All available tasks
+```
+
+This project has been developed with substantial AI assistance.
+Review changes and test behavior rather than treating generated code or
+documentation as evidence of correctness.
+See [architecture](architecture.md), [testing](testing.md) and
+[localization and planned Weblate configuration](localization.md).
+For isolated external-engine setup and safe journal copies, use
+[Beancount compatibility testing](beancount-compatibility.md#prepare-external-tools).
+Published version history lives in
+[GitHub Releases](https://github.com/pioneer/textmoney/releases).
 
 `uv run inv setup` uses `uv sync --locked`. Add runtime dependencies with
 `uv add PACKAGE` and development tools with `uv add --dev PACKAGE`; retain both

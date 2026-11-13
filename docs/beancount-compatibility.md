@@ -1,5 +1,143 @@
 # Beancount ecosystem compatibility
 
+Use only disposable journals for these checks. Automated comparisons, basic
+loading and verified GUI/report behavior are different levels of evidence.
+See [the supported journal profile](journal-format.md) before testing an existing
+book. External-tool setup below is separate from TextMoney's
+[development environment](development.md#setup-and-run).
+
+## Prepare external tools
+
+Install Python tools in a separate Python 3.13 environment; this does not modify
+TextMoney's project environment or system Python.
+
+**Ubuntu:** use uv's
+[official standalone installer](https://docs.astral.sh/uv/getting-started/installation/).
+Inspect the installer before running it if desired:
+
+```sh
+sudo apt update
+sudo apt install curl
+curl -LsSf https://astral.sh/uv/install.sh | sh
+. "$HOME/.local/bin/env"
+```
+
+**Arch Linux:** use the official repository package:
+
+```sh
+sudo pacman -Syu uv
+```
+
+On either distribution:
+
+```sh
+uv python install 3.13
+COMPAT="$HOME/.local/share/textmoney-compat-venv"
+uv venv --python 3.13 "$COMPAT"
+uv pip install --python "$COMPAT/bin/python" \
+  'beancount>=3,<4' beanquery fava
+```
+
+Check versions and executable provenance:
+
+```sh
+COMPAT="$HOME/.local/share/textmoney-compat-venv"
+"$COMPAT/bin/python" -c \
+  'from importlib.metadata import version; print(*(f"{name} {version(name)}" for name in ("beancount", "beanquery", "fava")), sep="\n")'
+"$COMPAT/bin/bean-check" --version
+"$COMPAT/bin/bean-query" --version
+"$COMPAT/bin/fava" --version
+command -v rledger && rledger --version
+```
+
+The official query executable is `bean-query` with a hyphen.
+Use the environment's explicit `bean-check` path: RustLedger may install
+`bean-*` compatibility wrappers, so an unqualified command can select a
+different implementation. These unpinned external installs may be newer than
+the [verified baseline](#verified-tool-provenance-and-limits).
+
+### RustLedger
+
+**Ubuntu:** in a separate download directory, download the Linux x86_64 GNU
+archive and matching `.sha256` from
+[RustLedger v0.24.0](https://github.com/rustledger/rustledger/releases/tag/v0.24.0),
+the version used in compatibility CI. Verify the checksum before extracting:
+
+```sh
+sha256sum -c rustledger-v0.24.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+```
+
+Only after verification succeeds:
+
+```sh
+tar -xzf rustledger-v0.24.0-x86_64-unknown-linux-gnu.tar.gz
+install -Dm755 /path/to/extracted/rledger "$HOME/.local/bin/rledger"
+```
+
+Replace the source path with the extracted executable and put `~/.local/bin`
+on `PATH`. This is an upstream binary, not an Ubuntu repository package.
+
+**Arch Linux:** the community-maintained
+[rustledger-bin AUR package](https://aur.archlinux.org/packages/rustledger-bin)
+provides prebuilt binaries. Review its build files before using an already
+configured AUR helper, for example:
+
+```sh
+yay -S rustledger-bin
+```
+
+### RustFava
+
+The compatibility command searches `RUSTFAVA_APPIMAGE`, `~/Applications` and
+`~/AppImages` for a rustfava AppImage. Set the environment variable when yours
+is elsewhere. Its `--appimage-version` output identifies the AppImage runtime,
+not the application's version. Launch needs GTK; `--help` and `--version` are
+not headless validation commands. Discovery/runtime checks do not verify GUI
+loading or reports; use the [manual checklist](#manual-gui-checklist).
+
+## Test a disposable journal copy
+
+Never point tools at a live or actively synchronized journal. Make a local copy:
+
+```sh
+SOURCE=/path/to/textmoney.beancount
+TEST_DIR="$(mktemp -d)"
+cp -- "$SOURCE" "$TEST_DIR/textmoney.beancount"
+JOURNAL="$TEST_DIR/textmoney.beancount"
+```
+
+Then check and query that copy with explicit tools:
+
+```sh
+COMPAT="$HOME/.local/share/textmoney-compat-venv"
+"$COMPAT/bin/bean-check" "$JOURNAL"
+"$COMPAT/bin/bean-query" "$JOURNAL" \
+  'SELECT account, currency, SUM(number) GROUP BY account, currency'
+rledger --version
+rledger check "$JOURNAL"
+rledger report --format json "$JOURNAL" balances
+```
+
+To open Fava locally:
+
+```sh
+"$COMPAT/bin/fava" "$JOURNAL" --host 127.0.0.1 --port 5000
+```
+
+Open `http://127.0.0.1:5000` while it runs. Compare currency-specific balances
+and reports across engines and follow the manual GUI checklist below.
+Passing `bean-check` establishes syntax and Beancount validation, not safe
+TextMoney editing of every valid feature or equivalent reports in another engine.
+Parser/loading success alone does not verify Accounts, Journal, Balance Sheet
+or Income Statement screens. Fava and RustFava require separate verification.
+
+Before sharing, replace payees, narrations, display names and institution-specific
+account path components consistently **in the copy**. Preserve posting
+relationships, hierarchy, currencies, amounts, precision, dates, IDs and relevant
+metadata types. A merely renamed journal can still expose financial information;
+never commit real financial data.
+Stop the tools and remove only your temporary test directory when finished.
+
 ## Current automated baseline
 
 Category budgets have a separate, mandatory reference suite in
@@ -68,8 +206,10 @@ previously reported opening the real journal in RustFava without visible errors;
 that is user-reported evidence of basic loading only and was not independently
 retested here. Do not infer report equivalence from that observation.
 
-Fava GUI pages and RustFava GUI reports have not been visually verified. Manual
-smoke-test checklist:
+### Manual GUI checklist
+
+Fava GUI pages and RustFava GUI reports have not been visually verified.
+Perform these checks independently in each GUI:
 
 1. Open only a disposable copy of the synthetic compatibility fixture.
 2. Confirm the account hierarchy and representative entries in Accounts and
@@ -97,7 +237,7 @@ not changed.
 Real-journal regression remains a manual, disposable-copy procedure from the
 prior audit. The private journal is not part of the compatibility command or
 public CI. Never point checks at a live or actively synchronized journal; see the
-[safe-copy instructions](../README.md#beancount-ecosystem-compatibility-testing).
+[safe-copy instructions](#test-a-disposable-journal-copy).
 
 ## Stage 2 history
 

@@ -5,6 +5,26 @@ works fully offline. `textmoney.beancount` is the sole active financial journal.
 TextMoney does not perform journal synchronization, access cloud-storage APIs,
 merge financial changes, resolve journal conflicts or certify synchronization completion.
 
+## Sync safely between devices
+
+1. Choose a dedicated records folder with a **fully accessible local copy** on
+   every device. Confirm it remains readable/writable offline, including backup
+   and recovery operations.
+2. Configure an external client to synchronize the **whole folder**, not just
+   the journal. Include `backups/`, `textmoney-icons/`, `textmoney-settings/`,
+   `textmoney-budget-order/` when present, and Android's hidden recovery files.
+3. Finish saving and close the editing session on the first device. Wait for its
+   client to finish uploading before switching.
+4. Wait for the next device's client to finish downloading the folder, then open
+   TextMoney and review the received journal before editing. Use only one writer.
+5. If the client creates conflicts or TextMoney reports an interrupted/uncertain
+   save, stop editing and pause synchronization. Compare copies externally and
+   follow [backup and recovery steps](data-safety.md#recover-from-an-interrupted-or-uncertain-save).
+
+Keep independent backups; cloud version history depends on provider retention.
+TextMoney cannot tell you that a sync client has finished, and a possible-conflict
+notice is not proof that every conflict has been found.
+
 ## Local folders and sync clients
 
 Dropbox, Google Drive, Syncthing and other synchronization tools are supported
@@ -23,9 +43,9 @@ capability, not a filesystem path or proof that the files are local. A cloud
 provider appearing in the picker does not establish offline folder access.
 TextMoney does not download a private working copy.
 
-Configure the external client to synchronize the whole folder, including
-`backups/`, `textmoney-icons/` (when icons are assigned), `textmoney-settings/`
-(when defaults are published) and hidden recovery files.
+The journal is `textmoney.beancount`. `backups/` holds journal snapshots;
+icon assignments, published defaults and budget ordering use the optional
+sidecar directories listed above.
 The [optional icon sidecars](entity-icons.md#storage-and-synchronization) retain
 their own immutable history and conflict notices, without changing financial
 journal synchronization rules. This is a local-file workflow, not a native
@@ -34,13 +54,10 @@ integration with or certification of any synchronization service or client.
 [Shared account and commission defaults](shared-settings.md) use journal-folder
 sidecars with explicit publication and conflict review. They are separate from
 financial journal synchronization; let the whole folder finish syncing.
+[Budget ordering](shared-settings.md#budget-ordering) uses its own sidecar history.
+Do not prune individual ancestor records from any immutable sidecar directory.
 
-## Operating rule
-
-Finish editing, close the editing session, and let synchronization complete
-before editing on another device. A sync client can retain conflicting copies
-or provide version history, but it does not reconcile financial transactions.
-Keep independent backups; cloud version history depends on provider retention.
+## Reviewing external changes
 
 The app compares the main file with its SHA-256 baseline before saving and
 again at the platform write boundary. Detected changes refuse the stale save.
@@ -48,7 +65,8 @@ Input remains visible; review the changes, reload, and explicitly reopen/review
 the edit before submitting again. Reload does not silently rebase an old form.
 Drafts are in memory and do not survive app termination.
 
-Polling reloads valid external changes without merging. Invalid syntax or
+Polling checks the journal approximately every five seconds and reloads valid
+external changes without merging. Invalid syntax or
 unsupported accounting semantics disable saving with an actionable error; the
 original file is not rewritten. Read-only differences can contain private
 financial data and are shown only in the UI, never diagnostic logs.
@@ -87,33 +105,12 @@ Real-provider, multi-device and power-loss behavior requires physical testing.
 
 ## Journal conventions
 
-- `open` directives use `name: "Human-readable label"`, following
-  [refried's documented convention](https://github.com/scauligi/refried#customization).
-- `time: "HH:MM"` or `"HH:MM:SS"` is transaction local wall-clock time, as used
-  by beangulp/autobean-format. It is not a creation instant; no offset is stored.
-  Changing the default clock timezone does not convert saved transactions.
-- Transaction source positions identify editing targets only within the
-  captured unchanged source. New transactions do not write persistent `id:`.
-- Optional native shared links associate expenses and reimbursements. These
-  are references, not remaining-debt tracking.
-- `textmoney-active` remains the approved hide/reactivate preference; it is not
-  a dated accounting `close`.
-- Transfer fees are stored in postings, not `textmoney-fee-mode` metadata.
-  Fee-category defaults and commission branches are shared sidecar settings,
-  not journal metadata.
-- Category budgeting is implemented with native Fava-compatible
-  `custom "budget"` directives in this journal. Manage definitions in
-  **Accounting → Budgets** and monitor monthly spending in **Reports → Budgets**.
-  Daily allocation, effective dates and history follow the reference calculations;
-  there are no envelopes or rollover rules. See [Category budgets](budgets.md).
-
-Untouched user metadata, tags, links and comments are preserved. Existing legacy
-app metadata is not globally migrated or deleted; it is not a substitute for
-the current source baseline. Any further journal extension requires explicit
-maintainer approval.
-
-See [Supported journal format and editing](journal-format.md) for the complete
-current profile, including readable versus editable transaction shapes.
+See [Supported journal format and editing](journal-format.md) for declarations,
+display names, wall-clock times, native reimbursement links, transaction identity,
+visibility, fees and preserved user metadata. [Category budgets](budgets.md) covers
+native Fava-compatible budget directives and history on the **Budgets** screen.
+Neither sidecar synchronization nor a successful sync client extends the supported
+financial format or permits silent rewriting of unsupported features.
 
 ## Validation of this simplification
 

@@ -138,6 +138,41 @@ not a Fava-provided financial field. It is undefined for zero/missing budgets.
 Only the visual bar is clamped; amounts and percentages are not capped.
 Overspending does not block transactions.
 
+## Home budget preview
+
+Home calculates the current calendar month in the app's configured timezone,
+independently of Budgets' selected month, filters and manual category order.
+Only categories with their own effective budget in that month appear; the count
+is categories, not dated definitions or currency lines.
+
+- Wide layout: below **Your balances** in the left column, with **Recent
+  transactions** at the top of the right column; up to five budget rows.
+- Single column: balances, recent transactions, then budgets; up to three rows.
+- The summary shows how many categories are overspent out of the month's total.
+  Rows rank overspent categories first, then remaining categories by percentage
+  used, highest first. Multi-currency categories use their highest applicable
+  usage for ranking, while their displayed figures stay separate by currency.
+  Categories with no defined percentage and no overspending come last.
+- Each row has its category name, a thin progress bar and percentage used.
+  It uses the same monthly allocation, actuals, precision and display rules
+  as Budgets, separately labeled when multiple currencies are present. Zero
+  limits retain the undefined-percentage message with no invented ratio or
+  progress bar; a zero budget with positive expense spending is overspent.
+  Unbudgeted currencies retain the missing-budget message. Missing and zero
+  budgets remain distinct, and numeric percentages are not capped.
+- If more categories exist, a localized **N more budgets** count is informational,
+  not clickable. When none are overspent, a short status line is shown and
+  within-limit rows still appear. With no current-month budgets, the section is hidden.
+- Matching arrow-only buttons beside **Budgets** and **Recent transactions** have
+  localized accessible labels and comfortable touch targets. The Budgets arrow
+  opens the full screen at the current month with category/currency/overspending
+  filters cleared; the transaction arrow opens Transactions.
+
+**Settings → Show budgets on Home** is enabled by default, applies immediately
+and persists locally. A persistence failure reports an error and restores the
+previous setting rather than pretending it saved. The toggle does not remove
+budgets or affect their calculations.
+
 ## Filters, currencies and settings
 
 - Use month arrows, click the month heading to choose a month/year, or select

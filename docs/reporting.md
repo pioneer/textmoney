@@ -1,8 +1,8 @@
 # Financial reports
 
-The Reports screen has **Overview** and **Budgets** tabs. This page describes Overview;
-see [Category budgets](budgets.md) for the separate monthly budget report and its
-filters. Budget definitions are managed under **Accounting → Budgets**.
+The **Reports** screen shows the financial overview described here.
+Monthly budget reports and definitions are on the separate **Budgets** screen;
+see [Category budgets](budgets.md) for its calculations and filters.
 
 Reports are derived in memory from the currently validated `Ledger`; the
 Beancount journal remains the only source of financial data. Overview offers

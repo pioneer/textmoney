@@ -21,7 +21,10 @@ async def main(page: ft.Page) -> None:
     page.title = APP_NAME
     page.padding = 0
     page.theme = light_theme()
-    page.dark_theme = ft.Theme(color_scheme_seed="#81c6b3")
+    page.dark_theme = ft.Theme(
+        color_scheme_seed="#81c6b3",
+        surfaces=ft.ThemeSurfaces.TONAL,
+    )
     page.theme_mode = ft.ThemeMode.SYSTEM
     page.locale_configuration = ft.LocaleConfiguration(
         supported_locales=[

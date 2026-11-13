@@ -133,7 +133,7 @@ def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
             if event.key.casefold() in {"enter", "numpad enter"} and (
                 not inputs or (focused is not None and not focused.multiline and _enabled(focused))
             ):
-                # Flet 1.0.1 only emits TextField.submit with shift_enter=True.
+                # Flet only emits TextField.submit with shift_enter=True.
                 # Multiline inputs use that event; other focused widgets keep
                 # their native Enter handling instead of submitting the form.
                 await click(submit)

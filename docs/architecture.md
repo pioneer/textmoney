@@ -121,7 +121,8 @@ semantics. Adapters expose expected errors without hiding unexpected failures.
 The light theme uses white content/input surfaces, faint mint navigation, muted
 mint selection and Operations balance/daily-summary surfaces, and a deep teal
 transaction action. Summary and navigation-gutter overrides are scoped to light
-mode; dark mode retains its inherited Material palette. Application dialogs,
+mode; dark mode retains the inherited seeded Material palette with tonal
+surfaces. Application dialogs,
 dropdown menus and date/time picker surfaces are white in light mode.
 Transaction leading icons have a rounded theme-aware background; grouping dates
 and both report-month headings include a calendar icon. The main status line

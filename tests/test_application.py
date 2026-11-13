@@ -29,7 +29,10 @@ def test_page_startup() -> None:
     assert page.theme.scaffold_bgcolor == "#ffffff"
     assert page.theme.color_scheme.surface == "#ffffff"
     assert page.theme.floating_action_button_theme.bgcolor == ft.Colors.PRIMARY
-    assert page.dark_theme == ft.Theme(color_scheme_seed="#81c6b3")
+    assert page.dark_theme == ft.Theme(
+        color_scheme_seed="#81c6b3",
+        surfaces=ft.ThemeSurfaces.TONAL,
+    )
     assert [locale.language_code for locale in page.locale_configuration.supported_locales] == [
         "en",
         "uk",

@@ -1,6 +1,6 @@
 # Flet and MCP
 
-The app pins Flet 1.0.5 and uses imperative controls with `ft.run(main)`.
+The app pins Flet 1.1.2 and uses imperative controls with `ft.run(main)`.
 Do not copy deprecated APIs or introduce `@ft.component`.
 Keep the runtime, `all` extras, MCP, and local SAF extension's Python and Dart
 dependencies aligned. Their pins and locked packages are checked by tests.
@@ -30,8 +30,13 @@ The initial implementation was checked through a real stdio MCP session: Page
 properties/events, Text/Image/Column/SafeArea, ScrollMode, RouteUrlStrategy, the
 hello-world example, and run/debug/build/serve/doctor commands. Documentation
 search returned no matches in this environment, so packaging details were
-cross-checked with installed 1.0.1 source and official publishing docs. Re-verify
-after upgrades instead of treating this list as permanent API documentation.
+cross-checked with installed 1.0.1 source and official publishing docs. The
+1.1.2 upgrade re-verified the dialog stack, keyboard listeners, text-field
+submission, and build CLI. Its MCP API index did not list `Theme.surfaces` or
+`ThemeSurfaces`; the installed 1.1.2 package confirmed both. Documentation
+search still returned no matches, so the 1.1.0 and 1.1.2 changes were checked
+against the official changelog. Re-verify after upgrades instead of treating
+this list as permanent API documentation.
 
 Flet packaging expects `src/assets`, while this repository maintains root
 `assets`. Invoke stages the copy. Hash routing is configured both for runtime
@@ -43,26 +48,26 @@ Sources: [Flet documentation](https://flet.dev/docs/),
 [publishing](https://flet.dev/docs/publish/),
 [MCP cookbook](https://flet.dev/docs/cookbook/flet-mcp).
 
-## Flet 1.0.5 upgrade verification
+## Flet 1.1.2 upgrade verification
 
 The runtime, CLI, desktop/web clients, platform assets, MCP and local extension
-pins were upgraded together from 1.0.1. No application APIs or popup cancellation
-policies were changed. Historical validation sections below retain their original
-versions.
+pins were upgraded together from 1.0.5. Flet 1.1.0 changes where Dart Material
+and Cupertino APIs are imported, but the local SAF extension uses neither
+library. Flet 1.1.0 changes seeded theme surfaces from tonal to neutral. The
+dark theme now explicitly keeps tonal surfaces to preserve the app's previous
+palette; the light theme already defines its surfaces explicitly. Flet 1.1.2
+fixes web reload/close errors while the app's `main()` is still running and
+reduces initial web font loading.
 
-- `uv sync --locked` and `uv run inv verify-flet` passed with 1.0.5.
-- `uv run inv check`: 1,546 passed, one native-Windows-only test skipped.
-  Windows-target `uv run inv typecheck --platform=Windows` also passed.
-- `uv run inv build-android` produced `build/apk/textmoney-0.3.19.apk`.
-  The Python and Dart dependencies both resolve to Flet 1.0.5.
-  `uv run inv check-beancount-apk` passed its host-payload checks, including
-  packaged release metadata, parser/Babel resources and synthetic journal edits.
-- `uv run inv run` started the branded Linux 1.0.5 client under Xvfb.
-  Browser preview checks covered desktop/narrow daily reports, category expansion
-  and retained transaction drafts after cancelling nested category creation.
-  After that nested cancellation, Escape did not reliably dismiss the parent
-  form in the browser preview; its Cancel button worked. Native interactive
-  keyboard behavior, Android SAF runtime and Windows runtime remain unverified.
+- `uv sync --locked` and `uv run inv verify-flet` passed with 1.1.2.
+- `uv run inv check`: 2,225 passed, one native-Windows-only test skipped.
+- `uv run inv build-android` and `uv run inv check-beancount-apk` passed;
+  the APK is `build/apk/textmoney-0.4.9.apk`.
+- The SAF extension still compiles without importing the Material/Cupertino
+  Dart libraries affected by 1.1.0. Android runtime behavior and interactive
+  desktop/browser smoke tests were not run for this upgrade.
+
+Historical validation sections below retain their original versions.
 
 ## Category menu hierarchy
 
@@ -145,7 +150,7 @@ uses native activation, not a second synthetic click. The pinned Material
 TextField client emits `submit` only with `shift_enter=True`: multiline fields
 use that event; single-line fields use the focus-scoped listener. Input discovery
 follows Flet's dataclass control fields, excluding Python-only state.
-Flet 1.0.5 has no public programmatic button-click dispatch; the helper uses
+Flet 1.1.2 has no public programmatic button-click dispatch; the helper uses
 `button._trigger_event` and checks the active dialog stack. Regression tests
 exercise real sessions and protocol serialization; recheck these compatibility
 boundaries and actual keyboard delivery on a Flet upgrade.

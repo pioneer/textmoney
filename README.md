@@ -2,9 +2,10 @@
 
 A local-first personal expense tracker and UI frontend to an ordinary local
 plain-text [Beancount](https://beancount.github.io/) file in a folder you choose.
-Works fully offline, with no sign-up, backend service, or app-managed cloud storage.
+Core tracking works fully offline, with no sign-up, backend service, or app-managed
+cloud storage. Optional online icon search contacts Iconify only when requested.
 
-**Alpha software:** features and file support are still limited, and bugs are
+**Beta software:** features and file support are still limited, and bugs are
 possible. Keep independent backups of important financial data.
 
 TextMoney is being developed with substantial AI assistance.
@@ -12,6 +13,11 @@ TextMoney is being developed with substantial AI assistance.
 ![TextMoney v0.4.7 desktop Home with seven sidebar destinations, account icons, liability balances and recent transactions](docs/screenshots/home-desktop.png)
 
 ## Implemented
+
+This section describes the current source checkout. The latest published release
+is **v0.4.8**; the Home budget preview and Material-like logo redesign were added
+after that release and are not yet included in its downloads. Screenshots show
+v0.4.7 and do not illustrate every current feature.
 
 - Record and edit expenses with an account, category, amount, date/time and
   description. Add an optional shop/recipient when needed.
@@ -23,6 +29,9 @@ TextMoney is being developed with substantial AI assistance.
   exchanges. Enter both actual amounts for exchanges; the rate is calculated
   excluding optional fees in either account's currency.
 - Organize expenses with hierarchical categories.
+- Assign optional account/category icons from the bundled offline catalogue,
+  imported images or an explicit online search. Assigned artwork and attribution
+  remain available offline. See [Entity icons](docs/entity-icons.md).
 - Review balances in the configured currency order and compact transaction rows
   grouped by date, with summaries above account movements.
 - Use compact phone and desktop layouts. The desktop sidebar opens Home,
@@ -41,8 +50,17 @@ TextMoney is being developed with substantial AI assistance.
   date and Discontinue from a date. Dated changes preserve earlier limits;
   history also exposes superseded, future and stopped definitions.
   Budget definitions support daily through yearly frequencies.
+  Use **Budget order** to arrange sibling categories with drag handles or up/down
+  arrows; moving a parent moves its subtree. Save publishes the order for that
+  journal across months and devices, independently of filters.
   Calculations are checked against Fava 1.30.16 within TextMoney's existing
   accounting subset. See [Budgeting](docs/budgets.md).
+- Preview current-month budgets on Home, including within-limit budgets, with an
+  overspent count, progress bars and percentages. Show up to five rows in wide
+  layouts or three in single-column layouts; disable it in Settings if preferred.
+- Publish a journal's default transaction account and commission settings from
+  Settings. These shared defaults apply to newly opened forms without changing
+  existing drafts. See [Shared journal defaults](docs/shared-settings.md).
 - Delete editable transactions after confirmation; deactivate and reactivate
   accounts and categories with history rather than losing their records.
 - Use system, light or dark appearance, and system or explicit timezones.
@@ -62,14 +80,15 @@ TextMoney is being developed with substantial AI assistance.
 ## Future plans
 
 Planned areas include split-expense editing. Priorities and scope
-may change during alpha, with no release dates promised.
+may change during beta, with no release dates promised.
 
 ### Editing and synchronization
 
 Use one writer at a time. Save and close the editing session, let your external
 synchronization client finish uploading, and wait for it to finish downloading on
-the next device before editing there. TextMoney does not access cloud APIs,
-synchronize files, merge changes or resolve conflicts.
+the next device before editing there. TextMoney does not access cloud storage APIs, synchronize files or merge financial
+journal conflicts. Icon assignments, shared defaults and budget ordering have
+their own explicit sidecar-conflict review, not a financial-journal merge.
 A possible-conflict filename notice is advisory, not proof that synchronization
 has completed or that every conflicting copy has been found.
 Hash checks, verified backups and Android interrupted-save review protect local
@@ -79,9 +98,11 @@ save guarantees and recovery limits.
 
 Account/category labels use `name:` metadata. Transaction time uses local
 `time: "HH:MM"` or `time: "HH:MM:SS"` metadata, without a timezone or stored
-creation instant; timezone selection only affects the default clock, not saved transactions.
+creation instant; timezone selection affects the default clock and current
+report/budget periods, not saved transaction dates or times.
 Reimbursements can share native Beancount links with expenses. New entries do
-not write app-generated `id:` metadata. Fee-category defaults are local settings;
+not write app-generated `id:` metadata. Fee-category defaults are journal-folder
+sidecar settings, not Beancount metadata;
 `textmoney-active` remains the visibility/reactivation preference.
 See the [file and synchronization contract](docs/synchronization.md).
 
@@ -149,7 +170,10 @@ Ubuntu or Arch configuration.
 
 Home shows an independent current-month budget summary, using the configured
 time zone and the same calculations as Budgets, regardless of that screen's
-filters. It counts budget categories (not individual currency amounts) and previews
+filters. In wide layouts it sits below balances in the left column, while recent
+transactions remain at the top of the right column. Single-column layouts show
+balances, then recent transactions, then budgets.
+It counts budget categories (not individual currency amounts) and previews
 up to five in the wide layout or three in the single-column layout. Overspent
 expense budgets come first; the rest are ranked by percentage used, highest first.
 Each category has thin progress bars and percentages, separately labeled when
@@ -158,7 +182,9 @@ undefined-percentage message instead of inventing a percentage or progress bar;
 unbudgeted currencies retain its missing-budget message. Multi-currency categories
 are ranked by their highest percentage; budgets with no defined percentage and
 no overspending come last.
-A non-interactive localized count indicates omitted budgets. No budgets means no summary.
+A non-interactive localized count indicates omitted budgets. No current-month
+budgets means no summary. Home uses this usage ranking rather than the full
+Budgets screen's saved manual order.
 The arrows beside Budgets and Recent transactions open their full screens;
 the Budgets arrow resets the period to the current month and clears filters.
 Settings → **Show budgets on Home** applies immediately, defaults to enabled,
@@ -211,7 +237,11 @@ purchase/gross income and actual debit/net credit. Fees use the selected account
 currency; percentages and a third currency are not supported. Choose any active
 expense category for the fee; `Expenses:Bank-Fees` is only the initial default.
 Settings lets you select commission category branches (including descendants) and
-a separate default, saved only on this device. Every fee selector shows hierarchy;
+a separate default. Save publishes these together for the selected journal in
+`textmoney-settings/`, independently of its default account. They apply to new
+forms; existing drafts keep their choices. Theme, language, timezone and the
+Home-budget toggle remain device-local. See [Shared journal defaults](docs/shared-settings.md).
+Every fee selector shows hierarchy;
 all expense categories remain available until this list is narrowed.
 Purchases and fees stay in the same transaction, using posting
 order instead of custom metadata. Reimbursements and balance adjustments remain fee-free.
@@ -291,8 +321,10 @@ separately; reports do not infer exchange rates.
 ## Your data and synchronization
 
 Your selected folder contains a single UTF-8 journal, `textmoney.beancount`,
-and a `backups/` directory. Android additionally keeps interrupted-save recovery
-records. TextMoney accesses these files directly; it does not upload
+and a `backups/` directory. Optional sidecar directories hold icon assignments
+(`textmoney-icons/`), published account/commission defaults (`textmoney-settings/`)
+and saved budget ordering (`textmoney-budget-order/`). Android additionally keeps
+interrupted-save recovery records. TextMoney accesses these files directly; it does not upload
 them or maintain a separate database. Edits preserve unrelated comments,
 metadata, tags and links.
 
@@ -304,8 +336,10 @@ Android app alone does not provide the local folder TextMoney needs. On Android,
 select the local folder through the system folder picker, not a cloud-only provider.
 See [local-folder requirements](docs/synchronization.md#local-folders-and-sync-clients).
 
-Your external client must synchronize the folder separately, **including backups
-and hidden recovery files**. Let it finish before editing on another device, and
+Your external client must synchronize the **whole folder, including backups,
+all sidecar directories and hidden recovery files**. Sidecars contain immutable
+revision history; do not prune individual ancestor records. Let synchronization
+finish before editing on another device, and
 avoid simultaneous edits. Local checks cannot establish that uploading/downloading
 is finished.
 
@@ -371,8 +405,12 @@ record historical behavior, not current instructions.
 
 ## Version history
 
+Current source also includes the unreleased Home budget preview and redesigned
+Material-like app icon. Release rows below describe published downloads only.
+
 | Version | Highlights |
 | --- | --- |
+| [0.4.8](https://github.com/pioneer/textmoney/releases/tag/v0.4.8) | Shared manual budget ordering; refined budget-card spacing; taller compact category menus; circular app icons with Android-safe and desktop framing. Android build 56. |
 | [0.4.7](https://github.com/pioneer/textmoney/releases/tag/v0.4.7) | Direct Budgets, Accounts and Categories destinations; shared mobile bottom-bar/More navigation; unified budgets with dated limit history; consistent toolbars and row hover feedback. Refreshed screenshots. Android build 55. |
 | [0.4.3](https://github.com/pioneer/textmoney/releases/tag/v0.4.3) | White light-theme surfaces with restrained mint accents; clearer transaction icons, calendar headings and status indicators; consistent selectors and inline deletion warnings; top-aligned Home balances. Refreshed screenshots. Android build 51. |
 | [0.4.0](https://github.com/pioneer/textmoney/releases/tag/v0.4.0) | Refined cross-currency transfers with two-line amounts and reciprocal rate previews; clearer native liability debt/credit balances; optional icons during account/category creation, including quick category creation. Refreshed screenshots. Android build 48. |

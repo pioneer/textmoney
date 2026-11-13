@@ -3,7 +3,6 @@
 import getpass
 import hashlib
 import json
-import math
 import os
 import platform
 import re
@@ -19,7 +18,7 @@ from flet_cli.utils.android_sdk import AndroidSDK
 from invoke.context import Context
 from invoke.exceptions import Exit
 from invoke.tasks import task
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from tools import linux_appimage, windows_installer
 from tools import release as release_tools
@@ -30,7 +29,8 @@ HOSTS = {"linux": "Linux", "windows": "Windows", "macos": "Darwin"}
 UNATTENDED = "--yes"
 LINUX_DEV_APP_ID = "dev.textmoney.app"
 STOCK_CLIENT_APP_ID = b"com.appveyor.flet"
-ICON_ARTWORK_CANVAS_SIZE = 952
+ANDROID_ICON_CANVAS_SIZE = 714
+ANDROID_ICON_BACKGROUND = "#164675"
 ANDROID_SIGNING_ENV = (
     "FLET_ANDROID_SIGNING_KEY_STORE",
     "FLET_ANDROID_SIGNING_KEY_ALIAS",
@@ -94,16 +94,16 @@ def stage_assets(*, linux: bool = False, windows: bool = False, android: bool = 
         android_icon().save(destination / "icon_android.png")
     for target, enabled in (("linux", linux), ("windows", windows)):
         if enabled:
-            desktop_icon(circular=target == "linux").save(destination / f"icon_{target}.png")
+            desktop_icon().save(destination / f"icon_{target}.png")
 
 
 def android_icon() -> Image.Image:
-    """Keep the original adaptive-safe artwork scale on a full-size badge."""
+    """Keep the canonical artwork inside Android's adaptive safe circle."""
     validate_icon()
     with Image.open(ROOT / "assets/icon.png") as source:
         image = source.convert("RGBA")
-    size = round(1024 * 664 / ICON_ARTWORK_CANVAS_SIZE)
-    result = Image.new("RGBA", (1024, 1024), "#17324d")
+    size = ANDROID_ICON_CANVAS_SIZE
+    result = Image.new("RGBA", (1024, 1024), ANDROID_ICON_BACKGROUND)
     result.alpha_composite(
         image.resize((size, size), Image.Resampling.LANCZOS),
         ((1024 - size) // 2, (1024 - size) // 2),
@@ -112,50 +112,13 @@ def android_icon() -> Image.Image:
     return result
 
 
-def desktop_icon(*, circular: bool = False) -> Image.Image:
-    """Frame the artwork for desktop, optionally on a circular navy badge."""
+def desktop_icon() -> Image.Image:
+    """Frame the complete canonical badge without replacing its artwork."""
     validate_icon()
-    scale = 3
-    mask = Image.new("L", (1024 * scale, 1024 * scale))
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle(
-        tuple(value * scale for value in (192, 160, 768, 864)),
-        radius=48 * scale,
-        fill=255,
-    )
-    draw.polygon([(x * scale, y * scale) for x, y in ((616, 160), (768, 160), (768, 312))], fill=0)
-    for points in (
-        ((800, 350), (898, 412), (704, 736), (572, 816), (598, 678)),
-        ((808, 370), (840, 320), (908, 364), (876, 414)),
-    ):
-        draw.polygon([(x * scale, y * scale) for x, y in points], fill=255)
-    alpha = Image.new("L", (1024, 1024))
-    offset = (1024 - ICON_ARTWORK_CANVAS_SIZE) // 2
-    alpha.paste(
-        mask.resize((ICON_ARTWORK_CANVAS_SIZE, ICON_ARTWORK_CANVAS_SIZE), Image.Resampling.LANCZOS),
-        (offset, offset),
-    )
     with Image.open(ROOT / "assets/icon.png") as source:
-        artwork = source.convert("RGBA")
-    artwork.putalpha(alpha)
-    bounds = alpha.getbbox()
-    if bounds is None:
-        raise Exit("Desktop icon has no visible artwork.", code=1)
-    artwork = artwork.crop(bounds)
-    factor = (600 if circular else 944) / max(artwork.size)
-    artwork = artwork.resize(
-        (round(artwork.width * factor), round(artwork.height * factor)),
-        Image.Resampling.LANCZOS,
-    )
+        artwork = source.convert("RGBA").resize((944, 944), Image.Resampling.LANCZOS)
     result = Image.new("RGBA", (1024, 1024))
-    if circular:
-        circle = Image.new("L", (1024 * scale, 1024 * scale))
-        ImageDraw.Draw(circle).ellipse(
-            (40 * scale, 40 * scale, 984 * scale - 1, 984 * scale - 1), fill=255
-        )
-        result.paste("#17324d", (0, 0, 1024, 1024))
-        result.putalpha(circle.resize((1024, 1024), Image.Resampling.LANCZOS))
-    result.alpha_composite(artwork, ((1024 - artwork.width) // 2, (1024 - artwork.height) // 2))
+    result.alpha_composite(artwork, (40, 40))
     return result
 
 
@@ -615,7 +578,7 @@ def prepare_linux_dev_client() -> Path:
     for item in (stock / "data").iterdir():
         if item.name != "app_icon.png":
             (destination / "data" / item.name).symlink_to(item, target_is_directory=item.is_dir())
-    icon_image = desktop_icon(circular=True)
+    icon_image = desktop_icon()
     icon_bytes = icon_image.tobytes()
     icon = destination / "data" / f"app_icon-{hashlib.sha256(icon_bytes).hexdigest()}.png"
     icon_image.save(icon)
@@ -726,102 +689,59 @@ def probe_beancount_android(context: Context) -> None:
 
 
 @task
-def app_icon(context: Context) -> None:
-    """Generate the circular money document and pencil icon."""
-    scale = 3
-    image = Image.new("RGB", (1024 * scale, 1024 * scale), "#17324d")
-    draw = ImageDraw.Draw(image)
-
-    def polygon(points: tuple[tuple[int, int], ...], color: str) -> None:
-        draw.polygon([(x * scale, y * scale) for x, y in points], fill=color)
-
-    def rounded(box: tuple[int, int, int, int], radius: int, color: str) -> None:
-        draw.rounded_rectangle(
-            tuple(value * scale for value in box), radius=radius * scale, fill=color
+def app_icon(context: Context, source: str = "") -> None:
+    """Import a circular PNG badge, or validate the current canonical icon."""
+    if not source:
+        validate_icon()
+        return
+    try:
+        with Image.open(source) as original:
+            if (
+                original.format != "PNG"
+                or original.width != original.height
+                or original.width < 1024
+            ):
+                raise Exit("Source icon must be a square PNG of at least 1024 pixels.", code=1)
+            image = original.convert("RGBA")
+    except OSError as exc:
+        raise Exit("Could not read the source icon PNG.", code=1) from exc
+    red, green, blue, alpha = image.split()
+    visible = ImageChops.lighter(ImageChops.lighter(red, green), blue).point([0] * 41 + [255] * 215)
+    visible = ImageChops.multiply(visible, alpha).point([0] + [255] * 255)
+    for point in (
+        (0, 0),
+        (image.width - 1, 0),
+        (0, image.height - 1),
+        (image.width - 1, image.height - 1),
+    ):
+        if visible.getpixel(point) == 0:
+            ImageDraw.floodfill(visible, point, 128)
+    # Remove only corner-connected matte; retain dark currency strokes and shadows.
+    matte_alpha = visible.point([0 if value == 128 else 255 for value in range(256)])
+    matte_alpha = matte_alpha.filter(ImageFilter.MinFilter(5))
+    alpha = ImageChops.multiply(alpha, matte_alpha)
+    bounds = alpha.getbbox()
+    if bounds is None:
+        raise Exit("Source icon contains no visible badge.", code=1)
+    left, top, right, bottom = bounds
+    # Inset the measured badge to exclude its black-matted edge before resampling.
+    diameter = min(right - left, bottom - top) - 4
+    if diameter <= 0:
+        raise Exit("Source icon contains no usable circular badge.", code=1)
+    x = (left + right - diameter) // 2
+    y = (top + bottom - diameter) // 2
+    image.putalpha(alpha)
+    image = image.crop((x, y, x + diameter, y + diameter))
+    circle = Image.new("L", (diameter * 3, diameter * 3))
+    ImageDraw.Draw(circle).ellipse((0, 0, circle.width - 1, circle.height - 1), fill=255)
+    image.putalpha(
+        ImageChops.multiply(
+            image.getchannel("A"),
+            circle.resize(image.size, Image.Resampling.LANCZOS),
         )
-
-    def curve(points: tuple[tuple[int, int], ...], width: int) -> None:
-        # Sample connected cubic Bezier segments before supersampled rendering.
-        samples: list[tuple[float, float]] = []
-        for offset in range(0, len(points) - 1, 3):
-            a, b, c, d = points[offset : offset + 4]
-            for step in range(41):
-                t = step / 40
-                weights = ((1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t**2, t**3)
-                samples.append(
-                    (
-                        sum(p[0] * w for p, w in zip((a, b, c, d), weights, strict=True)) * scale,
-                        sum(p[1] * w for p, w in zip((a, b, c, d), weights, strict=True)) * scale,
-                    )
-                )
-        left: list[tuple[float, float]] = []
-        right: list[tuple[float, float]] = []
-        for index, (x, y) in enumerate(samples):
-            before = samples[max(0, index - 1)]
-            after = samples[min(len(samples) - 1, index + 1)]
-            dx, dy = after[0] - before[0], after[1] - before[1]
-            length = math.hypot(dx, dy)
-            if length == 0:
-                continue
-            nx, ny = -dy / length * width * scale / 2, dx / length * width * scale / 2
-            left.append((x + nx, y + ny))
-            right.append((x - nx, y - ny))
-        draw.polygon(left + right[::-1], fill="#17324d")
-
-    rounded((192, 160, 768, 864), 48, "#ffffff")
-    polygon(((616, 160), (768, 160), (768, 312)), "#17324d")
-    rounded((616, 160, 768, 312), 28, "#69b9a7")
-    polygon(((616, 160), (768, 160), (768, 280), (616, 280)), "#69b9a7")
-    polygon(((616, 160), (768, 160), (768, 312)), "#17324d")
-
-    curve(
-        (
-            (396, 388),
-            (358, 340),
-            (284, 350),
-            (284, 404),
-            (284, 466),
-            (402, 444),
-            (402, 512),
-            (402, 574),
-            (306, 586),
-            (274, 536),
-        ),
-        36,
     )
-    rounded((326, 330, 352, 594), 4, "#17324d")
-    curve(
-        (
-            (622, 378),
-            (494, 308),
-            (444, 412),
-            (476, 504),
-            (500, 572),
-            (572, 586),
-            (624, 544),
-        ),
-        38,
-    )
-    rounded((446, 428, 586, 452), 4, "#17324d")
-    rounded((446, 474, 572, 498), 4, "#17324d")
-    rounded((260, 642, 574, 676), 6, "#69b9a7")
-    rounded((260, 714, 494, 748), 6, "#69b9a7")
-
-    polygon(((800, 350), (898, 412), (704, 736), (572, 816), (598, 678)), "#17324d")
-    polygon(((808, 370), (876, 414), (688, 720), (622, 678)), "#f4cf76")
-    polygon(((808, 370), (840, 320), (908, 364), (876, 414)), "#e58e87")
-    polygon(((850, 408), (868, 420), (680, 720), (662, 708)), "#d89c3d")
-    polygon(((622, 678), (688, 720), (592, 790)), "#edc7a2")
-    polygon(((600, 756), (624, 772), (592, 790)), "#17324d")
-    artwork = image.resize(
-        (ICON_ARTWORK_CANVAS_SIZE, ICON_ARTWORK_CANVAS_SIZE), Image.Resampling.LANCZOS
-    )
-    image = Image.new("RGB", (1024, 1024), "#17324d")
-    offset = (1024 - ICON_ARTWORK_CANVAS_SIZE) // 2
-    image.paste(artwork, (offset, offset))
-    circle = Image.new("L", (1024 * scale, 1024 * scale))
-    ImageDraw.Draw(circle).ellipse((0, 0, 1024 * scale - 1, 1024 * scale - 1), fill=255)
-    image.putalpha(circle.resize((1024, 1024), Image.Resampling.LANCZOS))
+    image = image.resize((1024, 1024), Image.Resampling.LANCZOS)
+    (ROOT / "assets").mkdir(parents=True, exist_ok=True)
     image.save(ROOT / "assets/icon.png")
 
 

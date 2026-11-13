@@ -23,12 +23,10 @@ import tasks
 
 
 def _icon_artwork_mask(image: Image.Image) -> Image.Image:
-    channels = ImageChops.difference(
-        image.convert("RGB"), Image.new("RGB", image.size, "#17324d")
-    ).split()
-    return ImageChops.lighter(ImageChops.lighter(channels[0], channels[1]), channels[2]).point(
-        [0] * 9 + [255] * 247
-    )
+    red, green, _blue = image.convert("RGB").split()
+    foreground = ImageChops.lighter(red, green).point([0] * 128 + [255] * 128)
+    opaque = image.convert("RGBA").getchannel("A").point([0] * 128 + [255] * 128)
+    return ImageChops.multiply(foreground, opaque)
 
 
 @pytest.mark.parametrize(
@@ -68,7 +66,7 @@ def test_desktop_icon_is_large_transparent_and_keeps_android_source(
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nversion = "0.2.2"\n[tool.flet]\nbuild_number = 19\n'
     )
-    image = tasks.desktop_icon(circular=target == "linux")
+    image = tasks.desktop_icon()
     assert image.mode == "RGBA" and image.size == (1024, 1024)
     alpha = image.getchannel("A")
     bounds = alpha.getbbox()
@@ -77,15 +75,17 @@ def test_desktop_icon_is_large_transparent_and_keeps_android_source(
     assert min(bounds[0], bounds[1], 1024 - bounds[2], 1024 - bounds[3]) >= 36
     assert alpha.getpixel((0, 0)) == alpha.getpixel((1023, 1023)) == 0
     assert alpha.getextrema() == (0, 255)
-    if target == "linux":
-        assert alpha.getpixel((128, 128)) == 0
-        assert alpha.getpixel((512, 64)) == 255
-        assert alpha.getpixel((64, 512)) == 255
-        assert alpha.getpixel((512, 960)) == 255
-        assert alpha.getpixel((960, 512)) == 255
-    colors = image.getcolors(1024 * 1024)
-    assert colors is not None
-    assert sum(count for count, pixel in colors if pixel == (23, 50, 77, 255)) > 1000
+    assert alpha.getpixel((128, 128)) == 0
+    assert alpha.getpixel((512, 64)) == 255
+    assert alpha.getpixel((64, 512)) == 255
+    assert alpha.getpixel((512, 960)) == 255
+    assert alpha.getpixel((960, 512)) == 255
+    with Image.open(source) as canonical:
+        expected = canonical.convert("RGBA").resize((944, 944), Image.Resampling.LANCZOS)
+    actual = image.crop((40, 40, 984, 984))
+    opaque = expected.getchannel("A").point([0] * 255 + [255])
+    difference = ImageChops.difference(actual.convert("RGB"), expected.convert("RGB"))
+    assert ImageChops.multiply(difference, opaque.convert("RGB")).getbbox() is None
     tasks.stage_assets(linux=target == "linux", windows=target == "windows")
     staged = tmp_path / "src/assets"
     with tasks.Image.open(staged / f"icon_{target}.png") as icon:
@@ -187,13 +187,28 @@ def test_android_icon_staging_preserves_precomposed_round_framing(
     assert not staged.exists()
 
 
-def test_app_icon_generates_canonical_currency_artwork(
+@pytest.mark.parametrize("mode", ["RGB", "RGBA"])
+def test_app_icon_imports_artwork_with_clean_transparent_circular_edges(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    mode: str,
 ) -> None:
-    (tmp_path / "assets").mkdir()
+    source = tmp_path / "redesign.png"
+    artwork = Image.new(mode, (1254, 1254), "black" if mode == "RGB" else (0, 0, 0, 0))
+    draw = tasks.ImageDraw.Draw(artwork)
+    draw.ellipse((0, 0, 1247, 1251), fill="#164675")
+    draw.rounded_rectangle((256, 224, 912, 1024), radius=80, fill="#f9fafd")
+    draw.rectangle((400, 400, 600, 600), fill="#051321")
+    draw.rectangle((700, 500, 1040, 720), fill="#ffcd43")
+    artwork.save(source)
+    original = source.read_bytes()
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
-    tasks.app_icon(Context())
+    if mode == "RGB":
+        Program(namespace=Collection(tasks.app_icon)).run(
+            ["inv", "app-icon", "--source", str(source)], exit=False
+        )
+    else:
+        tasks.app_icon(Context(), source=str(source))
     tasks.validate_icon()
     with tasks.Image.open(tmp_path / "assets/icon.png") as image:
         assert image.mode == "RGBA"
@@ -202,22 +217,48 @@ def test_app_icon_generates_canonical_currency_artwork(
             assert alpha.getpixel(point) == 0
         for point in ((512, 8), (8, 512), (512, 1015), (1015, 512)):
             assert alpha.getpixel(point) == 255
-        for x, y, color in (
-            (640, 240, (105, 185, 167)),
-            (260, 300, (255, 255, 255)),
-            (340, 340, (23, 50, 77)),
-            (450, 440, (23, 50, 77)),
-            (780, 500, (244, 207, 118)),
-        ):
-            assert image.getpixel((36 + round(x * 952 / 1024), 36 + round(y * 952 / 1024))) == (
-                *color,
-                255,
-            )
-        bounds = _icon_artwork_mask(image).getbbox()
-        assert bounds is not None
-        assert max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 1024 == pytest.approx(
-            0.65, abs=0.005
+        assert image.getpixel((400, 300)) == (249, 250, 253, 255)
+        assert image.getpixel((350, 400)) == (5, 19, 33, 255)
+        assert image.getpixel((750, 500)) == (255, 205, 67, 255)
+        assert image.getpixel((512, 8)) == (22, 70, 117, 255)
+        pixels = image.tobytes()
+        partial = [
+            pixels[index : index + 4]
+            for index in range(0, len(pixels), 4)
+            if 16 <= pixels[index + 3] < 255
+        ]
+        assert partial
+        assert all(pixel[2] > 70 for pixel in partial)
+    assert source.read_bytes() == original
+    canonical = (tmp_path / "assets/icon.png").read_bytes()
+    tasks.app_icon(Context())
+    assert (tmp_path / "assets/icon.png").read_bytes() == canonical
+
+
+@pytest.mark.parametrize("case", ["missing", "invalid", "nonsquare", "too-small", "empty"])
+def test_app_icon_rejects_bad_sources_without_overwriting_canonical(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case: str
+) -> None:
+    (tmp_path / "assets").mkdir()
+    canonical = tmp_path / "assets/icon.png"
+    Image.new("RGBA", (1024, 1024), "#164675").save(canonical)
+    original = canonical.read_bytes()
+    source = tmp_path / "source.png"
+    if case == "invalid":
+        source.write_bytes(b"not a PNG")
+    elif case != "missing":
+        size = (
+            (1024, 1100)
+            if case == "nonsquare"
+            else (512, 512)
+            if case == "too-small"
+            else (1024, 1024)
         )
+        Image.new("RGB", size, "black" if case == "empty" else "#164675").save(source)
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    with pytest.raises(Exit):
+        tasks.app_icon(Context(), source=str(source))
+    assert canonical.read_bytes() == original
 
 
 def test_linux_development_icon_does_not_modify_shared_client(
@@ -246,7 +287,7 @@ def test_linux_development_icon_does_not_modify_shared_client(
     )
     assert (client / "flet").stat().st_mode & 0o111
     with tasks.Image.open(client / "data/app_icon.png") as icon:
-        assert icon.tobytes() == tasks.desktop_icon(circular=True).tobytes()
+        assert icon.tobytes() == tasks.desktop_icon().tobytes()
     assert (client / "lib").resolve() == stock / "lib"
     assert (client / "data/flutter_assets").resolve() == stock / "data/flutter_assets"
     assert (stock / "flet").read_bytes() == binary
@@ -261,7 +302,7 @@ def test_linux_development_icon_does_not_modify_shared_client(
     tasks.Image.new("RGB", (1024, 1024), "blue").save(root / "assets/icon.png")
     tasks.prepare_linux_dev_client()
     with tasks.Image.open(client / "data/app_icon.png") as icon:
-        assert icon.tobytes() == tasks.desktop_icon(circular=True).tobytes()
+        assert icon.tobytes() == tasks.desktop_icon().tobytes()
     updated_line = next(line for line in entry.read_text().splitlines() if line.startswith("Icon="))
     assert updated_line != icon_line
     updated_icon = Path(updated_line.removeprefix("Icon="))

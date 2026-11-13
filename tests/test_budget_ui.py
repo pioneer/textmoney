@@ -81,6 +81,139 @@ async def load(view: FinanceView, tmp_path: Path, source: str = SOURCE) -> Journ
     return journal
 
 
+@pytest.mark.parametrize("width", [390, 1366])
+def test_unchanged_poll_preserves_rendered_controls(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, width: int
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        page.width = width
+        journal = await load(host, tmp_path)
+        await host._load_shared_defaults()
+        host._apply_layout(width)
+        host._refresh()
+        columns = (
+            host.history,
+            host.home_balances,
+            host.home_activity,
+            host.account_list,
+            host.category_list,
+        )
+        previous = [tuple(column.controls) for column in columns]
+        ledger = journal.ledger
+        for _ in range(3):
+            host.next_icon_poll = 0
+            await host._poll_journal()
+            assert journal.ledger is ledger
+            for column, controls in zip(columns, previous, strict=True):
+                assert len(column.controls) == len(controls)
+                assert all(
+                    current is original
+                    for current, original in zip(column.controls, controls, strict=True)
+                )
+
+    asyncio.run(scenario())
+
+
+def test_poll_refreshes_current_report_when_local_day_changes(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        today = date(2026, 1, 31)
+        monkeypatch.setattr(host, "_today", lambda: today)
+        journal = await load(host, tmp_path)
+        journal.today = host._today
+        await host._load_shared_defaults()
+        host.current_screen = "reports"
+        host._refresh()
+        assert host._report_range == (date(2026, 1, 1), today)
+        january = host._report_data
+        today = date(2026, 2, 1)
+        host.next_icon_poll = float("inf")
+        await host._poll_journal()
+        assert host._report_range == (today, today)
+        assert host._report_data is not january
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failure", [False, True], ids=["updated", "failed"])
+def test_budget_refresh_keeps_cards_until_calculation_finishes(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, failure: bool
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        await load(host, tmp_path)
+        report = host.budgets
+        original = tuple(report.results.controls)
+        started, release = asyncio.Event(), asyncio.Event()
+
+        async def wait_for_order() -> None:
+            started.set()
+            await release.wait()
+            if failure:
+                raise LedgerError("budget_month_error")
+
+        report.load_order = AsyncMock(side_effect=wait_for_order)
+        worker = asyncio.create_task(report.refresh())
+        try:
+            await asyncio.wait_for(started.wait(), timeout=2)
+            assert len(report.results.controls) == len(original)
+            assert all(
+                current is previous
+                for current, previous in zip(report.results.controls, original, strict=True)
+            )
+            assert not report.loading.visible
+        finally:
+            release.set()
+            await worker
+        assert not report.loading.visible
+        assert report.error.visible is failure
+        if failure:
+            assert not report.results.controls
+        else:
+            assert displayed_rows(host)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("selection", ["month", "currency"])
+def test_budget_selection_change_does_not_show_previous_results(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, selection: str
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        await load(host, tmp_path)
+        report = host.budgets
+        assert report.results.controls
+        started, release = asyncio.Event(), asyncio.Event()
+
+        async def wait_for_order() -> None:
+            started.set()
+            await release.wait()
+
+        report.load_order = AsyncMock(side_effect=wait_for_order)
+        if selection == "month":
+            refresh = report._month(1)
+        else:
+            report.currency.value = "USD"
+            refresh = report._refresh_filters()
+        worker = asyncio.create_task(refresh)
+        try:
+            await asyncio.wait_for(started.wait(), timeout=2)
+            assert not report.results.controls
+            assert not report.report_rows
+            assert report.loading.visible
+        finally:
+            release.set()
+            await worker
+        assert not report.loading.visible
+        assert not report.error.visible
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 320)])
 def test_budget_order_dialog_saves_and_resets_without_changing_filters_or_journal(
     view: tuple[FinanceView, MagicMock], tmp_path: Path, language: str, width: int

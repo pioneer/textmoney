@@ -78,6 +78,11 @@ hash-conflict pipeline. Comments and unrelated metadata/directives are preserved
 Stale forms are rejected without discarding input, including after an external
 reload. Budget changes reload through the normal journal polling mechanism.
 No stronger atomic-write guarantee is introduced.
+Unchanged background polls leave rendered controls intact. When recalculating
+the same report after a journal change, existing cards stay visible until their
+replacements are ready. Changing the month or filters shows a loading indicator
+instead of the previous selection's figures. Calculation failures clear old
+results and report an error.
 
 ## Allocation and reports
 

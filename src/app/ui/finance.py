@@ -149,6 +149,7 @@ class FinanceView(ft.Row):
         self.icon_provider = IconifySearch()
         self.icon_revision = 0
         self.next_icon_poll = 0.0
+        self._rendered_key: tuple[object, ...] | None = None
         self.icon_notice = ft.Text("", visible=False, color=ft.Colors.ERROR, selectable=True)
         self.preferences: ft.SharedPreferences | DesktopPreferences | None = None
         self.bridge: FinanceSaf | None = None
@@ -1101,6 +1102,20 @@ class FinanceView(ft.Row):
             ]
         self.home_budgets.render()
 
+    def _refresh_key(self) -> tuple[object, ...]:
+        journal = self.journal
+        ready = bool(journal and journal.ready)
+        return (
+            id(journal),
+            id(journal.ledger) if journal else None,
+            ready,
+            journal.today() if journal and ready else None,
+            self.language,
+            self.icon_revision,
+            self.default_account_id,
+            self.fee_preferences,
+        )
+
     def _refresh(self) -> None:
         self._refresh_external_notices()
         ready = self.journal is not None and self.journal.ready
@@ -1122,6 +1137,7 @@ class FinanceView(ft.Row):
             self.home_activity.controls = [ft.Text(self.tr("home_no_transactions"))]
             self._refresh_labels()
             self._render_reports()
+            self._rendered_key = self._refresh_key()
             return
 
         ledger = self.journal.ledger
@@ -1231,6 +1247,7 @@ class FinanceView(ft.Row):
         self._build_home_layout()
         if self.current_screen == "reports":
             self._render_reports()
+        self._rendered_key = self._refresh_key()
 
     def _sync_operations_filters(self) -> None:
         ready = self.journal is not None and self.journal.ready
@@ -2629,6 +2646,7 @@ class FinanceView(ft.Row):
 
     async def _poll_journal(self) -> None:
         journal = self._require_journal()
+        notices = (tuple(self.possible_conflict_copies), self.sibling_scan_failed)
         await self._scan_conflict_copies()
         try:
             if journal.ready and await journal.poll():
@@ -2639,7 +2657,10 @@ class FinanceView(ft.Row):
                 await self._load_icons()
                 await self._load_shared_defaults()
         finally:
-            self._refresh()
+            if self._refresh_key() != self._rendered_key:
+                self._refresh()
+            elif notices != (tuple(self.possible_conflict_copies), self.sibling_scan_failed):
+                self._refresh_external_notices()
 
     def _effective_zone(self) -> str:
         if self.timezone_name != "system":

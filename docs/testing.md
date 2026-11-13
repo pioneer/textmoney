@@ -61,6 +61,33 @@ Browser previews help inspect layout, not local journal access:
 packaging is not a supported financial-storage target; see [Web deployment](deployment.md).
 Apple build tasks do not establish device-tested iOS/macOS support.
 
+## Background refresh and scrolling
+
+Use an isolated synthetic journal with enough transactions, accounts, categories
+and budgets to make the views scrollable. Check both wide and compact layouts:
+
+- Scroll Home, Transactions, Accounts, Categories and Budgets partway down.
+  Leave each view idle for at least 35 seconds, covering journal polling and
+  the less frequent icon/shared-settings poll. Unchanged data must not rebuild
+  rows, flash budget cards or return the scroll position to the top.
+- Edit the synthetic journal externally while Transactions or Budgets is
+  scrolled. Confirm new data and the external-change notice appear without a
+  scroll-to-top reset. Added or removed content above the viewport can naturally
+  change which rows are visible; this is not item-anchored scrolling.
+- Keep an unsaved form open during polling and an external change. Its input
+  must survive, while stale saves remain rejected.
+- Change the budget month or filters. Previous-selection figures must not
+  appear under the new selection while calculation is pending. Simulate a
+  calculation failure and confirm old cards clear and an error is shown.
+- Exercise a local midnight/month boundary: current-date balances, Home budgets
+  and current-period reports must still update. Preserve an explicitly selected
+  report period.
+
+Linux browser checks at 390 and 1,366 pixels verified stable transaction and
+budget scroll offsets over repeated polls and budget-limit changes. Browser
+compact layout is not verification of physical Android or native Windows
+scrolling; repeat these checks on the target devices.
+
 ## Form and report layout
 
 At desktop and narrow viewport widths, compare the rendered control boundaries,

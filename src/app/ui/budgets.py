@@ -621,6 +621,10 @@ class BudgetView(ft.Column):
         self.scroll_target = None
         self.sync()
         key = self._key()
+        # Retain cards for ledger-only refreshes, not for a different report.
+        if self.cache_key is None or key[0] != self.cache_key[0] or key[2:] != self.cache_key[2:]:
+            self.report_rows = ()
+            self.results.controls = []
         self.cache_key = key
         self.error.visible = False
         journal = self.host.journal
@@ -632,8 +636,7 @@ class BudgetView(ft.Column):
             self.loading.visible = False
             self.host.page.update()
             return
-        self.loading.visible = True
-        self.results.controls = []
+        self.loading.visible = not self.results.controls
         self.host.page.update()
         try:
             await self.load_order()
@@ -670,10 +673,14 @@ class BudgetView(ft.Column):
             self._render(self.report_rows)
         except LedgerError as exc:
             self.reveal_requested = False
+            self.report_rows = ()
+            self.results.controls = []
             self.error.value = localized_error(self.host.language, str(exc))
             self.error.visible = True
         except Exception as exc:
             self.reveal_requested = False
+            self.report_rows = ()
+            self.results.controls = []
             self.host._error(exc, notify=True)
             self.cache_key = None
         finally:

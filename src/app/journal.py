@@ -829,7 +829,8 @@ class Journal:
             raise LedgerError("incoming_category")
 
         self.default_fee_category = identifier or ""
-        self.ledger = replace(self.ledger, default_fee_category=identifier or "")
+        if self.ledger.default_fee_category != self.default_fee_category:
+            self.ledger = replace(self.ledger, default_fee_category=self.default_fee_category)
 
     async def delete_category(self, identifier: str, expected_source: str) -> str | None:
         return await self._delete_declaration(identifier, expected_source, category=True)

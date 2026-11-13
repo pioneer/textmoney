@@ -10,14 +10,13 @@ possible. Keep independent backups of important financial data.
 
 TextMoney is being developed with substantial AI assistance.
 
-![TextMoney v0.4.7 desktop Home with seven sidebar destinations, account icons, liability balances and recent transactions](docs/screenshots/home-desktop.png)
+![TextMoney v0.4.9 desktop Home with account icons, liability balances, recent transactions and the current-month budget preview](docs/screenshots/home-desktop.png)
 
 ## Implemented
 
-This section describes the current source checkout. The latest published release
-is **v0.4.8**; the Home budget preview and Material-like logo redesign were added
-after that release and are not yet included in its downloads. Screenshots show
-v0.4.7 and do not illustrate every current feature.
+This README and its screenshots describe **v0.4.9 (build 57)**, including the
+Home budget preview and Material-like app icon. See
+[GitHub Releases](https://github.com/pioneer/textmoney/releases/latest) for downloads.
 
 - Record and edit expenses with an account, category, amount, date/time and
   description. Add an optional shop/recipient when needed.
@@ -286,17 +285,22 @@ same checks as its primary button. In multiline descriptions, **Shift+Enter**
 adds a new line. Focused buttons and dropdowns keep their normal keyboard actions;
 disabled actions cannot be submitted.
 
-<img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense with account and category icons in TextMoney v0.4.7's compact phone layout" width="360">
+<img src="docs/screenshots/expense-mobile.png" alt="Editing a EUR expense with account and category icons in TextMoney v0.4.9's compact phone layout" width="360">
 
 *Editing an expense in the compact layout. All screenshots use synthetic data
-from TextMoney v0.4.7 (build 55), not a personal journal.*
+from TextMoney v0.4.9 (build 57), not a personal journal.*
 
-<img src="docs/screenshots/navigation-mobile.png" alt="TextMoney v0.4.7's four mobile bottom destinations and More menu for Accounts and Categories, beside the Settings gear" width="360">
+<img src="docs/screenshots/navigation-mobile.png" alt="TextMoney v0.4.9's four mobile bottom destinations and More menu for Accounts and Categories, beside the Settings gear" width="360">
 
 *The mobile More menu opens Accounts and Categories directly. The bottom bar
 and menu follow the same destination order as the desktop sidebar.*
 
-![TextMoney v0.4.7's unified Budgets screen, with Create budget and Budget history actions, effective limit dates and per-card actions](docs/screenshots/budgets-desktop.png)
+<img src="docs/screenshots/home-mobile.png" alt="TextMoney v0.4.9 single-column Home with balances, recent activity and a three-row budget preview" width="360">
+
+*On a phone, the budget preview follows recent activity. Its heading arrow opens
+the full current-month list; the remaining-budget count is informational.*
+
+![TextMoney v0.4.9's unified Budgets screen, with budget ordering, effective limit dates and per-card actions](docs/screenshots/budgets-desktop.png)
 
 *Budgets keeps the selected month visible and filters tucked away. Dated limit
 history is available separately without switching tabs.*
@@ -314,7 +318,7 @@ transfer fees remain expenses while transfer/loan principal and balance
 adjustments are excluded. Amounts in different currencies are always shown
 separately; reports do not infer exchange rates.
 
-![TextMoney v0.4.7 Reports in the desktop layout, with EUR income, expenses, net result and hierarchical category totals](docs/screenshots/reports-desktop.png)
+![TextMoney v0.4.9 Reports in the desktop layout, with EUR income, expenses, net result and hierarchical category totals](docs/screenshots/reports-desktop.png)
 
 *A monthly report with separate income and expense category breakdowns.*
 
@@ -405,11 +409,9 @@ record historical behavior, not current instructions.
 
 ## Version history
 
-Current source also includes the unreleased Home budget preview and redesigned
-Material-like app icon. Release rows below describe published downloads only.
-
 | Version | Highlights |
 | --- | --- |
+| [0.4.9](https://github.com/pioneer/textmoney/releases/tag/v0.4.9) | Current-month Home budget preview with progress, usage ranking and a persisted visibility toggle; matching Home heading shortcuts; Material-like app icon with Android/Linux/Windows variants. Beta documentation and refreshed screenshots. Android build 57. |
 | [0.4.8](https://github.com/pioneer/textmoney/releases/tag/v0.4.8) | Shared manual budget ordering; refined budget-card spacing; taller compact category menus; circular app icons with Android-safe and desktop framing. Android build 56. |
 | [0.4.7](https://github.com/pioneer/textmoney/releases/tag/v0.4.7) | Direct Budgets, Accounts and Categories destinations; shared mobile bottom-bar/More navigation; unified budgets with dated limit history; consistent toolbars and row hover feedback. Refreshed screenshots. Android build 55. |
 | [0.4.3](https://github.com/pioneer/textmoney/releases/tag/v0.4.3) | White light-theme surfaces with restrained mint accents; clearer transaction icons, calendar headings and status indicators; consistent selectors and inline deletion warnings; top-aligned Home balances. Refreshed screenshots. Android build 51. |

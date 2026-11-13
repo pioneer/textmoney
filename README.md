@@ -55,6 +55,9 @@ editing on another device.
   of each monthly budget you’ve used, right from the home screen.
 
 Available in English, Ukrainian, and Russian.
+Developers are welcome to submit a pull request with translation corrections
+or a new language; see the [translation guide](docs/localization.md).
+Weblate integration may be added in the future; it is not configured yet.
 
 ## Get started
 

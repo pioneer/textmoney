@@ -17,7 +17,7 @@ from app.domain.budgets import Budget
 from app.domain.ledger import EQUITY, Posting, Transaction
 from app.domain.reporting import period_report
 from app.icons import IconAsset, IconError, normalize_image
-from app.infrastructure.icon_sources import IconifySearch, bundled_icons
+from app.infrastructure.icon_sources import bundled_icons
 from app.journal import FILENAME, Journal
 from app.localization import format_amount
 from app.storage import StorageError
@@ -658,13 +658,55 @@ def test_failed_save_retains_selection_and_does_not_close_picker(
     async def scenario() -> None:
         session, _view, _journal = await finance_session(tmp_path, monkeypatch)
         persist = AsyncMock(side_effect=IconError("icon_storage"))
-        picker = IconPicker(session.page, "en", asset(), IconifySearch(), persist)
+        picker = IconPicker(session.page, "en", asset(), persist)
         show_dialog(session.page, picker)
         await session.dispatch_event(picker.search._i, "focus", {})
         await press(session, "Enter")
         assert picker.open and picker.selected == asset()
         assert "permissions" in (picker.status.value or "")
         assert not picker.submit.disabled and not picker.cancel.disabled
+
+    asyncio.run(scenario())
+
+
+def test_picker_search_uses_bundled_catalogue_without_online_action(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        picker = IconPicker(session.page, "en", None, AsyncMock())
+        assert len(picker.results.controls) == 100
+        assert not any(
+            "online" in (control.value or "").casefold()
+            for control in walk(picker)
+            if isinstance(control, ft.Text)
+        )
+        picker.search.value = "банк"
+        picker._local(MagicMock(control=picker.search))
+        assert picker.results.controls[0].data == bundled_icons("банк")[0]
+
+    asyncio.run(scenario())
+
+
+def test_picker_search_finds_previously_assigned_icons(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        _session, view, journal = await finance_session(tmp_path, monkeypatch)
+        view.icons = store_at(tmp_path)
+        await view.icons.load()
+        legacy = asset("monobank")
+        await view.icons.assign("Assets:Bank", legacy, ())
+
+        view._open_icon_picker(journal, "Assets:Bank")
+        picker = view.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        picker.search.value = "monobank"
+        picker._local(MagicMock(control=picker.search))
+        assert any(
+            isinstance(control, ft.TextButton) and control.data == legacy
+            for control in picker.results.controls
+        )
 
     asyncio.run(scenario())
 
@@ -685,7 +727,7 @@ def test_import_resizes_previews_and_requires_explicit_save(
                 ]
             ),
         )
-        picker = IconPicker(session.page, "en", None, IconifySearch(), persist)
+        picker = IconPicker(session.page, "en", None, persist)
         show_dialog(session.page, picker)
         await click_async(picker.import_button)
         assert picker.selected is not None
@@ -715,7 +757,7 @@ def test_invalid_import_never_appears_as_candidate_or_replaces_draft(
                 return_value=[ft.FilePickerFile(id=1, name="small.png", size=len(data), bytes=data)]
             ),
         )
-        picker = IconPicker(session.page, "en", asset(), IconifySearch(), AsyncMock())
+        picker = IconPicker(session.page, "en", asset(), AsyncMock())
         show_dialog(session.page, picker)
         original = list(picker.results.controls)
         await click_async(picker.import_button)
@@ -1012,7 +1054,7 @@ def test_busy_save_disables_escape_and_duplicate_submission(
             await release.wait()
 
         save = AsyncMock(side_effect=persist)
-        picker = IconPicker(session.page, "en", asset(), IconifySearch(), save)
+        picker = IconPicker(session.page, "en", asset(), save)
         show_dialog(session.page, picker)
         task = asyncio.create_task(click_async(picker.submit))
         try:

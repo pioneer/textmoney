@@ -1,14 +1,14 @@
-"""Three-source icon picker. Selection remains a draft until Save succeeds."""
+"""Offline icon catalogue and image picker."""
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 
 import flet as ft
 
 from app.domain.storage import ConflictError
 from app.icons import DISPLAY_SIZE, MAX_INPUT, IconAsset, IconError, normalize_image
-from app.infrastructure.icon_sources import IconifySearch, bundled_icons
+from app.infrastructure.icon_sources import search_icons
 from app.localization import translate
 from app.storage import StorageError
 from app.ui.dialogs import show_dialog
@@ -29,10 +29,12 @@ def icon_image(asset: IconAsset) -> ft.Image:
 
 
 class IconDraft(ft.Column):
-    def __init__(self, page: ft.Page, language: str, provider: IconifySearch) -> None:
+    def __init__(
+        self, page: ft.Page, language: str, existing_icons: Iterable[IconAsset] = ()
+    ) -> None:
         self.owner = page
         self.language = language
-        self.provider = provider
+        self.existing_icons = tuple(existing_icons)
         self.selected: IconAsset | None = None
         self.preview = ft.Row(spacing=8, visible=False)
         self.choose_button = ft.TextButton(
@@ -55,7 +57,13 @@ class IconDraft(ft.Column):
 
         show_dialog(
             self.owner,
-            IconPicker(self.owner, self.language, self.selected, self.provider, select),
+            IconPicker(
+                self.owner,
+                self.language,
+                self.selected,
+                select,
+                existing_icons=self.existing_icons,
+            ),
         )
 
 
@@ -65,22 +73,22 @@ class IconPicker(ft.AlertDialog):
         page: ft.Page,
         language: str,
         current: IconAsset | None,
-        provider: IconifySearch,
         save: Callable[[IconAsset | None], Awaitable[None]],
         *,
+        existing_icons: Iterable[IconAsset] = (),
         conflict: bool = False,
     ) -> None:
         self.owner = page
         self.language = language
-        self.provider = provider
         self.persist = save
         self.selected = current
+        self.existing_icons = tuple(existing_icons)
         self.busy = False
         self.search = ft.TextField(label=self.tr("icon_search"), on_change=self._local)
-        self.online = ft.TextButton(self.tr("icon_online"), on_click=self._online)
         self.import_button = ft.TextButton(self.tr("icon_import"), on_click=self._import)
         self.remove = ft.TextButton(self.tr("icon_remove"), on_click=self._remove)
         self.results = ft.Column(spacing=4)
+        self.results_limit = ft.Text(self.tr("icon_results_limit"), size=12)
         self.preview = ft.Row(spacing=8)
         self.credit = ft.Text(size=12, selectable=True)
         self.license_text = ft.Text(size=12, selectable=True)
@@ -96,7 +104,7 @@ class IconPicker(ft.AlertDialog):
                 [
                     self.search,
                     ft.Text(self.tr("icon_privacy"), size=12),
-                    ft.Row([self.online, self.import_button], wrap=True),
+                    self.import_button,
                     ft.Text(self.tr("icon_conflicts"), visible=conflict, color=ft.Colors.ERROR),
                     self.progress,
                     self.status,
@@ -107,6 +115,7 @@ class IconPicker(ft.AlertDialog):
                         controls=[self.credit, self.license_text],
                         maintain_state=True,
                     ),
+                    self.results_limit,
                     self.results,
                 ],
                 width=420,
@@ -116,7 +125,7 @@ class IconPicker(ft.AlertDialog):
             actions=[self.cancel, self.submit],
         )
         self._selection()
-        self._show(bundled_icons())
+        self._show(search_icons("", self.existing_icons))
 
     def tr(self, key: str) -> str:
         return translate(self.language, key)
@@ -167,7 +176,7 @@ class IconPicker(ft.AlertDialog):
     def _local(self, event: ft.Event[ft.TextField]) -> None:
         if not self.busy:
             self.status.value = ""
-            self._show(bundled_icons(self.search.value or ""))
+            self._show(search_icons(self.search.value or "", self.existing_icons))
             self.owner.update()
 
     async def _run(self, action: Callable[[], Awaitable[None]]) -> None:
@@ -178,7 +187,6 @@ class IconPicker(ft.AlertDialog):
         self.progress.visible = True
         for control in (
             self.search,
-            self.online,
             self.import_button,
             self.cancel,
             self.submit,
@@ -203,7 +211,6 @@ class IconPicker(ft.AlertDialog):
             self.progress.visible = False
             for control in (
                 self.search,
-                self.online,
                 self.import_button,
                 self.cancel,
                 self.submit,
@@ -212,13 +219,6 @@ class IconPicker(ft.AlertDialog):
                 control.disabled = False
             self._selection()
             self.owner.update()
-
-    async def _online(self, event: ft.Event[ft.TextButton]) -> None:
-        async def search() -> None:
-            self.results.controls = []
-            self._show(await self.provider.search(self.search.value or ""))
-
-        await self._run(search)
 
     async def _import(self, event: ft.Event[ft.TextButton]) -> None:
         async def pick() -> None:

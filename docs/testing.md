@@ -42,8 +42,9 @@ Add success and meaningful failure cases, cancellation/timeouts when relevant,
 and verify no sensitive values appear in logs. Keep UI tests about state and
 behavior, not incidental control ordering. Do not mock the decision under test.
 
-Entity-icon tests use synthetic images, temporary sidecars and a fake Iconify
-transport. They check exact pixel/proportion thresholds, raster normalization,
+Entity-icon tests use a bundled offline catalogue, synthetic images and temporary
+sidecars. They check catalogue filtering and limits, exact pixel/proportion
+thresholds, raster normalization,
 inert SVG validation, style ordering, license retention, offline restart, stale
 and concurrent assignments, migration, explicit I/O failures, UI propagation and
 real Flet modal keyboard dispatch with retained parent drafts. See

@@ -2,8 +2,8 @@
 
 TextMoney records everyday finances in a single local `textmoney.beancount`
 journal. Core tracking works offline, without sign-up, a backend service or
-app-managed cloud storage. Optional online icon search contacts Iconify only
-when requested. Before opening an existing Beancount book, check the
+app-managed cloud storage. Icon search uses the bundled catalogue and does not
+make network requests. Before opening an existing Beancount book, check the
 [supported journal format](journal-format.md); not every valid book is supported.
 
 TextMoney is in beta. Keep an independent backup and follow
@@ -37,7 +37,7 @@ physical Android captures.
 Account/category creation offers **Choose icon** with a preview. The same picker
 is available in an existing item's Edit dialog and when creating a category
 inside a transaction. Canceling creation does not save the icon or lose the
-unsaved transaction. See [icons, imports and online search](entity-icons.md)
+unsaved transaction. See [icons and imports](entity-icons.md)
 for validation, offline attribution and storage.
 
 Opening balances are not current income or expenses. Their transaction rows use

@@ -1,11 +1,11 @@
 import asyncio
+import gzip
 import io
 import json
 from hashlib import sha256
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-import httpx
 import pytest
 from PIL import Image
 
@@ -14,7 +14,7 @@ from app.icons import MAX_INPUT, IconAsset, IconError, IconStore, normalize_imag
 from app.infrastructure.android_storage import AndroidFolder
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.icon_files import AndroidIconFiles, DesktopIconFiles
-from app.infrastructure.icon_sources import DATA, IconifySearch, bundled_icons, style_rank
+from app.infrastructure.icon_sources import DATA, MAX_RESULTS, bundled_icons
 
 SVG = (
     b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
@@ -115,34 +115,31 @@ def test_svg_scalability_and_asset_license_roundtrip() -> None:
 
 
 def test_bundled_catalogue_is_licensed_offline_searchable_and_valid() -> None:
+    catalogue_counts = {}
+    for prefix in ("ic", "material-symbols", "simple-icons", "logos"):
+        with gzip.open(DATA / f"{prefix}.json.gz", "rt", encoding="utf-8") as source:
+            catalogue_counts[prefix] = len(json.load(source)["icons"])
     icons = bundled_icons()
-    assert len(icons) == 30
+    assert catalogue_counts["ic"] >= 10_000
+    assert catalogue_counts["material-symbols"] >= 15_000
+    assert catalogue_counts["simple-icons"] >= 3_000
+    assert catalogue_counts["logos"] >= 1_000
+    assert sum(catalogue_counts.values()) >= 31_000
+    assert len(icons) == MAX_RESULTS
     assert all(icon.monochrome and icon.license == "Apache-2.0" for icon in icons)
+    assert all(icon.label.startswith("outline-") for icon in icons)
     assert all("TERMS AND CONDITIONS" in icon.license_text for icon in icons)
     assert all(normalize_image(icon.data)[1] for icon in icons)
     assert bundled_icons("bank")[0].label == "outline-account-balance"
     assert bundled_icons("банк")[0].label == "outline-account-balance"
     assert bundled_icons("продукти")[0].label == "outline-shopping-cart"
+    assert any(" · material-symbols:" in icon.source for icon in bundled_icons("home"))
+    assert any(" · material-symbols:home" in icon.source for icon in bundled_icons("home-sharp"))
+    github = bundled_icons("github")
+    assert any(" · simple-icons:" in icon.source for icon in github)
+    assert any(" · logos:" in icon.source for icon in github)
+    assert all(icon.license == "CC0-1.0" for icon in github)
     assert bundled_icons("unfindable") == []
-
-
-def test_style_rank_keeps_other_styles_far_below_matching_material() -> None:
-    assert sorted(
-        [
-            "logos:bank",
-            "simple-icons:bank",
-            "ic:baseline-bank",
-            "ic:outline-bank",
-            "material-symbols:bank-outline",
-        ],
-        key=style_rank,
-    ) == [
-        "ic:outline-bank",
-        "material-symbols:bank-outline",
-        "ic:baseline-bank",
-        "simple-icons:bank",
-        "logos:bank",
-    ]
 
 
 def test_assign_remove_restart_and_external_sync_do_not_touch_journal(tmp_path: Path) -> None:
@@ -315,84 +312,6 @@ def test_sidecar_symlinks_are_rejected(tmp_path: Path) -> None:
     directory.symlink_to(outside, target_is_directory=True)
     with pytest.raises(IconError, match="icon_storage"):
         asyncio.run(store_at(tmp_path).load())
-
-
-def test_online_search_validates_ranks_and_caches_without_following_external_urls() -> None:
-    requests: list[httpx.Request] = []
-
-    def handle(request: httpx.Request) -> httpx.Response:
-        requests.append(request)
-        assert request.url.host == "api.iconify.design"
-        if request.url.path == "/search":
-            assert request.url.params["query"] == "synthetic"
-            assert request.url.params["prefixes"] == "ic,material-symbols,simple-icons,logos"
-            return httpx.Response(
-                200,
-                json={
-                    "icons": [
-                        "logos:color",
-                        "ic:outline-bank",
-                        "arcticons:monobank",
-                        "evil:private",
-                    ]
-                },
-            )
-        prefix = request.url.path.strip("/").removesuffix(".json")
-        name = {"ic": "outline-bank", "logos": "color"}[prefix]
-        return httpx.Response(
-            200,
-            json={
-                "width": 24,
-                "height": 24,
-                "icons": {name: {"body": '<path fill="currentColor" d="M0 0h24v24H0z"/>'}},
-            },
-        )
-
-    async def scenario() -> None:
-        search = IconifySearch(httpx.MockTransport(handle))
-        results = await search.search("synthetic")
-        assert [icon.label for icon in results] == ["outline-bank", "color"]
-        assert results[0].monochrome and not results[-1].monochrome
-        assert all(icon.license_text for icon in results)
-        assert all(IconAsset.parse(icon.serialize()) == icon for icon in results)
-        assert await search.search("synthetic") == results
-        assert len(requests) == 3
-        with pytest.raises(IconError, match="icon_rate_limited"):
-            await search.search("another")
-
-    asyncio.run(scenario())
-
-
-def test_online_search_with_only_excluded_thin_line_icons_has_no_candidates() -> None:
-    requests: list[httpx.Request] = []
-
-    def handle(request: httpx.Request) -> httpx.Response:
-        requests.append(request)
-        assert request.url.path == "/search"
-        return httpx.Response(200, json={"icons": ["arcticons:feedback", "arcticons:monobank"]})
-
-    async def scenario() -> None:
-        search = IconifySearch(httpx.MockTransport(handle))
-        assert await search.search("feedback") == []
-        assert len(requests) == 1
-
-    asyncio.run(scenario())
-
-
-@pytest.mark.parametrize("status", [429, 403, 500, 302])
-def test_provider_failures_are_explicit_and_never_redirect(status: int) -> None:
-    async def scenario() -> None:
-        search = IconifySearch(
-            httpx.MockTransport(
-                lambda _: httpx.Response(status, headers={"Location": "http://127.0.0.1/secret"})
-            )
-        )
-        with pytest.raises(
-            IconError, match="icon_rate_limited" if status == 429 else "icon_online_failed"
-        ):
-            await search.search("synthetic")
-
-    asyncio.run(scenario())
 
 
 def test_android_sidecar_transport_and_invalid_responses() -> None:

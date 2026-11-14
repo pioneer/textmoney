@@ -55,7 +55,6 @@ from app.icons import IconAsset, IconError, IconStore
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.icon_files import AndroidIconFiles, DesktopIconFiles
-from app.infrastructure.icon_sources import IconifySearch
 from app.infrastructure.preferences import (
     DesktopPreferences,
     FeePreferences,
@@ -148,7 +147,6 @@ class FinanceView(ft.Row):
         super().__init__(expand=True, spacing=0, alignment=ft.MainAxisAlignment.CENTER)
         self.journal: Journal | None = None
         self.icons: IconStore | None = None
-        self.icon_provider = IconifySearch()
         self.icon_revision = 0
         self.next_icon_poll = 0.0
         self._rendered_key: tuple[object, ...] | None = None
@@ -1862,8 +1860,8 @@ class FinanceView(ft.Row):
                 self.page,
                 self.language,
                 store.assets.get(identifier),
-                self.icon_provider,
                 save,
+                existing_icons=store.assets.values(),
                 conflict=identifier in store.conflicts,
             ),
         )
@@ -4040,8 +4038,12 @@ class FinanceView(ft.Row):
                 self._error(exc, notify=True)
 
         def create_category_dialog(event: ft.Event[ft.IconButton]) -> None:
-            icon = IconDraft(self.page, self.language, self.icon_provider)
             icon_store = self.icons
+            icon = IconDraft(
+                self.page,
+                self.language,
+                icon_store.assets.values() if icon_store is not None else (),
+            )
             icon_heads = dict(icon_store.heads) if icon_store is not None else {}
             try:
                 category_opened_default = date.fromisoformat(when.values()[0])
@@ -5075,8 +5077,12 @@ class FinanceView(ft.Row):
     def _create_account(self, event: ft.Event[ft.Button]) -> None:
         journal = self._require_journal()
         source = journal.source
-        icon = IconDraft(self.page, self.language, self.icon_provider)
         icon_store = self.icons
+        icon = IconDraft(
+            self.page,
+            self.language,
+            icon_store.assets.values() if icon_store is not None else (),
+        )
         icon_heads = dict(icon_store.heads) if icon_store is not None else {}
         identifier = ""
         today = self._today()
@@ -5374,8 +5380,12 @@ class FinanceView(ft.Row):
     def _create_category(self, event: ft.Event[ft.Button]) -> None:
         journal = self._require_journal()
         source = journal.source
-        icon = IconDraft(self.page, self.language, self.icon_provider)
         icon_store = self.icons
+        icon = IconDraft(
+            self.page,
+            self.language,
+            icon_store.assets.values() if icon_store is not None else (),
+        )
         icon_heads = dict(icon_store.heads) if icon_store is not None else {}
         identifier = ""
         category_opened = DateTimeFields(

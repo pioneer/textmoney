@@ -8,33 +8,26 @@ a preview; the assignment is written only after creating the account/category.
 Canceling the picker keeps the previous draft; canceling creation discards it.
 Select a candidate, then Save; Remove icon also requires Save.
 
-- **Choose icon** searches 30 bundled Google Material outlined icons offline.
-  Search recognizes common English, Ukrainian and Russian category terms.
-- **Search more online** sends only the explicitly entered query to Iconify.
-  Nothing is searched automatically from account names, transactions or balances.
-  No API key, account or developer-operated server is needed. Searches are cached
-  for the app session and rate-limited; public-service availability is not
-  guaranteed. There is no scraping, automatic retry or alternative-host bypass.
+- **Choose icon** searches offline snapshots of all four collections formerly
+  searched online: Material Icons, Material Symbols, Simple Icons and SVG Logos.
+  The snapshots contain over 31,000 icons that pass the existing safety and
+  proportion checks. Search recognizes icon names, collection aliases, categories,
+  and common English, Ukrainian and Russian category terms; up to 100 matches are
+  shown. Icons already assigned to accounts or categories are included too.
+  Search stays on the device.
 - **Import image** uses Flet's file picker with `with_data=True`, including on
   Android; imported bytes are not treated as filesystem paths. Users must have
   the rights to use their images. Importing/resizing does not change those rights.
 
-Online search covers Material Icons, Material Symbols, Simple Icons
-and SVG Logos. The restricted collection list permits shipping and retaining
-their license texts and attribution, rather than assuming every Iconify
-collection has the same terms. Matching outlined Material results come first,
-then other Material, then Simple Icons, then colored SVG Logos.
-This is deterministic collection/style ranking, not visual AI classification.
-Arcticons is excluded entirely from online results: its thin strokes do not match
-the app at small display sizes. Previously assigned Arcticons assets and their
-attribution remain available offline; imports are unchanged. This also removes the Arcticons
-Monobank result. Coverage of individual brands such as Monobank and Silpo is not
-guaranteed; import remains the fallback. Other collections are not subject to
-automatic per-image stroke-thickness analysis.
+Material Icons and Material Symbols are preferred for their consistent
+monochrome style at small display sizes. Simple Icons and SVG Logos are also
+available, preserving their original color treatment where applicable. Candidates
+that fail the existing SVG-safety or proportion checks are excluded. Search also
+includes previously assigned icons and their original attribution.
 
 ## Validation and display
 
-Every downloaded/imported candidate is validated before appearing. Inline images display
+Every bundled/imported candidate is validated before appearing. Inline images display
 at **16 logical pixels** with proportions preserved, including picker previews.
 Transaction rows use a **25.92-pixel** leading image in a 40-pixel-wide rounded,
 theme-aware secondary-container background spanning the title and details.
@@ -116,28 +109,28 @@ not be individually pruned because later revisions can refer to them.
 
 ## Licensing
 
-Bundled Google Material artwork is Apache-2.0. Its source snapshot and full license
-are in `src/app/icon_catalogue/`. Online Material collections use Apache-2.0,
-and Simple Icons/SVG Logos CC0-1.0. Previously assigned Arcticons assets retain
-their CC-BY-SA-4.0 attribution and license; the full text remains bundled.
+Bundled Google Material Icons and Material Symbols are Apache-2.0. Simple Icons
+and SVG Logos are CC0-1.0. Their source snapshots and full license texts are in
+`src/app/icon_catalogue/`. Previously assigned Arcticons assets retain their
+CC-BY-SA-4.0 attribution and license; the full text remains bundled.
 The picker exposes source and license information for the selected asset.
 Normalized artwork is marked as modified; CC-BY-SA assets retain their license.
 Collection licensing does not grant trademark rights or override restrictions
 that a brand places on its marks. Imported assets are marked user-provided with
 unverified rights; the app does not invent an open license for them.
 
-Sources: [Iconify public API](https://iconify.design/docs/api/),
-[Material Icons](https://github.com/google/material-design-icons),
-[Arcticons](https://github.com/Arcticons-Team/Arcticons),
+Sources: [Material Icons](https://github.com/material-icons/material-icons),
+[Material Symbols](https://github.com/google/material-design-icons),
 [Simple Icons](https://github.com/simple-icons/simple-icons),
-[SVG Logos](https://github.com/gilbarbara/logos).
+[SVG Logos](https://github.com/gilbarbara/logos), and the
+[Iconify collection snapshots](https://github.com/iconify/icon-sets/tree/master/json).
 
 ## Validation status
 
 The implementation passed `uv run inv check`, Windows-target Pyright and
 `uv run inv build-android`. APK inspection confirmed the catalogue, license texts
 and native Pillow libraries are packaged. Synthetic browser checks covered
-bundled selection, online search, attribution, image import, saving,
+offline catalogue selection, attribution, image import, saving,
 restart persistence, nested categories and daily reports at narrow widths.
 The 16px display size was measured in browser-rendered Home balances/transaction
 rows at narrow and desktop widths, and in picker candidates and previews.

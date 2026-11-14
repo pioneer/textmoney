@@ -17,14 +17,14 @@ src/app/localization.py    gettext catalog loading, runtime language discovery a
 src/app/timekeeping.py     default clock and native date-picker timezone transport
 src/app/ui/datetime_fields.py shared manual/date-picker/time-picker controls
 src/app/ui/dialogs.py       shared desktop popup Escape/Cancel and Enter/Submit behavior
-src/app/ui/icons.py         optional offline/online/import icon picker
+src/app/ui/icons.py         optional offline catalogue/import icon picker
 src/app/icons.py            validated icon assets and immutable sidecar assignment policy
 src/app/shared_defaults.py  journal-scoped immutable default account/commission revisions
 src/app/budget_order.py     isolated budget-order revision group using shared sidecar mechanics
 src/app/domain/budget_order.py hierarchy-preserving budget presentation ordering
 src/app/infrastructure/record_files.py bounded desktop/SAF immutable-record I/O
 src/app/infrastructure/icon_files.py icon-specific record policy
-src/app/infrastructure/icon_sources.py bundled catalogue and explicit Iconify requests
+src/app/infrastructure/icon_sources.py offline snapshots of former icon collections
 src/app/icon_catalogue/     vendored Material artwork and source license texts
 src/app/ui/beancount.py    separate bundled-fixture action; lazy parser import
 src/app/beancount_diagnostics.py   pure-Python syntax/editing/quantity experiment, not a full engine
@@ -72,8 +72,9 @@ without losing a parent draft; Shift+Enter inserts multiline text.
 Application-owned dialogs must use the shared `app.ui.dialogs.show_dialog` helper.
 
 Optional [entity icons](entity-icons.md) are stored beside the journal in an
-append-only sidecar directory, never in Beancount metadata. Network lookup is
-explicit and limited to Iconify; assigned images and attribution render offline.
+append-only sidecar directory, never in Beancount metadata. Icon selection uses
+the bundled offline catalogue or a user-imported image; assigned images and
+attribution render offline.
 Icon failures do not disable otherwise-valid financial journal access.
 
 [Shared defaults](shared-settings.md) use a separate `textmoney-settings/`

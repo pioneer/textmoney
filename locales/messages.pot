@@ -48,7 +48,7 @@ msgstr ""
 msgid "ui.icon_search"
 msgstr ""
 
-msgid "ui.icon_online"
+msgid "ui.icon_results_limit"
 msgstr ""
 
 msgid "ui.icon_import"
@@ -78,9 +78,6 @@ msgstr ""
 msgid "ui.icon_no_results"
 msgstr ""
 
-msgid "ui.icon_no_suitable"
-msgstr ""
-
 msgid "ui.icon_dimensions"
 msgstr ""
 
@@ -91,15 +88,6 @@ msgid "ui.icon_svg"
 msgstr ""
 
 msgid "ui.icon_format"
-msgstr ""
-
-msgid "ui.icon_query_invalid"
-msgstr ""
-
-msgid "ui.icon_online_failed"
-msgstr ""
-
-msgid "ui.icon_rate_limited"
 msgstr ""
 
 msgid "ui.icon_import_failed"

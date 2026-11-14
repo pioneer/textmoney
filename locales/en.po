@@ -50,8 +50,8 @@ msgstr "The Home budget setting is invalid. Check settings storage."
 msgid "ui.icon_search"
 msgstr "Search icons"
 
-msgid "ui.icon_online"
-msgstr "Search more online"
+msgid "ui.icon_results_limit"
+msgstr "Up to 100 matches are shown. Add search terms to narrow results."
 
 msgid "ui.icon_import"
 msgstr "Import image"
@@ -66,7 +66,7 @@ msgid "ui.icon_attribution"
 msgstr "Source and license"
 
 msgid "ui.icon_privacy"
-msgstr "Bundled icons work offline. Online search sends only your entered search text to Iconify. Assigned icons are saved beside your journal."
+msgstr "The bundled catalogue is searched on this device. No network request is made; assigned icons are saved beside your journal."
 
 msgid "ui.icon_import_notice"
 msgstr "Import only images you have permission to use. Resizing does not change copyright or trademark rights."
@@ -78,10 +78,7 @@ msgid "ui.icon_user_license"
 msgstr "User-provided; rights not verified"
 
 msgid "ui.icon_no_results"
-msgstr "No matching icons. Try another term, search online, or import an image."
-
-msgid "ui.icon_no_suitable"
-msgstr "No suitable icons: unsafe SVGs and unsuitable proportions were excluded."
+msgstr "No matching icons. Try another term or import an image."
 
 msgid "ui.icon_dimensions"
 msgstr "Choose an image with an aspect ratio between 1:2 and 2:1. Raster images need at least 48 pixels on each side and at most 4096."
@@ -94,15 +91,6 @@ msgstr "This SVG is unsupported. Use a simple SVG with a viewBox and paths/shape
 
 msgid "ui.icon_format"
 msgstr "Cannot read this image. Choose a valid, non-animated PNG, JPEG, WebP or simple SVG."
-
-msgid "ui.icon_query_invalid"
-msgstr "Enter a search term of 1–120 characters."
-
-msgid "ui.icon_online_failed"
-msgstr "Iconify search failed. Check your connection and try again. Bundled icons and image import remain available."
-
-msgid "ui.icon_rate_limited"
-msgstr "Please wait before searching again. Iconify may temporarily limit requests."
 
 msgid "ui.icon_import_failed"
 msgstr "The picker did not return image bytes. Try selecting the file again."

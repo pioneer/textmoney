@@ -77,6 +77,7 @@ the file; some supported transactions are view-only.
 
 | You want to… | Read |
 | --- | --- |
+| Get an overview of current features and limits | [Feature overview](docs/features.md) |
 | Record expenses, income, refunds, transfers or debt repayments | [User guide](docs/user-guide.md) |
 | Set spending limits and review monthly budgets | [Budgeting](docs/budgets.md) |
 | Understand spending reports and currency-separated totals | [Reporting](docs/reporting.md) |

@@ -11,6 +11,11 @@ Releases include `SHA256SUMS` for the five binaries. No Python, uv, or platform
 build tools are needed to run these downloads. macOS, iOS and browser storage
 are not supported release distributions.
 
+macOS and iOS may be possible future targets, but are not currently released or
+validated. The main developer does not have Apple devices to test them; available
+build tasks do not establish working application support. See
+[development and build targets](development.md#packaging).
+
 TextMoney is beta software. Keep an independent backup of important financial
 data before installing or updating. Store your journal outside the application
 installation directory. See the [user guide](user-guide.md) for app workflows.

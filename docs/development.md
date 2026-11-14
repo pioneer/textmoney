@@ -109,7 +109,8 @@ ship obsolete renamed-module bytecode. Source files are preserved.
 
 This table lists available tooling, not certified application support. Published
 distributions target Android, Linux and Windows. iOS/macOS tasks remain
-unvalidated application targets; web packaging does not add local-folder access.
+unvalidated application targets; the main developer does not have Apple devices
+to test them. Web packaging does not add local-folder access.
 
 Flet installs its required Flutter version when unavailable, and JDK/Android SDK
 components for Android targets. Build and mobile-debug tasks pass `--yes`, so

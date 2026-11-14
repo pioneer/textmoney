@@ -60,7 +60,8 @@ build smoke tests, not store certification.
 Browser previews help inspect layout, not local journal access:
 `FilePicker.get_directory_path()` is unsupported in web mode. Static/Pyodide
 packaging is not a supported financial-storage target; see [Web deployment](deployment.md).
-Apple build tasks do not establish device-tested iOS/macOS support.
+Apple build tasks do not establish device-tested iOS/macOS support. The main
+developer does not have Apple devices to validate app behavior on those platforms.
 
 ## Background refresh and scrolling
 

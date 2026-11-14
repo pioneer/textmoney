@@ -45,6 +45,7 @@ from app.domain.reporting import (
     CurrencyReport,
     PeriodReport,
     account_balances,
+    category_transactions,
     currency_totals,
     period_bounds,
     period_report,
@@ -1445,6 +1446,24 @@ class FinanceView(ft.Row):
                 ),
             )
 
+        def category_section(
+            title: str,
+            categories: tuple[CategoryReport, ...],
+            unassigned: tuple[tuple[str, Decimal], ...],
+            currency: str,
+            total: Decimal,
+            root: str,
+        ) -> ft.Column:
+            def open_transactions(identifier: str | None, name: str) -> None:
+                transactions = category_transactions(ledger, start, end, currency, root, identifier)
+                self._show_category_transactions(
+                    identifier, name, transactions, self.budgets._account_names()
+                )
+
+            return self._report_category_section(
+                title, categories, unassigned, currency, total, on_transactions=open_transactions
+            )
+
         self.report_summary.controls = [
             ft.Container(
                 padding=16,
@@ -1479,20 +1498,22 @@ class FinanceView(ft.Row):
                 content=ft.Column(
                     [
                         ft.Text(self.tr("currency_group", currency=item.currency), size=18),
-                        self._report_category_section(
+                        category_section(
                             "report_expense_categories",
                             report.expense_categories,
                             report.unassigned_expenses,
                             item.currency,
                             item.expenses,
+                            "Expenses",
                         ),
                         ft.Divider(),
-                        self._report_category_section(
+                        category_section(
                             "report_income_categories",
                             report.income_categories,
                             report.unassigned_income,
                             item.currency,
                             item.income,
+                            "Income",
                         ),
                     ],
                     spacing=12,
@@ -1596,6 +1617,7 @@ class FinanceView(ft.Row):
         total: Decimal,
         *,
         stacked: bool = False,
+        on_transactions: Callable[[str | None, str], None] | None = None,
     ) -> ft.Column:
         def percentage(amount: Decimal) -> str:
             if total == 0:
@@ -1605,11 +1627,23 @@ class FinanceView(ft.Row):
                 value = amount * 100 / total
             return f"{format_amount(value, self.language)}%"
 
-        def category_line(label: ft.Control, amount: Decimal) -> ft.Control:
+        def category_line(
+            label: ft.Control, amount: Decimal, identifier: str | None, name: str
+        ) -> ft.Control:
             values: list[ft.Control] = [
                 ft.Text(format_amount(amount, self.language, currency)),
                 ft.Text(percentage(amount), width=72, text_align=ft.TextAlign.RIGHT),
             ]
+            if on_transactions is not None:
+                callback = on_transactions
+                values.append(
+                    ft.IconButton(
+                        icon=ft.Icons.RECEIPT_LONG,
+                        icon_size=20,
+                        tooltip=f"{self.tr('budget_transactions')}: {name}",
+                        on_click=lambda event: callback(identifier, name),
+                    )
+                )
             if stacked:
                 return ft.Column(
                     [label, ft.Row(values, wrap=True, spacing=8, run_spacing=0)],
@@ -1631,7 +1665,7 @@ class FinanceView(ft.Row):
                     [label, ft.Text(self.tr("crud_inactive_label"), size=12)],
                     spacing=0,
                 )
-            title = category_line(label, amount)
+            title = category_line(label, amount, item.identifier, item.name)
             if children:
                 return compact_tree_tile(ft.ExpansionTile(title=title, controls=children))
             return compact_tree_leaf(title)
@@ -1644,7 +1678,12 @@ class FinanceView(ft.Row):
         if unassigned_amount != 0:
             controls.append(
                 compact_tree_leaf(
-                    category_line(ft.Text(self.tr("report_uncategorized")), unassigned_amount)
+                    category_line(
+                        ft.Text(self.tr("report_uncategorized")),
+                        unassigned_amount,
+                        None,
+                        self.tr("report_uncategorized"),
+                    )
                 )
             )
         if len(controls) == 1:
@@ -2143,6 +2182,45 @@ class FinanceView(ft.Row):
     @staticmethod
     def _transaction_sort_key(transaction: Transaction) -> tuple[date, datetime, str]:
         return transaction_key(transaction)
+
+    def _show_category_transactions(
+        self,
+        identifier: str | None,
+        name: str,
+        transactions: tuple[Transaction, ...],
+        names: dict[str, str],
+    ) -> None:
+        listing = ft.Column(spacing=0)
+        search = ft.TextField(label=self.tr("budget_search_transactions"))
+        ordered = sorted(transactions, key=self._transaction_sort_key, reverse=True)
+
+        def render(event: ft.Event[ft.TextField] | None = None) -> None:
+            query = (search.value or "").strip().casefold()
+            matching = [
+                transaction
+                for transaction in ordered
+                if not query or query in f"{transaction.payee} {transaction.narration}".casefold()
+            ]
+            listing.controls = self._transaction_groups(matching, names, read_only=True) or [
+                ft.Text(self.tr("budget_no_matches"))
+            ]
+            if event is not None:
+                self.page.update()
+
+        search.on_change = render
+        render()
+        label: ft.Control = ft.Text(name, tooltip=identifier, selectable=True)
+        if identifier is not None:
+            label = self._entity_label(identifier, label)
+        show_dialog(
+            self.page,
+            ft.AlertDialog(
+                title=self.tr("budget_transactions"),
+                scrollable=True,
+                content=ft.Column([label, search, listing], tight=True, width=420),
+                actions=[ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)],
+            ),
+        )
 
     def _transaction_groups(
         self,

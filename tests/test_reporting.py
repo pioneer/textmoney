@@ -1,8 +1,10 @@
 import asyncio
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock
 
 import flet as ft
@@ -18,7 +20,13 @@ from app.domain.ledger import (
     Posting,
     Transaction,
 )
-from app.domain.reporting import account_balances, period_bounds, period_report, shift_month
+from app.domain.reporting import (
+    account_balances,
+    category_transactions,
+    period_bounds,
+    period_report,
+    shift_month,
+)
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import date_input
@@ -157,6 +165,51 @@ def report_ledger() -> Ledger:
 
 
 JANUARY = (date(2026, 1, 1), date(2026, 1, 31))
+
+
+def test_category_transactions_follow_report_postings_and_subtotals() -> None:
+    ledger = report_ledger()
+    ledger = replace(
+        ledger,
+        categories=(*ledger.categories, Category("Expenses:Foodie", "Foodie", EPOCH)),
+        transactions=(
+            *ledger.transactions,
+            transaction(
+                "multiple-postings",
+                JANUARY[0],
+                posting("Expenses:Food", "2"),
+                posting("Expenses:Food:Groceries", "3"),
+                posting("Expenses:Food:Unknown", "4"),
+                posting("Expenses:Foodie", "5"),
+                posting("Expenses:Food", "6", "EUR"),
+            ),
+        ),
+    )
+
+    def ids(currency: str, root: str, category: str | None) -> list[str]:
+        return [
+            item.id for item in category_transactions(ledger, *JANUARY, currency, root, category)
+        ]
+
+    assert ids("UAH", "Expenses", "Expenses:Food") == [
+        "expense-end",
+        "partial-reimbursement",
+        "excess-reimbursement",
+        "multiple-postings",
+    ]
+    assert ids("UAH", "Expenses", "Expenses:Food:Groceries") == [
+        "expense-end",
+        "partial-reimbursement",
+        "excess-reimbursement",
+        "multiple-postings",
+    ]
+    assert ids("EUR", "Expenses", "Expenses:Food") == ["multiple-postings"]
+    assert ids("UAH", "Expenses", None) == ["multiple-postings"]
+    assert ids("EUR", "Expenses", None) == ["uncategorized-legacy-expense"]
+    assert ids("UAH", "Income", "Income:Salary") == ["income-start"]
+    assert ids("USD", "Income", "Income:Salary") == []
+    with pytest.raises(LedgerError):
+        category_transactions(ledger, JANUARY[1], JANUARY[0], "UAH", "Income", None)
 
 
 def balance_ledger() -> Ledger:
@@ -596,6 +649,90 @@ def test_report_category_tree_is_compact_borderless_and_has_no_root_indent(
         assert isinstance(inactive, ft.Column)
         assert isinstance(inactive.controls[1], ft.Text)
         assert inactive.controls[1].value == view.tr("crud_inactive_label")
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("width", [390, 1366])
+def test_report_category_buttons_open_searchable_read_only_transactions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        page.width = width
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        monkeypatch.setattr(FinanceView, "_today", lambda _: JANUARY[1])
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        journal.ledger = balance_ledger()
+        view = FinanceView()
+        view.journal = journal
+        view._render_reports()
+
+        def category_button(
+            currency_index: int, section_index: int, row_index: int
+        ) -> ft.IconButton:
+            card = view.report_categories.controls[currency_index]
+            assert isinstance(card, ft.Container) and isinstance(card.content, ft.Column)
+            section = card.content.controls[section_index]
+            assert isinstance(section, ft.Column)
+            row = section.controls[row_index]
+            assert isinstance(row, (ft.ListTile, ft.ExpansionTile))
+            assert isinstance(row.title, ft.Row)
+            button = row.title.controls[-1]
+            assert isinstance(button, ft.IconButton) and button.on_click is not None
+            return button
+
+        groups = MagicMock(wraps=view._transaction_groups)
+        monkeypatch.setattr(view, "_transaction_groups", groups)
+        food = category_button(1, 1, 2)
+        assert food.tooltip == f"{view.tr('budget_transactions')}: Food"
+        cast(Callable[[object], None], food.on_click)(MagicMock())
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog, ft.AlertDialog) and dialog.scrollable
+        assert dialog.title == view.tr("budget_transactions")
+        assert isinstance(dialog.content, ft.Column)
+        label, search, listing = dialog.content.controls
+        assert isinstance(label, ft.Text) and label.value == "Food"
+        assert isinstance(search, ft.TextField) and search.on_change is not None
+        assert isinstance(listing, ft.Column)
+        expected = sorted(
+            category_transactions(journal.ledger, *JANUARY, "UAH", "Expenses", "Expenses:Food"),
+            key=view._transaction_sort_key,
+            reverse=True,
+        )
+        assert {item.id for item in expected} == {
+            "expense-end",
+            "partial-reimbursement",
+            "excess-reimbursement",
+        }
+        groups.assert_called_with(expected, view.budgets._account_names(), read_only=True)
+        search.value = "PARTIAL"
+        cast(Callable[[object], None], search.on_change)(MagicMock())
+        assert [item.id for item in groups.call_args.args[0]] == ["partial-reimbursement"]
+        search.value = "NO MATCH"
+        cast(Callable[[object], None], search.on_change)(MagicMock())
+        assert len(listing.controls) == 1
+        assert isinstance(listing.controls[0], ft.Text)
+        assert listing.controls[0].value == view.tr("budget_no_matches")
+        assert len(dialog.actions) == 1
+        assert isinstance(dialog.actions[0], ft.TextButton)
+        assert dialog.actions[0].on_click == view._dismiss
+
+        uncategorized = category_button(0, 1, 2)
+        cast(Callable[[object], None], uncategorized.on_click)(MagicMock())
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog.content, ft.Column)
+        assert isinstance(dialog.content.controls[0], ft.Text)
+        assert dialog.content.controls[0].value == view.tr("report_uncategorized")
+        assert [item.id for item in groups.call_args.args[0]] == ["uncategorized-legacy-expense"]
+        salary = category_button(1, 3, 1)
+        cast(Callable[[object], None], salary.on_click)(MagicMock())
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog.content, ft.Column)
+        assert isinstance(dialog.content.controls[0], ft.Text)
+        assert dialog.content.controls[0].value == "Salary"
+        assert [item.id for item in groups.call_args.args[0]] == ["income-start"]
 
     asyncio.run(scenario())
 

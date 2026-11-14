@@ -127,6 +127,36 @@ def currency_totals(
     )
 
 
+def category_transactions(
+    ledger: Ledger,
+    start: date,
+    end: date,
+    currency: str,
+    root: str,
+    category: str | None,
+) -> tuple[Transaction, ...]:
+    """Return transactions contributing to a category subtotal or unassigned total."""
+    if end < start:
+        raise LedgerError("report_date_range")
+    categories = {item.id for item in ledger.categories}
+    return tuple(
+        transaction
+        for transaction in ledger.transactions
+        if start <= transaction.date <= end
+        and any(
+            posting.currency == currency
+            and posting.account.startswith(root + ":")
+            and (
+                posting.account not in categories
+                if category is None
+                else posting.account in categories
+                and (posting.account == category or posting.account.startswith(category + ":"))
+            )
+            for posting in transaction.postings
+        )
+    )
+
+
 def period_report(
     ledger: Ledger,
     start: date,

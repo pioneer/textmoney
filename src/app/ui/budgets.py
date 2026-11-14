@@ -1098,60 +1098,20 @@ class BudgetView(ft.Column):
         row = event.control.data
         assert isinstance(row, BudgetRow)
         names = self._account_names()
-        listing = ft.Column(spacing=0)
-        search = ft.TextField(label=self.host.tr("budget_search_transactions"))
-
-        def render(event: ft.Event[ft.TextField] | None = None) -> None:
-            query = (search.value or "").strip().casefold()
-            transactions = [
-                transaction
-                for transaction in sorted(
-                    row.transactions, key=self.host._transaction_sort_key, reverse=True
-                )
-                if (not query or query in f"{transaction.payee} {transaction.narration}".casefold())
+        transactions = tuple(
+            transaction
+            for transaction in row.transactions
+            if not self.currency.value
+            or any(
+                posting.currency == self.currency.value
                 and (
-                    not self.currency.value
-                    or any(
-                        posting.currency == self.currency.value
-                        and (
-                            posting.account == row.account
-                            or posting.account.startswith(row.account + ":")
-                        )
-                        for posting in transaction.postings
-                    )
+                    posting.account == row.account or posting.account.startswith(row.account + ":")
                 )
-            ]
-            listing.controls = self.host._transaction_groups(
-                transactions, names, read_only=True
-            ) or [ft.Text(self.host.tr("budget_no_matches"))]
-            if event is not None:
-                self.host.page.update()
-
-        search.on_change = render
-        render()
-        show_dialog(
-            self.host.page,
-            ft.AlertDialog(
-                title=self.host.tr("budget_transactions"),
-                scrollable=True,
-                content=ft.Column(
-                    [
-                        self.host._entity_label(
-                            row.account,
-                            ft.Text(
-                                names.get(row.account, row.account),
-                                tooltip=row.account,
-                                selectable=True,
-                            ),
-                        ),
-                        search,
-                        listing,
-                    ],
-                    tight=True,
-                    width=420,
-                ),
-                actions=[ft.TextButton(self.host.tr("crud_cancel"), on_click=self.host._dismiss)],
-            ),
+                for posting in transaction.postings
+            )
+        )
+        self.host._show_category_transactions(
+            row.account, names.get(row.account, row.account), transactions, names
         )
 
     def _budget_actions(self, budget: Budget) -> ft.Row:

@@ -59,6 +59,29 @@ def test_daily_report_keys_close_without_writes(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("key", ["Escape", "Enter", "Numpad Enter"])
+def test_category_transactions_dialog_keys_close_without_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
+) -> None:
+    async def scenario() -> None:
+        session = keyboard_session()
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
+        view = FinanceView()
+        view._show_category_transactions("Expenses:Food", "Food", (), {})
+        dialog = session.page._dialogs.controls[-1]
+        assert isinstance(dialog, ft.AlertDialog) and dialog.open
+        assert isinstance(dialog.content, ft.KeyboardListener)
+        assert isinstance(dialog.content.content, ft.Column)
+        search = dialog.content.content.controls[1]
+        assert isinstance(search, ft.TextField)
+        await session.dispatch_event(search._i, "focus", None)
+        await press(session, key)
+        assert not dialog.open
+        assert list(tmp_path.iterdir()) == []
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize(
     "platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.MACOS]
 )

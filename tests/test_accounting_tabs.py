@@ -15,6 +15,7 @@ from app.journal import FILENAME, Journal
 from app.localization import date_input
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.finance import FinanceView
+from app.ui.layout import HoverRow
 
 
 def select_management_screen(view: FinanceView, index: int) -> None:
@@ -108,6 +109,83 @@ def test_welcome_create_account_link_opens_accounts_screen(
     view._go_accounts(MagicMock())
     assert view.current_screen == "accounts"
     assert view.screen_host.content is view.accounts_screen
+
+
+@pytest.mark.parametrize("width", [320, 800, 1366])
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_currency_groups_preserve_account_rows_and_actions_after_edit_and_reload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int, language: str
+) -> None:
+    async def scenario() -> None:
+        view, page = setup_view(monkeypatch)
+        page.width = width
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_account("Zulu", "Zulu", "USD", opened=EPOCH)
+        await journal.create_account("Alpha", "Alpha", "USD", opened=EPOCH)
+        await journal.create_account(
+            "Credit", "Credit", "EUR", "20", root="Liabilities", opened=EPOCH
+        )
+        await journal.edit_account("Assets:Zulu", "Zulu", None, False, journal.source)
+        await journal.set_operating_currencies("USD EUR", journal.source)
+        view.journal = journal
+        view.language = language
+        view._navigate("accounts")
+        view._apply_layout(width)
+        source = journal.source
+
+        def check_rows(expected_usd: list[str]) -> None:
+            assert view.journal is not None
+            view._refresh()
+            assert view.accounts_panel_content.controls[-1] is view.account_list
+            assert not view.account_save.disabled
+            identifiers = []
+            for group, expected in zip(
+                view.account_list.controls,
+                [expected_usd, ["Liabilities:Credit"]],
+                strict=True,
+            ):
+                assert isinstance(group, ft.Container) and group.width is None
+                assert group.padding == 16 and group.border_radius == 12
+                assert isinstance(group.content, ft.Column)
+                heading, listing = group.content.controls
+                assert isinstance(heading, ft.Text)
+                currency = "EUR" if expected == ["Liabilities:Credit"] else "USD"
+                assert heading.value == view.tr("currency_group", currency=currency)
+                assert isinstance(listing, ft.Column)
+                assert listing.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+                for row, identifier in zip(listing.controls, expected, strict=True):
+                    assert isinstance(row, HoverRow) and isinstance(row.content, ft.Row)
+                    labels, operations, edit, remove = row.content.controls
+                    assert isinstance(labels, ft.Column)
+                    account = next(a for a in view.journal.ledger.accounts if a.id == identifier)
+                    texts = [label.value for label in labels.controls if isinstance(label, ft.Text)]
+                    assert texts[0] == account.name
+                    assert (view.tr("crud_inactive_label") in texts) == (not account.active)
+                    assert texts[-1] == view._account_balance_text(
+                        identifier, view.journal.ledger.balances()[identifier], account.currency
+                    )
+                    for button, handler in (
+                        (operations, view._show_entity_operations),
+                        (edit, view._edit_entity),
+                        (remove, view._delete_entity),
+                    ):
+                        assert isinstance(button, ft.IconButton)
+                        assert button.data == ("account", identifier)
+                        assert button.on_click == handler
+                    identifiers.append(identifier)
+            assert set(identifiers) == {a.id for a in view.journal.ledger.accounts}
+            assert len(identifiers) == len(set(identifiers))
+
+        check_rows(["Assets:Alpha", "Assets:Zulu"])
+        assert journal.source == source == (tmp_path / FILENAME).read_text()
+        await journal.edit_account("Assets:Zulu", "Aardvark", None, False, journal.source)
+        check_rows(["Assets:Zulu", "Assets:Alpha"])
+        view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await view.journal.load()
+        check_rows(["Assets:Zulu", "Assets:Alpha"])
+
+    asyncio.run(scenario())
 
 
 def open_creation(view: FinanceView, page: MagicMock, category: bool) -> ft.AlertDialog:

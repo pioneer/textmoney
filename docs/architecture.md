@@ -130,9 +130,15 @@ and both report-month headings include a calendar icon. The main status line
 uses matching small outlined-circle success, information or error/warning icons.
 Assigned artwork, financial figures and interactions are unchanged.
 Primary screens share the same header/status shell and 20-pixel horizontal
-gutters. Accounts and Categories are unframed lists; their right-aligned creation
+gutters. Accounts groups its existing editable rows in full-width, vertically
+stacked currency cards, matching Home's currency headings, ordering and border
+treatment. Both views include inactive and zero-balance accounts, order configured
+operating currencies first and remaining currencies alphabetically, and sort
+accounts by display name then identifier within each group. Home's balance
+heading links to Accounts; no duplicate balance section or destination is added.
+Categories remains an unframed list; both right-aligned creation
 toolbars match Budgets, with 240-by-48-pixel buttons and eight-pixel wrapping
-gaps. Borders remain around meaningful Home currency, Operations summary,
+gaps. Borders remain around meaningful Home/Accounts currency, Operations summary,
 Reports and Settings groups (16-pixel padding, 12-pixel corners), not whole
 management screens. Settings actions align to the right of their own section;
 Cancel precedes Save. Shared action and month-navigation layouts live in

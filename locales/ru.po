@@ -109,6 +109,9 @@ msgstr "Посмотреть бюджеты"
 msgid "ui.home_view_transactions"
 msgstr "Посмотреть операции"
 
+msgid "ui.home_view_accounts"
+msgstr "Посмотреть счета"
+
 msgid "ui.home_budgets_show"
 msgstr "Показывать бюджеты на главной"
 

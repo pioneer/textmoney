@@ -299,9 +299,9 @@ def test_operating_currencies_new_existing_configuration_and_comments(tmp_path: 
     asyncio.run(scenario())
 
 
-def home_balance_titles(view: FinanceView) -> list[str]:
+def currency_group_titles(groups: ft.Row | ft.Column) -> list[str]:
     titles = []
-    for group in view.home_balances.controls:
+    for group in groups.controls:
         assert isinstance(group, ft.Container)
         assert isinstance(group.content, ft.Column)
         heading = group.content.controls[0]
@@ -320,7 +320,7 @@ def home_balance_titles(view: FinanceView) -> list[str]:
         ("", ["EUR", "UAH", "USD"]),
     ],
 )
-def test_home_balances_follow_saved_currency_order(
+def test_home_and_accounts_follow_saved_currency_order(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     width: int,
@@ -351,16 +351,17 @@ def test_home_balances_follow_saved_currency_order(
         view._apply_layout(width)
         view._refresh()
         assert view.home_balances.vertical_alignment == ft.CrossAxisAlignment.START
-        assert home_balance_titles(view) == [
-            view.tr("currency_group", currency=currency) for currency in expected
-        ]
+        for groups in (view.home_balances, view.account_list):
+            assert currency_group_titles(groups) == [
+                view.tr("currency_group", currency=currency) for currency in expected
+            ]
         assert view.journal.ledger.balances() == balances
         assert (tmp_path / FILENAME).read_text(newline="") == source
 
     asyncio.run(scenario())
 
 
-def test_home_currency_order_changes_only_after_save_and_survives_reload(
+def test_home_and_accounts_currency_order_changes_only_after_save_and_survives_reload(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -372,23 +373,28 @@ def test_home_currency_order_changes_only_after_save_and_survives_reload(
         await view.journal.create_account("Usd", "Dollar wallet", "USD", opened=EPOCH)
         view._refresh()
         initial = [view.tr("currency_group", currency=currency) for currency in ("UAH", "USD")]
-        assert home_balance_titles(view) == initial
+        assert currency_group_titles(view.home_balances) == initial
+        assert currency_group_titles(view.account_list) == initial
         view.operating_currencies.value = "USD UAH"
         view._refresh()
-        assert home_balance_titles(view) == initial
+        assert currency_group_titles(view.home_balances) == initial
+        assert currency_group_titles(view.account_list) == initial
         await view._save_operating_currencies(MagicMock())
         reordered = list(reversed(initial))
         assert view.journal.ledger.operating_currencies == ("USD", "UAH")
-        assert home_balance_titles(view) == reordered
+        assert currency_group_titles(view.home_balances) == reordered
+        assert currency_group_titles(view.account_list) == reordered
         view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
         await view.journal.load()
         view._refresh()
-        assert home_balance_titles(view) == reordered
+        assert currency_group_titles(view.home_balances) == reordered
+        assert currency_group_titles(view.account_list) == reordered
         source = view.journal.source
         view.operating_currencies.value = "UAH invalid"
         await view._save_operating_currencies(MagicMock())
         assert view.operating_currencies.value == "UAH invalid"
-        assert home_balance_titles(view) == reordered
+        assert currency_group_titles(view.home_balances) == reordered
+        assert currency_group_titles(view.account_list) == reordered
         assert (tmp_path / FILENAME).read_text(newline="") == source
 
     asyncio.run(scenario())

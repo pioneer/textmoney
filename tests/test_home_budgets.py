@@ -135,12 +135,16 @@ def test_home_budget_layout_rank_counts_and_currency(
             assert isinstance(left, ft.Container) and isinstance(left.content, ft.Column)
             assert isinstance(right, ft.Container) and isinstance(right.content, ft.Column)
             assert left.content.controls[-2:] == [host.home_balances, summary]
+            balances_heading = left.content.controls[0]
             assert right.content.controls[-1] is host.home_activity
             heading = right.content.controls[0]
         else:
             assert host.home_screen.controls[-2:] == [host.home_activity, summary]
             assert host.home_screen.controls[2] is host.home_balances
+            balances_heading = host.home_screen.controls[1]
             heading = host.home_screen.controls[3]
+        assert isinstance(balances_heading, ft.Row)
+        assert balances_heading.controls[1] is host.home_accounts_open
         assert isinstance(heading, ft.Row)
         assert heading.controls[1] is host.home_transactions_open
         assert isinstance(summary.controls[0], ft.Row)
@@ -148,6 +152,7 @@ def test_home_budget_layout_rank_counts_and_currency(
         for button, label in (
             (summary.open, "Переглянути бюджети"),
             (host.home_transactions_open, "Переглянути операції"),
+            (host.home_accounts_open, "Переглянути рахунки"),
         ):
             assert button.width == button.height == 48 and button.icon_size == 18
             assert button.tooltip == label
@@ -246,6 +251,12 @@ def test_summary_does_not_use_budget_filters_and_arrows_open_full_screens(
         click(host.home_transactions_open)
         assert host.current_screen == "transactions"
         assert not host.operations_account.value and not host.operations_category.value
+        host._navigate("home")
+        click(host.home_accounts_open)
+        assert host.current_screen == "accounts"
+        assert host.screen_host.content is host.accounts_screen
+        host._back_from_management(MagicMock())
+        assert host.current_screen == "home"
 
     asyncio.run(scenario())
 

@@ -289,7 +289,9 @@ class FinanceView(ft.Row):
         self.operating_source = ""
         self.operating_original = ""
         self.operating_journal: Journal | None = None
-        self.account_list = ft.Column(spacing=4)
+        self.account_list = ft.Column(
+            spacing=12, horizontal_alignment=ft.CrossAxisAlignment.STRETCH
+        )
         self.category_list = ft.Column(spacing=4)
         self.category_expansion: dict[str, bool] = {}
         self.operations = OperationsView(self)
@@ -432,6 +434,9 @@ class FinanceView(ft.Row):
         self.home_budgets = HomeBudgets(self)
         self.home_transactions_open = ft.IconButton(
             icon_size=18, width=48, height=48, on_click=self._home_transactions
+        )
+        self.home_accounts_open = ft.IconButton(
+            icon_size=18, width=48, height=48, on_click=self._home_accounts
         )
         self.accounts_panel_content = ft.Column(spacing=16)
         self.categories_panel_content = ft.Column(spacing=16)
@@ -757,12 +762,16 @@ class FinanceView(ft.Row):
         )
         self._build_navigation()
         self._build_screens()
-        self.home_transactions_open.tooltip = self.tr("home_view_transactions")
-        self.home_transactions_open.icon = ft.Icon(
-            ft.Icons.ARROW_FORWARD,
-            size=18,
-            semantics_label=self.tr("home_view_transactions"),
-        )
+        for button, key in (
+            (self.home_transactions_open, "home_view_transactions"),
+            (self.home_accounts_open, "home_view_accounts"),
+        ):
+            button.tooltip = self.tr(key)
+            button.icon = ft.Icon(
+                ft.Icons.ARROW_FORWARD,
+                size=18,
+                semantics_label=self.tr(key),
+            )
         self.home_budgets.sync()
         self._build_home_layout()
         self.budgets.sync()
@@ -846,7 +855,7 @@ class FinanceView(ft.Row):
         self.welcome.visible = not ready or not bool(self.journal and self.journal.ledger.accounts)
         self.home_screen.controls = [
             self.welcome,
-            ft.Text(self.tr("home_balances"), size=21, weight=ft.FontWeight.W_600),
+            home_heading(self.tr("home_balances"), self.home_accounts_open),
             self.home_balances,
             ft.Text(self.tr("home_recent"), size=21, weight=ft.FontWeight.W_600),
             self.home_activity,
@@ -1067,11 +1076,7 @@ class FinanceView(ft.Row):
                             expand=3,
                             content=ft.Column(
                                 [
-                                    ft.Text(
-                                        self.tr("home_balances"),
-                                        size=21,
-                                        weight=ft.FontWeight.W_600,
-                                    ),
+                                    home_heading(self.tr("home_balances"), self.home_accounts_open),
                                     self.home_balances,
                                     self.home_budgets,
                                 ],
@@ -1098,7 +1103,7 @@ class FinanceView(ft.Row):
         elif self.current_screen == "home":
             self.home_screen.controls = [
                 self.welcome,
-                ft.Text(self.tr("home_balances"), size=21, weight=ft.FontWeight.W_600),
+                home_heading(self.tr("home_balances"), self.home_accounts_open),
                 self.home_balances,
                 home_heading(self.tr("home_recent"), self.home_transactions_open),
                 self.home_activity,
@@ -1176,12 +1181,19 @@ class FinanceView(ft.Row):
             self.operating_journal = self.journal
         self.fab.disabled = False
         balances = ledger.balances(today=self.journal.today())
-        grouped: dict[str, list[tuple[str, str, Decimal]]] = defaultdict(list)
+        grouped: dict[str, list[Account]] = defaultdict(list)
         for account in ledger.accounts:
-            grouped[account.currency].append((account.name, account.id, balances[account.id]))
+            grouped[account.currency].append(account)
         currency_order = {
             currency: index for index, currency in enumerate(ledger.operating_currencies)
         }
+        currency_groups = [
+            (currency, sorted(accounts, key=lambda account: (account.name, account.id)))
+            for currency, accounts in sorted(
+                grouped.items(),
+                key=lambda item: (currency_order.get(item[0], len(currency_order)), item[0]),
+            )
+        ]
         self.home_balances.controls = [
             ft.Container(
                 width=250,
@@ -1194,33 +1206,36 @@ class FinanceView(ft.Row):
                         *[
                             ft.Column(
                                 [
-                                    self._entity_label(identifier, ft.Text(name)),
+                                    self._entity_label(account.id, ft.Text(account.name)),
                                     ft.Text(
-                                        self._account_balance_text(identifier, amount, currency),
+                                        self._account_balance_text(
+                                            account.id, balances[account.id], currency
+                                        ),
                                         text_align=ft.TextAlign.RIGHT,
                                     ),
                                 ],
                                 spacing=2,
                                 horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                             )
-                            if identifier.startswith("Liabilities:")
+                            if account.id.startswith("Liabilities:")
                             else ft.Row(
                                 [
-                                    self._entity_label(identifier, ft.Text(name, expand=True)),
-                                    ft.Text(format_amount(amount, self.language, currency)),
+                                    self._entity_label(
+                                        account.id, ft.Text(account.name, expand=True)
+                                    ),
+                                    ft.Text(
+                                        format_amount(balances[account.id], self.language, currency)
+                                    ),
                                 ],
                                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                             )
-                            for name, identifier, amount in sorted(accounts)
+                            for account in accounts
                         ],
                     ],
                     spacing=10,
                 ),
             )
-            for currency, accounts in sorted(
-                grouped.items(),
-                key=lambda item: (currency_order.get(item[0], len(currency_order)), item[0]),
-            )
+            for currency, accounts in currency_groups
         ] or [ft.Text(self.tr("home_no_accounts"))]
         self._render_operations_totals(ledger, balances)
         names = {account.id: account.name for account in ledger.accounts}
@@ -1236,7 +1251,27 @@ class FinanceView(ft.Row):
         ) or [ft.Text(self.tr("home_no_transactions"))]
         self._update_transaction_separators()
         self.account_list.controls = [
-            self._entity_card(account, balances[account.id]) for account in ledger.accounts
+            ft.Container(
+                padding=16,
+                border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+                border_radius=12,
+                content=ft.Column(
+                    [
+                        ft.Text(self.tr("currency_group", currency=currency), size=16),
+                        ft.Column(
+                            [
+                                self._entity_card(account, balances[account.id])
+                                for account in accounts
+                            ],
+                            spacing=4,
+                            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                        ),
+                    ],
+                    spacing=10,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                ),
+            )
+            for currency, accounts in currency_groups
         ] or [ft.Text(self.tr("accounts_empty"))]
         self.category_list.controls = self._category_tree(ledger.categories)
         self._refresh_labels()
@@ -3131,6 +3166,9 @@ class FinanceView(ft.Row):
         self.operations_category.value = ""
         self._refresh()
         self._navigate("transactions")
+
+    def _home_accounts(self, event: ft.Event[ft.IconButton]) -> None:
+        self._navigate("accounts")
 
     async def _preview_backup_cleanup(self, event: ft.Event[ft.Button]) -> None:
         async def preview() -> None:

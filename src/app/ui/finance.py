@@ -2476,7 +2476,11 @@ class FinanceView(ft.Row):
         lines: list[ft.Control] = [
             movement_label(heading[-1])
             if movement_icons and not has_summary and exchange_amounts is None
-            else ft.Row(heading, spacing=8)
+            else ft.Row(
+                heading,
+                spacing=8,
+                vertical_alignment=ft.CrossAxisAlignment.BASELINE,
+            )
         ]
         fee_details = transfer or cashflow
         fee_line = None

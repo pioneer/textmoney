@@ -221,6 +221,17 @@ def test_transaction_rows_use_tighter_typography_without_smaller_touch_targets(
 
 
 @pytest.mark.parametrize("compact", [False, True])
+def test_transaction_title_and_amount_share_baseline(compact: bool) -> None:
+    row = FinanceView()._transaction_card(expense(), {}, compact)
+    assert isinstance(row, ft.Container) and isinstance(row.content, ft.Row)
+    details = row.content.controls[0]
+    assert isinstance(details, ft.Column)
+    heading = details.controls[0]
+    assert isinstance(heading, ft.Row)
+    assert heading.vertical_alignment == ft.CrossAxisAlignment.BASELINE
+
+
+@pytest.mark.parametrize("compact", [False, True])
 @pytest.mark.parametrize("kind", ["expense", "income", "reimbursement", "adjustment", "external"])
 def test_transaction_description_preview_is_bounded_without_changing_saved_text(
     compact: bool, kind: str

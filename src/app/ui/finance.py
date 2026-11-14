@@ -83,7 +83,7 @@ from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import deletion_title, show_dialog
 from app.ui.home_budgets import HomeBudgets, home_heading
-from app.ui.icons import IconDraft, IconPicker, icon_image
+from app.ui.icons import IconDraft, IconField, IconPicker, icon_image
 from app.ui.layout import HoverRow, action_toolbar, month_navigation
 from app.ui.operations import OperationsView
 from app.ui.theme import NAVIGATION_SURFACE, summary_theme
@@ -1830,7 +1830,14 @@ class FinanceView(ft.Row):
         except Exception as exc:
             self._error(exc, notify=True)
 
-    def _open_icon_picker(self, journal: Journal, identifier: str) -> None:
+    def _open_icon_picker(
+        self,
+        journal: Journal,
+        identifier: str,
+        on_saved: Callable[[IconAsset | None], None] | None = None,
+        *,
+        remove: bool = False,
+    ) -> None:
         store = self.icons
         if store is None or not store.loaded or not journal.ready:
             raise StorageError("icon_storage")
@@ -1846,6 +1853,8 @@ class FinanceView(ft.Row):
                 ):
                     raise ConflictError("icon_stale")
                 await store.assign(identifier, asset, expected)
+                if on_saved is not None:
+                    on_saved(asset)
                 self.icon_revision += 1
                 self.icon_notice.visible = bool(store.conflicts)
                 self.icon_notice.value = self.tr("icon_conflicts") if store.conflicts else ""
@@ -1859,7 +1868,7 @@ class FinanceView(ft.Row):
             IconPicker(
                 self.page,
                 self.language,
-                store.assets.get(identifier),
+                None if remove else store.assets.get(identifier),
                 save,
                 existing_icons=store.assets.values(),
                 conflict=identifier in store.conflicts,
@@ -4434,6 +4443,12 @@ class FinanceView(ft.Row):
                     show_accounting_date=opening_transaction is not None,
                 )
                 opening_date.occurred.label = self.tr("opening_balance_date")
+            icon = IconField(
+                self.language,
+                lambda: self._open_icon_picker(journal, identifier, icon.set_icon),
+                lambda: self._open_icon_picker(journal, identifier, icon.set_icon, remove=True),
+            )
+            icon.set_icon(self.icons.assets.get(identifier) if self.icons is not None else None)
             controls: list[ft.Control] = [
                 ft.Text(
                     identifier,
@@ -4443,11 +4458,7 @@ class FinanceView(ft.Row):
                 ft.Text(self.tr("crud_category_help" if category else "crud_account_help")),
                 name,
                 active,
-                ft.TextButton(
-                    self.tr("icon_choose"),
-                    icon=ft.Icons.IMAGE_SEARCH,
-                    on_click=lambda _: self._open_icon_picker(journal, identifier),
-                ),
+                icon,
             ]
             if isinstance(item, Account):
                 controls.append(ft.Text(item.currency))

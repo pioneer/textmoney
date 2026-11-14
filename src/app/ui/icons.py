@@ -28,7 +28,44 @@ def icon_image(asset: IconAsset) -> ft.Image:
     )
 
 
-class IconDraft(ft.Column):
+class IconField(ft.Column):
+    def __init__(
+        self, language: str, choose: Callable[[], None], remove: Callable[[], None]
+    ) -> None:
+        self.preview = ft.Container(width=40, height=40, alignment=ft.Alignment.CENTER)
+        self.choose_button = ft.IconButton(
+            icon=ft.Icons.IMAGE_SEARCH,
+            tooltip=translate(language, "icon_choose"),
+            on_click=lambda _: choose(),
+        )
+        self.remove_button = ft.IconButton(
+            icon=ft.Icons.DELETE_OUTLINE,
+            tooltip=translate(language, "icon_remove"),
+            visible=False,
+            on_click=lambda _: remove(),
+        )
+        super().__init__(
+            controls=[
+                ft.Text(translate(language, "icon_choose"), size=12),
+                ft.Row(
+                    [
+                        self.preview,
+                        ft.Row([self.choose_button, self.remove_button], spacing=0, tight=True),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    spacing=0,
+                ),
+            ],
+            spacing=0,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+        )
+
+    def set_icon(self, asset: IconAsset | None) -> None:
+        self.preview.content = icon_image(asset) if asset else None
+        self.remove_button.visible = asset is not None
+
+
+class IconDraft(IconField):
     def __init__(
         self, page: ft.Page, language: str, existing_icons: Iterable[IconAsset] = ()
     ) -> None:
@@ -36,31 +73,23 @@ class IconDraft(ft.Column):
         self.language = language
         self.existing_icons = tuple(existing_icons)
         self.selected: IconAsset | None = None
-        self.preview = ft.Row(spacing=8, visible=False)
-        self.choose_button = ft.TextButton(
-            translate(language, "icon_choose"),
-            icon=ft.Icons.IMAGE_SEARCH,
-            on_click=self._choose,
-        )
         super().__init__(
-            controls=[self.choose_button, self.preview],
-            spacing=4,
+            language,
+            lambda: self._choose(),
+            lambda: self._choose(remove=True),
         )
 
-    def _choose(self, event: ft.Event[ft.TextButton]) -> None:
+    def _choose(self, *, remove: bool = False) -> None:
         async def select(asset: IconAsset | None) -> None:
             self.selected = asset
-            self.preview.controls = (
-                [icon_image(asset), ft.Text(asset.label, expand=True)] if asset else []
-            )
-            self.preview.visible = asset is not None
+            self.set_icon(asset)
 
         show_dialog(
             self.owner,
             IconPicker(
                 self.owner,
                 self.language,
-                self.selected,
+                None if remove else self.selected,
                 select,
                 existing_icons=self.existing_icons,
             ),

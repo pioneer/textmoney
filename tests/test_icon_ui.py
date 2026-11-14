@@ -23,7 +23,7 @@ from app.localization import format_amount
 from app.storage import StorageError
 from app.ui.dialogs import show_dialog
 from app.ui.finance import FinanceView
-from app.ui.icons import IconDraft, IconPicker, icon_image
+from app.ui.icons import IconDraft, IconField, IconPicker, icon_image
 from app.ui.tree_picker import TreePicker
 
 
@@ -104,6 +104,200 @@ def transaction_body(card: ft.Control) -> ft.Column:
     return next(child for child in card.content.controls if isinstance(child, ft.Column))
 
 
+@pytest.mark.parametrize(
+    ("kind", "identifier"), [("category", "Expenses:Food"), ("account", "Assets:Bank")]
+)
+@pytest.mark.parametrize("assigned", [False, True])
+def test_edit_entity_shows_current_icon_and_tracks_picker_changes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str, identifier: str, assigned: bool
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        view.language = "en"
+        view.icons = store_at(tmp_path)
+        await view.icons.load()
+        original = asset("original")
+        replacement = asset("replacement")
+        if assigned:
+            await view.icons.assign(identifier, original, ())
+        view._edit_entity(MagicMock(control=ft.IconButton(data=(kind, identifier))))
+        parent = session.page._dialogs.controls[-1]
+        assert isinstance(parent, ft.AlertDialog)
+        assert [image.src for image in images(parent)] == ([original.data] if assigned else [])
+        name = next(control for control in walk(parent) if isinstance(control, ft.TextField))
+        name.value = "Unsaved name"
+        choose = next(
+            control
+            for control in walk(parent)
+            if isinstance(control, ft.IconButton) and control.tooltip == view.tr("icon_choose")
+        )
+        remove = next(
+            control
+            for control in walk(parent)
+            if isinstance(control, ft.IconButton) and control.tooltip == view.tr("icon_remove")
+        )
+        field = next(control for control in walk(parent) if isinstance(control, IconField))
+        assert isinstance(field.controls[0], ft.Text)
+        assert field.controls[0].value == view.tr("icon_choose")
+        row = field.controls[1]
+        assert isinstance(row, ft.Row) and row.alignment == ft.MainAxisAlignment.SPACE_BETWEEN
+        assert field.preview.width == 40 and field.preview.alignment == ft.Alignment.CENTER
+        assert isinstance(row.controls[1], ft.Row)
+        assert row.controls[1].controls == [choose, remove]
+        assert not any(isinstance(control, ft.Text) for control in walk(row))
+        assert choose.icon == ft.Icons.IMAGE_SEARCH and remove.icon == ft.Icons.DELETE_OUTLINE
+        assert remove.visible == assigned
+
+        await session.dispatch_event(choose._i, "click", None)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        picker._choose(MagicMock(control=ft.TextButton(data=replacement)))
+        click(picker.cancel)
+        assert [image.src for image in images(parent)] == ([original.data] if assigned else [])
+
+        click(choose)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        picker._choose(MagicMock(control=ft.TextButton(data=replacement)))
+        assign = view.icons.assign
+        monkeypatch.setattr(view.icons, "assign", AsyncMock(side_effect=IconError("icon_storage")))
+        await click_async(picker.submit)
+        assert picker.open
+        assert [image.src for image in images(parent)] == ([original.data] if assigned else [])
+        monkeypatch.setattr(view.icons, "assign", assign)
+        await click_async(picker.submit)
+        assert parent.open and name.value == "Unsaved name"
+        assert [image.src for image in images(parent)] == [replacement.data]
+        assert remove.visible
+        assert view.icons.assets[identifier] == replacement
+
+        click(choose)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        click(picker.remove)
+        await click_async(picker.submit)
+        assert parent.open and name.value == "Unsaved name"
+        assert not images(parent)
+        assert not remove.visible
+        assert identifier not in view.icons.assets
+        assert journal.source == (tmp_path / FILENAME).read_text()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("kind", "identifier"), [("category", "Expenses:Food"), ("account", "Assets:Bank")]
+)
+def test_edit_entity_remove_icon_shortcut(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str, identifier: str
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        view.language = "en"
+        view.icons = store_at(tmp_path)
+        await view.icons.load()
+        original = asset("original")
+        await view.icons.assign(identifier, original, ())
+        original_source = journal.source
+        view._edit_entity(MagicMock(control=ft.IconButton(data=(kind, identifier))))
+        parent = session.page._dialogs.controls[-1]
+        assert isinstance(parent, ft.AlertDialog)
+        name = next(control for control in walk(parent) if isinstance(control, ft.TextField))
+        name.value = "Unsaved name"
+        remove = next(
+            control
+            for control in walk(parent)
+            if isinstance(control, ft.IconButton) and control.tooltip == view.tr("icon_remove")
+        )
+        assert remove.visible
+        await session.dispatch_event(remove._i, "click", None)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker) and picker.selected is None
+        await session.dispatch_event(picker.search._i, "focus", {})
+        await press(session, "Escape")
+        assert parent.open and view.icons.assets[identifier] == original
+
+        click(remove)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker) and picker.selected is None
+        assign = view.icons.assign
+        monkeypatch.setattr(view.icons, "assign", AsyncMock(side_effect=IconError("icon_storage")))
+        await click_async(picker.submit)
+        assert picker.open and parent.open and remove.visible
+        assert view.icons.assets[identifier] == original
+        assert [image.src for image in images(parent)] == [original.data]
+        monkeypatch.setattr(view.icons, "assign", assign)
+        await session.dispatch_event(picker.search._i, "focus", {})
+        await press(session, "Enter")
+        assert not picker.open and parent.open and not remove.visible
+        assert name.value == "Unsaved name" and not images(parent)
+        assert identifier not in view.icons.assets and journal.source == original_source
+        reloaded = store_at(tmp_path)
+        await reloaded.load()
+        assert identifier not in reloaded.assets
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_edit_icon_buttons_have_localized_tooltips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str
+) -> None:
+    async def scenario() -> None:
+        session, view, _journal = await finance_session(tmp_path, monkeypatch)
+        view.language = language
+        view._edit_entity(MagicMock(control=ft.IconButton(data=("category", "Expenses:Food"))))
+        parent = session.page._dialogs.controls[-1]
+        assert isinstance(parent, ft.AlertDialog)
+        actions = [
+            control
+            for control in walk(parent)
+            if isinstance(control, ft.IconButton)
+            and control.icon in {ft.Icons.IMAGE_SEARCH, ft.Icons.DELETE_OUTLINE}
+        ]
+        assert [control.tooltip for control in actions] == [
+            view.tr("icon_choose"),
+            view.tr("icon_remove"),
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_remove_shortcut_rejects_stale_icon(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, view, _journal = await finance_session(tmp_path, monkeypatch)
+        view.language = "en"
+        view.icons = store_at(tmp_path)
+        await view.icons.load()
+        identifier = "Expenses:Food"
+        await view.icons.assign(identifier, asset("original"), ())
+        view._edit_entity(MagicMock(control=ft.IconButton(data=("category", identifier))))
+        parent = session.page._dialogs.controls[-1]
+        assert isinstance(parent, ft.AlertDialog)
+        remove = next(
+            control
+            for control in walk(parent)
+            if isinstance(control, ft.IconButton) and control.tooltip == view.tr("icon_remove")
+        )
+        click(remove)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        other = store_at(tmp_path)
+        await other.load()
+        replacement = asset("replacement")
+        await other.assign(identifier, replacement, other.heads[identifier])
+        await click_async(picker.submit)
+        assert picker.open and parent.open
+        assert picker.status.value == view.tr("icon_stale")
+        reloaded = store_at(tmp_path)
+        await reloaded.load()
+        assert reloaded.assets[identifier] == replacement
+
+    asyncio.run(scenario())
+
+
 async def creation_form(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> tuple[Session, FinanceView, Journal, ft.AlertDialog, IconDraft, str]:
@@ -160,6 +354,14 @@ def test_creation_icon_is_a_draft_until_entity_is_saved_and_survives_reload(
             tmp_path, monkeypatch, kind
         )
         original = journal.source
+        assert isinstance(draft.controls[0], ft.Text)
+        assert draft.controls[0].value == view.tr("icon_choose")
+        row = draft.controls[1]
+        assert isinstance(row, ft.Row) and row.alignment == ft.MainAxisAlignment.SPACE_BETWEEN
+        assert draft.preview.width == 40 and draft.preview.alignment == ft.Alignment.CENTER
+        assert isinstance(row.controls[1], ft.Row)
+        assert row.controls[1].controls == [draft.choose_button, draft.remove_button]
+        assert not draft.remove_button.visible
         click(draft.choose_button)
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
@@ -169,6 +371,7 @@ def test_creation_icon_is_a_draft_until_entity_is_saved_and_survives_reload(
         await press(session, "Enter")
         assert not picker.open and parent.open
         assert draft.selected == selected
+        assert draft.remove_button.visible
         assert images(draft)[0].width == images(draft)[0].height == 16
         assert journal.source == original
         assert view.icons is not None and not view.icons.records
@@ -225,7 +428,7 @@ def test_creation_icon_cancellation_and_removal_do_not_write_sidecars(
         if cancel == "remove":
             click(picker.remove)
             await click_async(picker.submit)
-            assert draft.selected is None and not draft.preview.visible
+            assert draft.selected is None and draft.preview.content is None
         else:
             await session.dispatch_event(picker.search._i, "focus", {})
             await press(session, "Escape")
@@ -241,6 +444,43 @@ def test_creation_icon_cancellation_and_removal_do_not_write_sidecars(
             else:
                 await click_async(action(parent, -1))
                 assert identifier in view._existing_identifiers(journal)
+        assert view.icons is not None and not view.icons.records
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    "kind", ["asset", "liability", "expense", "income", "quick-expense", "quick-income"]
+)
+def test_creation_remove_icon_shortcut_keeps_draft_until_confirmed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    async def scenario() -> None:
+        session, view, journal, parent, draft, _identifier = await creation_form(
+            tmp_path, monkeypatch, kind
+        )
+        original = journal.source
+        click(draft.choose_button)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        picker._choose(MagicMock(control=ft.TextButton(data=asset())))
+        await click_async(picker.submit)
+        assert draft.selected == asset() and draft.remove_button.visible
+
+        await session.dispatch_event(draft.remove_button._i, "click", None)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker) and picker.selected is None
+        await session.dispatch_event(picker.search._i, "focus", {})
+        await press(session, "Escape")
+        assert parent.open and draft.selected == asset() and draft.remove_button.visible
+
+        click(draft.remove_button)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker) and picker.selected is None
+        await session.dispatch_event(picker.search._i, "focus", {})
+        await press(session, "Enter")
+        assert parent.open and draft.selected is None and not draft.remove_button.visible
+        assert draft.preview.content is None and journal.source == original
         assert view.icons is not None and not view.icons.records
 
     asyncio.run(scenario())

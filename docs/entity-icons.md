@@ -7,6 +7,12 @@ Icons are optional. In a creation form, the picker saves only a draft and shows
 a preview; the assignment is written only after creating the account/category.
 Canceling the picker keeps the previous draft; canceling creation discards it.
 Select a candidate, then Save; Remove icon also requires Save.
+An Edit dialog shows the current icon and updates its preview when the picker
+saves a replacement or removal; icon changes are saved independently of edits
+to the entity's other fields. Both forms show a **Choose icon** heading above
+the preview and right-aligned icon-only **Choose icon** and **Remove icon**
+buttons; their tooltips identify the actions. Use **Remove icon** to open the
+picker with removal selected, then Save to confirm or Cancel to keep the icon.
 
 - **Choose icon** searches offline snapshots of all four collections formerly
   searched online: Material Icons, Material Symbols, Simple Icons and SVG Logos.

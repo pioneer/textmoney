@@ -70,6 +70,90 @@ def test_automatic_version_does_not_roll_over_into_another_minor_or_major() -> N
         release.automatic_release_version("0.3.65535", releases)
 
 
+@pytest.mark.parametrize(
+    "versions,expected,next_expected",
+    [
+        (("0.4.8", "0.4.9"), "0.4.9", "0.4.10"),
+        (("0.4.9", "0.4.10", "0.4.8"), "0.4.10", "0.4.11"),
+    ],
+)
+@pytest.mark.parametrize("next_patch", [False, True])
+def test_published_version_uses_all_pages_and_numeric_stable_ordering(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    versions: tuple[str, ...],
+    expected: str,
+    next_expected: str,
+    next_patch: bool,
+) -> None:
+    pages = [
+        [
+            {"tag_name": "v99.0.0", "draft": True, "prerelease": False},
+            {"tag_name": "v100.0.0-rc1", "draft": False, "prerelease": True},
+        ],
+        [{"tag_name": f"v{version}", "draft": False, "prerelease": False} for version in versions],
+    ]
+    run = MagicMock(return_value=json.dumps(pages))
+    monkeypatch.setattr(release, "run", run)
+    monkeypatch.setattr(release, "repository", lambda _: REPO)
+    assert release.published_release_version(tmp_path, next_patch=next_patch) == (
+        next_expected if next_patch else expected
+    )
+    run.assert_called_once_with(
+        tmp_path, "gh", "api", "--paginate", "--slurp", f"repos/{REPO}/releases?per_page=100"
+    )
+
+
+@pytest.mark.parametrize(
+    "pages",
+    [
+        [[]],
+        [
+            [
+                {"tag_name": "v1.0.0", "draft": True, "prerelease": False},
+                {"tag_name": "v2.0.0", "draft": False, "prerelease": True},
+            ]
+        ],
+    ],
+)
+def test_published_version_without_stable_releases_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pages: list[list[dict[str, object]]]
+) -> None:
+    monkeypatch.setattr(release, "run", MagicMock(return_value=json.dumps(pages)))
+    monkeypatch.setattr(release, "repository", lambda _: REPO)
+    with pytest.raises(RuntimeError, match="No published stable release"):
+        release.published_release_version(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        "not JSON",
+        "{}",
+        "[{}]",
+        "[[{}]]",
+        '[[{"tag_name":"v0.4.9","draft":"false","prerelease":false}]]',
+    ],
+)
+def test_release_history_rejects_invalid_json_and_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, response: str
+) -> None:
+    monkeypatch.setattr(release, "run", MagicMock(return_value=response))
+    with pytest.raises(RuntimeError, match="GitHub returned invalid|GitHub returned an invalid"):
+        release.release_summaries(tmp_path, REPO)
+
+
+def test_published_release_propagates_network_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    failure = RuntimeError("gh command failed")
+    monkeypatch.setattr(release, "run", MagicMock(side_effect=failure))
+    monkeypatch.setattr(release, "repository", lambda _: REPO)
+    with pytest.raises(RuntimeError, match="gh command failed") as error:
+        release.published_release_version(tmp_path)
+    assert error.value is failure
+
+
 @pytest.fixture
 def workspace(tmp_path: Path) -> Path:
     (tmp_path / "pyproject.toml").write_text(

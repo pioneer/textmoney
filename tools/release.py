@@ -117,6 +117,48 @@ def repository(root: Path) -> str:
     return name
 
 
+def release_summaries(root: Path, repo: str) -> list[ReleaseSummary]:
+    try:
+        pages = json.loads(
+            run(root, "gh", "api", "--paginate", "--slurp", f"repos/{repo}/releases?per_page=100")
+        )
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("GitHub returned invalid release history JSON.") from exc
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
+        raise RuntimeError("GitHub returned an invalid release history.")
+    releases: list[ReleaseSummary] = []
+    for page in pages:
+        for item in page:
+            if (
+                not isinstance(item, dict)
+                or not isinstance(item.get("tag_name"), str)
+                or type(item.get("draft")) is not bool
+                or type(item.get("prerelease")) is not bool
+            ):
+                raise RuntimeError("GitHub returned invalid release metadata.")
+            releases.append(
+                {
+                    "tagName": item["tag_name"],
+                    "isDraft": item["draft"],
+                    "isPrerelease": item["prerelease"],
+                }
+            )
+    return releases
+
+
+def published_release_version(root: Path, *, next_patch: bool = False) -> str:
+    releases = release_summaries(root, repository(root))
+    stable = [
+        item["tagName"].removeprefix("v")
+        for item in releases
+        if not item["isDraft"] and not item["isPrerelease"]
+    ]
+    if not stable:
+        raise RuntimeError("No published stable release was found.")
+    current = max(stable, key=version_numbers)
+    return automatic_release_version(current, releases) if next_patch else current
+
+
 def replace_setting(source: str, section: str, key: str, value: str) -> str:
     pattern = rf"(?ms)(^\[{re.escape(section)}\]\s*\n)(.*?)(?=^\[|\Z)"
     match = re.search(pattern, source)
@@ -263,25 +305,7 @@ def start_release(
     project_path = root / "pyproject.toml"
     source = project_path.read_text(encoding="utf-8")
     project = tomllib.loads(source)
-    pages = json.loads(
-        run(
-            root,
-            "gh",
-            "api",
-            "--paginate",
-            "--slurp",
-            f"repos/{repo}/releases?per_page=100",
-        )
-    )
-    latest: list[ReleaseSummary] = [
-        {
-            "tagName": item["tag_name"],
-            "isDraft": item["draft"],
-            "isPrerelease": item["prerelease"],
-        }
-        for page in pages
-        for item in page
-    ]
+    latest = release_summaries(root, repo)
     if not version:
         version = (
             project["project"]["version"]

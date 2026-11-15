@@ -25,6 +25,7 @@ uv run inv check          # Format check, lint, Pyright, catalogs and tests
 uv run inv build-android  # Development Android APK
 uv run inv build-linux    # Linux x86_64 AppImage
 uv run inv build-local    # Build for the current desktop OS
+uv run inv version        # Highest published stable release version on GitHub
 uv run inv --list         # All available tasks
 ```
 
@@ -89,6 +90,7 @@ uv run inv build-web-client  # Once, and after client/extension/dependency chang
 uv run inv screenshots-setup # Install Playwright's matching Chromium
 uv run inv screenshots
 uv run inv screenshots --release=0.5.0 # Preview a future release label
+uv run inv screenshots --next-release # Next patch after the published stable release
 ```
 
 This requires the development dependencies, Flet's web build prerequisites and
@@ -116,6 +118,13 @@ By default the visible release version comes from `pyproject.toml`.
 `--release` accepts a stable version such as `0.5.0` and overrides only that
 displayed version, not the current source code, build number or release
 metadata. This is useful for preparing images for a future release.
+Alternatively, `--next-release` queries GitHub and increments the patch component
+of the highest published stable version: `0.4.9` becomes `0.4.10`.
+Drafts and prereleases do not advance that number. This option is mutually
+exclusive with `--release`; it does not change the default local-version behavior.
+Like `version`, it requires GitHub CLI access and fails explicitly if
+the query fails or no stable release exists. Neither option publishes a release
+or changes version metadata.
 Desktop and mobile images capture responsive **layouts**, not native-device
 screenshots. The driver waits for the intended UI states and validates PNG
 dimensions and nonblank output before replacing any README screenshots.
@@ -291,6 +300,20 @@ The Android app ID is `com.pioneer.textmoney`.
 Every main screen also shows `v<version> (<build_number>)` beside its title,
 using the same source or packaged metadata as Settings → About. The header wraps
 on narrow screens.
+
+To see the highest **published stable release** (which may differ from the
+checkout's version), run:
+
+```sh
+uv run inv version
+```
+
+It prints only the version, such as `0.4.9`, without a `v` prefix. It queries all
+GitHub release pages using `gh` and compares versions numerically, excluding
+drafts and prereleases. GitHub CLI must be installed with access to the repository
+(`gh auth login` if needed). Missing releases, access/network failures and invalid
+release metadata are errors; the command never falls back to the checkout's
+version. It does not modify files, tags or releases.
 
 ## Signing and CI
 

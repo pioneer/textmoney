@@ -22,29 +22,86 @@ from PIL.IcoImagePlugin import IcoImageFile
 import tasks
 
 
-@pytest.mark.parametrize("release", ["", "0.5.0"])
+@pytest.mark.parametrize(
+    "release,next_release,expected",
+    [("", False, "0.4.9"), ("0.5.0", False, "0.5.0"), ("", True, "0.4.10")],
+)
 def test_screenshots_task_passes_current_or_requested_release(
-    monkeypatch: pytest.MonkeyPatch, release: str
+    monkeypatch: pytest.MonkeyPatch, release: str, next_release: bool, expected: str
 ) -> None:
     execute = MagicMock()
+    published = MagicMock(return_value="0.4.10")
     monkeypatch.setattr(tasks, "execute", execute)
+    monkeypatch.setattr(tasks.release_tools, "published_release_version", published)
     monkeypatch.setattr(tasks, "compile_translations", MagicMock())
     monkeypatch.setattr(
         tasks, "require_web_dev_client", lambda: tasks.ROOT / "build/web-dev-client"
     )
     monkeypatch.setattr(tasks, "release_identity", lambda: ("0.4.9", 57))
-    arguments = ["inv", "screenshots", *(["--release", release] if release else [])]
+    arguments = [
+        "inv",
+        "screenshots",
+        *(["--release", release] if release else []),
+        *(["--next-release"] if next_release else []),
+    ]
     Program(namespace=Collection(tasks.screenshots)).run(arguments, exit=False)
     execute.assert_called_once_with(
         sys.executable,
         "-m",
         "tools.screenshots",
         "--release",
-        release or "0.4.9",
+        expected,
         "--client",
         str(tasks.ROOT / "build/web-dev-client"),
         env={"PYTHONPATH": str(tasks.ROOT / "src")},
     )
+    if next_release:
+        published.assert_called_once_with(tasks.ROOT, next_patch=True)
+    else:
+        published.assert_not_called()
+
+
+def test_screenshots_rejects_conflicting_version_options_before_query_or_capture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    published = MagicMock()
+    execute = MagicMock()
+    monkeypatch.setattr(tasks.release_tools, "published_release_version", published)
+    monkeypatch.setattr(tasks, "execute", execute)
+    with pytest.raises(Exit, match="either --release or --next-release"):
+        tasks.screenshots(Context(), release="0.5.0", next_release=True)
+    published.assert_not_called()
+    execute.assert_not_called()
+
+
+def test_version_command_prints_only_published_version(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    published = MagicMock(return_value="0.4.9")
+    monkeypatch.setattr(tasks.release_tools, "published_release_version", published)
+    Program(namespace=Collection(tasks.version)).run(["inv", "version"], exit=False)
+    assert capsys.readouterr().out == "0.4.9\n"
+    published.assert_called_once_with(tasks.ROOT)
+
+
+@pytest.mark.parametrize("operation", ["version", "screenshots-next"])
+def test_release_query_failure_is_an_error_and_does_not_capture(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], operation: str
+) -> None:
+    failure = RuntimeError("GitHub release query failed")
+    published = MagicMock(side_effect=failure)
+    execute = MagicMock()
+    monkeypatch.setattr(tasks.release_tools, "published_release_version", published)
+    monkeypatch.setattr(tasks, "execute", execute)
+    with pytest.raises(Exit, match="GitHub release query failed") as error:
+        if operation == "version":
+            tasks.version(Context())
+        else:
+            tasks.screenshots(Context(), next_release=True)
+    assert error.value.code == 1
+    assert error.value.__cause__ is failure
+    assert capsys.readouterr().out == ""
+    execute.assert_not_called()
 
 
 def _icon_artwork_mask(image: Image.Image) -> Image.Image:

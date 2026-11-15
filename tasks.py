@@ -813,12 +813,27 @@ def screenshots_setup(context: Context) -> None:
 
 
 @task
-def screenshots(context: Context, release: str = "") -> None:
-    """Regenerate README app screenshots; --release overrides their version label."""
+def version(context: Context) -> None:
+    """Print the highest published stable GitHub release version (X.Y.Z)."""
+    try:
+        print(release_tools.published_release_version(ROOT))
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
+
+
+@task
+def screenshots(context: Context, release: str = "", next_release: bool = False) -> None:
+    """Regenerate README screenshots; --release or --next-release sets their version label."""
     from tools.screenshots import capture_release, readme_scenes
 
+    if release and next_release:
+        raise Exit("Use either --release or --next-release, not both.", code=1)
     try:
-        version = capture_release(release_identity()[0], release)
+        version = (
+            release_tools.published_release_version(ROOT, next_patch=True)
+            if next_release
+            else capture_release(release_identity()[0], release)
+        )
         readme_scenes(ROOT)
     except RuntimeError as exc:
         raise Exit(str(exc), code=1) from exc

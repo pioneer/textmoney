@@ -807,6 +807,36 @@ def run_web(context: Context, port: int = 8550) -> None:
 
 
 @task
+def screenshots_setup(context: Context) -> None:
+    """Install Playwright's Chromium for README screenshots."""
+    execute(sys.executable, "-m", "playwright", "install", "chromium")
+
+
+@task
+def screenshots(context: Context, release: str = "") -> None:
+    """Regenerate README app screenshots; --release overrides their version label."""
+    from tools.screenshots import capture_release, readme_scenes
+
+    try:
+        version = capture_release(release_identity()[0], release)
+        readme_scenes(ROOT)
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
+    client = require_web_dev_client()
+    compile_translations()
+    execute(
+        sys.executable,
+        "-m",
+        "tools.screenshots",
+        "--release",
+        version,
+        "--client",
+        str(client),
+        env={"PYTHONPATH": str(ROOT / "src")},
+    )
+
+
+@task
 def debug(context: Context) -> None:
     """Desktop hot reload with DEBUG logging and verbose Flet CLI."""
     run_app(debug=True)

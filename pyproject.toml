@@ -32,6 +32,7 @@ dev = [
     "fava==1.30.16",
     "Babel>=2.16,<3",
     "pytest-timeout>=2,<3",
+    "playwright>=1.56,<2",
 ]
 
 [tool.ruff]

@@ -22,6 +22,31 @@ from PIL.IcoImagePlugin import IcoImageFile
 import tasks
 
 
+@pytest.mark.parametrize("release", ["", "0.5.0"])
+def test_screenshots_task_passes_current_or_requested_release(
+    monkeypatch: pytest.MonkeyPatch, release: str
+) -> None:
+    execute = MagicMock()
+    monkeypatch.setattr(tasks, "execute", execute)
+    monkeypatch.setattr(tasks, "compile_translations", MagicMock())
+    monkeypatch.setattr(
+        tasks, "require_web_dev_client", lambda: tasks.ROOT / "build/web-dev-client"
+    )
+    monkeypatch.setattr(tasks, "release_identity", lambda: ("0.4.9", 57))
+    arguments = ["inv", "screenshots", *(["--release", release] if release else [])]
+    Program(namespace=Collection(tasks.screenshots)).run(arguments, exit=False)
+    execute.assert_called_once_with(
+        sys.executable,
+        "-m",
+        "tools.screenshots",
+        "--release",
+        release or "0.4.9",
+        "--client",
+        str(tasks.ROOT / "build/web-dev-client"),
+        env={"PYTHONPATH": str(tasks.ROOT / "src")},
+    )
+
+
 def _icon_artwork_mask(image: Image.Image) -> Image.Image:
     red, green, _blue = image.convert("RGB").split()
     foreground = ImageChops.lighter(red, green).point([0] * 128 + [255] * 128)

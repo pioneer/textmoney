@@ -80,6 +80,47 @@ artwork and framing policy.
 `.env.example` is documentation, not automatically loaded configuration. Set
 variables in your shell/IDE; keep local `.env` files out of version control.
 
+## Refresh README screenshots
+
+The README's app images can be regenerated from the current source app:
+
+```sh
+uv run inv build-web-client  # Once, and after client/extension/dependency changes
+uv run inv screenshots-setup # Install Playwright's matching Chromium
+uv run inv screenshots
+uv run inv screenshots --release=0.5.0 # Preview a future release label
+```
+
+This requires the development dependencies, Flet's web build prerequisites and
+Playwright's Chromium system libraries. Missing or stale web clients fail with
+the rebuild command; rerun `screenshots-setup` after upgrading Playwright.
+The web client may require network access to public Flutter/font CDN assets.
+Capture runs headlessly without an Android device or desktop display. Linux is
+validated; Windows and macOS browser capture are not yet validated.
+
+The command reads HTML and Markdown image references in `README.md`, selecting
+only images under `docs/screenshots/`. Every selected image must have a known
+capture scenario in `tools/screenshots.py`; unknown paths fail rather than
+silently leaving a screenshot stale. The logo, unrelated images, unreferenced
+screenshots and README text are left alone.
+
+Captures use the real dynamic app and its extension-enabled web client, with
+fixed English/light appearance, UTC, viewport sizes and pixel ratio. Each run
+creates a temporary synthetic journal, icons, settings and fresh browser
+contexts; it never opens your saved journal or browser profile. Sample
+transactions and budgets use the first day of the current UTC month, so budgets
+remain populated without future-dated transactions. Temporary data and servers
+are cleaned up on success or failure.
+
+By default the visible release version comes from `pyproject.toml`.
+`--release` accepts a stable version such as `0.5.0` and overrides only that
+displayed version, not the current source code, build number or release
+metadata. This is useful for preparing images for a future release.
+Desktop and mobile images capture responsive **layouts**, not native-device
+screenshots. The driver waits for the intended UI states and validates PNG
+dimensions and nonblank output before replacing any README screenshots.
+Review the resulting images before committing them.
+
 ## Packaging
 
 Keep version/build numbers increasing; do not reset them between releases.

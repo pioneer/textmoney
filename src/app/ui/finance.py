@@ -3010,8 +3010,15 @@ class FinanceView(ft.Row):
             return self.tr("access_ok")
         return self.tr("access_unchecked") if self.journal is None else self.tr("access_failed")
 
-    def _error(self, exc: Exception, notify: bool = False) -> None:
-        self._set_error(exc)
+    def _error(
+        self, exc: Exception, notify: bool = False, *, dialog_validation: bool = False
+    ) -> None:
+        if dialog_validation and notify and isinstance(exc, LedgerError):
+            message = localized_error(self.language, str(exc))
+            logger.warning("Journal operation refused (%s)", type(exc).__name__)
+        else:
+            self._set_error(exc)
+            message = self.message.value
         if notify:
             conflict = isinstance(exc, ConflictError)
             show_dialog(
@@ -3020,7 +3027,7 @@ class FinanceView(ft.Row):
                     modal=True,
                     title=self.tr("conflict_title") if conflict else self.tr("action_failed"),
                     content=ft.Text(
-                        f"{self.message.value}\n\n"
+                        f"{message}\n\n"
                         f"{self.tr('conflict_body') if conflict else self.tr('reload_hint')}"
                     ),
                     actions=[
@@ -3440,7 +3447,13 @@ class FinanceView(ft.Row):
             async def action() -> None:
                 if self.journal is not journal:
                     raise ConflictError("crud_stale")
-                backup = await save()
+                try:
+                    backup = await save()
+                except LedgerError as exc:
+                    if not journal.ready or not journal.storage.loaded:
+                        raise
+                    self._error(exc, notify=True, dialog_validation=True)
+                    return
                 self.page.pop_dialog()
                 self._saved(backup)
                 if after_save is not None:

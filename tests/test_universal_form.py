@@ -9,10 +9,11 @@ import pytest
 from beancount import loader
 from form_controls import change, click, click_async, dropdown_field, transaction_form
 
-from app.domain.ledger import ADJUSTMENTS, BANK_FEES, EPOCH
+from app.domain.ledger import ADJUSTMENTS, BANK_FEES, EPOCH, LedgerError
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
-from app.localization import translate
+from app.localization import localized_error, translate
+from app.storage import StorageError
 from app.ui.finance import FinanceView
 
 
@@ -46,6 +47,14 @@ def ui(journal: Journal, monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, 
     view = FinanceView()
     view.language, view.timezone_name, view.journal = "uk", "UTC", journal
     return view, page
+
+
+def assert_validation_error(view: FinanceView, page: MagicMock, key: str | None = None) -> None:
+    dialog = page.show_dialog.call_args.args[0]
+    assert isinstance(dialog.content, ft.Text) and dialog.content.value
+    if key is not None:
+        assert localized_error(view.language, key) in dialog.content.value
+    assert view.error_message is None
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
@@ -424,6 +433,76 @@ def test_failed_quick_category_creation_keeps_transaction_and_category_dialog(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("previous_error", [False, True])
+def test_older_transaction_category_validation_stays_in_dialog(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, previous_error: bool
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        await journal.add_expense("Assets:Bank", "Expenses:Food", "10", "", "2026-10-18")
+        await journal.create_category("New", "New", opened=date(2026, 10, 19))
+        transaction = journal.ledger.transactions[-1]
+        source = journal.source
+        view, page = ui(journal, monkeypatch)
+        page.width = 800
+        view._set_message("journal_loaded")
+        if previous_error:
+            view._set_error(LedgerError("crud_stale"))
+        status = view.message.value
+        view._navigate("transactions")
+        view._edit_transaction(MagicMock(control=ft.IconButton(data=transaction.id)))
+        dialog = page.show_dialog.call_args.args[0]
+        form = transaction_form(dialog)
+        form.category.value = "Expenses:New"
+
+        await click_async(dialog.actions[-1])
+
+        error = page.show_dialog.call_args.args[0]
+        assert isinstance(error.content, ft.Text)
+        assert view.tr("error_date_order") in error.content.value
+        assert form.category.value == "Expenses:New"
+        assert journal.source == source
+        assert view.message.value == status
+        click(error.actions[0])
+        click(dialog.actions[0])
+        view._navigate("home")
+        assert view.message.value == status
+        view._back()
+        assert view.message.value == status
+
+        view._edit_transaction(MagicMock(control=ft.IconButton(data=transaction.id)))
+        dialog = page.show_dialog.call_args.args[0]
+        form = transaction_form(dialog)
+        form.category.value = "Expenses:Food"
+        await click_async(dialog.actions[-1])
+        assert view.error_message is None
+        assert view.message_key in {"saved", "saved_backup", "saved_new"}
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failure", ["storage", "journal_unready", "storage_unloaded"])
+def test_edit_dialog_preserves_global_storage_and_unready_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        view, page = ui(journal, monkeypatch)
+        view._set_message("journal_loaded")
+        journal.ready = failure != "journal_unready"
+        journal.storage.loaded = failure != "storage_unloaded"
+        error = StorageError("crud_stale") if failure == "storage" else LedgerError("crud_stale")
+        view._edit_dialog("Edit", [], journal, AsyncMock(side_effect=error))
+        dialog = page.show_dialog.call_args.args[0]
+        await click_async(dialog.actions[-1])
+        assert view.error_message == "crud_stale"
+        error = page.show_dialog.call_args.args[0]
+        assert isinstance(error.content, ft.Text)
+        assert view.tr("crud_stale") in error.content.value
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("reverse_direction", [False, True])
 @pytest.mark.parametrize("exchange", [False, True])
 @pytest.mark.parametrize("fee_case", ["none", "source-added", "destination-deducted"])
@@ -667,14 +746,14 @@ def test_saved_kind_protection_is_visible_and_enforced(
         form.sign.selected = ["transfer"]
         change(form.sign)
         await dialog.actions[-1].on_click(MagicMock())
-        assert view.error_message == "crud_transaction_readonly"
+        assert_validation_error(view, page, "crud_transaction_readonly")
         assert journal.source == source
         assert journal.transaction_for_edit(original.id) == original
         form.second_account.value = ""
         form.sign.selected = ["+" if kind == "expense" else "-"]
         change(form.sign)
         await dialog.actions[-1].on_click(MagicMock())
-        assert view.error_message == "crud_transaction_readonly"
+        assert_validation_error(view, page, "crud_transaction_readonly")
         assert journal.source == source
 
     asyncio.run(scenario())
@@ -716,7 +795,7 @@ def test_reversing_exchange_with_impossible_fee_refuses_save_without_changing_am
         assert form.fee_currency.value == "UAH"
         assert form.advanced.title == "Додатково"
         await dialog.actions[-1].on_click(MagicMock())
-        assert view.error_message == "transfer_amount"
+        assert_validation_error(view, page, "transfer_amount")
         assert form.amount.value == "1.00" and form.second_amount.value == "100.00"
         assert journal.source == source == (tmp_path / FILENAME).read_text()
 
@@ -742,7 +821,7 @@ def test_signed_or_nonpositive_input_is_rejected_without_writes(
         )
         original = journal.source
         await dialog.actions[-1].on_click(MagicMock())
-        assert view.error_message is not None
+        assert_validation_error(view, page)
         assert form.amount.value == amount
         assert journal.source == original
 
@@ -768,7 +847,7 @@ def test_primary_account_cannot_be_selected_as_second(
         assert form.second_account.error_text
         original = journal.source
         await dialog.actions[-1].on_click(MagicMock())
-        assert view.error_message == "transfer_accounts"
+        assert_validation_error(view, page, "transfer_accounts")
         assert journal.source == original
 
     asyncio.run(scenario())
@@ -839,7 +918,7 @@ def test_transfer_requires_destination_and_retains_saved_kind_protection(
         assert "" not in {option.key for option in form.second_account.options}
         original = journal.source
         await dialog.actions[-1].on_click(MagicMock())
-        assert view.error_message == "transfer_accounts"
+        assert_validation_error(view, page, "transfer_accounts")
         assert journal.source == original and form.amount.value == "10"
         form.second_account.value = "Assets:Cash"
         change(form.second_account)
@@ -857,7 +936,7 @@ def test_transfer_requires_destination_and_retains_saved_kind_protection(
         form.sign.selected = ["+"]
         change(form.sign)
         await dialog.actions[-1].on_click(MagicMock())
-        assert view.error_message == "crud_transaction_readonly"
+        assert_validation_error(view, page, "crud_transaction_readonly")
         assert journal.source == original
 
     asyncio.run(scenario())

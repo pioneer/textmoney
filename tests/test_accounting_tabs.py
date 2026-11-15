@@ -635,9 +635,15 @@ def test_creation_failure_keeps_draft_and_does_not_close_dialog(
             view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
             await view.journal.load()
         original = journal.source
+        previous_status = view.message.value
         await submit(dialog)
-        assert view.error_message or view.message_key == "error_unexpected"
         assert page.show_dialog.call_count == 2
+        if failure == "validation":
+            error = page.show_dialog.call_args.args[0]
+            assert isinstance(error.content, ft.Text) and error.content.value
+            assert view.message.value == previous_status
+        else:
+            assert view.error_message or view.message_key == "error_unexpected"
         assert journal.source == original
         page.pop_dialog.assert_not_called()
         assert (view.category_name if category else view.account_name).value == (

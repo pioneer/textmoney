@@ -193,8 +193,14 @@ def test_commission_save_failure_keeps_every_draft_field(
             (tmp_path / FILENAME).write_text(disk, newline="")
         elif failure == "backup":
             journal.storage.folder.backup = AsyncMock(side_effect=StorageError("Synthetic"))
+        previous_status = view.message.value
         await click_async(dialog.actions[-1])
-        assert view.error_message
+        if failure == "invalid":
+            error = page.show_dialog.call_args.args[0]
+            assert isinstance(error.content, ft.Text) and error.content.value
+            assert view.message.value == previous_status
+        else:
+            assert view.error_message
         assert form.amount.value == "100"
         assert form.description.value == "Unsaved synthetic draft"
         assert form.fee.value == ("100" if failure == "invalid" else "5")

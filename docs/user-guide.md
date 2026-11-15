@@ -175,7 +175,10 @@ On wider layouts, a subtle row-wide hover highlight connects actions to the
 account, category, transaction or budget. **Escape** cancels the active desktop
 popup; **Enter** submits through its normal checks. **Shift+Enter** adds a line
 in multiline descriptions. Focused buttons/dropdowns keep their normal keyboard
-actions and disabled actions cannot be submitted.
+actions and disabled actions cannot be submitted. Validation errors in account,
+category and transaction edit dialogs appear in an error popup; dismiss it to
+correct the retained draft. They do not replace persistent journal or storage
+status on other screens.
 If an external change makes an edit stale, follow [review steps](synchronization.md#reviewing-external-changes)
 rather than resubmitting the old form.
 

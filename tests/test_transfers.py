@@ -1142,8 +1142,12 @@ def test_exchange_unified_form_preview_draft_and_edit(
         description.value = "Unsaved exchange draft"
         when.occurred.value = "01/10/2026" if language == "en" else "10.01.2026"
         when.clock.value = "12:00"
+        view._refresh_message()
+        previous_status = view.message.value
         await dialog.actions[-1].on_click(MagicMock())
-        assert view.error_message is not None
+        error = page.show_dialog.call_args.args[0]
+        assert isinstance(error.content, ft.Text) and error.content.value
+        assert view.message.value == previous_status
         assert description.value == "Unsaved exchange draft"
         assert amount.value == "3.00" and credited.value == "1.00"
         amount.value, credited.value = "105.00", "4200.00"

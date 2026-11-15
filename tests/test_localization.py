@@ -78,6 +78,7 @@ def test_all_locales_have_a_nonempty_translation_for_each_ui_key() -> None:
                 day="2026-10-29",
                 date="2026-01-01",
                 interval="Monthly",
+                limit=50,
             ).strip()
 
 

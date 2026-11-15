@@ -97,10 +97,19 @@ beside the separate Settings gear. Currently the bottom destinations are Home,
 Transactions, Budgets and Reports; overflow destinations are Accounts and Categories.
 The More button is hidden when there is no overflow. Compact overflow screens
 and Settings hide the bottom bar and transaction action; no unrelated bottom
-destination is selected for an overflow screen. A session screen-history cursor
+destination is selected for an overflow screen. A session navigation-history cursor
 tracks all destination changes, preserving screen state across Back, Settings
-and resizing. Repeated destinations do not add visits; a new destination after
-Back drops later visits. On Android, the root view handles system Back after
+and resizing. Each Operations visit captures its account/category, immutable
+scope, filter-panel visibility and a bounded-page cursor, not transaction pages.
+History restoration reselects from the current ledger; changing journals resets
+the paging position. Explicit drill-downs to different Operations scopes create
+distinct visits even on the same screen. Filter edits and dialogs do not create
+visits. Repeated destinations do not add visits; a new destination after Back
+drops later visits. Native desktop platforms expose stable shared header
+Back/Forward buttons, disabled at history boundaries, at every window width.
+Alt+Left/Right navigate on Linux/Windows; Command+[/] navigate on macOS.
+Shortcuts do not navigate through an open modal. Mobile/tablet layouts have
+no Forward button, regardless of width. On Android, the root view handles system Back after
 Flutter has handled any open dialog or menu, and delegates at the start.
 There is no mobile Forward control. On web, screen changes create browser
 history entries and Back/Forward restore the same session cursor; compact
@@ -119,6 +128,17 @@ filters change while a request is pending. There is no retained page cache.
 Full-day summaries and drill-downs stream the complete filtered history, not
 just the visible page. The existing ledger and source journal still remain
 fully loaded; this is not data-level streaming or a constant-memory parser.
+An immutable Operations scope carries inclusive dates, currency, text search
+and report posting membership alongside account/category selections. Report
+drill-downs share their posting predicate with reporting calculations, including
+Uncategorized rows. Budget previews render at most 50 newest matches and pass
+their full scope/search to Operations; they remain read-only. Both handoffs
+preserve their originating screen state and use the shared navigation history
+instead of source-specific return actions.
+Operations daily summaries include whole matching transactions, not category-only
+report figures, and the UI explains that distinction.
+Operations filter chips retain fixed control slots and toggle visibility, so
+remounting the screen does not replay list insertions as duplicate filters.
 The same screens and form state
 are retained through resizing. Translation resources are separate from controls;
 language/theme choices are saved locally. Domain functions use Python types and return results or raise meaningful

@@ -162,7 +162,16 @@ msgid "ui.operations_load_failed"
 msgstr "Could not load this page. The previous page is retained."
 
 msgid "ui.show_operations"
-msgstr "Show operations"
+msgstr "Open in Operations"
+
+msgid "ui.operations_categorized"
+msgstr "Categorized postings"
+
+msgid "ui.operations_summary_help"
+msgstr "Daily summaries include whole matching transactions, not just the selected category or currency. They may differ from budget and report figures."
+
+msgid "ui.operations_preview_truncated"
+msgstr "Showing the newest {limit} matches. Open in Operations to browse all matching transactions."
 
 msgid "ui.budget_account"
 msgstr "Account"
@@ -1232,6 +1241,10 @@ msgstr "Settings"
 #. Stable TextMoney key: ui.nav_back; do not translate this identifier.
 msgid "ui.nav_back"
 msgstr "Back"
+
+#. Stable TextMoney key: ui.nav_forward; do not translate this identifier.
+msgid "ui.nav_forward"
+msgstr "Forward"
 
 #. Stable TextMoney key: ui.nav_reports; do not translate this identifier.
 msgid "ui.nav_reports"

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal, localcontext
 
-from app.domain.ledger import ZERO, Ledger, LedgerError, Transaction
+from app.domain.ledger import ZERO, Ledger, LedgerError, Posting, Transaction
 
 
 @dataclass(frozen=True)
@@ -127,6 +127,25 @@ def currency_totals(
     )
 
 
+def category_posting_matches(
+    posting: Posting,
+    categories: set[str] | frozenset[str],
+    currency: str,
+    root: str,
+    category: str | None,
+) -> bool:
+    return (
+        (not currency or posting.currency == currency)
+        and posting.account.startswith(root + ":")
+        and (
+            posting.account not in categories
+            if category is None
+            else posting.account in categories
+            and (posting.account == category or posting.account.startswith(category + ":"))
+        )
+    )
+
+
 def category_transactions(
     ledger: Ledger,
     start: date,
@@ -144,14 +163,7 @@ def category_transactions(
         for transaction in ledger.transactions
         if start <= transaction.date <= end
         and any(
-            posting.currency == currency
-            and posting.account.startswith(root + ":")
-            and (
-                posting.account not in categories
-                if category is None
-                else posting.account in categories
-                and (posting.account == category or posting.account.startswith(category + ":"))
-            )
+            category_posting_matches(posting, categories, currency, root, category)
             for posting in transaction.postings
         )
     )

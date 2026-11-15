@@ -35,10 +35,14 @@ roll-ups from double-counting. Uncategorized postings are shown separately.
 Category headers and leaves use the same compact 40-pixel row minimum in
 Overview and Accounting categories, without extra expandable-header padding.
 Inactive labels and larger text can grow the row to avoid clipping.
-Use the transactions button on a category or Uncategorized row to open its
-contributing transactions for that currency and period. Parent categories include
-descendants. The read-only, searchable dialog matches Budgets and lists each
-transaction once even if multiple postings contribute.
+Use **Open in Operations** on a category or Uncategorized row to browse its
+contributing transactions for that currency and inclusive reporting period.
+Parent categories include descendants, not similarly named siblings.
+The handoff clears unrelated Operations filters and preserves categorized versus
+Uncategorized posting semantics. Each whole source transaction appears once,
+even when multiple postings contribute. Normal supported edit/delete actions are
+available. The shared **Back** navigation restores the selected report period and drafts.
+Unlike the read-only budget preview, this drill-down opens the full browser directly.
 
 The report is an operational summary, not a full accounting statement. It does
 not calculate FX gains/losses, historical valuations, or balances in a reporting
@@ -84,6 +88,16 @@ full page top, including its header and paging links; it is not continuous or
 item-anchored infinite scrolling.
 Failures retain the previous page and show an error with Retry.
 
+Operations supports account, category subtree, inclusive start/end dates, currency
+and case-insensitive payee/description search. Dates use the displayed localized
+input format; invalid dates/ranges show an error and retain the last applied
+scope. Visible removable chips describe applied filters even when the filter
+panel is collapsed; **Reset filters** removes all restrictions without discarding
+the return destination. Account/Category links and Home's transaction shortcut
+clear scope restrictions from earlier drill-downs.
+When a category and currency are selected, both must match the same posting;
+an unrelated currency elsewhere in a split transaction does not qualify.
+
 Below each date in Operations, a compact clickable block shows **net expenses**
 and **income** separately for every currency. It follows the same posting-based
 rules as Overview: commissions on purchases, receipts and transfers are expenses;
@@ -91,7 +105,11 @@ reimbursements reduce expenses on their recorded accounting date. Income is not
 reduced by its commission. There is no cross-currency combined total. Days with
 only transfers, opening balances or adjustments show no expenses or income.
 A day split across pages repeats its complete filtered-day totals, never a
-partial-page subtotal. Balances, Reports and budgets still use the complete
+partial-page subtotal. Summaries include whole matching transactions and all their
+currencies, not only the selected category postings. An on-screen explanation
+warns that these are not category-only budget or report reconciliation figures.
+The top balance strip is also unchanged by transaction filters.
+Balances, Reports and budgets still use the complete
 validated ledger. Paging bounds additional Operations UI memory; it does not
 bound the existing journal/ledger memory as a book grows.
 

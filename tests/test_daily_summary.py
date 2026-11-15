@@ -324,6 +324,9 @@ def test_operations_filters_start_hidden_and_toggle_without_losing_selections(
     ] == [
         [view.operations_account],
         [view.operations_category],
+        [view.operations.start, view.operations.end_date],
+        [view.operations.currency],
+        [view.operations.search],
     ]
     click(view.operations_filter_toggle)
     assert view.operations_filters.visible and view.operations_filter_toggle.selected

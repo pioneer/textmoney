@@ -248,7 +248,16 @@ msgid "ui.operations_load_failed"
 msgstr "Не удалось загрузить эту страницу. Предыдущая страница сохранена."
 
 msgid "ui.show_operations"
-msgstr "Показать операции"
+msgstr "Открыть в Операциях"
+
+msgid "ui.operations_categorized"
+msgstr "Проводки с категориями"
+
+msgid "ui.operations_summary_help"
+msgstr "Дневные итоги включают подходящие операции целиком, а не только выбранную категорию или валюту. Они могут отличаться от показателей бюджетов и отчётов."
+
+msgid "ui.operations_preview_truncated"
+msgstr "Показаны {limit} новейших совпадений. Откройте Операции, чтобы просмотреть все подходящие операции."
 
 msgid "ui.budget_account"
 msgstr "Счёт"
@@ -1235,6 +1244,10 @@ msgstr "Настройки"
 #. Stable TextMoney key: ui.nav_back; do not translate this identifier.
 msgid "ui.nav_back"
 msgstr "Назад"
+
+#. Stable TextMoney key: ui.nav_forward; do not translate this identifier.
+msgid "ui.nav_forward"
+msgstr "Вперёд"
 
 #. Stable TextMoney key: ui.nav_reports; do not translate this identifier.
 msgid "ui.nav_reports"

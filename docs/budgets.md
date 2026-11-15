@@ -110,6 +110,15 @@ and expense overspending, separately for each currency. Budget rows do not expan
 or collapse. The transactions icon in the card's action row opens contributing
 transactions; nested budgeted categories remain visible with indentation. Figures include
 subcategories; there is no separate **Excluding subcategories** subitem.
+The read-only **Contributing transactions** popup shows its month and currency
+scope and offers payee/description search. It previews at most the newest 50
+matches, with an explicit notice when more exist; searching checks all contributing
+transactions, not only the preview. **Open in Operations** carries the month,
+category subtree, currency and entered search into the full paginated browser,
+clearing unrelated Operations filters. Operations permits normal supported edits;
+the preview never edits the journal. The shared **Back** navigation restores the selected
+month and filters without reopening the popup. Popup versus navigation does not
+change automatically with the number of transactions.
 There is no report-mode selector or reporting-frequency selector. Definition
 frequencies are unchanged: daily, weekly, monthly, quarterly and yearly budgets
 are all allocated into the displayed month.

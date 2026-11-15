@@ -5,6 +5,7 @@ import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from decimal import Decimal, localcontext
 from enum import StrEnum
@@ -40,14 +41,13 @@ from app.domain.ledger import (
     exchange_values,
     money,
 )
-from app.domain.operations import matching_transactions, transaction_key
+from app.domain.operations import PAGE_SIZE, OperationScope, transaction_key
 from app.domain.reporting import (
     AccountBalance,
     CategoryReport,
     CurrencyReport,
     PeriodReport,
     account_balances,
-    category_transactions,
     currency_totals,
     period_bounds,
     period_report,
@@ -88,7 +88,7 @@ from app.ui.dialogs import deletion_title, show_dialog
 from app.ui.home_budgets import HomeBudgets, home_heading
 from app.ui.icons import IconDraft, IconField, IconPicker, icon_image
 from app.ui.layout import HoverRow, action_toolbar, month_navigation
-from app.ui.operations import OperationsView
+from app.ui.operations import OperationsLocation, OperationsView
 from app.ui.theme import NAVIGATION_SURFACE, summary_theme
 from app.ui.tree_style import (
     TREE_MENU_ROW_HEIGHT,
@@ -145,6 +145,12 @@ def screen_class(width: float | None) -> ScreenClass:
     return ScreenClass.EXPANDED
 
 
+@dataclass(frozen=True)
+class NavigationVisit:
+    screen: str
+    operations: OperationsLocation | None = None
+
+
 class FinanceView(ft.Row):
     def __init__(self) -> None:
         super().__init__(expand=True, spacing=0, alignment=ft.MainAxisAlignment.CENTER)
@@ -187,8 +193,9 @@ class FinanceView(ft.Row):
         self.system_zone = "system"
         self.screen_class = ScreenClass.COMPACT
         self.current_screen = "home"
-        self.screen_history = ["home"]
+        self._history = [NavigationVisit("home")]
         self.history_index = 0
+        self.desktop_navigation = False
         self.browser_routes: list[str] = []
         self._browser_route_prefix = uuid4().hex
         self._browser_route_sequence = 0
@@ -326,6 +333,7 @@ class FinanceView(ft.Row):
             [
                 ft.Row([self.operations_account]),
                 ft.Row([self.operations_category]),
+                *self.operations.extra_filters,
             ],
             spacing=8,
             visible=False,
@@ -522,6 +530,11 @@ class FinanceView(ft.Row):
             on_click=self._back_clicked,
             visible=False,
         )
+        self.navigation_forward = ft.IconButton(
+            icon=ft.Icons.ARROW_FORWARD,
+            on_click=self._forward_clicked,
+            visible=False,
+        )
         self.overflow_menu = ft.PopupMenuButton()
         self.header_titles = ft.Row(
             [self.page_title, self.release_label],
@@ -552,6 +565,7 @@ class FinanceView(ft.Row):
                     content=ft.Row(
                         [
                             self.navigation_back,
+                            self.navigation_forward,
                             self.header_titles,
                             self.overflow_menu,
                             self.settings_button,
@@ -604,6 +618,13 @@ class FinanceView(ft.Row):
         self.page.padding = 0
         self.page.on_resize = self._resized
         self.page.on_locale_change = self._host_locale_changed
+        self.desktop_navigation = not self.page.web and self.page.platform in {
+            ft.PagePlatform.LINUX,
+            ft.PagePlatform.WINDOWS,
+            ft.PagePlatform.MACOS,
+        }
+        if self.desktop_navigation:
+            self.page.on_keyboard_event = self._navigation_key
         if self.page.web:
             self._setup_browser_navigation()
         if self.page.platform == ft.PagePlatform.ANDROID and not self.page.web:
@@ -615,6 +636,8 @@ class FinanceView(ft.Row):
         self.page.update()
 
     def will_unmount(self) -> None:
+        if self.page.on_keyboard_event == self._navigation_key:
+            self.page.on_keyboard_event = None
         if self.page.web:
             self.page.on_route_change = None
         if self.page.platform == ft.PagePlatform.ANDROID and not self.page.web:
@@ -846,8 +869,13 @@ class FinanceView(ft.Row):
         self.overflow_menu.visible = (
             compact and bool(overflow) and self.current_screen != "settings"
         )
-        self.navigation_back.visible = compact and self.history_index > 0
+        desktop = self.desktop_navigation
+        self.navigation_back.visible = desktop or (compact and self.history_index > 0)
+        self.navigation_back.disabled = self.history_index == 0
         self.navigation_back.tooltip = self.tr("nav_back")
+        self.navigation_forward.visible = desktop
+        self.navigation_forward.disabled = self.history_index + 1 == len(self._history)
+        self.navigation_forward.tooltip = self.tr("nav_forward")
         self.settings_button.visible = compact and self.current_screen != "settings"
         self.settings_button.tooltip = self.tr("nav_settings")
 
@@ -879,7 +907,10 @@ class FinanceView(ft.Row):
         self.transactions_screen.controls = [
             action_toolbar(self.operations_filter_toggle),
             self.operations_filters,
+            self.operations.chips,
+            self.operations.reset,
             self.operations_totals,
+            self.operations.summary_help,
             self.operations.navigation[0],
             self.history,
             self.operations.status,
@@ -1016,7 +1047,7 @@ class FinanceView(ft.Row):
         bottom, _overflow = mobile_destination_groups()
         screen = self.current_screen
         if screen == "settings" and self.history_index > 0:
-            screen = self.screen_history[self.history_index - 1]
+            screen = self._history[self.history_index - 1].screen
         return bottom.index(screen) if screen in bottom else None
 
     def _apply_layout(self, width: float | None) -> None:
@@ -1302,6 +1333,9 @@ class FinanceView(ft.Row):
             (self.operations_category, ledger.categories, "operations_all_categories"),
         ):
             identifiers = {item.id for item in items}
+            if control is self.operations_category and self.operations.origin and control.value:
+                # Undeclared or removed scoped categories must not broaden a drill-down.
+                identifiers.add(control.value)
             if control.value not in identifiers:
                 control.value = ""
             control.options = [
@@ -1318,6 +1352,11 @@ class FinanceView(ft.Row):
                 ],
             ]
             if control is self.operations_category:
+                if control.value and not any(
+                    option.key == control.value for option in control.options
+                ):
+                    control.options.append(self._category_form_option(control.value, control.value))
+                    control.options.sort(key=lambda option: (option.key or "").split(":"))
                 control.options = self._category_option_lines(control.options)
             control.leading_icon = self._entity_dropdown_icon(control.value or "")
             control.disabled = not ready
@@ -1325,20 +1364,18 @@ class FinanceView(ft.Row):
         self.operations_filter_toggle.selected = self.operations_filters.visible
         self.operations_filter_toggle.icon_color = (
             ft.Colors.PRIMARY
-            if self.operations_account.value or self.operations_category.value
+            if self.operations_account.value
+            or self.operations_category.value
+            or self.operations.scope != OperationScope()
             else None
         )
 
     def _operations_transactions(self, transactions: list[Transaction]) -> list[Transaction]:
-        return list(
-            matching_transactions(
-                transactions,
-                str(self.operations_account.value or ""),
-                str(self.operations_category.value or ""),
-            )
-        )
+        return list(self.operations.matching(transactions))
 
     def _operations_filter_changed(self, event: ft.Event[ft.Dropdown]) -> None:
+        if event.control is self.operations_category:
+            self.operations.scope = replace(self.operations.scope, report_root="", unassigned=False)
         self._refresh()
         self.page.update()
 
@@ -1349,11 +1386,22 @@ class FinanceView(ft.Row):
 
     def _show_entity_operations(self, event: ft.Event[ft.IconButton]) -> None:
         kind, identifier = event.control.data
-        self.operations_account.value = identifier if kind == "account" else ""
-        self.operations_category.value = identifier if kind == "category" else ""
-        self.operations_filters.visible = True
-        self._refresh()
-        self._navigate("transactions")
+        self._navigate(
+            "transactions",
+            operations=OperationsLocation(
+                account=identifier if kind == "account" else "",
+                category=identifier if kind == "category" else "",
+            ),
+        )
+
+    def _open_scoped_operations(self, category: str, scope: OperationScope, *, origin: str) -> None:
+        if self.journal is None or not self.journal.ready:
+            self._error(LedgerError("crud_stale"), notify=True)
+            return
+        self._navigate(
+            "transactions",
+            operations=OperationsLocation(category=category, scope=scope, origin=origin),
+        )
 
     def _sync_report_period(self) -> None:
         self.report_period.label = self.tr("report_period")
@@ -1466,9 +1514,16 @@ class FinanceView(ft.Row):
             root: str,
         ) -> ft.Column:
             def open_transactions(identifier: str | None, name: str) -> None:
-                transactions = category_transactions(ledger, start, end, currency, root, identifier)
-                self._show_category_transactions(
-                    identifier, name, transactions, self.budgets._account_names()
+                self._open_scoped_operations(
+                    identifier or root,
+                    OperationScope(
+                        start=start,
+                        end=end,
+                        currency=currency,
+                        report_root=root,
+                        unassigned=identifier is None,
+                    ),
+                    origin="reports",
                 )
 
             return self._report_category_section(
@@ -1651,7 +1706,7 @@ class FinanceView(ft.Row):
                     ft.IconButton(
                         icon=ft.Icons.RECEIPT_LONG,
                         icon_size=20,
-                        tooltip=f"{self.tr('budget_transactions')}: {name}",
+                        tooltip=f"{self.tr('show_operations')}: {name}",
                         on_click=lambda event: callback(identifier, name),
                     )
                 )
@@ -2200,21 +2255,32 @@ class FinanceView(ft.Row):
         name: str,
         transactions: tuple[Transaction, ...],
         names: dict[str, str],
+        *,
+        scope: OperationScope | None = None,
     ) -> None:
         listing = ft.Column(spacing=0)
         search = ft.TextField(label=self.tr("budget_search_transactions"))
-        ordered = sorted(transactions, key=self._transaction_sort_key, reverse=True)
+        truncated = ft.Text(
+            self.tr("operations_preview_truncated", limit=PAGE_SIZE), visible=False, size=12
+        )
+        journal = self.journal
 
         def render(event: ft.Event[ft.TextField] | None = None) -> None:
             query = (search.value or "").strip().casefold()
-            matching = [
-                transaction
-                for transaction in ordered
-                if not query or query in f"{transaction.payee} {transaction.narration}".casefold()
-            ]
-            listing.controls = self._transaction_groups(matching, names, read_only=True) or [
-                ft.Text(self.tr("budget_no_matches"))
-            ]
+            matching = nlargest(
+                PAGE_SIZE + 1,
+                (
+                    transaction
+                    for transaction in transactions
+                    if not query
+                    or query in f"{transaction.payee} {transaction.narration}".casefold()
+                ),
+                key=self._transaction_sort_key,
+            )
+            truncated.visible = len(matching) > PAGE_SIZE
+            listing.controls = self._transaction_groups(
+                matching[:PAGE_SIZE], names, read_only=True
+            ) or [ft.Text(self.tr("budget_no_matches"))]
             if event is not None:
                 self.page.update()
 
@@ -2223,13 +2289,44 @@ class FinanceView(ft.Row):
         label: ft.Control = ft.Text(name, tooltip=identifier, selectable=True)
         if identifier is not None:
             label = self._entity_label(identifier, label)
+        labels = [label]
+        if scope is not None:
+            labels.append(
+                ft.Text(
+                    f"{format_date(scope.start, self.language) if scope.start else ''}"
+                    f" - {format_date(scope.end, self.language) if scope.end else ''}"
+                    f" / {scope.currency or self.tr('budget_all_currencies')}",
+                    size=12,
+                )
+            )
+        labels.append(truncated)
+
+        def open_operations(event: ft.Event[ft.TextButton]) -> None:
+            if self.journal is not journal or journal is None or not journal.ready:
+                self._error(LedgerError("crud_stale"), notify=True)
+                return
+            assert scope is not None
+            self.page.pop_dialog()
+            self._open_scoped_operations(
+                identifier or "", replace(scope, query=search.value or ""), origin="budgets"
+            )
+
         show_dialog(
             self.page,
             ft.AlertDialog(
                 title=self.tr("budget_transactions"),
                 scrollable=True,
-                content=ft.Column([label, search, listing], tight=True, width=420),
-                actions=[ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)],
+                content=ft.Column(
+                    [ft.Column(labels, tight=True), search, listing], tight=True, width=420
+                ),
+                actions=[
+                    ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss),
+                    *(
+                        [ft.TextButton(self.tr("show_operations"), on_click=open_operations)]
+                        if scope is not None
+                        else []
+                    ),
+                ],
             ),
         )
 
@@ -2361,11 +2458,7 @@ class FinanceView(ft.Row):
                 journal.ledger,
                 day,
                 day,
-                transactions=matching_transactions(
-                    journal.ledger.transactions,
-                    str(self.operations_account.value or ""),
-                    str(self.operations_category.value or ""),
-                ),
+                transactions=self.operations.matching(journal.ledger.transactions),
             )
             sections: list[ft.Control] = []
             for item in report.currencies:
@@ -3251,10 +3344,10 @@ class FinanceView(ft.Row):
         await self._action(save)
 
     def _home_transactions(self, event: ft.Event[ft.IconButton]) -> None:
-        self.operations_account.value = ""
-        self.operations_category.value = ""
-        self._refresh()
-        self._navigate("transactions")
+        self._navigate(
+            "transactions",
+            operations=OperationsLocation(filters_visible=self.operations_filters.visible),
+        )
 
     def _home_accounts(self, event: ft.Event[ft.IconButton]) -> None:
         self._navigate("accounts")
@@ -5608,15 +5701,37 @@ class FinanceView(ft.Row):
         if self.page:
             self.page.update()
 
-    def _navigate(self, screen: str) -> None:
+    @property
+    def screen_history(self) -> list[str]:
+        return [visit.screen for visit in self._history]
+
+    def _save_visit(self) -> None:
+        if self.current_screen == "transactions":
+            self._history[self.history_index] = NavigationVisit(
+                self.current_screen, self.operations.location()
+            )
+
+    def _restore_visit(self, index: int) -> None:
+        self._save_visit()
+        self.history_index = index
+        visit = self._history[index]
+        if visit.operations is not None:
+            self.operations.restore(visit.operations)
+            self._refresh()
+        self._show_screen(visit.screen)
+
+    def _navigate(self, screen: str, *, operations: OperationsLocation | None = None) -> None:
         if self._browser_back_waiter is not None:
-            self.page.run_task(self._navigate_after_browser_back, screen)
+            self.page.run_task(self._navigate_after_browser_back, screen, operations)
             return
-        if screen == self.current_screen:
+        self._save_visit()
+        if screen == self.current_screen and (
+            operations is None or operations == self.operations.location()
+        ):
             self._show_screen(screen)
             return
-        del self.screen_history[self.history_index + 1 :]
-        self.screen_history.append(screen)
+        del self._history[self.history_index + 1 :]
+        self._history.append(NavigationVisit(screen, operations))
         self.history_index += 1
         if self.browser_routes:
             del self.browser_routes[self.history_index :]
@@ -5625,11 +5740,16 @@ class FinanceView(ft.Row):
             self.browser_routes.append(route)
             self._browser_pending_routes[route] = asyncio.Event()
             self.page.run_task(self._push_browser_route, route)
+        if operations is not None:
+            self.operations.restore(operations)
+            self._refresh()
         self._show_screen(screen)
 
-    async def _navigate_after_browser_back(self, screen: str) -> None:
+    async def _navigate_after_browser_back(
+        self, screen: str, operations: OperationsLocation | None = None
+    ) -> None:
         async with self._browser_route_lock:
-            self._navigate(screen)
+            self._navigate(screen, operations=operations)
 
     def _setup_browser_navigation(self) -> None:
         self.browser_routes = [self.page.route]
@@ -5655,23 +5775,20 @@ class FinanceView(ft.Row):
             return
         index = self.browser_routes.index(event.route)
         if index != self.history_index:
-            self.history_index = index
-            self._show_screen(self.screen_history[index])
+            self._restore_visit(index)
         if self._browser_back_waiter is not None:
             self._browser_back_waiter.set()
 
     def _back(self) -> bool:
         if self.history_index == 0:
             return False
-        self.history_index -= 1
-        self._show_screen(self.screen_history[self.history_index])
+        self._restore_visit(self.history_index - 1)
         return True
 
     def _forward(self) -> bool:
-        if self.history_index + 1 == len(self.screen_history):
+        if self.history_index + 1 == len(self._history):
             return False
-        self.history_index += 1
-        self._show_screen(self.screen_history[self.history_index])
+        self._restore_visit(self.history_index + 1)
         return True
 
     def _back_clicked(self, event: ft.Event[ft.IconButton]) -> None:
@@ -5679,6 +5796,30 @@ class FinanceView(ft.Row):
             self.page.run_task(self._browser_back)
         else:
             self._back()
+
+    def _forward_clicked(self, event: ft.Event[ft.IconButton]) -> None:
+        self._forward()
+
+    def _navigation_key(self, event: ft.KeyboardEvent) -> None:
+        if not self.desktop_navigation or any(
+            not isinstance(dialog, ft.SnackBar) and getattr(dialog, "open", False)
+            for dialog in self.page._dialogs.controls
+        ):
+            return
+        if event.shift or event.ctrl:
+            return
+        if self.page.platform == ft.PagePlatform.MACOS:
+            if not event.meta or event.alt:
+                return
+            back, forward = event.key == "[", event.key == "]"
+        else:
+            if not event.alt or event.meta:
+                return
+            back, forward = event.key == "Arrow Left", event.key == "Arrow Right"
+        if back:
+            self._back()
+        elif forward:
+            self._forward()
 
     async def _browser_back(self) -> None:
         async with self._browser_route_lock:

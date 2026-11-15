@@ -10,13 +10,23 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
+import msgpack
 import pytest
+from flet.controls.object_patch import ObjectPatch
+from flet.messaging.protocol import configure_encode_object_for_msgpack
 from form_controls import click, click_async, transaction_form
 
-from app.domain.ledger import Account, Category, Ledger, Posting, Transaction
-from app.domain.operations import OperationPage, PageDirection, operation_page
+from app.domain.ledger import Account, Category, Ledger, LedgerError, Posting, Transaction
+from app.domain.operations import (
+    OperationPage,
+    OperationScope,
+    PageDirection,
+    matching_transactions,
+    operation_page,
+)
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
+from app.localization import date_input
 from app.ui import operations as operations_ui
 from app.ui.finance import FinanceView
 
@@ -55,6 +65,89 @@ def view(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FinanceView:
     )
     host.journal.ready = True
     return host
+
+
+def test_history_restores_each_operations_visit_scope_and_page(view: FinanceView) -> None:
+    async def scenario() -> None:
+        first = OperationScope(currency="USD", query="Synthetic")
+        second = OperationScope(currency="USD", query="0009")
+        view._open_scoped_operations("Expenses:Food", first, origin="budgets")
+        await view.operations.move("older")
+        first_ids = [entry.id for entry in view.operations.page.transactions]
+        view.operations_filters.visible = False
+        view._navigate("reports")
+        view._open_scoped_operations("Expenses:Food", second, origin="reports")
+        second_ids = [entry.id for entry in view.operations.page.transactions]
+        assert first_ids != second_ids
+        assert view._back() and view.current_screen == "reports"
+        assert view._back() and view.current_screen == "transactions"
+        assert view.operations.scope == first
+        assert view.operations_category.value == "Expenses:Food"
+        assert not view.operations_filters.visible
+        assert [entry.id for entry in view.operations.page.transactions] == first_ids
+        assert view._forward() and view.current_screen == "reports"
+        assert view._forward() and view.current_screen == "transactions"
+        assert view.operations.scope == second and view.operations_filters.visible
+        assert [entry.id for entry in view.operations.page.transactions] == second_ids
+        visits = view.screen_history
+        view.operations.search.value = "000999"
+        view.operations._search_changed(MagicMock())
+        assert view.screen_history == visits
+        view._navigate("settings")
+        assert view._back()
+        assert view.operations.scope.query == "000999"
+        assert [entry.id for entry in view.operations.page.transactions] == ["operation-000999"]
+        view._navigate("accounts")
+        assert not view._forward()
+
+    asyncio.run(scenario())
+
+
+def test_explicit_same_screen_drilldowns_create_distinct_visits(view: FinanceView) -> None:
+    first, second = OperationScope(query="0001"), OperationScope(query="0002")
+    view._open_scoped_operations("Expenses:Food", first, origin="reports")
+    view._open_scoped_operations("Expenses:Food", second, origin="reports")
+    assert view.screen_history == ["home", "transactions", "transactions"]
+    view._open_scoped_operations("Expenses:Food", second, origin="reports")
+    assert len(view.screen_history) == 3
+    assert view._back() and view.operations.scope == first
+    assert view._forward() and view.operations.scope == second
+
+
+@pytest.mark.parametrize("switch_journal", [False, True], ids=["reload", "switch"])
+def test_history_reselects_current_transactions_instead_of_cached_pages(
+    view: FinanceView, tmp_path: Path, switch_journal: bool
+) -> None:
+    async def scenario() -> None:
+        assert view.journal is not None
+        view._open_scoped_operations(
+            "Expenses:Food", OperationScope(currency="USD"), origin="budgets"
+        )
+        await view.operations.move("older")
+        view._navigate("reports")
+        current = replace(
+            view.journal.ledger,
+            transactions=tuple(
+                replace(entry, id=f"new-{entry.id}") for entry in view.journal.ledger.transactions
+            ),
+        )
+        if switch_journal:
+            view.journal = Journal(
+                DesktopFolder(str(tmp_path / "other"), FILENAME),
+                today=lambda: date(2028, 1, 1),
+            )
+            view.journal.ready = True
+        view.journal.ledger = current
+        assert view._back()
+        assert view.operations.page.transactions
+        assert all(
+            any(entry is current_entry for current_entry in current.transactions)
+            for entry in view.operations.page.transactions
+        )
+        assert view.operations.page.newer == (not switch_journal)
+        assert len(view.operations.page.transactions) <= 50
+
+    asyncio.run(scenario())
 
 
 def test_initial_operations_render_is_bounded(view: FinanceView) -> None:
@@ -173,6 +266,180 @@ def test_filters_query_the_whole_history_and_keep_date_totals(view: FinanceView)
     assert not selected.older and not selected.newer
 
 
+def test_scope_matches_dates_text_and_currency_on_the_same_category_posting() -> None:
+    base = operations(1)[0]
+    split = replace(
+        base,
+        id="split",
+        narration="Monthly SHOP",
+        payee="Vendor",
+        postings=(
+            Posting("Expenses:Food:Meals", Decimal("-2"), "USD"),
+            Posting("Expenses:Other", Decimal("3"), "EUR"),
+            Posting("Assets:Cash", Decimal("2"), "USD"),
+        ),
+    )
+    sibling = replace(
+        split, id="sibling", postings=(Posting("Expenses:FoodOther", Decimal("-2"), "USD"),)
+    )
+    entries = (
+        replace(split, id="before", date=date(2025, 12, 31)),
+        split,
+        replace(split, id="last", date=date(2026, 1, 31)),
+        replace(split, id="after", date=date(2026, 2, 1)),
+        sibling,
+    )
+    scope = OperationScope(
+        start=date(2026, 1, 1), end=date(2026, 1, 31), currency="USD", query="  shop  "
+    )
+    assert tuple(matching_transactions(entries, category="Expenses:Food", scope=scope)) == (
+        split,
+        entries[2],
+    )
+    assert not list(
+        matching_transactions(
+            entries, category="Expenses:Food", scope=replace(scope, currency="EUR")
+        )
+    )
+    assert tuple(
+        matching_transactions(
+            entries, "Assets:Cash", "Expenses:Food", scope=replace(scope, query="VENDOR")
+        )
+    ) == (split, entries[2])
+    with pytest.raises(LedgerError, match="report_date_range"):
+        OperationScope(start=date(2026, 2, 1), end=date(2026, 1, 31))
+
+
+def test_scope_applies_to_paging_and_complete_daily_totals(view: FinanceView) -> None:
+    async def scenario() -> None:
+        assert view.journal is not None
+        view.journal.ledger = replace(
+            view.journal.ledger, transactions=operations(137, same_day=True)
+        )
+        view._open_scoped_operations(
+            "Expenses:Food",
+            OperationScope(
+                start=date(2026, 1, 1), end=date(2026, 1, 1), currency="USD", query="Synthetic"
+            ),
+            origin="budgets",
+        )
+        seen: list[str] = []
+        while True:
+            page = view.operations.page
+            seen.extend(entry.id for entry in page.transactions)
+            assert page.totals[0][1][0].expenses == Decimal(137)
+            if not page.older:
+                break
+            await view.operations.move("older")
+        assert len(seen) == len(set(seen)) == 137
+        view.operations.search.value = "000004"
+        view.operations._search_changed(MagicMock())
+        assert [entry.id for entry in view.operations.page.transactions] == ["operation-000004"]
+        view.operations.currency.value = "EUR"
+        view.operations._currency_changed(MagicMock())
+        assert not view.operations.page.transactions
+        empty = view.history.controls[0]
+        assert isinstance(empty, ft.Text) and empty.value == view.tr("operations_no_matches")
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_scope_chips_dates_reset_and_entity_handoffs(view: FinanceView, language: str) -> None:
+    view.language = language
+    view._open_scoped_operations(
+        "Expenses:Food",
+        OperationScope(
+            start=date(2026, 1, 1), end=date(2026, 1, 31), currency="USD", query="Synthetic"
+        ),
+        origin="budgets",
+    )
+    listing = view.operations
+    chips = {chip.data: chip for chip in listing.chips.controls if chip.visible}
+    assert set(chips) == {"category", "start", "end", "currency", "query"}
+    listing._clear(MagicMock(control=chips["currency"]))
+    assert listing.scope.currency == ""
+    assert listing.scope.query == "Synthetic"
+    previous = listing.scope
+    listing.end_date.value = date_input(date(2025, 12, 31), view.language)
+    listing._dates_changed(MagicMock(control=listing.end_date))
+    assert listing.end_date.error
+    assert listing.scope == previous
+    listing.end_date.value = date_input(date(2026, 2, 1), view.language)
+    listing._dates_changed(MagicMock(control=listing.end_date))
+    assert listing.end_date.error is None
+    assert listing.scope.end == date(2026, 2, 1)
+    listing._reset(MagicMock())
+    assert listing.scope == OperationScope()
+    assert not view.operations_category.value and not view.operations_account.value
+    assert not listing.chips.visible
+    assert not any(chip.visible for chip in listing.chips.controls)
+    assert listing.origin == "budgets"
+    for kind, identifier in (("category", "Expenses:Food"), ("account", "Assets:Cash")):
+        listing.set_scope(previous, origin="budgets")
+        view._show_entity_operations(MagicMock(control=ft.IconButton(data=(kind, identifier))))
+        assert listing.scope == OperationScope() and not listing.origin
+        assert not listing.search.value and not listing.start.value
+        assert not listing.currency.value and not listing.end_date.value
+    listing.set_scope(previous, origin="reports")
+    view._home_transactions(MagicMock())
+    assert listing.scope == OperationScope() and not listing.origin
+
+
+def test_remounting_operations_filters_does_not_duplicate_client_chips() -> None:
+    host = FinanceView()
+    view = host.operations
+    host.operations_category.value = "Expenses:Food"
+    scope = OperationScope(start=date(2026, 11, 1), end=date(2026, 11, 30))
+    view.set_scope(scope, origin="budgets")
+    view._scope_controls()
+    wrapper = ft.Container(content=view.chips)
+    encode = configure_encode_object_for_msgpack(ft.BaseControl)
+    client = msgpack.unpackb(msgpack.packb(wrapper, default=encode), strict_map_key=False)
+
+    def update() -> None:
+        patch, _, _ = ObjectPatch.from_diff(wrapper, wrapper, ft.BaseControl)
+        operations = msgpack.unpackb(
+            msgpack.packb(patch.patch, default=encode), strict_map_key=False
+        )
+        for operation in operations:
+            target = client
+            for part in operation["path"][:-1]:
+                target = target[part]
+            key = operation["path"][-1]
+            if operation["op"] == "add":
+                if isinstance(target, list):
+                    target.insert(key, operation["value"])
+                else:
+                    target[key] = operation["value"]
+            elif operation["op"] == "remove":
+                del target[key]
+            elif operation["op"] == "replace":
+                target[key] = operation["value"]
+            else:
+                pytest.fail(f"Unexpected filter patch operation: {operation['op']}")
+
+    for currency in ("USD", "", "EUR", ""):
+        wrapper.content = ft.Text("Other screen")
+        update()
+        view.set_scope(replace(scope, currency=currency), origin="budgets")
+        view._scope_controls()
+        wrapper.content = view.chips
+        update()
+        actual = [
+            chip["label"]["value"]
+            for chip in client["content"]["controls"]
+            if chip.get("visible", True)
+        ]
+        expected = [
+            chip.label.value
+            for chip in view.chips.controls
+            if isinstance(chip, ft.Chip) and isinstance(chip.label, ft.Text) and chip.visible
+        ]
+        assert actual == expected
+        assert len(actual) == (4 if currency else 3)
+
+
 def test_reload_reanchors_without_reusing_old_source_ids(view: FinanceView) -> None:
     async def scenario() -> None:
         assert view.journal is not None
@@ -232,13 +499,14 @@ def test_page_failure_retains_rows_and_can_be_retried(
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("change", ["filter", "screen"])
+@pytest.mark.parametrize("change", ["filter", "scope", "screen", "history"])
 def test_pending_page_cannot_replace_changed_context(
     view: FinanceView, monkeypatch: pytest.MonkeyPatch, change: str
 ) -> None:
     async def scenario() -> None:
         assert view.journal is not None
         view._refresh()
+        view._navigate("transactions")
         started, release = threading.Event(), threading.Event()
         ledger = view.journal.ledger
 
@@ -256,6 +524,12 @@ def test_pending_page_cannot_replace_changed_context(
             if change == "filter":
                 view.operations_category.value = "Expenses:Food"
                 view._operations_filter_changed(MagicMock())
+            elif change == "scope":
+                view.operations.search.value = "000004"
+                view.operations._search_changed(MagicMock())
+            elif change == "history":
+                view._navigate("reports")
+                assert view._back()
             else:
                 view._navigate("accounts")
             expected = view.operations.page

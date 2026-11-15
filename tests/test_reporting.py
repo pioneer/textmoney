@@ -20,6 +20,7 @@ from app.domain.ledger import (
     Posting,
     Transaction,
 )
+from app.domain.operations import OperationScope, operation_page
 from app.domain.reporting import (
     account_balances,
     category_transactions,
@@ -210,6 +211,26 @@ def test_category_transactions_follow_report_postings_and_subtotals() -> None:
     assert ids("USD", "Income", "Income:Salary") == []
     with pytest.raises(LedgerError):
         category_transactions(ledger, JANUARY[1], JANUARY[0], "UAH", "Income", None)
+    for root, category in (
+        ("Expenses", "Expenses:Food"),
+        ("Expenses", "Expenses"),
+        ("Expenses", None),
+        ("Income", "Income"),
+        ("Income", None),
+    ):
+        for currency in ("UAH", "EUR", "USD"):
+            page = operation_page(
+                ledger,
+                category=category or root,
+                scope=OperationScope(
+                    start=JANUARY[0],
+                    end=JANUARY[1],
+                    currency=currency,
+                    report_root=root,
+                    unassigned=category is None,
+                ),
+            )
+            assert {item.id for item in page.transactions} == set(ids(currency, root, category))
 
 
 def balance_ledger() -> Ledger:
@@ -654,10 +675,16 @@ def test_report_category_tree_is_compact_borderless_and_has_no_root_indent(
 
 
 @pytest.mark.parametrize("width", [390, 1366])
-def test_report_category_buttons_open_searchable_read_only_transactions(
+def test_report_category_buttons_open_scoped_operations_and_return(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int
 ) -> None:
     async def scenario() -> None:
+        # This reference book includes undeclared legacy postings for Uncategorized coverage.
+        monkeypatch.setattr(
+            Ledger,
+            "balances",
+            lambda self, **kwargs: dict.fromkeys((account.id for account in self.accounts), ZERO),
+        )
         page = MagicMock(spec=ft.Page)
         page.width = width
         monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
@@ -667,7 +694,10 @@ def test_report_category_buttons_open_searchable_read_only_transactions(
         journal.ledger = balance_ledger()
         view = FinanceView()
         view.journal = journal
+        view._navigate("reports")
         view._render_reports()
+        original_period = view.report_period.value
+        original_month = view.report_month
 
         def category_button(
             currency_index: int, section_index: int, row_index: int
@@ -683,19 +713,16 @@ def test_report_category_buttons_open_searchable_read_only_transactions(
             assert isinstance(button, ft.IconButton) and button.on_click is not None
             return button
 
-        groups = MagicMock(wraps=view._transaction_groups)
-        monkeypatch.setattr(view, "_transaction_groups", groups)
         food = category_button(1, 1, 2)
-        assert food.tooltip == f"{view.tr('budget_transactions')}: Food"
+        assert food.tooltip == f"{view.tr('show_operations')}: Food"
         cast(Callable[[object], None], food.on_click)(MagicMock())
-        dialog = page.show_dialog.call_args.args[0]
-        assert isinstance(dialog, ft.AlertDialog) and dialog.scrollable
-        assert dialog.title == view.tr("budget_transactions")
-        assert isinstance(dialog.content, ft.Column)
-        label, search, listing = dialog.content.controls
-        assert isinstance(label, ft.Text) and label.value == "Food"
-        assert isinstance(search, ft.TextField) and search.on_change is not None
-        assert isinstance(listing, ft.Column)
+        assert view.current_screen == "transactions"
+        page.show_dialog.assert_not_called()
+        assert view.operations.scope.start == JANUARY[0]
+        assert view.operations.scope.end == JANUARY[1]
+        assert view.operations.scope.currency == "UAH"
+        assert view.operations_category.value == "Expenses:Food"
+        assert not view.operations_account.value
         expected = sorted(
             category_transactions(journal.ledger, *JANUARY, "UAH", "Expenses", "Expenses:Food"),
             key=view._transaction_sort_key,
@@ -706,33 +733,35 @@ def test_report_category_buttons_open_searchable_read_only_transactions(
             "partial-reimbursement",
             "excess-reimbursement",
         }
-        groups.assert_called_with(expected, view.budgets._account_names(), read_only=True)
+        assert list(view.operations.page.transactions) == expected
+        toolbar = view.transactions_screen.controls[0]
+        assert isinstance(toolbar, ft.Container) and isinstance(toolbar.content, ft.Row)
+        assert toolbar.content.controls == [view.operations_filter_toggle]
+        search = view.operations.search
         search.value = "PARTIAL"
         cast(Callable[[object], None], search.on_change)(MagicMock())
-        assert [item.id for item in groups.call_args.args[0]] == ["partial-reimbursement"]
+        assert [item.id for item in view.operations.page.transactions] == ["partial-reimbursement"]
         search.value = "NO MATCH"
         cast(Callable[[object], None], search.on_change)(MagicMock())
-        assert len(listing.controls) == 1
-        assert isinstance(listing.controls[0], ft.Text)
-        assert listing.controls[0].value == view.tr("budget_no_matches")
-        assert len(dialog.actions) == 1
-        assert isinstance(dialog.actions[0], ft.TextButton)
-        assert dialog.actions[0].on_click == view._dismiss
+        assert not view.operations.page.transactions
+        view._back()
+        assert view.current_screen == "reports"
+        assert view.report_period.value == original_period
+        assert view.report_month == original_month
 
         uncategorized = category_button(0, 1, 2)
         cast(Callable[[object], None], uncategorized.on_click)(MagicMock())
-        dialog = page.show_dialog.call_args.args[0]
-        assert isinstance(dialog.content, ft.Column)
-        assert isinstance(dialog.content.controls[0], ft.Text)
-        assert dialog.content.controls[0].value == view.tr("report_uncategorized")
-        assert [item.id for item in groups.call_args.args[0]] == ["uncategorized-legacy-expense"]
+        assert view.current_screen == "transactions"
+        assert view.operations.scope.unassigned
+        assert view.operations.scope.query == ""
+        assert [item.id for item in view.operations.page.transactions] == [
+            "uncategorized-legacy-expense"
+        ]
+        view._back()
         salary = category_button(1, 3, 1)
         cast(Callable[[object], None], salary.on_click)(MagicMock())
-        dialog = page.show_dialog.call_args.args[0]
-        assert isinstance(dialog.content, ft.Column)
-        assert isinstance(dialog.content.controls[0], ft.Text)
-        assert dialog.content.controls[0].value == "Salary"
-        assert [item.id for item in groups.call_args.args[0]] == ["income-start"]
+        assert not view.operations.scope.unassigned
+        assert [item.id for item in view.operations.page.transactions] == ["income-start"]
 
     asyncio.run(scenario())
 

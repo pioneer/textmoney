@@ -16,7 +16,12 @@ For release-file selection and platform caveats, see
 On desktop, the sidebar opens Home, Transactions, Budgets, Reports, Accounts,
 Categories and Settings. On a phone, the bottom bar opens the first four;
 **More** beside the separate Settings gear opens Accounts and Categories.
-The Back arrow returns through screens visited in this session. On Android,
+On the desktop app, shared **Back** and **Forward** header arrows retrace visits;
+unavailable directions stay visible but disabled. Use **Alt+Left/Right** on
+Windows/Linux, or **Command+[/]** on macOS. Operations visits restore their own
+filters and transaction page, using current journal data rather than stale cached
+transactions. Editing filters or opening a popup does not add a visit.
+The mobile Back arrow returns through screens visited in this session. On Android,
 system Back first dismisses an open dialog or menu, then returns through screen
 history; at the beginning it uses the usual platform behavior. A different
 destination after going Back discards later visits. There is no mobile Forward
@@ -204,9 +209,17 @@ are always separate; reports do not infer exchange rates.
 Transactions also has clickable per-day summaries.
 It shows up to 50 operations at a time. Use the quiet **Older** and **Newer**
 links above or below the list to browse history; **Latest** returns to recent
-operations. Changing pages scrolls to the top of the screen. Account/category
-filters search the entire history, not just the current page. A date's summary
+operations. Changing pages scrolls to the top of the screen. Account/category,
+date range, currency and payee/description filters search the entire history,
+not just the current page. Applied filters have removable chips and a reset action.
+Report category buttons open this full browser with the report scope selected.
+Budget transaction buttons retain a read-only preview (up to 50 matches), with
+**Open in Operations** for the complete matching list and editing. The handoff
+preserves the preview's month, category, currency and search. Dedicated return
+actions preserve the originating Budgets or Reports view.
+A date's summary
 includes all matching operations on that day, even when they span several pages.
+It summarizes whole transactions, not only the selected category/currency postings.
 See [reporting](reporting.md) for calculations and report scope.
 
 ![Monthly report with currency-specific totals and category breakdowns](screenshots/reports-desktop.png)

@@ -52,6 +52,7 @@ def test_version_visible_in_every_screen_header(
         assert isinstance(header.content, ft.Row)
         assert header.content.controls == [
             view.navigation_back,
+            view.navigation_forward,
             view.header_titles,
             view.overflow_menu,
             view.settings_button,

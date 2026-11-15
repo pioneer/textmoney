@@ -269,13 +269,17 @@ def test_operations_totals_sum_accounts_per_currency_including_liabilities(
         view.journal = await seeded(tmp_path)
         view._build_screens()
         view._refresh()
-        assert view.transactions_screen.controls[1:3] == [
+        assert view.transactions_screen.controls[1:6] == [
             view.operations_filters,
+            view.operations.chips,
+            view.operations.reset,
             view.operations_totals,
+            view.operations.summary_help,
         ]
-        assert not any(
-            isinstance(control, ft.Text) for control in view.transactions_screen.controls
-        )
+        assert [
+            control for control in view.transactions_screen.controls if isinstance(control, ft.Text)
+        ] == [view.operations.summary_help]
+        assert view.operations.summary_help.value == view.tr("operations_summary_help")
         assert view.operations_totals.visible
         surface = view.operations_totals.content
         assert isinstance(surface, ft.Container)

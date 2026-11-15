@@ -16,12 +16,14 @@ and limitations; the guides are the source of truth when details change.
   adjustments and transfers, including transfers between currencies. Add fixed
   fees or commissions where supported, and track and repay debt. Edit or remove
   supported transactions; some externally authored or split transactions are
-  read-only.
+  read-only. Operations offers paginated browsing with account, category, date,
+  currency and payee/description filters, including scoped report drill-downs.
   See [the user guide](user-guide.md) and
   [transaction semantics](journal-format.md#transactions-and-editing).
 - **Budgets:** Set dated category limits, review monthly allocation and
   spending, browse budget history, filter results, and drill into contributing
-  transactions. Home can show a preview of the current month's budgets.
+  transactions through a bounded read-only preview or the full Operations
+  browser. Home can show a preview of the current month's budgets.
   See [budgeting](budgets.md).
 - **Balances and reports:** Review balances and recent activity on Home. Browse
   transaction history and daily summaries, or report income, expenses and
@@ -31,6 +33,10 @@ and limitations; the guides are the source of truth when details change.
 
 ## Storage and settings
 
+- **Desktop navigation:** Shared Back/Forward arrows and keyboard shortcuts
+  retrace screen visits, restoring each Operations visit's filters and page.
+  Mobile retains Back navigation without a Forward button.
+  See [navigation](user-guide.md#find-your-way-around).
 - **Offline, local records:** No sign-up or backend is needed. The journal is a
   plain-text Beancount file in a folder you choose. TextMoney validates edits,
   preserves unrelated journal content and uses backups and recovery safeguards.

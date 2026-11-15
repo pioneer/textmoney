@@ -1,21 +1,37 @@
 """A single bounded Operations page with quiet bidirectional navigation."""
 
 import asyncio
-from dataclasses import replace
+from collections.abc import Iterable, Iterator
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import flet as ft
 
+from app.domain.ledger import LedgerError, Transaction
 from app.domain.operations import (
     OperationPage,
+    OperationScope,
     PageDirection,
+    TransactionKey,
     matching_transactions,
     operation_page,
     transaction_key,
 )
+from app.localization import date_input, format_date, localized_error, parse_date_input, translate
 
 if TYPE_CHECKING:
     from app.ui.finance import FinanceView
+
+
+@dataclass(frozen=True)
+class OperationsLocation:
+    account: str = ""
+    category: str = ""
+    scope: OperationScope = OperationScope()
+    origin: str = ""
+    filters_visible: bool = True
+    cursor: TransactionKey | None = None
+    journal_id: int | None = None
 
 
 class OperationsView:
@@ -26,6 +42,33 @@ class OperationsView:
         self.generation = 0
         self.busy = False
         self.failed_direction: PageDirection | None = None
+        self.scope = OperationScope()
+        self.origin = ""
+        self._restore_cursor: TransactionKey | None = None
+        self.date_language = host.language
+        self.start = ft.TextField(value="", expand=True, on_change=self._dates_changed)
+        self.end_date = ft.TextField(value="", expand=True, on_change=self._dates_changed)
+        self.currency = ft.Dropdown(value="", expand=True, on_select=self._currency_changed)
+        self.search = ft.TextField(value="", expand=True, on_change=self._search_changed)
+        # Keep chip slots stable when this screen is remounted after navigation.
+        self._filter_chips = {
+            key: ft.Chip(
+                key=f"operations-filter-{key}",
+                label=ft.Text(max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                data=key,
+                visible=False,
+                on_delete=self._clear,
+            )
+            for key in ("account", "category", "start", "end", "currency", "query", "report")
+        }
+        self.chips = ft.Row(list(self._filter_chips.values()), wrap=True, spacing=8, run_spacing=4)
+        self.reset = ft.TextButton(on_click=self._reset)
+        self.summary_help = ft.Text(size=12)
+        self.extra_filters = [
+            ft.Row([self.start, self.end_date]),
+            ft.Row([self.currency]),
+            ft.Row([self.search]),
+        ]
         self.history = ft.Column(spacing=0, key="operations-history")
         self.error = ft.Text(visible=False, color=ft.Colors.ERROR)
         self.retry = ft.TextButton(on_click=self._retry, visible=False)
@@ -65,12 +108,15 @@ class OperationsView:
             self.host.icon_revision,
             self.host.operations_account.value,
             self.host.operations_category.value,
+            self.scope,
+            self.origin,
         )
 
     def sync(self) -> None:
         key = self._key()
         if key == self.key:
             return
+        self._scope_controls()
         previous = self.key
         self.key = key
         self.generation += 1
@@ -78,15 +124,17 @@ class OperationsView:
         self.failed_direction = None
         self.error.visible = False
         journal = self.host.journal
+        cursor = self._restore_cursor
+        self._restore_cursor = None
         if journal is None or not journal.ready:
             self.page = OperationPage()
             self.history.controls = [ft.Text(self.host.tr("transactions_empty"))]
             self._labels()
             return
         account, category = self._filters()
-        cursor = None
         if (
-            previous is not None
+            cursor is None
+            and previous is not None
             and previous[0] == key[0]
             and previous[5:] == key[5:]
             and self.page.newer
@@ -97,20 +145,30 @@ class OperationsView:
             current = next(
                 (
                     entry
-                    for entry in matching_transactions(
-                        journal.ledger.transactions, account, category
-                    )
+                    for entry in self.matching(journal.ledger.transactions)
                     if replace(entry, id=anchor.id) == anchor
                 ),
                 anchor,
             )
             cursor = transaction_key(current)
         page = operation_page(
-            journal.ledger, account, category, cursor=cursor, direction="older", inclusive=True
+            journal.ledger,
+            account,
+            category,
+            scope=self.scope,
+            cursor=cursor,
+            direction="older",
+            inclusive=True,
         )
         if cursor is not None and not page.transactions:
             page = operation_page(
-                journal.ledger, account, category, cursor=cursor, direction="newer", inclusive=True
+                journal.ledger,
+                account,
+                category,
+                scope=self.scope,
+                cursor=cursor,
+                direction="newer",
+                inclusive=True,
             )
         self._render(page)
 
@@ -119,6 +177,185 @@ class OperationsView:
             str(self.host.operations_account.value or ""),
             str(self.host.operations_category.value or ""),
         )
+
+    def location(self) -> OperationsLocation:
+        cursor = (
+            transaction_key(self.page.transactions[0])
+            if self.key == self._key() and self.page.newer and self.page.transactions
+            else None
+        )
+        return OperationsLocation(
+            *self._filters(),
+            scope=self.scope,
+            origin=self.origin,
+            filters_visible=self.host.operations_filters.visible,
+            cursor=cursor,
+            journal_id=id(self.host.journal) if cursor is not None else None,
+        )
+
+    def restore(self, location: OperationsLocation) -> None:
+        self.host.operations_account.value = location.account
+        self.host.operations_category.value = location.category
+        self.host.operations_filters.visible = location.filters_visible
+        self.set_scope(location.scope, origin=location.origin)
+        self._restore_cursor = (
+            location.cursor if location.journal_id == id(self.host.journal) else None
+        )
+        self.key = None
+
+    def matching(self, transactions: Iterable[Transaction]) -> Iterator[Transaction]:
+        journal = self.host.journal
+        return matching_transactions(
+            transactions,
+            *self._filters(),
+            scope=self.scope,
+            categories=frozenset(item.id for item in journal.ledger.categories)
+            if journal
+            else frozenset(),
+        )
+
+    def set_scope(self, scope: OperationScope, *, origin: str = "") -> None:
+        self.scope = scope
+        self.origin = origin
+        self.date_language = self.host.language
+        self.start.value = date_input(scope.start, self.host.language) if scope.start else ""
+        self.end_date.value = date_input(scope.end, self.host.language) if scope.end else ""
+        self.start.error = self.end_date.error = None
+        self.currency.value = scope.currency
+        self.search.value = scope.query
+
+    def _scope_controls(self) -> None:
+        host, tr = self.host, self.host.tr
+        if self.date_language != host.language:
+            try:
+                dates = [
+                    parse_date_input(field.value, self.date_language) if field.value else None
+                    for field in (self.start, self.end_date)
+                ]
+            except LedgerError:
+                # Keep partial date drafts in the format in which they were entered.
+                pass
+            else:
+                for field, value in zip((self.start, self.end_date), dates, strict=True):
+                    field.value = date_input(value, host.language) if value else ""
+                self.date_language = host.language
+        self.start.label = tr("report_start_date")
+        self.end_date.label = tr("report_end_date")
+        self.start.hint_text = self.end_date.hint_text = translate(self.date_language, "date_hint")
+        self.currency.label = tr("currency")
+        journal = host.journal
+        currencies = (
+            {
+                posting.currency
+                for entry in journal.ledger.transactions
+                for posting in entry.postings
+            }
+            if journal and journal.ready
+            else set()
+        )
+        if self.scope.currency:
+            currencies.add(self.scope.currency)
+        self.currency.options = [
+            ft.DropdownOption(key="", text=tr("budget_all_currencies")),
+            *[ft.DropdownOption(key=value, text=value) for value in sorted(currencies)],
+        ]
+        self.search.label = tr("budget_search_transactions")
+        account, category = self._filters()
+        names = (
+            {item.id: item.name for item in (*journal.ledger.accounts, *journal.ledger.categories)}
+            if journal and journal.ready
+            else {}
+        )
+        report_kind = tr(
+            "report_income" if self.scope.report_root == "Income" else "report_expenses"
+        )
+        report_postings = tr(
+            "report_uncategorized" if self.scope.unassigned else "operations_categorized"
+        )
+        labels = {
+            "account": names.get(account, account),
+            "category": names.get(category, category),
+            "start": f"{tr('report_start_date')}: {format_date(self.scope.start, host.language)}"
+            if self.scope.start
+            else "",
+            "end": f"{tr('report_end_date')}: {format_date(self.scope.end, host.language)}"
+            if self.scope.end
+            else "",
+            "currency": self.scope.currency,
+            "query": self.scope.query,
+            "report": f"{tr('nav_reports')}: {report_kind} / {report_postings}"
+            if self.scope.report_root
+            else "",
+        }
+        for key, label in labels.items():
+            chip = self._filter_chips[key]
+            chip.visible = bool(label)
+            assert isinstance(chip.label, ft.Text)
+            chip.label.value = label
+            chip.label.width = min(240, max(80, (host.body.width or 390) - 128))
+            chip.tooltip = label
+            chip.delete_icon_tooltip = tr("budget_clear_filter")
+        self.chips.visible = any(labels.values())
+        self.reset.content = tr("budget_reset_filters")
+        self.reset.visible = self.chips.visible
+        self.summary_help.value = tr("operations_summary_help")
+
+    def _dates_changed(self, event: ft.Event[ft.TextField]) -> None:
+        try:
+            scope = replace(
+                self.scope,
+                start=parse_date_input(self.start.value, self.date_language)
+                if self.start.value
+                else None,
+                end=parse_date_input(self.end_date.value, self.date_language)
+                if self.end_date.value
+                else None,
+            )
+        except LedgerError as exc:
+            event.control.error = localized_error(self.host.language, str(exc))
+            self.host.page.update()
+            return
+        self.start.error = self.end_date.error = None
+        self.scope = scope
+        self.host._refresh()
+        self.host.page.update()
+
+    def _currency_changed(self, event: ft.Event[ft.Dropdown]) -> None:
+        self.scope = replace(self.scope, currency=str(self.currency.value or ""))
+        self.host._refresh()
+        self.host.page.update()
+
+    def _search_changed(self, event: ft.Event[ft.TextField]) -> None:
+        self.scope = replace(self.scope, query=self.search.value or "")
+        self.host._refresh()
+        self.host.page.update()
+
+    def _clear(self, event: ft.Event[ft.Chip]) -> None:
+        key = event.control.data
+        if key == "account":
+            self.host.operations_account.value = ""
+        elif key == "category":
+            self.host.operations_category.value = ""
+            self.scope = replace(self.scope, report_root="", unassigned=False)
+        elif key == "report":
+            self.scope = replace(self.scope, report_root="", unassigned=False)
+        elif key == "start":
+            self.scope = replace(self.scope, start=None)
+        elif key == "end":
+            self.scope = replace(self.scope, end=None)
+        elif key == "currency":
+            self.scope = replace(self.scope, currency="")
+        elif key == "query":
+            self.scope = replace(self.scope, query="")
+        self.set_scope(self.scope, origin=self.origin)
+        self.host._refresh()
+        self.host.page.update()
+
+    def _reset(self, event: ft.Event[ft.TextButton]) -> None:
+        self.host.operations_account.value = self.host.operations_category.value = ""
+        self.set_scope(OperationScope(), origin=self.origin)
+        self.host._refresh()
+        self.host.page.update()
 
     def _labels(self) -> None:
         tr = self.host.tr
@@ -167,7 +404,7 @@ class OperationsView:
         self.history.controls = controls or [
             ft.Text(
                 self.host.tr("operations_no_matches")
-                if any(self._filters())
+                if any(self._filters()) or self.scope != OperationScope()
                 else self.host.tr("transactions_empty")
             )
         ]
@@ -200,7 +437,12 @@ class OperationsView:
         self.host.page.update()
         try:
             page = await asyncio.to_thread(
-                operation_page, journal.ledger, *self._filters(), cursor=cursor, direction=direction
+                operation_page,
+                journal.ledger,
+                *self._filters(),
+                scope=self.scope,
+                cursor=cursor,
+                direction=direction,
             )
             if (
                 generation != self.generation

@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import Callable
 from datetime import date
+from pathlib import Path
 from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
@@ -8,8 +9,13 @@ import flet as ft
 import pytest
 from form_controls import click
 
+from app.domain.ledger import Account, Ledger
+from app.domain.operations import OperationScope
+from app.infrastructure.desktop_storage import DesktopFolder
+from app.journal import FILENAME, Journal
 from app.ui import finance
 from app.ui.finance import FinanceView
+from app.ui.operations import OperationsLocation
 
 
 @pytest.fixture
@@ -57,6 +63,88 @@ def test_mobile_screen_history_back_forward_and_branching(
     assert not view._forward()
 
 
+@pytest.mark.parametrize(
+    "platform,web,desktop",
+    [
+        (ft.PagePlatform.LINUX, False, True),
+        (ft.PagePlatform.WINDOWS, False, True),
+        (ft.PagePlatform.MACOS, False, True),
+        (ft.PagePlatform.ANDROID, False, False),
+        (ft.PagePlatform.IOS, False, False),
+        (ft.PagePlatform.LINUX, True, False),
+    ],
+)
+@pytest.mark.parametrize("width", [390, 800, 1366])
+def test_desktop_history_buttons_follow_platform_not_width(
+    navigation: tuple[FinanceView, MagicMock],
+    platform: ft.PagePlatform,
+    web: bool,
+    desktop: bool,
+    width: int,
+) -> None:
+    view, page = navigation
+    page.platform, page.web, page.width = platform, web, width
+    view.language = "uk"
+    if not web:
+        page.views = [ft.View()]
+        view.did_mount()
+        assert (page.on_keyboard_event == view._navigation_key) == desktop
+    view._apply_layout(width)
+    assert view.navigation_back.visible == desktop
+    assert view.navigation_forward.visible == desktop
+    assert view.navigation_back.disabled and view.navigation_forward.disabled
+    assert view.navigation_back.tooltip == view.tr("nav_back")
+    assert view.navigation_forward.tooltip == view.tr("nav_forward")
+    view._navigate("budgets")
+    assert view.navigation_back.visible == (desktop or width <= 599)
+    assert view.navigation_forward.visible == desktop
+    assert not view.navigation_back.disabled and view.navigation_forward.disabled
+    click(view.navigation_back)
+    assert view.current_screen == "home"
+    assert view.navigation_back.visible == desktop
+    assert view.navigation_back.disabled and not view.navigation_forward.disabled
+    if desktop:
+        click(view.navigation_forward)
+        assert view.current_screen == "budgets"
+        assert not view.navigation_back.disabled and view.navigation_forward.disabled
+
+
+def test_desktop_keyboard_handler_is_installed_and_removed(
+    navigation: tuple[FinanceView, MagicMock],
+) -> None:
+    view, page = navigation
+    page.platform, page.web = ft.PagePlatform.LINUX, False
+    view.did_mount()
+    assert page.on_keyboard_event == view._navigation_key
+    view.will_unmount()
+    assert page.on_keyboard_event is None
+
+
+def test_browser_history_restores_distinct_operations_scopes(
+    navigation: tuple[FinanceView, MagicMock],
+) -> None:
+    view, page = navigation
+    page.route = "/"
+    view._setup_browser_navigation()
+    first = OperationsLocation(scope=OperationScope(query="Food"))
+    second = OperationsLocation(scope=OperationScope(query="Housing"))
+    view._navigate("transactions", operations=first)
+    first_route = view.browser_routes[-1]
+    view._browser_route_changed(MagicMock(route=first_route))
+    view._navigate("transactions", operations=second)
+    second_route = view.browser_routes[-1]
+    view._browser_route_changed(MagicMock(route=second_route))
+    assert view.screen_history == ["home", "transactions", "transactions"]
+    view._browser_route_changed(MagicMock(route=first_route))
+    assert view.operations.scope == first.scope
+    view._browser_route_changed(MagicMock(route=second_route))
+    assert view.operations.scope == second.scope
+    view._browser_route_changed(MagicMock(route=first_route))
+    view._navigate("budgets")
+    assert view.screen_history == ["home", "transactions", "budgets"]
+    assert second_route not in view.browser_routes
+
+
 def test_system_back_uses_history_and_allows_exit_at_start(
     navigation: tuple[FinanceView, MagicMock],
 ) -> None:
@@ -90,8 +178,15 @@ def test_system_back_dismisses_dialog_before_screen(
 
 def test_shortcuts_filters_and_resizing_preserve_screen_history(
     navigation: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
 ) -> None:
     view, page = navigation
+    view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+    view.journal.ready = True
+    view.journal.ledger = Ledger(
+        accounts=(Account("Assets:Cash", "Cash", "USD", date(2000, 1, 1)),)
+    )
+    view._refresh()
     view._go_accounts(MagicMock())
     view._navigate("transactions")
     view.operations_filters.visible = True
@@ -256,7 +351,7 @@ def test_destination_opened_during_browser_back_branches_after_back(
         back = asyncio.create_task(view._browser_back())
         await asyncio.sleep(0)
         view._navigate("reports")
-        page.run_task.assert_called_with(view._navigate_after_browser_back, "reports")
+        page.run_task.assert_called_with(view._navigate_after_browser_back, "reports", None)
         deferred = asyncio.create_task(view._navigate_after_browser_back("reports"))
         await asyncio.sleep(0)
         assert view.current_screen == "accounts"

@@ -13,6 +13,7 @@ from flet.messaging.session import Session
 from form_controls import assert_deletion_title, transaction_form
 
 from app.domain.ledger import EPOCH
+from app.domain.operations import OperationScope
 from app.domain.storage import ConflictError
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
@@ -29,6 +30,58 @@ def keyboard_session(platform: ft.PagePlatform = ft.PagePlatform.LINUX) -> Sessi
     session.page.platform = platform
     msgpack.packb(session.get_page_patch(), default=encode)
     return session
+
+
+@pytest.mark.parametrize(
+    "platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.MACOS]
+)
+def test_desktop_history_shortcuts_preserve_modal_and_history(
+    monkeypatch: pytest.MonkeyPatch, platform: ft.PagePlatform
+) -> None:
+    async def scenario() -> None:
+        session = keyboard_session(platform)
+        session.page.width = 1200
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
+        view = FinanceView()
+        view.startup_complete = True
+        view.desktop_navigation = True
+        session.page.on_keyboard_event = view._navigation_key
+        view._navigate("accounts")
+        view._navigate("reports")
+        history = view.screen_history
+        macos = platform == ft.PagePlatform.MACOS
+
+        async def navigate(forward: bool = False, *, modified: bool = False) -> None:
+            await session.dispatch_event(
+                session.page._i,
+                "keyboard_event",
+                {
+                    "key": ("]" if forward else "[")
+                    if macos
+                    else ("Arrow Right" if forward else "Arrow Left"),
+                    "alt": not macos,
+                    "meta": macos,
+                    "ctrl": modified,
+                    "shift": False,
+                },
+            )
+
+        await navigate(modified=True)
+        assert view.current_screen == "reports"
+        await navigate()
+        assert view.current_screen == "accounts"
+        view._show_category_transactions("Expenses:Food", "Food", (), {})
+        await navigate()
+        assert view.current_screen == "accounts"
+        assert view.screen_history == history
+        session.page.pop_dialog()
+        await navigate()
+        assert view.current_screen == "home"
+        await navigate(forward=True)
+        assert view.current_screen == "accounts"
+        assert view.screen_history == history
+
+    asyncio.run(scenario())
 
 
 async def press(session: Session, key: str = "Escape") -> None:
@@ -77,6 +130,42 @@ def test_category_transactions_dialog_keys_close_without_writes(
         await session.dispatch_event(search._i, "focus", None)
         await press(session, key)
         assert not dialog.open
+        assert list(tmp_path.iterdir()) == []
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("key", ["Escape", "Enter", "Numpad Enter"])
+def test_budget_preview_keys_cancel_or_open_operations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
+) -> None:
+    async def scenario() -> None:
+        session = keyboard_session()
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
+        view = FinanceView()
+        view.language = "uk"
+        view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        view.journal.ready = True
+        open_operations = MagicMock()
+        monkeypatch.setattr(view, "_open_scoped_operations", open_operations)
+        scope = OperationScope(start=date(2026, 1, 1), end=date(2026, 1, 31), currency="USD")
+        view._show_category_transactions("Expenses:Food", "Food", (), {}, scope=scope)
+        dialog = session.page._dialogs.controls[-1]
+        assert isinstance(dialog, ft.AlertDialog)
+        action = dialog.actions[1]
+        assert isinstance(action, ft.KeyboardListener) and isinstance(action.content, ft.TextButton)
+        assert action.content.content == "Показати в Операціях"
+        assert isinstance(dialog.content, ft.KeyboardListener)
+        assert isinstance(dialog.content.content, ft.Column)
+        search = dialog.content.content.controls[1]
+        assert isinstance(search, ft.TextField)
+        await session.dispatch_event(search._i, "focus", None)
+        await press(session, key)
+        assert not dialog.open
+        if key == "Escape":
+            open_operations.assert_not_called()
+        else:
+            open_operations.assert_called_once_with("Expenses:Food", scope, origin="budgets")
         assert list(tmp_path.iterdir()) == []
 
     asyncio.run(scenario())

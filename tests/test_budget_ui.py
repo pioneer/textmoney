@@ -22,6 +22,7 @@ from form_controls import (
 
 from app.domain.budgets import Budget, BudgetRow
 from app.domain.ledger import LedgerError
+from app.domain.operations import OperationScope
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import date_input, format_date
@@ -2019,6 +2020,146 @@ def test_transaction_search_does_not_change_headline_totals_or_journal(
         assert isinstance(empty, ft.Text) and empty.value == host.tr("budget_no_matches")
         assert displayed_rows(host)[0] == original
         assert (tmp_path / FILENAME).read_text() == before
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("width", [390, 1366])
+def test_budget_preview_is_bounded_and_hands_full_scope_to_operations(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+    width: int,
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        page.width = width
+        source = SOURCE + "".join(
+            f'\n2026-01-{1 if index == 72 else 5:02} * "Shop" "Preview {index:03}"\n'
+            "    Expenses:Food:Meals 1 USD\n    Assets:Cash -1 USD\n"
+            for index in range(73)
+        )
+        await load(host, tmp_path, source)
+        host.body.scroll_to = AsyncMock()
+        host.budgets.currency.value = "USD"
+        host.budgets.category_id = "Expenses:Food"
+        host.budgets.overspent.value = True
+        await host.budgets.refresh()
+        host._navigate("budgets")
+        original = displayed_rows(host)[0]
+        budget_state = (
+            host.budgets.month,
+            host.budgets.category_id,
+            host.budgets.currency.value,
+            host.budgets.overspent.value,
+        )
+        host.operations_account.value = "Assets:Cash"
+        host.operations_category.value = "Expenses:Food:Meals"
+        host.operations.set_scope(OperationScope(currency="EUR", query="unrelated"))
+        before = (tmp_path / FILENAME).read_bytes()
+        host.budgets._transactions(MagicMock(control=ft.IconButton(data=original)))
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog.content, ft.Column)
+        labels, search, listing = dialog.content.controls
+        assert isinstance(labels, ft.Column)
+        assert isinstance(search, ft.TextField) and search.on_change
+        assert isinstance(listing, ft.Column)
+        scope_labels = [item.value for item in walk(labels) if isinstance(item, ft.Text)]
+        assert any(
+            format_date(date(2026, 1, 1), host.language) in str(label)
+            and format_date(date(2026, 1, 31), host.language) in str(label)
+            and "USD" in str(label)
+            for label in scope_labels
+        )
+        truncated = next(
+            item
+            for item in walk(labels)
+            if isinstance(item, ft.Text)
+            and item.value == host.tr("operations_preview_truncated", limit=50)
+        )
+        assert truncated.visible
+        cards = [
+            item
+            for item in listing.controls
+            if isinstance(item, ft.Container)
+            and isinstance(item.content, ft.Row)
+            and item.data != "transaction-date"
+        ]
+        assert len(cards) == 50
+        assert not any(isinstance(item, ft.IconButton) for item in walk(listing))
+        search.value = "Preview 072"
+        cast(Callable[[object], None], search.on_change)(MagicMock())
+        assert not truncated.visible
+        assert "Preview 072" in [item.value for item in walk(listing) if isinstance(item, ft.Text)]
+        search.value = "pREVIEW"
+        cast(Callable[[object], None], search.on_change)(MagicMock())
+        assert dialog.actions[1].content == host.tr("show_operations")
+        click(dialog.actions[1])
+        assert host.current_screen == "transactions"
+        page.pop_dialog.assert_called_once()
+        assert not host.operations_account.value
+        assert host.operations_category.value == "Expenses:Food"
+        assert host.operations.scope == OperationScope(
+            start=date(2026, 1, 1),
+            end=date(2026, 1, 31),
+            currency="USD",
+            query="pREVIEW",
+        )
+        assert len(host.operations.page.transactions) == 50
+        assert host.operations.page.older
+        seen = {entry.id for entry in host.operations.page.transactions}
+        await host.operations.move("older")
+        seen.update(entry.id for entry in host.operations.page.transactions)
+        assert len(seen) == 73
+        host._back()
+        assert host.current_screen == "budgets"
+        assert budget_state == (
+            host.budgets.month,
+            host.budgets.category_id,
+            host.budgets.currency.value,
+            host.budgets.overspent.value,
+        )
+        assert (tmp_path / FILENAME).read_bytes() == before
+
+    asyncio.run(scenario())
+
+
+def test_budget_preview_refuses_handoff_after_switching_journals(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        await load(host, tmp_path)
+        host.budgets._transactions(MagicMock(control=ft.IconButton(data=displayed_rows(host)[0])))
+        dialog = page.show_dialog.call_args.args[0]
+        host.journal = None
+        host._error = MagicMock()
+        click(dialog.actions[1])
+        host._error.assert_called_once()
+        page.pop_dialog.assert_not_called()
+        assert host.current_screen != "transactions"
+
+    asyncio.run(scenario())
+
+
+def test_budget_for_undeclared_category_does_not_broaden_operations_scope(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        await load(
+            host,
+            tmp_path,
+            SOURCE + '\n2026-01-01 custom "budget" Expenses:Missing "monthly" 5 USD\n',
+        )
+        row = next(row for row in displayed_rows(host) if row.account == "Expenses:Missing")
+        host._navigate("budgets")
+        host.budgets._transactions(MagicMock(control=ft.IconButton(data=row)))
+        dialog = page.show_dialog.call_args.args[0]
+        click(dialog.actions[1])
+        assert host.operations_category.value == "Expenses:Missing"
+        assert not host.operations.page.transactions
 
     asyncio.run(scenario())
 

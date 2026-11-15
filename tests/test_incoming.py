@@ -427,7 +427,10 @@ def test_unified_action_survives_home_layout_rebuild(layout: ScreenClass) -> Non
     view._build_home_layout()
     assert view.fab.content == translate("en", "add_transaction")
     for screen in (view.home_screen, view.transactions_screen):
-        assert not any(isinstance(c, ft.TextButton) for c in screen.controls)
+        assert not any(
+            isinstance(c, ft.TextButton) and c.content == view.tr("add_transaction")
+            for c in screen.controls
+        )
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])

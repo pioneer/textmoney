@@ -6,12 +6,26 @@ from datetime import date, datetime
 from heapq import nlargest, nsmallest
 from typing import Literal
 
-from app.domain.ledger import Ledger, Transaction
-from app.domain.reporting import CurrencyReport, currency_totals
+from app.domain.ledger import Ledger, LedgerError, Transaction
+from app.domain.reporting import CurrencyReport, category_posting_matches, currency_totals
 
 PAGE_SIZE = 50
 TransactionKey = tuple[date, datetime, str]
 PageDirection = Literal["older", "newer", "latest"]
+
+
+@dataclass(frozen=True)
+class OperationScope:
+    start: date | None = None
+    end: date | None = None
+    currency: str = ""
+    query: str = ""
+    report_root: str = ""
+    unassigned: bool = False
+
+    def __post_init__(self) -> None:
+        if self.start is not None and self.end is not None and self.end < self.start:
+            raise LedgerError("report_date_range")
 
 
 def transaction_key(transaction: Transaction) -> TransactionKey:
@@ -19,13 +33,41 @@ def transaction_key(transaction: Transaction) -> TransactionKey:
 
 
 def matching_transactions(
-    transactions: Iterable[Transaction], account: str = "", category: str = ""
+    transactions: Iterable[Transaction],
+    account: str = "",
+    category: str = "",
+    *,
+    scope: OperationScope | None = None,
+    categories: frozenset[str] = frozenset(),
 ) -> Iterator[Transaction]:
+    scope = scope or OperationScope()
+    query = scope.query.strip().casefold()
     for transaction in transactions:
+        if scope.start is not None and transaction.date < scope.start:
+            continue
+        if scope.end is not None and transaction.date > scope.end:
+            continue
+        if query and query not in f"{transaction.payee} {transaction.narration}".casefold():
+            continue
         if account and not any(post.account == account for post in transaction.postings):
             continue
-        if category and not any(
-            post.account == category or post.account.startswith(category + ":")
+        if (category or scope.currency or scope.report_root) and not any(
+            (
+                category_posting_matches(
+                    post,
+                    categories,
+                    scope.currency,
+                    scope.report_root,
+                    None if scope.unassigned else category or scope.report_root,
+                )
+                if scope.report_root
+                else (not scope.currency or post.currency == scope.currency)
+                and (
+                    not category
+                    or post.account == category
+                    or post.account.startswith(category + ":")
+                )
+            )
             for post in transaction.postings
         ):
             continue
@@ -45,12 +87,20 @@ def operation_page(
     account: str = "",
     category: str = "",
     *,
+    scope: OperationScope | None = None,
     cursor: TransactionKey | None = None,
     direction: PageDirection = "latest",
     inclusive: bool = False,
 ) -> OperationPage:
+    categories = frozenset(item.id for item in ledger.categories)
+
+    def matching() -> Iterator[Transaction]:
+        return matching_transactions(
+            ledger.transactions, account, category, scope=scope, categories=categories
+        )
+
     def candidates() -> Iterator[Transaction]:
-        for transaction in matching_transactions(ledger.transactions, account, category):
+        for transaction in matching():
             key = transaction_key(transaction)
             if cursor is None or (
                 (key >= cursor if inclusive else key > cursor)
@@ -67,7 +117,7 @@ def operation_page(
         return OperationPage()
     first, last = transaction_key(entries[0]), transaction_key(entries[-1])
     newer = older = False
-    for transaction in matching_transactions(ledger.transactions, account, category):
+    for transaction in matching():
         key = transaction_key(transaction)
         newer |= key > first
         older |= key < last
@@ -81,7 +131,7 @@ def operation_page(
                 ledger,
                 day,
                 day,
-                transactions=matching_transactions(ledger.transactions, account, category),
+                transactions=matching(),
             ),
         )
         for day in days

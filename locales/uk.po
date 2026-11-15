@@ -109,6 +109,15 @@ msgstr "Переглянути бюджети"
 msgid "ui.home_view_transactions"
 msgstr "Переглянути операції"
 
+msgid "ui.operations_categorized"
+msgstr "Проведення з категоріями"
+
+msgid "ui.operations_summary_help"
+msgstr "Денні підсумки охоплюють відповідні операції повністю, а не лише вибрану категорію чи валюту. Вони можуть відрізнятися від показників бюджетів і звітів."
+
+msgid "ui.operations_preview_truncated"
+msgstr "Показано {limit} найновіших збігів. Відкрийте Операції, щоб переглянути всі відповідні операції."
+
 msgid "ui.home_view_accounts"
 msgstr "Переглянути рахунки"
 
@@ -248,7 +257,7 @@ msgid "ui.operations_load_failed"
 msgstr "Не вдалося завантажити цю сторінку. Попередню сторінку збережено."
 
 msgid "ui.show_operations"
-msgstr "Показати операції"
+msgstr "Показати в Операціях"
 
 msgid "ui.budget_account"
 msgstr "Рахунок"
@@ -1235,6 +1244,10 @@ msgstr "Налаштування"
 #. Stable TextMoney key: ui.nav_back; do not translate this identifier.
 msgid "ui.nav_back"
 msgstr "Назад"
+
+#. Stable TextMoney key: ui.nav_forward; do not translate this identifier.
+msgid "ui.nav_forward"
+msgstr "Уперед"
 
 #. Stable TextMoney key: ui.nav_reports; do not translate this identifier.
 msgid "ui.nav_reports"

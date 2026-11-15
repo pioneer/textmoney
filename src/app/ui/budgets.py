@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from concurrent.futures import Future
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -21,6 +21,7 @@ from app.domain.budgets import (
     rows,
 )
 from app.domain.ledger import LedgerError
+from app.domain.operations import OperationScope
 from app.domain.reporting import shift_month
 from app.domain.storage import ConflictError
 from app.infrastructure.android_storage import AndroidFolder
@@ -1111,7 +1112,15 @@ class BudgetView(ft.Column):
             )
         )
         self.host._show_category_transactions(
-            row.account, names.get(row.account, row.account), transactions, names
+            row.account,
+            names.get(row.account, row.account),
+            transactions,
+            names,
+            scope=OperationScope(
+                start=row.begin,
+                end=row.end - timedelta(days=1),
+                currency=str(self.currency.value or ""),
+            ),
         )
 
     def _budget_actions(self, budget: Budget) -> ft.Row:

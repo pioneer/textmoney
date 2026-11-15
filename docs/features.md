@@ -18,6 +18,7 @@ and limitations; the guides are the source of truth when details change.
   supported transactions; some externally authored or split transactions are
   read-only. Operations offers paginated browsing with account, category, date,
   currency and payee/description filters, including scoped report drill-downs.
+  A visible **Clear all filters** action removes every restriction at once.
   See [the user guide](user-guide.md) and
   [transaction semantics](journal-format.md#transactions-and-editing).
 - **Budgets:** Set dated category limits, review monthly allocation and

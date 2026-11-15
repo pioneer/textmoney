@@ -386,6 +386,86 @@ def test_scope_chips_dates_reset_and_entity_handoffs(view: FinanceView, language
     assert listing.scope == OperationScope() and not listing.origin
 
 
+@pytest.mark.parametrize(
+    "language,label",
+    [
+        ("en", "Clear all filters"),
+        ("uk", "Очистити всі фільтри"),
+        ("ru", "Очистить все фильтры"),
+    ],
+)
+@pytest.mark.parametrize("expanded", [False, True], ids=["collapsed", "expanded"])
+def test_clear_all_filters_is_accessible_and_clears_the_complete_scope(
+    view: FinanceView, language: str, label: str, expanded: bool
+) -> None:
+    async def scenario() -> None:
+        view.language = language
+        view._open_scoped_operations(
+            "Expenses:Food",
+            OperationScope(
+                start=date(2026, 1, 1),
+                end=date(2026, 1, 31),
+                currency="USD",
+                query="Synthetic",
+                report_root="Expenses",
+            ),
+            origin="reports",
+        )
+        view.operations_account.value = "Assets:Cash"
+        view._operations_filter_changed(MagicMock(control=view.operations_account))
+        listing = view.operations
+        await listing.move("older")
+        assert listing.page.newer
+        if not expanded:
+            view._toggle_operations_filters(MagicMock())
+        toolbar = view.transactions_screen.controls[0]
+        assert isinstance(toolbar, ft.Container) and isinstance(toolbar.content, ft.Row)
+        assert listing.reset in toolbar.content.controls
+        assert listing.reset.visible and not listing.reset.disabled
+        assert listing.reset.content == label
+        assert view.budgets.reset.content == label
+        history = view.screen_history
+        click(listing.reset)
+        assert listing.scope == OperationScope()
+        assert not view.operations_account.value and not view.operations_category.value
+        assert not listing.start.value and not listing.end_date.value
+        assert not listing.currency.value and not listing.search.value
+        assert not listing.chips.visible
+        assert listing.reset.visible and listing.reset.disabled
+        assert not listing.page.newer
+        assert listing.page.transactions[0].id == "operation-000999"
+        assert view.operations_filters.visible == expanded
+        assert view.screen_history == history
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("clear_with_button", [True, False], ids=["clear-button", "typing"])
+def test_clear_all_filters_clears_invalid_date_drafts_without_applied_filters(
+    view: FinanceView, clear_with_button: bool
+) -> None:
+    view._refresh()
+    view._navigate("transactions")
+    listing = view.operations
+    assert listing.reset.visible and listing.reset.disabled
+    view._toggle_operations_filters(MagicMock())
+    listing.start.value = "not-a-date"
+    listing._dates_changed(MagicMock(control=listing.start))
+    assert listing.start.error
+    assert listing.scope == OperationScope() and not listing.chips.visible
+    assert not listing.reset.disabled
+    if clear_with_button:
+        view._toggle_operations_filters(MagicMock())
+        click(listing.reset)
+    else:
+        listing.start.value = ""
+        listing._dates_changed(MagicMock(control=listing.start))
+    assert not listing.start.value and not listing.end_date.value
+    assert listing.start.error is None and listing.end_date.error is None
+    assert listing.reset.visible and listing.reset.disabled
+    assert listing.scope == OperationScope() and not listing.chips.visible
+
+
 def test_remounting_operations_filters_does_not_duplicate_client_chips() -> None:
     host = FinanceView()
     view = host.operations

@@ -736,7 +736,7 @@ def test_report_category_buttons_open_scoped_operations_and_return(
         assert list(view.operations.page.transactions) == expected
         toolbar = view.transactions_screen.controls[0]
         assert isinstance(toolbar, ft.Container) and isinstance(toolbar.content, ft.Row)
-        assert toolbar.content.controls == [view.operations_filter_toggle]
+        assert toolbar.content.controls == [view.operations.reset, view.operations_filter_toggle]
         search = view.operations.search
         search.value = "PARTIAL"
         cast(Callable[[object], None], search.on_change)(MagicMock())

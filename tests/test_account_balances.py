@@ -269,10 +269,9 @@ def test_operations_totals_sum_accounts_per_currency_including_liabilities(
         view.journal = await seeded(tmp_path)
         view._build_screens()
         view._refresh()
-        assert view.transactions_screen.controls[1:6] == [
+        assert view.transactions_screen.controls[1:5] == [
             view.operations_filters,
             view.operations.chips,
-            view.operations.reset,
             view.operations_totals,
             view.operations.summary_help,
         ]

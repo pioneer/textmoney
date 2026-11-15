@@ -189,7 +189,7 @@ msgid "ui.budget_only_overspent"
 msgstr "Only overspent"
 
 msgid "ui.budget_reset_filters"
-msgstr "Reset filters"
+msgstr "Clear all filters"
 
 msgid "ui.budget_clear_filter"
 msgstr "Remove filter"

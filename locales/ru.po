@@ -275,7 +275,7 @@ msgid "ui.budget_only_overspent"
 msgstr "Только превышенные"
 
 msgid "ui.budget_reset_filters"
-msgstr "Сбросить фильтры"
+msgstr "Очистить все фильтры"
 
 msgid "ui.budget_clear_filter"
 msgstr "Убрать фильтр"

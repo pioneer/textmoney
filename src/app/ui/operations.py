@@ -62,7 +62,7 @@ class OperationsView:
             for key in ("account", "category", "start", "end", "currency", "query", "report")
         }
         self.chips = ft.Row(list(self._filter_chips.values()), wrap=True, spacing=8, run_spacing=4)
-        self.reset = ft.TextButton(on_click=self._reset)
+        self.reset = ft.TextButton(icon=ft.Icons.FILTER_ALT_OFF_OUTLINED, on_click=self._reset)
         self.summary_help = ft.Text(size=12)
         self.extra_filters = [
             ft.Row([self.start, self.end_date]),
@@ -297,8 +297,16 @@ class OperationsView:
             chip.delete_icon_tooltip = tr("budget_clear_filter")
         self.chips.visible = any(labels.values())
         self.reset.content = tr("budget_reset_filters")
-        self.reset.visible = self.chips.visible
+        self._sync_reset()
         self.summary_help.value = tr("operations_summary_help")
+
+    def _sync_reset(self) -> None:
+        self.reset.disabled = not (
+            any(self._filters())
+            or self.scope != OperationScope()
+            or self.start.value
+            or self.end_date.value
+        )
 
     def _dates_changed(self, event: ft.Event[ft.TextField]) -> None:
         try:
@@ -313,10 +321,12 @@ class OperationsView:
             )
         except LedgerError as exc:
             event.control.error = localized_error(self.host.language, str(exc))
+            self._sync_reset()
             self.host.page.update()
             return
         self.start.error = self.end_date.error = None
         self.scope = scope
+        self._sync_reset()
         self.host._refresh()
         self.host.page.update()
 
@@ -354,6 +364,7 @@ class OperationsView:
     def _reset(self, event: ft.Event[ft.TextButton]) -> None:
         self.host.operations_account.value = self.host.operations_category.value = ""
         self.set_scope(OperationScope(), origin=self.origin)
+        self.key = None
         self.host._refresh()
         self.host.page.update()
 

@@ -905,10 +905,9 @@ class FinanceView(ft.Row):
         self.fab.content = self.tr("add_transaction")
         self.fab.disabled = not ready
         self.transactions_screen.controls = [
-            action_toolbar(self.operations_filter_toggle),
+            action_toolbar(self.operations.reset, self.operations_filter_toggle),
             self.operations_filters,
             self.operations.chips,
-            self.operations.reset,
             self.operations_totals,
             self.operations.summary_help,
             self.operations.navigation[0],

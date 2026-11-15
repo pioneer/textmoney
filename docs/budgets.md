@@ -206,7 +206,7 @@ budgets or affect their calculations.
   any displayed budget currency. Zero budgets with positive spending qualify;
   missing budgets do not. Income is not treated as overspending.
 - Active category/currency selections have removable chips.
-  **Reset filters** clears all selections and the overspending toggle, without
+  **Clear all filters** clears all selections and the overspending toggle, without
   changing the month. Changes apply immediately; there is no Apply button.
 - Payee/description search is in **Contributing transactions**, not in the
   headline budget totals. It is case-insensitive and does not change those totals

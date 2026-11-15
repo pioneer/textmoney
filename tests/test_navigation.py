@@ -480,7 +480,7 @@ def test_management_toolbars_share_unframed_gutters_and_wrapping_actions(
         toggle = view.transactions_screen.controls[0]
         assert isinstance(toggle, ft.Container) and isinstance(toggle.content, ft.Row)
         assert toggle.alignment == ft.Alignment.CENTER_RIGHT
-        assert toggle.content.controls == [view.operations_filter_toggle]
+        assert toggle.content.controls == [view.operations.reset, view.operations_filter_toggle]
         assert toggle.content.alignment == ft.MainAxisAlignment.END
 
 

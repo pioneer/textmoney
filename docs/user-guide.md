@@ -211,12 +211,15 @@ It shows up to 50 operations at a time. Use the quiet **Older** and **Newer**
 links above or below the list to browse history; **Latest** returns to recent
 operations. Changing pages scrolls to the top of the screen. Account/category,
 date range, currency and payee/description filters search the entire history,
-not just the current page. Applied filters have removable chips and a reset action.
+not just the current page. Applied filters have removable chips.
+**Clear all filters**, beside the filter toggle, clears all restrictions and
+date-entry errors and returns to the latest page. It stays visible with the
+filter panel collapsed, and is disabled when there is nothing to clear.
 Report category buttons open this full browser with the report scope selected.
 Budget transaction buttons retain a read-only preview (up to 50 matches), with
 **Open in Operations** for the complete matching list and editing. The handoff
-preserves the preview's month, category, currency and search. Dedicated return
-actions preserve the originating Budgets or Reports view.
+preserves the preview's month, category, currency and search. Shared Back
+navigation preserves the originating Budgets or Reports view.
 A date's summary
 includes all matching operations on that day, even when they span several pages.
 It summarizes whole transactions, not only the selected category/currency postings.

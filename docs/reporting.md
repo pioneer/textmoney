@@ -92,8 +92,11 @@ Operations supports account, category subtree, inclusive start/end dates, curren
 and case-insensitive payee/description search. Dates use the displayed localized
 input format; invalid dates/ranges show an error and retain the last applied
 scope. Visible removable chips describe applied filters even when the filter
-panel is collapsed; **Reset filters** removes all restrictions without discarding
-the return destination. Account/Category links and Home's transaction shortcut
+panel is collapsed. **Clear all filters** stays beside the filter toggle, even
+when the panel is collapsed; it removes every restriction, clears invalid date
+drafts and returns to the latest page without changing navigation history.
+It is disabled when there is nothing to clear.
+Account/Category links and Home's transaction shortcut
 clear scope restrictions from earlier drill-downs.
 When a category and currency are selected, both must match the same posting;
 an unrelated currency elsewhere in a split transaction does not qualify.

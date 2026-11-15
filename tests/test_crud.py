@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -452,6 +452,81 @@ def test_category_hierarchy_lifecycle_and_unused_deletion(tmp_path: Path) -> Non
         assert "Assets:Unused" not in journal.source
         assert "Expenses:Unused" not in journal.source
         assert_official(journal.source, ("UAH", "USD"))
+
+    asyncio.run(scenario())
+
+
+def test_category_availability_date_can_be_edited_and_is_validated(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        opened = date(2000, 1, 1)
+        await journal.edit_category(
+            "Expenses:Food:Groceries",
+            "Groceries",
+            True,
+            journal.source,
+            opened=opened,
+        )
+        category = next(
+            item for item in journal.ledger.categories if item.id == "Expenses:Food:Groceries"
+        )
+        assert category.opened == opened
+        assert "2000-01-01 open Expenses:Food:Groceries" in journal.source
+
+        source = journal.source
+        with pytest.raises(LedgerError, match="crud_record_date"):
+            await journal.edit_category(
+                category.id,
+                category.name,
+                True,
+                source,
+                opened=date.today() + timedelta(days=1),
+            )
+        assert journal.source == source
+
+    asyncio.run(scenario())
+
+
+def test_category_availability_date_respects_hierarchy_and_history(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_account("Cash", "Wallet", "UAH", opened=EPOCH)
+        await journal.create_category("Food", "Food", opened=date(1980, 1, 1))
+        await journal.create_category("Food:Groceries", "Groceries", opened=date(1990, 1, 1))
+        source = journal.source
+
+        with pytest.raises(LedgerError, match="crud_category_before_parent"):
+            await journal.edit_category(
+                "Expenses:Food:Groceries",
+                "Groceries",
+                True,
+                source,
+                opened=date(1979, 1, 1),
+            )
+        with pytest.raises(LedgerError, match="crud_category_after_child"):
+            await journal.edit_category(
+                "Expenses:Food",
+                "Food",
+                True,
+                source,
+                opened=date(2000, 1, 1),
+            )
+
+        await journal.create_category("Transport", "Transport", opened=EPOCH)
+        await journal.add_expense(
+            "Assets:Cash", "Expenses:Transport", "1", "Synthetic", "2000-01-01"
+        )
+        source = journal.source
+        with pytest.raises(LedgerError, match="Transaction predates its account/category"):
+            await journal.edit_category(
+                "Expenses:Transport",
+                "Transport",
+                True,
+                source,
+                opened=date(2001, 1, 1),
+            )
+        assert journal.source == source
 
     asyncio.run(scenario())
 

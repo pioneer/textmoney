@@ -758,7 +758,13 @@ class Journal:
         return await self._change(edit, expected_source)
 
     async def edit_category(
-        self, identifier: str, name: str, active: bool, expected_source: str
+        self,
+        identifier: str,
+        name: str,
+        active: bool,
+        expected_source: str,
+        *,
+        opened: date | None = None,
     ) -> str | None:
         label = display_name(name)
 
@@ -766,11 +772,28 @@ class Journal:
             entry = self._declaration(document, identifier)
             if not identifier.startswith(("Expenses:", "Income:")):
                 raise LedgerError("crud_missing")
+            effective_opened = entry.date
+            if opened is not None and opened != entry.date:
+                effective_opened = self._new_record_date(opened, entry.date)
+            if effective_opened != entry.date:
+                parent_id = identifier.rpartition(":")[0]
+                if any(
+                    category.id == parent_id and effective_opened < category.opened
+                    for category in self.ledger.categories
+                ):
+                    raise LedgerError("crud_category_before_parent")
+                if any(
+                    category.id.startswith(identifier + ":") and effective_opened > category.opened
+                    for category in self.ledger.categories
+                ):
+                    raise LedgerError("crud_category_after_child")
 
             def update() -> None:
                 entry.meta["name"] = label
                 if not active or "textmoney-active" in entry.meta:
                     entry.meta["textmoney-active"] = active
+                if opened is not None:
+                    entry.date = effective_opened
 
             return replace_directive(self.source, entry, update)
 

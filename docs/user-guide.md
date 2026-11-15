@@ -39,8 +39,10 @@ physical Android captures.
 2. Open **Accounts**, create an account with its currency, and optionally enter
    its opening balance and effective date. Each ordinary account has one currency.
 3. Open **Categories** and add expense categories, nesting them under a parent
-   if useful. Select the Income category type to create income categories.
-   On mobile, Accounts and Categories are under **More**.
+   if useful. Set the availability date to control when transactions can use
+   the category; edit that date later in the category's **Edit** dialog. Select
+   the Income category type to create income categories. On mobile, Accounts
+   and Categories are under **More**.
 
 Account/category creation offers **Choose icon** with a preview. The same picker
 is available in an existing item's Edit dialog and when creating a category

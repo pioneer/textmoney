@@ -4641,6 +4641,7 @@ class FinanceView(ft.Row):
                 label=self.tr("category_name" if category else "account_name"), value=item.name
             )
             active = ft.Checkbox(label=self.tr("crud_active"), value=item.active)
+            category_opened: DateTimeFields | None = None
             opening: ft.TextField | None = None
             if not category:
                 try:
@@ -4675,6 +4676,16 @@ class FinanceView(ft.Row):
                     show_accounting_date=opening_transaction is not None,
                 )
                 opening_date.occurred.label = self.tr("opening_balance_date")
+            else:
+                category_opened = DateTimeFields(
+                    self.language,
+                    self._effective_zone(),
+                    item.opened,
+                    device_zone=self._picker_zone(),
+                    compact=True,
+                    show_accounting_date=True,
+                )
+                category_opened.occurred.label = self.tr("category_available_date")
             icon = IconField(
                 self.language,
                 lambda: self._open_icon_picker(journal, identifier, icon.set_icon),
@@ -4690,6 +4701,7 @@ class FinanceView(ft.Row):
                 ft.Text(self.tr("crud_category_help" if category else "crud_account_help")),
                 name,
                 active,
+                *([category_opened] if category_opened is not None else []),
                 icon,
             ]
             if isinstance(item, Account):
@@ -4734,7 +4746,15 @@ class FinanceView(ft.Row):
             async def save() -> str | None:
                 if category:
                     return await journal.edit_category(
-                        identifier, name.value or "", bool(active.value), source
+                        identifier,
+                        name.value or "",
+                        bool(active.value),
+                        source,
+                        opened=(
+                            date.fromisoformat(category_opened.values()[0])
+                            if category_opened is not None
+                            else None
+                        ),
                     )
                 return await journal.edit_account(
                     identifier,

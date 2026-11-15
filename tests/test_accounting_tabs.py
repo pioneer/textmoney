@@ -355,8 +355,41 @@ def test_entity_edit_codes_are_bold_and_fields_fill_the_form(
             assert when.occurred.expand is True
             date_row = when.controls[0]
             assert isinstance(date_row, ft.Row) and date_row.width is None
+        else:
+            when = next(
+                control
+                for control in dialog.content.controls
+                if isinstance(control, DateTimeFields)
+            )
+            assert when.occurred.value == date_input(item.opened, language)
+            assert when.occurred.label == view.tr("category_available_date")
         view._dismiss(MagicMock())
         assert journal.source == before
+
+    asyncio.run(scenario())
+
+
+def test_category_edit_saves_availability_date(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        view, page = setup_view(monkeypatch)
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_category("Food", "Food", opened=EPOCH)
+        view.journal = journal
+        view._edit_entity(MagicMock(control=ft.IconButton(data=("category", "Expenses:Food"))))
+
+        dialog = page.show_dialog.call_args.args[0]
+        effective = next(
+            control for control in dialog.content.controls if isinstance(control, DateTimeFields)
+        )
+        opened = date(2000, 1, 1)
+        effective.occurred.value = date_input(opened, view.language)
+        await submit(dialog)
+
+        assert journal.ledger.categories[0].opened == opened
+        assert "2000-01-01 open Expenses:Food" in journal.source
 
     asyncio.run(scenario())
 

@@ -2326,3 +2326,7 @@ msgstr "Дата начального баланса не может быть р
 #. Stable TextMoney key; a child category cannot predate its parent.
 msgid "ui.crud_category_before_parent"
 msgstr "Дата доступности категории не может быть раньше даты родительской категории."
+
+#. Stable TextMoney key; a parent category cannot become available after a child.
+msgid "ui.crud_category_after_child"
+msgstr "Дата доступности категории не может быть позже даты дочерней категории."

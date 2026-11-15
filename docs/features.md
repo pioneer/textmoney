@@ -8,8 +8,8 @@ and limitations; the guides are the source of truth when details change.
 
 - **Accounts and categories:** Create currency-specific cash, bank and
   liability accounts; record opening balances; organize expense and income
-  categories hierarchically; and assign icons. Accounts and categories with
-  history can be deactivated and reactivated.
+  categories hierarchically; edit when a category becomes available; and assign
+  icons. Accounts and categories with history can be deactivated and reactivated.
   See [the user guide](user-guide.md#add-accounts-categories-and-opening-balances),
   [icons](entity-icons.md) and [journal format](journal-format.md).
 - **Transactions:** Record expenses, income, reimbursements, balance

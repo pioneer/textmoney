@@ -2319,3 +2319,7 @@ msgstr "The opening-balance date cannot be before the account opening date."
 #. Stable TextMoney key; a child category cannot predate its parent.
 msgid "ui.crud_category_before_parent"
 msgstr "The category availability date cannot be before its parent category."
+
+#. Stable TextMoney key; a parent category cannot become available after a child.
+msgid "ui.crud_category_after_child"
+msgstr "The category availability date cannot be after a child category."

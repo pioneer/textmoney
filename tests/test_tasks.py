@@ -328,6 +328,7 @@ def test_only_linux_native_run_uses_branded_client(
     monkeypatch.setattr(tasks, "stage_release", lambda: None)
     monkeypatch.setattr(tasks.platform, "system", lambda: host)
     monkeypatch.setattr(tasks, "prepare_linux_dev_client", prepare)
+    monkeypatch.setattr(tasks, "require_web_dev_client", lambda: Path("/synthetic/web"))
     monkeypatch.setattr(tasks, "execute", execute)
     tasks.run_app(web=web, debug=True)
     if branded:
@@ -893,11 +894,13 @@ def test_host_guard(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_debug_command(monkeypatch: pytest.MonkeyPatch) -> None:
     execute = MagicMock()
     monkeypatch.setattr(tasks, "execute", execute)
+    monkeypatch.setattr(tasks, "require_web_dev_client", lambda: Path("/synthetic/web"))
     tasks.debug_web(Context(), port=8765)
     args = execute.call_args.args
     assert "--web" in args and "-v" in args and "--recursive" in args
     assert "8765" in args
     assert execute.call_args.kwargs["env"]["APP_DEBUG"] == "1"
+    assert execute.call_args.kwargs["env"]["FLET_WEB_PATH"] == str(Path("/synthetic/web"))
     assert args[args.index("--ignore-dirs") + 1] == ".flet,__pycache__"
     assert execute.call_args.kwargs["env"]["PYTHONDONTWRITEBYTECODE"] == "1"
 

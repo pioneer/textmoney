@@ -1,0 +1,12 @@
+name: browser_history_bridge
+description: Flet browser history back service.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ">=3.12.0 <4.0.0"
+  flutter: ">=3.44.0"
+dependencies:
+  flutter:
+    sdk: flutter
+  flet: 1.1.2
+  web: ^1.1.1

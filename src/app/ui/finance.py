@@ -10,9 +10,11 @@ from decimal import Decimal, localcontext
 from enum import StrEnum
 from heapq import nlargest
 from itertools import groupby
+from uuid import uuid4
 from zoneinfo import available_timezones
 
 import flet as ft
+from browser_history_bridge import BrowserHistory
 from finance_saf import FinanceSaf
 
 from app.domain.category_migration import CategoryMigration, migrated_category
@@ -185,8 +187,15 @@ class FinanceView(ft.Row):
         self.system_zone = "system"
         self.screen_class = ScreenClass.COMPACT
         self.current_screen = "home"
-        self.settings_return_screen = "home"
-        self.management_history: list[str] = []
+        self.screen_history = ["home"]
+        self.history_index = 0
+        self.browser_routes: list[str] = []
+        self._browser_route_prefix = uuid4().hex
+        self._browser_route_sequence = 0
+        self._browser_pending_routes: dict[str, asyncio.Event] = {}
+        self._browser_route_lock = asyncio.Lock()
+        self._browser_back_waiter: asyncio.Event | None = None
+        self._browser_history: BrowserHistory | None = None
         self.message_key = "no_folder"
         self.error_message: str | None = None
         self.diagnostics_visible = False
@@ -508,14 +517,9 @@ class FinanceView(ft.Row):
             icon_size=20,
             on_click=self._open_settings,
         )
-        self.settings_back = ft.IconButton(
+        self.navigation_back = ft.IconButton(
             icon=ft.Icons.ARROW_BACK,
-            on_click=self._back_from_settings,
-            visible=False,
-        )
-        self.management_back = ft.IconButton(
-            icon=ft.Icons.ARROW_BACK,
-            on_click=self._back_from_management,
+            on_click=self._back_clicked,
             visible=False,
         )
         self.overflow_menu = ft.PopupMenuButton()
@@ -547,8 +551,7 @@ class FinanceView(ft.Row):
                     padding=ft.Padding.symmetric(horizontal=20, vertical=16),
                     content=ft.Row(
                         [
-                            self.settings_back,
-                            self.management_back,
+                            self.navigation_back,
                             self.header_titles,
                             self.overflow_menu,
                             self.settings_button,
@@ -601,11 +604,23 @@ class FinanceView(ft.Row):
         self.page.padding = 0
         self.page.on_resize = self._resized
         self.page.on_locale_change = self._host_locale_changed
+        if self.page.web:
+            self._setup_browser_navigation()
+        if self.page.platform == ft.PagePlatform.ANDROID and not self.page.web:
+            root = self.page.views[0]
+            root.can_pop = False
+            root.on_confirm_pop = self._system_back
         self.worker = self.page.run_task(self._lifecycle)
         self._apply_layout(self.page.width or self.page.window.width)
         self.page.update()
 
     def will_unmount(self) -> None:
+        if self.page.web:
+            self.page.on_route_change = None
+        if self.page.platform == ft.PagePlatform.ANDROID and not self.page.web:
+            root = self.page.views[0]
+            root.can_pop = True
+            root.on_confirm_pop = None
         self.budgets.cancel()
         self.home_budgets.cancel()
         if self.worker is not None:
@@ -831,12 +846,10 @@ class FinanceView(ft.Row):
         self.overflow_menu.visible = (
             compact and bool(overflow) and self.current_screen != "settings"
         )
-        self.management_back.visible = compact and self.current_screen in overflow
-        self.management_back.tooltip = self.tr("nav_back")
+        self.navigation_back.visible = compact and self.history_index > 0
+        self.navigation_back.tooltip = self.tr("nav_back")
         self.settings_button.visible = compact and self.current_screen != "settings"
         self.settings_button.tooltip = self.tr("nav_settings")
-        self.settings_back.visible = compact and self.current_screen == "settings"
-        self.settings_back.tooltip = self.tr("nav_back")
 
     def _build_screens(self) -> None:
         version, build = release_identity()
@@ -1001,11 +1014,9 @@ class FinanceView(ft.Row):
 
     def _compact_selected_index(self) -> int | None:
         bottom, _overflow = mobile_destination_groups()
-        screen = (
-            self.settings_return_screen
-            if self.current_screen == "settings"
-            else self.current_screen
-        )
+        screen = self.current_screen
+        if screen == "settings" and self.history_index > 0:
+            screen = self.screen_history[self.history_index - 1]
         return bottom.index(screen) if screen in bottom else None
 
     def _apply_layout(self, width: float | None) -> None:
@@ -5588,20 +5599,7 @@ class FinanceView(ft.Row):
         assert isinstance(screen, str)
         self._navigate(screen)
 
-    def _back_from_management(self, event: ft.Event[ft.IconButton]) -> None:
-        self._navigate(
-            self.management_history.pop() if self.management_history else "home",
-            remember_return=False,
-        )
-
-    def _navigate(self, screen: str, *, remember_return: bool = True) -> None:
-        bottom, overflow = mobile_destination_groups()
-        if screen == "settings" and self.current_screen != "settings":
-            self.settings_return_screen = self.current_screen
-        if remember_return and screen in overflow and self.current_screen != screen:
-            if self.current_screen in bottom:
-                self.management_history.clear()
-            self.management_history.append(self.current_screen)
+    def _show_screen(self, screen: str) -> None:
         self.current_screen = screen
         self._refresh_labels()
         if screen == "reports":
@@ -5610,15 +5608,104 @@ class FinanceView(ft.Row):
         if self.page:
             self.page.update()
 
+    def _navigate(self, screen: str) -> None:
+        if self._browser_back_waiter is not None:
+            self.page.run_task(self._navigate_after_browser_back, screen)
+            return
+        if screen == self.current_screen:
+            self._show_screen(screen)
+            return
+        del self.screen_history[self.history_index + 1 :]
+        self.screen_history.append(screen)
+        self.history_index += 1
+        if self.browser_routes:
+            del self.browser_routes[self.history_index :]
+            self._browser_route_sequence += 1
+            route = f"/history/{self._browser_route_prefix}/{self._browser_route_sequence}"
+            self.browser_routes.append(route)
+            self._browser_pending_routes[route] = asyncio.Event()
+            self.page.run_task(self._push_browser_route, route)
+        self._show_screen(screen)
+
+    async def _navigate_after_browser_back(self, screen: str) -> None:
+        async with self._browser_route_lock:
+            self._navigate(screen)
+
+    def _setup_browser_navigation(self) -> None:
+        self.browser_routes = [self.page.route]
+        self._browser_history = BrowserHistory()
+        self.page.on_route_change = self._browser_route_changed
+
+    async def _push_browser_route(self, route: str) -> None:
+        async with self._browser_route_lock:
+            acknowledgement = self._browser_pending_routes[route]
+            try:
+                await self.page.push_route(route)
+                await asyncio.wait_for(acknowledgement.wait(), timeout=10)
+            finally:
+                self._browser_pending_routes.pop(route, None)
+
+    def _browser_route_changed(self, event: ft.RouteChangeEvent) -> None:
+        acknowledgement = self._browser_pending_routes.pop(event.route, None)
+        if acknowledgement is not None:
+            acknowledgement.set()
+            return
+        if event.route not in self.browser_routes:
+            logger.warning("Ignoring an unrecognized browser navigation route")
+            return
+        index = self.browser_routes.index(event.route)
+        if index != self.history_index:
+            self.history_index = index
+            self._show_screen(self.screen_history[index])
+        if self._browser_back_waiter is not None:
+            self._browser_back_waiter.set()
+
+    def _back(self) -> bool:
+        if self.history_index == 0:
+            return False
+        self.history_index -= 1
+        self._show_screen(self.screen_history[self.history_index])
+        return True
+
+    def _forward(self) -> bool:
+        if self.history_index + 1 == len(self.screen_history):
+            return False
+        self.history_index += 1
+        self._show_screen(self.screen_history[self.history_index])
+        return True
+
+    def _back_clicked(self, event: ft.Event[ft.IconButton]) -> None:
+        if self.browser_routes:
+            self.page.run_task(self._browser_back)
+        else:
+            self._back()
+
+    async def _browser_back(self) -> None:
+        async with self._browser_route_lock:
+            if self.history_index == 0:
+                return
+            if self._browser_history is None:
+                raise RuntimeError("Browser history is not available.")
+            waiter = asyncio.Event()
+            self._browser_back_waiter = waiter
+            try:
+                await self._browser_history.back()
+                await asyncio.wait_for(waiter.wait(), timeout=10)
+            finally:
+                self._browser_back_waiter = None
+
+    async def _system_back(self, event: ft.Event[ft.View]) -> None:
+        if self.page.pop_dialog() is not None:
+            await event.control.confirm_pop(False)
+        else:
+            await event.control.confirm_pop(not self._back())
+
     def _bar_changed(self, event: ft.Event[ft.NavigationBar]) -> None:
         bottom, _overflow = mobile_destination_groups()
         self._navigate(bottom[event.control.selected_index])
 
     def _open_settings(self, event: ft.Event[ft.IconButton]) -> None:
         self._navigate("settings")
-
-    def _back_from_settings(self, event: ft.Event[ft.IconButton]) -> None:
-        self._navigate(self.settings_return_screen, remember_return=False)
 
     def _rail_changed(self, event: ft.Event[ft.NavigationRail]) -> None:
         if event.control.selected_index is not None:

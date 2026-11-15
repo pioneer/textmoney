@@ -48,6 +48,28 @@ Sources: [Flet documentation](https://flet.dev/docs/),
 [publishing](https://flet.dev/docs/publish/),
 [MCP cookbook](https://flet.dev/docs/cookbook/flet-mcp).
 
+## Extension-enabled web development
+
+The stock Flet web client does not contain local extensions. Run
+`uv run inv build-web-client` once and whenever the extension sources, lockfile,
+or manifest change, then use `uv run inv run-web` or `uv run inv debug-web`.
+The build requires the Flutter SDK and the same web build dependencies as
+`uv run inv build-web`. It copies the compiled Flutter web client and restores
+Flet 1.1.2's unconfigured index, so the dynamic server can patch it for its
+WebSocket rather than start Pyodide. Invoke sets `FLET_WEB_PATH` to this client
+and refuses a missing or stale client. Python changes still hot reload.
+`uv run inv build-web` and `uv run inv serve-web` remain the separate static
+Pyodide preview.
+
+The extension API is `from browser_history_bridge import BrowserHistory`.
+Construct `history = BrowserHistory()` inside the page's `main(page)` or an
+event handler: Flet registers the service automatically with that page. Keep
+the instance for the session, then `await history.back()` to request one browser
+Back. Construction outside a page context does not register it. The await
+acknowledges the request, not completion of navigation;
+the browser may have no previous entry or may leave the app. Calling it on a
+non-web client raises an error. It does not manage application screen history.
+
 ## Flet 1.1.2 upgrade verification
 
 The runtime, CLI, desktop/web clients, platform assets, MCP and local extension

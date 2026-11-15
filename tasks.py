@@ -601,6 +601,53 @@ def prepare_linux_dev_client() -> Path:
     return destination
 
 
+def web_client_fingerprint() -> str:
+    paths = [ROOT / "pyproject.toml", ROOT / "uv.lock"]
+    for extension in ("browser-history-bridge", "finance-saf"):
+        base = ROOT / "extensions" / extension
+        paths.append(base / "pyproject.toml")
+        paths.extend(sorted((base / "src/flutter").rglob("*")))
+    digest = hashlib.sha256()
+    for path in paths:
+        if path.is_file():
+            digest.update(str(path.relative_to(ROOT)).encode())
+            digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def require_web_dev_client() -> Path:
+    client = ROOT / "build/web-dev-client"
+    marker = client / ".textmoney-client"
+    if (
+        not (client / "index.html").is_file()
+        or not (client / "main.dart.js").is_file()
+        or not marker.is_file()
+        or marker.read_text(encoding="ascii").strip() != web_client_fingerprint()
+    ):
+        raise Exit("Web preview client missing or stale. Run uv run inv build-web-client.", code=1)
+    return client
+
+
+@task
+def build_web_client(context: Context) -> None:
+    """Build the extension-enabled client for dynamic web hot reload."""
+    import flet_web
+
+    build_target("web")
+    source = ROOT / "build/web"
+    destination = ROOT / "build/web-dev-client"
+    if destination.is_symlink():
+        raise Exit("build/web-dev-client must not be a symlink.", code=1)
+    if destination.exists():
+        if not (destination / ".textmoney-client").is_file():
+            raise Exit("Refusing to replace an unrecognized web preview client directory.", code=1)
+        shutil.rmtree(destination)
+    shutil.copytree(source, destination)
+    # Flet's dynamic server patches its unconfigured index with WebSocket settings.
+    shutil.copyfile(Path(flet_web.__file__).parent / "web/index.html", destination / "index.html")
+    (destination / ".textmoney-client").write_text(web_client_fingerprint(), encoding="ascii")
+
+
 def run_app(*, web: bool = False, debug: bool = False, port: int = 8550) -> None:
     compile_translations()
     stage_release()
@@ -619,6 +666,8 @@ def run_app(*, web: bool = False, debug: bool = False, port: int = 8550) -> None
     if debug:
         args += ["-v"]
     env = debug_env(debug)
+    if web:
+        env["FLET_WEB_PATH"] = str(require_web_dev_client())
     if not web and platform.system() == "Linux":
         env["FLET_VIEW_PATH"] = str(prepare_linux_dev_client())
         env["FLET_APP_ID"] = LINUX_DEV_APP_ID

@@ -255,7 +255,7 @@ def test_summary_does_not_use_budget_filters_and_arrows_open_full_screens(
         click(host.home_accounts_open)
         assert host.current_screen == "accounts"
         assert host.screen_host.content is host.accounts_screen
-        host._back_from_management(MagicMock())
+        host._back()
         assert host.current_screen == "home"
 
     asyncio.run(scenario())

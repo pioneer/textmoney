@@ -496,7 +496,7 @@ def test_budget_navigation_responsive_and_localized(
         assert host.budgets.history.content == host.tr("budget_limit_history")
         assert host._selected_index() == 2
         host._open_settings(MagicMock())
-        host._back_from_settings(MagicMock())
+        host._back()
         assert host.current_screen == "budgets"
         assert host.screen_host.content is host.budgets_screen
         assert host.screen_host.padding == ft.Padding.only(bottom=96)
@@ -505,7 +505,7 @@ def test_budget_navigation_responsive_and_localized(
         assert host.accounts_panel.width == host.categories_panel.width
         assert host._selected_index() == (None if width <= 599 else 5)
         host._open_settings(MagicMock())
-        host._back_from_settings(MagicMock())
+        host._back()
         assert host.current_screen == "categories"
         host._navigate("budgets")
         assert host.budgets.add.content == host.tr("create_budget")

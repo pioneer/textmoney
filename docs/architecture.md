@@ -97,8 +97,14 @@ beside the separate Settings gear. Currently the bottom destinations are Home,
 Transactions, Budgets and Reports; overflow destinations are Accounts and Categories.
 The More button is hidden when there is no overflow. Compact overflow screens
 and Settings hide the bottom bar and transaction action; no unrelated bottom
-destination is selected for an overflow screen. Back arrows restore the previous
-screen, with overflow navigation history surviving resizing and Settings.
+destination is selected for an overflow screen. A session screen-history cursor
+tracks all destination changes, preserving screen state across Back, Settings
+and resizing. Repeated destinations do not add visits; a new destination after
+Back drops later visits. On Android, the root view handles system Back after
+Flutter has handled any open dialog or menu, and delegates at the start.
+There is no mobile Forward control. On web, screen changes create browser
+history entries and Back/Forward restore the same session cursor; compact
+in-app Back uses browser history too. Web is not a released or validated platform.
 Medium/expanded layouts use Home, Transactions, Budgets, Reports, Accounts, Categories and
 Settings rail destinations without the header gear or More menu. Budgets
 selects its own item in both layouts and has no temporary back-to-Reports action.

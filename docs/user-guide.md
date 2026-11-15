@@ -16,8 +16,11 @@ For release-file selection and platform caveats, see
 On desktop, the sidebar opens Home, Transactions, Budgets, Reports, Accounts,
 Categories and Settings. On a phone, the bottom bar opens the first four;
 **More** beside the separate Settings gear opens Accounts and Categories.
-Secondary screens have a Back action. Resizing preserves the current screen
-and form state.
+The Back arrow returns through screens visited in this session. On Android,
+system Back first dismisses an open dialog or menu, then returns through screen
+history; at the beginning it uses the usual platform behavior. A different
+destination after going Back discards later visits. There is no mobile Forward
+control. Resizing preserves the current screen and form state.
 
 <img src="screenshots/navigation-mobile.png" alt="More menu for Accounts and Categories beside the Settings gear" width="360">
 

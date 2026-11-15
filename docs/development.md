@@ -19,6 +19,7 @@ OS and 3.14 on Linux.
 Other useful commands:
 
 ```sh
+uv run inv build-web-client  # Build extension-enabled browser preview client
 uv run inv run-web        # Local browser UI preview
 uv run inv check          # Format check, lint, Pyright, catalogs and tests
 uv run inv build-android  # Development Android APK
@@ -48,6 +49,8 @@ and diagnostic tools in the same uv environment on every host. They do not
 resolve another `python` from the system installation or `PATH`.
 
 Use `uv run inv run` for desktop or `uv run inv run-web` for browser UI previews.
+Build the web client first and rebuild after extension or dependency changes;
+see [Flet web development](flet.md#extension-enabled-web-development).
 Folder selection is unsupported in web mode; the preview is not a browser
 journal-storage implementation. See [web deployment limits](deployment.md).
 Both hot-reload the source tree. Stop with Ctrl+C. Web binds to localhost, not the

@@ -112,12 +112,14 @@ def _icon_artwork_mask(image: Image.Image) -> Image.Image:
 
 
 @pytest.mark.parametrize(
-    "arguments,version,resume",
+    "arguments,version,resume,with_screenshots",
     [
-        ([], "", False),
-        (["--resume"], "", True),
-        (["--version", "1.0.0"], "1.0.0", False),
-        (["--version", "0.4.0", "--resume"], "0.4.0", True),
+        ([], "", False, False),
+        (["--resume"], "", True, False),
+        (["--version", "1.0.0"], "1.0.0", False, False),
+        (["--version", "0.4.0", "--resume"], "0.4.0", True, False),
+        (["--with-screenshots"], "", False, True),
+        (["--version", "0.5.0", "--with-screenshots"], "0.5.0", False, True),
     ],
 )
 def test_release_cli_accepts_automatic_or_explicit_versions(
@@ -125,6 +127,7 @@ def test_release_cli_accepts_automatic_or_explicit_versions(
     arguments: list[str],
     version: str,
     resume: bool,
+    with_screenshots: bool,
 ) -> None:
     start = MagicMock()
     monkeypatch.setattr(tasks.release_tools, "start_release", start)
@@ -132,6 +135,36 @@ def test_release_cli_accepts_automatic_or_explicit_versions(
     start.assert_called_once()
     assert start.call_args.args == (tasks.ROOT, version)
     assert start.call_args.kwargs["resume"] == resume
+    assert callable(start.call_args.kwargs["capture_screenshots"]) == with_screenshots
+
+
+def test_release_screenshots_rebuilds_client_and_uses_resolved_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    start = MagicMock()
+    steps: list[str] = []
+    context = Context()
+
+    def build(received: Context) -> None:
+        assert received is context
+        steps.append("build")
+
+    def capture(received: Context, release: str = "", next_release: bool = False) -> None:
+        assert received is context
+        assert release == "0.5.3" and not next_release
+        steps.append("capture")
+
+    monkeypatch.setattr(tasks.release_tools, "start_release", start)
+    monkeypatch.setattr(tasks, "build_web_client", build)
+    monkeypatch.setattr(tasks, "screenshots", capture)
+    tasks.release(context, with_screenshots=True)
+    callback = start.call_args.kwargs["capture_screenshots"]
+    assert callback("0.5.3") == (
+        "docs/screenshots/home-desktop.png",
+        "docs/screenshots/expense-mobile.png",
+        "docs/screenshots/navigation-mobile.png",
+    )
+    assert steps == ["build", "capture"]
 
 
 @pytest.mark.parametrize("target", ["linux", "windows"])

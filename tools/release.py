@@ -280,7 +280,13 @@ def start_release(
     resume: bool,
     check: Callable[[], None],
     previous_build: Callable[[str], int],
+    capture_screenshots: Callable[[str], tuple[str, ...]] | None = None,
 ) -> None:
+    if resume and capture_screenshots is not None:
+        raise RuntimeError(
+            "--with-screenshots cannot be combined with --resume; "
+            "resume uses the existing candidate's screenshots."
+        )
     if version:
         version_numbers(version)
     if run(root, "git", "status", "--porcelain", "--untracked-files=all"):
@@ -363,7 +369,12 @@ def start_release(
     if next_build > 2100000000:
         raise RuntimeError("The Android build number would exceed its supported maximum.")
     print(
-        f"Preparing {tag}, Android build {next_build}. No platform SDK is needed locally.",
+        f"Preparing {tag}, Android build {next_build}."
+        + (
+            " Refreshing README screenshots."
+            if capture_screenshots is not None
+            else " No platform SDK is needed locally."
+        ),
         flush=True,
     )
     if requested > current:
@@ -371,9 +382,11 @@ def start_release(
         source = replace_setting(source, "tool.flet", "build_number", str(next_build))
         project_path.write_text(source, encoding="utf-8")
         run(root, "uv", "lock", "--offline")
+    generated = set(capture_screenshots(version)) if capture_screenshots is not None else set()
     check()
-    changed = run(root, "git", "diff", "--name-only").splitlines()
-    if set(changed) != ({"pyproject.toml", "uv.lock"} if requested > current else set()):
+    changed = set(run(root, "git", "diff", "--name-only").splitlines())
+    required = {"pyproject.toml", "uv.lock"} if requested > current else set()
+    if not required <= changed or not changed <= required | generated:
         raise RuntimeError(
             "Unexpected release changes. Inspect the worktree; nothing was committed."
         )
@@ -381,8 +394,8 @@ def start_release(
         raise RuntimeError("Checks created untracked files. Inspect them before releasing.")
     run(root, "git", "diff", "--cached", "--exit-code")
     run(root, "git", "diff", "--check")
-    if requested > current:
-        run(root, "git", "add", "--", "pyproject.toml", "uv.lock")
+    if changed:
+        run(root, "git", "add", "--", *sorted(changed))
         run(root, "git", "commit", "-m", f"Release v{version}", "-m", TRAILER)
         run(root, "git", "push", "origin", "HEAD:refs/heads/main")
     sha = run(root, "git", "rev-parse", "HEAD")

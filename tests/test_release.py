@@ -202,11 +202,13 @@ def commands(root: Path, **overrides: str) -> MagicMock:
         ("1.0.0", "1.0.0"),
     ],
 )
+@pytest.mark.parametrize("with_screenshots", [False, True])
 def test_release_prepares_version_files_and_dispatches_candidate_without_tag(
     workspace: Path,
     monkeypatch: pytest.MonkeyPatch,
     version: str,
     expected: str,
+    with_screenshots: bool,
 ) -> None:
     run = commands(
         workspace,
@@ -220,6 +222,7 @@ def test_release_prepares_version_files_and_dispatches_candidate_without_tag(
     check = MagicMock()
     previous = MagicMock(return_value=31)
     wait = MagicMock()
+    capture = MagicMock(return_value=("docs/screenshots/home-desktop.png",))
     monkeypatch.setattr(release, "run", run)
     monkeypatch.setattr(release, "wait_for_release", wait)
     release.start_release(
@@ -228,12 +231,17 @@ def test_release_prepares_version_files_and_dispatches_candidate_without_tag(
         resume=False,
         check=check,
         previous_build=previous,
+        capture_screenshots=capture if with_screenshots else None,
     )
     project = tomllib.loads((workspace / "pyproject.toml").read_text())
     assert project["project"]["version"] == expected
     assert project["tool"]["flet"]["build_number"] == 32
     assert project["tool"]["textmoney"]["other"] == "preserve"
     check.assert_called_once()
+    if with_screenshots:
+        capture.assert_called_once_with(expected)
+    else:
+        capture.assert_not_called()
     previous.assert_called_once_with(f"v{expected}")
     calls = [call.args[1:] for call in run.call_args_list]
     assert ("git", "add", "--", "pyproject.toml", "uv.lock") in calls
@@ -264,26 +272,32 @@ def test_release_prepares_version_files_and_dispatches_candidate_without_tag(
 
 
 @pytest.mark.parametrize("version", ["", "0.3.6"])
+@pytest.mark.parametrize("with_screenshots", [False, True])
 def test_corrected_candidate_keeps_version_and_build_without_another_commit(
     workspace: Path,
     monkeypatch: pytest.MonkeyPatch,
     version: str,
+    with_screenshots: bool,
 ) -> None:
     before = (workspace / "pyproject.toml").read_bytes()
     run = commands(workspace, **{"git diff --name-only": ""})
     monkeypatch.setattr(release, "run", run)
     monkeypatch.setattr(release, "wait_for_release", MagicMock())
     check = MagicMock()
+    capture = MagicMock(return_value=("docs/screenshots/home-desktop.png",))
     release.start_release(
         workspace,
         version,
         resume=False,
         check=check,
         previous_build=lambda tag: 28,
+        capture_screenshots=capture if with_screenshots else None,
     )
     assert (workspace / "pyproject.toml").read_bytes() == before
     assert (workspace / "uv.lock").read_text() == "old lock\n"
     check.assert_called_once()
+    if with_screenshots:
+        capture.assert_called_once_with("0.3.6")
     calls = [call.args[1:] for call in run.call_args_list]
     assert any(command[:3] == ("gh", "workflow", "run") for command in calls)
     assert not any(command[:2] in {("git", "commit"), ("git", "push")} for command in calls)
@@ -419,6 +433,91 @@ def test_check_failure_retains_version_changes_without_commit_or_push(
     assert 'version = "0.3.7"' in (workspace / "pyproject.toml").read_text()
     assert not any(call.args[1:3] == ("git", "commit") for call in run.call_args_list)
     assert not any(call.args[1:3] == ("git", "push") for call in run.call_args_list)
+
+
+def test_screenshot_failure_leaves_prepared_metadata_without_checks_or_publication(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = commands(workspace)
+    check = MagicMock()
+    capture = MagicMock(side_effect=RuntimeError("synthetic capture failure"))
+    monkeypatch.setattr(release, "run", run)
+    with pytest.raises(RuntimeError, match="capture failure"):
+        release.start_release(
+            workspace,
+            "0.3.7",
+            resume=False,
+            check=check,
+            previous_build=lambda tag: 29,
+            capture_screenshots=capture,
+        )
+    capture.assert_called_once_with("0.3.7")
+    check.assert_not_called()
+    assert 'version = "0.3.7"' in (workspace / "pyproject.toml").read_text()
+    calls = [call.args[1:] for call in run.call_args_list]
+    assert not any(
+        command[:2] in {("git", "add"), ("git", "commit"), ("git", "push")}
+        or command[:3] == ("gh", "workflow", "run")
+        for command in calls
+    )
+
+
+def test_resume_cannot_regenerate_screenshots(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = MagicMock()
+    capture = MagicMock()
+    monkeypatch.setattr(release, "run", run)
+    with pytest.raises(RuntimeError, match="--with-screenshots cannot be combined with --resume"):
+        release.start_release(
+            workspace,
+            "",
+            resume=True,
+            check=MagicMock(),
+            previous_build=MagicMock(),
+            capture_screenshots=capture,
+        )
+    run.assert_not_called()
+    capture.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "overrides,message",
+    [
+        (
+            {"git diff --name-only": "pyproject.toml\nuv.lock\nREADME.md"},
+            "Unexpected release changes",
+        ),
+        (
+            {"git diff --name-only": "pyproject.toml\nuv.lock\ndocs/screenshots/unreferenced.png"},
+            "Unexpected release changes",
+        ),
+        (
+            {"git ls-files --others --exclude-standard": "untracked.png"},
+            "untracked files",
+        ),
+    ],
+)
+def test_with_screenshots_does_not_allow_unrelated_or_untracked_release_changes(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch, overrides: dict[str, str], message: str
+) -> None:
+    run = commands(workspace, **overrides)
+    monkeypatch.setattr(release, "run", run)
+    with pytest.raises(RuntimeError, match=message):
+        release.start_release(
+            workspace,
+            "0.3.7",
+            resume=False,
+            check=MagicMock(),
+            previous_build=lambda tag: 29,
+            capture_screenshots=lambda version: ("docs/screenshots/home-desktop.png",),
+        )
+    calls = [call.args[1:] for call in run.call_args_list]
+    assert not any(
+        command[:2] in {("git", "add"), ("git", "commit"), ("git", "push")}
+        or command[:3] == ("gh", "workflow", "run")
+        for command in calls
+    )
 
 
 def test_existing_draft_with_matching_assets_resumes_without_reupload(
@@ -1025,9 +1124,11 @@ def test_single_release_workflow_gates_publication_on_all_platforms() -> None:
     assert not (ROOT / ".github/workflows/linux-appimage.yml").exists()
 
 
+@pytest.mark.parametrize("with_screenshots", [False, True])
 def test_release_pushes_candidate_commit_without_tag_in_disposable_repositories(
     workspace: Path,
     monkeypatch: pytest.MonkeyPatch,
+    with_screenshots: bool,
 ) -> None:
     if shutil.which("git") is None:
         pytest.skip("Git is required for the disposable release integration test.")
@@ -1036,6 +1137,12 @@ def test_release_pushes_candidate_commit_without_tag_in_disposable_repositories(
     project.mkdir()
     for name in ("pyproject.toml", "uv.lock"):
         shutil.copyfile(workspace / name, project / name)
+    home = "docs/screenshots/home-desktop.png"
+    expense = "docs/screenshots/expense-mobile.png"
+    if with_screenshots:
+        (project / home).parent.mkdir(parents=True)
+        (project / home).write_text("Synthetic home baseline\n")
+        (project / expense).write_text("Synthetic unchanged expense\n")
 
     def git(*args: str) -> str:
         return subprocess.run(
@@ -1085,12 +1192,29 @@ def test_release_pushes_candidate_commit_without_tag_in_disposable_repositories(
     monkeypatch.setattr(release, "run", run)
     wait = MagicMock()
     monkeypatch.setattr(release, "wait_for_release", wait)
+    captures: list[str] = []
+
+    def capture(selected_version: str) -> tuple[str, ...]:
+        metadata = tomllib.loads((project / "pyproject.toml").read_text())
+        assert metadata["project"]["version"] == selected_version
+        assert metadata["tool"]["flet"]["build_number"] == 30
+        assert (project / "uv.lock").read_text() == "new lock\n"
+        captures.append(selected_version)
+        (project / home).write_text(f"Synthetic {selected_version} capture {len(captures)}\n")
+        return (home, expense)
+
+    def check() -> None:
+        if with_screenshots:
+            assert captures
+            assert (project / home).read_text().endswith(f"capture {len(captures)}\n")
+
     release.start_release(
         project,
         "",
         resume=False,
-        check=lambda: None,
+        check=check,
         previous_build=lambda tag: 29,
+        capture_screenshots=capture if with_screenshots else None,
     )
     sha = git("rev-parse", "HEAD")
     assert git("status", "--porcelain") == ""
@@ -1098,10 +1222,11 @@ def test_release_pushes_candidate_commit_without_tag_in_disposable_repositories(
     assert git("ls-remote", "origin", "refs/heads/main").split()[0] == sha
     assert git("ls-remote", "origin", "refs/tags/v0.3.7") == ""
     assert release.TRAILER in git("log", "-1", "--format=%B")
-    assert set(git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").splitlines()) == {
-        "pyproject.toml",
-        "uv.lock",
-    }
+    expected = {"pyproject.toml", "uv.lock"} | ({home} if with_screenshots else set())
+    assert (
+        set(git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").splitlines())
+        == expected
+    )
     wait.assert_called_once_with(project, REPO, "v0.3.7", sha, resume=False)
     identity = tomllib.loads((project / "pyproject.toml").read_text())
     (project / "fix.txt").write_text("Synthetic CI fix\n")
@@ -1113,12 +1238,19 @@ def test_release_pushes_candidate_commit_without_tag_in_disposable_repositories(
         project,
         "",
         resume=False,
-        check=lambda: None,
+        check=check,
         previous_build=lambda tag: 29,
+        capture_screenshots=capture if with_screenshots else None,
     )
     fixed_sha = git("rev-parse", "HEAD")
     assert fixed_sha != sha
-    assert git("log", "-1", "--format=%s") == "Correct synthetic CI failure"
+    assert git("log", "-1", "--format=%s") == (
+        "Release v0.3.7" if with_screenshots else "Correct synthetic CI failure"
+    )
     assert tomllib.loads((project / "pyproject.toml").read_text()) == identity
     assert git("ls-remote", "origin", "refs/tags/v0.3.7") == ""
+    assert git("ls-remote", "origin", "refs/heads/main").split()[0] == fixed_sha
+    if with_screenshots:
+        assert captures == ["0.3.7", "0.3.7"]
+        assert git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD") == home
     wait.assert_called_once_with(project, REPO, "v0.3.7", fixed_sha, resume=False)

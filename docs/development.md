@@ -345,7 +345,8 @@ These are alternative examples, not consecutive steps. `--version X.Y.Z` overrid
 automatic selection. In either mode this is an explicit publication command:
 it updates `[project].version` and the Android
 build number in `pyproject.toml`, refreshes `uv.lock` offline, runs
-`uv run inv check`, commits those two files, and pushes `main` to `origin`.
+`uv run inv check`, commits those two files (plus screenshots when requested),
+and pushes `main` to `origin`.
 It dispatches the release workflow with the full candidate commit SHA and version,
 waits for that exact candidate's run, and reports its result. There is **no final
 tag during checks or platform builds**. CI creates the annotated `vX.Y.Z` tag
@@ -355,13 +356,39 @@ current project version when retrying an unpublished candidate. A new version
 increases the Android build number beyond both the current and prior stable
 release's code; corrected candidates retain the same version and build number.
 
+To regenerate README screenshots for the version being released and include
+them in the release commit:
+
+```sh
+uv run inv release --with-screenshots
+uv run inv release --version 0.5.0 --with-screenshots
+```
+
+These are alternative examples. The release version is selected once, using
+the same automatic/explicit rules above. After preparing version and build
+metadata, this option rebuilds the extension-enabled web client, then calls the
+existing screenshot task with that exact version (not a separate
+`--next-release` lookup). This also handles a reused unpublished version correctly.
+Checks run after capture; only the README-referenced screenshot files are
+allowed alongside the version files in the release commit. Screenshot-only
+changes for a reused version are committed and pushed before CI dispatch too.
+Unchanged screenshots do not require a separate commit.
+
+The option requires the [screenshot prerequisites](#refresh-readme-screenshots),
+including Flutter/web build tools and Playwright's installed Chromium
+(`uv run inv screenshots-setup`), locally. No native platform binaries are built
+locally. A build/capture/check failure prevents commit, push and dispatch; any
+prepared local changes are left for inspection, not automatically reverted.
+`--with-screenshots` cannot be combined with `--resume`, which uses the existing
+candidate commit and its screenshots without regenerating them.
+
 The local prerequisites are Git, uv, the locked development dependencies
 (`uv run inv setup`), and GitHub CLI authenticated with permission to push
 `main` and dispatch/read Actions (`gh auth login`). The publication job creates
 the final tag using its existing contents-write permission. The local command does
-not compile platform binaries: no Flutter, Visual Studio, Java or Android SDK
-is needed locally. Branch protection must allow the release commit push and
-tag rules must allow CI publication;
+not compile platform binaries: without `--with-screenshots`, no Flutter, Visual
+Studio, Java or Android SDK is needed locally. Branch protection must allow the
+release commit push and tag rules must allow CI publication;
 the command never bypasses protection or force-pushes. Commit and push any
 release notes or application changes before running it.
 The `android-production` environment must allow deployments from the exact

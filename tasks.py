@@ -999,8 +999,19 @@ def check(context: Context) -> None:
 
 
 @task
-def release(context: Context, version: str = "", resume: bool = False) -> None:
-    """Release the next patch or an explicit --version; --resume retries the current candidate."""
+def release(
+    context: Context, version: str = "", resume: bool = False, with_screenshots: bool = False
+) -> None:
+    """Release the next patch or --version, optionally with fresh README screenshots."""
+
+    def capture(selected_version: str) -> tuple[str, ...]:
+        from tools.screenshots import readme_scenes
+
+        scenes = readme_scenes(ROOT)
+        build_web_client(context)
+        screenshots(context, release=selected_version)
+        return tuple(f"docs/screenshots/{scene.filename}" for scene in scenes)
+
     try:
         release_tools.start_release(
             ROOT,
@@ -1008,6 +1019,7 @@ def release(context: Context, version: str = "", resume: bool = False) -> None:
             resume=resume,
             check=lambda: check(context),
             previous_build=previous_release_build_number,
+            capture_screenshots=capture if with_screenshots else None,
         )
     except RuntimeError as exc:
         raise Exit(str(exc), code=1) from exc

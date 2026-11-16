@@ -157,6 +157,9 @@ msgstr "Імпортувати зображення"
 msgid "ui.icon_remove"
 msgstr "Прибрати іконку"
 
+msgid "ui.icon_remove_confirm"
+msgstr "Прибрати цю іконку?"
+
 msgid "ui.icon_none"
 msgstr "Іконку не вибрано"
 

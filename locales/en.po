@@ -62,6 +62,9 @@ msgstr "Import image"
 msgid "ui.icon_remove"
 msgstr "Remove icon"
 
+msgid "ui.icon_remove_confirm"
+msgstr "Remove this icon?"
+
 msgid "ui.icon_none"
 msgstr "No icon selected"
 

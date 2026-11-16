@@ -86,7 +86,7 @@ from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import deletion_title, show_dialog
 from app.ui.home_budgets import HomeBudgets, home_heading
-from app.ui.icons import IconDraft, IconField, IconPicker, icon_image
+from app.ui.icons import IconDraft, IconField, IconPicker, IconRemovalDialog, icon_image
 from app.ui.layout import HoverRow, action_toolbar, month_navigation
 from app.ui.operations import OperationsLocation, OperationsView
 from app.ui.theme import NAVIGATION_SURFACE, summary_theme
@@ -2028,10 +2028,12 @@ class FinanceView(ft.Row):
 
         show_dialog(
             self.page,
-            IconPicker(
+            IconRemovalDialog(self.page, self.language, save)
+            if remove
+            else IconPicker(
                 self.page,
                 self.language,
-                None if remove else store.assets.get(identifier),
+                store.assets.get(identifier),
                 save,
                 existing_icons=store.assets.values(),
                 conflict=identifier in store.conflicts,

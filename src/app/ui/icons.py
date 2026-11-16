@@ -11,9 +11,25 @@ from app.icons import DISPLAY_SIZE, MAX_INPUT, IconAsset, IconError, normalize_i
 from app.infrastructure.icon_sources import search_icons
 from app.localization import translate
 from app.storage import StorageError
-from app.ui.dialogs import show_dialog
+from app.ui.dialogs import deletion_title, show_dialog
 
 logger = logging.getLogger(__name__)
+
+
+async def _run_icon_action(
+    action: Callable[[], Awaitable[None]], status: ft.Text, language: str
+) -> None:
+    try:
+        await action()
+    except (IconError, ConflictError) as exc:
+        logger.warning("Icon operation failed (%s)", str(exc))
+        status.value = translate(language, str(exc))
+    except (StorageError, TimeoutError) as exc:
+        logger.warning("Icon storage operation failed (%s)", type(exc).__name__)
+        status.value = translate(language, "icon_storage")
+    except Exception:
+        logger.exception("Unexpected icon operation failure")
+        status.value = translate(language, "icon_failed")
 
 
 def icon_image(asset: IconAsset) -> ft.Image:
@@ -86,14 +102,60 @@ class IconDraft(IconField):
 
         show_dialog(
             self.owner,
-            IconPicker(
-                self.owner,
-                self.language,
-                None if remove else self.selected,
-                select,
-                existing_icons=self.existing_icons,
+            IconRemovalDialog(self.owner, self.language, select)
+            if remove
+            else IconPicker(
+                self.owner, self.language, self.selected, select, existing_icons=self.existing_icons
             ),
         )
+
+
+class IconRemovalDialog(ft.AlertDialog):
+    def __init__(
+        self, page: ft.Page, language: str, save: Callable[[IconAsset | None], Awaitable[None]]
+    ) -> None:
+        self.owner = page
+        self.language = language
+        self.persist = save
+        self.busy = False
+        self.status = ft.Text(size=12, selectable=True)
+        self.cancel = ft.TextButton(translate(language, "crud_cancel"), on_click=self._cancel)
+        self.submit = ft.TextButton(translate(language, "crud_delete"), on_click=self._save)
+        super().__init__(
+            modal=True,
+            scrollable=True,
+            title=deletion_title(translate(language, "icon_remove")),
+            content=ft.Column(
+                [ft.Text(translate(language, "icon_remove_confirm")), self.status],
+                tight=True,
+                spacing=12,
+                width=360,
+            ),
+            actions=[self.cancel, self.submit],
+        )
+
+    async def _save(self, event: ft.Event[ft.TextButton]) -> None:
+        if self.busy:
+            return
+        self.busy = True
+        self.status.value = ""
+        self.cancel.disabled = self.submit.disabled = True
+        self.owner.update()
+
+        async def remove() -> None:
+            await self.persist(None)
+            self.owner.pop_dialog()
+
+        try:
+            await _run_icon_action(remove, self.status, self.language)
+        finally:
+            self.busy = False
+            self.cancel.disabled = self.submit.disabled = False
+            self.owner.update()
+
+    def _cancel(self, event: ft.Event[ft.TextButton]) -> None:
+        if not self.busy:
+            self.owner.pop_dialog()
 
 
 class IconPicker(ft.AlertDialog):
@@ -225,16 +287,7 @@ class IconPicker(ft.AlertDialog):
             control.disabled = True
         self.owner.update()
         try:
-            await action()
-        except (IconError, ConflictError) as exc:
-            logger.warning("Icon operation failed (%s)", str(exc))
-            self.status.value = self.tr(str(exc))
-        except (StorageError, TimeoutError) as exc:
-            logger.warning("Icon storage operation failed (%s)", type(exc).__name__)
-            self.status.value = self.tr("icon_storage")
-        except Exception:
-            logger.exception("Unexpected icon operation failure")
-            self.status.value = self.tr("icon_failed")
+            await _run_icon_action(action, self.status, self.language)
         finally:
             self.busy = False
             self.progress.visible = False

@@ -8,7 +8,13 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import pytest
 from flet.messaging.session import Session
-from form_controls import category_content, click, click_async, transaction_form
+from form_controls import (
+    assert_deletion_title,
+    category_content,
+    click,
+    click_async,
+    transaction_form,
+)
 from test_daily_summary import walk
 from test_dialog_keyboard import finance_session, press
 from test_icons import asset, raster, store_at
@@ -23,7 +29,7 @@ from app.localization import format_amount
 from app.storage import StorageError
 from app.ui.dialogs import show_dialog
 from app.ui.finance import FinanceView
-from app.ui.icons import IconDraft, IconField, IconPicker, icon_image
+from app.ui.icons import IconDraft, IconField, IconPicker, IconRemovalDialog, icon_image
 from app.ui.tree_picker import TreePicker
 
 
@@ -211,25 +217,31 @@ def test_edit_entity_remove_icon_shortcut(
         )
         assert remove.visible
         await session.dispatch_event(remove._i, "click", None)
-        picker = session.page._dialogs.controls[-1]
-        assert isinstance(picker, IconPicker) and picker.selected is None
-        await session.dispatch_event(picker.search._i, "focus", {})
+        confirmation = session.page._dialogs.controls[-1]
+        assert isinstance(confirmation, ft.AlertDialog) and not isinstance(confirmation, IconPicker)
+        assert_deletion_title(confirmation, view.tr("icon_remove"))
+        assert not any(isinstance(control, ft.TextField) for control in walk(confirmation))
+        assert action(confirmation, 0).content == view.tr("crud_cancel")
+        assert action(confirmation, -1).content == view.tr("crud_delete")
         await press(session, "Escape")
         assert parent.open and view.icons.assets[identifier] == original
 
         click(remove)
-        picker = session.page._dialogs.controls[-1]
-        assert isinstance(picker, IconPicker) and picker.selected is None
+        confirmation = session.page._dialogs.controls[-1]
+        assert isinstance(confirmation, ft.AlertDialog)
         assign = view.icons.assign
         monkeypatch.setattr(view.icons, "assign", AsyncMock(side_effect=IconError("icon_storage")))
-        await click_async(picker.submit)
-        assert picker.open and parent.open and remove.visible
+        await click_async(action(confirmation, -1))
+        assert confirmation.open and parent.open and remove.visible
+        assert any(
+            isinstance(control, ft.Text) and control.value == view.tr("icon_storage")
+            for control in walk(confirmation)
+        )
         assert view.icons.assets[identifier] == original
         assert [image.src for image in images(parent)] == [original.data]
         monkeypatch.setattr(view.icons, "assign", assign)
-        await session.dispatch_event(picker.search._i, "focus", {})
         await press(session, "Enter")
-        assert not picker.open and parent.open and not remove.visible
+        assert not confirmation.open and parent.open and not remove.visible
         assert name.value == "Unsaved name" and not images(parent)
         assert identifier not in view.icons.assets and journal.source == original_source
         reloaded = store_at(tmp_path)
@@ -282,15 +294,18 @@ def test_remove_shortcut_rejects_stale_icon(
             if isinstance(control, ft.IconButton) and control.tooltip == view.tr("icon_remove")
         )
         click(remove)
-        picker = session.page._dialogs.controls[-1]
-        assert isinstance(picker, IconPicker)
+        confirmation = session.page._dialogs.controls[-1]
+        assert isinstance(confirmation, ft.AlertDialog) and not isinstance(confirmation, IconPicker)
         other = store_at(tmp_path)
         await other.load()
         replacement = asset("replacement")
         await other.assign(identifier, replacement, other.heads[identifier])
-        await click_async(picker.submit)
-        assert picker.open and parent.open
-        assert picker.status.value == view.tr("icon_stale")
+        await click_async(action(confirmation, -1))
+        assert confirmation.open and parent.open
+        assert any(
+            isinstance(control, ft.Text) and control.value == view.tr("icon_stale")
+            for control in walk(confirmation)
+        )
         reloaded = store_at(tmp_path)
         await reloaded.load()
         assert reloaded.assets[identifier] == replacement
@@ -468,16 +483,16 @@ def test_creation_remove_icon_shortcut_keeps_draft_until_confirmed(
         assert draft.selected == asset() and draft.remove_button.visible
 
         await session.dispatch_event(draft.remove_button._i, "click", None)
-        picker = session.page._dialogs.controls[-1]
-        assert isinstance(picker, IconPicker) and picker.selected is None
-        await session.dispatch_event(picker.search._i, "focus", {})
+        confirmation = session.page._dialogs.controls[-1]
+        assert isinstance(confirmation, ft.AlertDialog) and not isinstance(confirmation, IconPicker)
+        assert_deletion_title(confirmation, view.tr("icon_remove"))
+        assert not any(isinstance(control, ft.TextField) for control in walk(confirmation))
         await press(session, "Escape")
         assert parent.open and draft.selected == asset() and draft.remove_button.visible
 
         click(draft.remove_button)
-        picker = session.page._dialogs.controls[-1]
-        assert isinstance(picker, IconPicker) and picker.selected is None
-        await session.dispatch_event(picker.search._i, "focus", {})
+        confirmation = session.page._dialogs.controls[-1]
+        assert isinstance(confirmation, ft.AlertDialog) and not isinstance(confirmation, IconPicker)
         await press(session, "Enter")
         assert parent.open and draft.selected is None and not draft.remove_button.visible
         assert draft.preview.content is None and journal.source == original
@@ -1282,8 +1297,9 @@ def test_icon_read_failure_does_not_disable_financial_journal(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("removal", [False, True])
 def test_busy_save_disables_escape_and_duplicate_submission(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, removal: bool
 ) -> None:
     async def scenario() -> None:
         session, _view, _journal = await finance_session(tmp_path, monkeypatch)
@@ -1294,20 +1310,50 @@ def test_busy_save_disables_escape_and_duplicate_submission(
             await release.wait()
 
         save = AsyncMock(side_effect=persist)
-        picker = IconPicker(session.page, "en", asset(), save)
-        show_dialog(session.page, picker)
-        task = asyncio.create_task(click_async(picker.submit))
+        dialog = (
+            IconRemovalDialog(session.page, "en", save)
+            if removal
+            else IconPicker(session.page, "en", asset(), save)
+        )
+        show_dialog(session.page, dialog)
+        task = asyncio.create_task(click_async(dialog.submit))
         try:
             async with asyncio.timeout(10):
                 await started.wait()
-                assert picker.cancel.disabled and picker.submit.disabled
+                assert dialog.cancel.disabled and dialog.submit.disabled
                 await press(session)
-                assert picker.open
-                await click_async(picker.submit)
+                assert dialog.open
+                await click_async(dialog.submit)
                 save.assert_awaited_once()
         finally:
             release.set()
             await task
-        assert not picker.open
+        assert not dialog.open
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("failure", "message"),
+    [
+        (StorageError("failed"), "icon_storage"),
+        (TimeoutError(), "icon_storage"),
+        (RuntimeError("failed"), "icon_failed"),
+    ],
+)
+def test_icon_removal_reports_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: Exception,
+    message: str,
+) -> None:
+    async def scenario() -> None:
+        session, view, _journal = await finance_session(tmp_path, monkeypatch)
+        view.language = "en"
+        dialog = IconRemovalDialog(session.page, "en", AsyncMock(side_effect=failure))
+        show_dialog(session.page, dialog)
+        await click_async(dialog.submit)
+        assert dialog.open and dialog.status.value == view.tr(message)
+        assert not dialog.cancel.disabled and not dialog.submit.disabled
 
     asyncio.run(scenario())

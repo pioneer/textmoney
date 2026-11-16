@@ -144,6 +144,7 @@ def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
         dialog.content = PopupKeyboardListener(
             content,
             autofocus=not inputs,
+            restore_focus=True,
             include_semantics=False,
             on_key_down=content_key,
         )

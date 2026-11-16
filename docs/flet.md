@@ -190,9 +190,14 @@ boundaries and actual keyboard delivery on a Flet upgrade.
 Flet 1.1.2's Material dropdown retains an internal Escape shortcut even after its
 menu closes. The local popup keyboard extension uses a focus-scoped Flutter
 action dispatcher to forward only a **closed** menu's dismissal intent to the
-same listener's Escape handler. Open menus keep native Escape/Enter behavior;
-there is no page-wide hardware-key handler or forced focus change. The existing
-Python helper still enforces active-dialog, disabled-action and busy-state guards.
+same listener's Escape handler. Open menus keep native Escape/Enter behavior.
+Mouse clicks outside an input can also leave a dialog's route itself focused
+after a nested date or icon picker closes. Only the content listener enables
+focus recovery: if the active route has primary focus with no focused descendant,
+the extension focuses a non-traversable Escape fallback. It does not replace
+restored input/button focus or handle Enter, and never focuses an obscured route.
+There is no page-wide hardware-key handler. The existing Python helper still
+enforces active-dialog, disabled-action and busy-state guards.
 
 ## storage diagnostics verification
 

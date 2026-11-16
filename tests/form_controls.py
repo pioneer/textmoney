@@ -40,7 +40,7 @@ def change(control: ft.Dropdown | ft.Checkbox | ft.SegmentedButton | ft.TextFiel
 
 def click(control: ft.Button | ft.IconButton | ft.TextButton) -> object:
     assert control.on_click is not None
-    return cast(Callable[[object], object], control.on_click)(MagicMock())
+    return cast(Callable[[object], object], control.on_click)(MagicMock(control=control))
 
 
 async def click_async(control: ft.Button | ft.IconButton | ft.TextButton) -> None:

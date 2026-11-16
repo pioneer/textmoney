@@ -278,6 +278,7 @@ def prepare_page(page: Page, scene: Scene, release: str) -> None:
             page.get_by_role("button", name="More", exact=True).click()
             page.get_by_role("menuitem", name="Accounts", exact=True).wait_for()
             page.get_by_role("menuitem", name="Categories", exact=True).wait_for()
+            page.get_by_role("menuitem", name="Settings", exact=True).wait_for()
         else:
             page.get_by_text("Overspent: 1 of 6 budgets this month", exact=True).wait_for()
     page.mouse.move(0, 0)

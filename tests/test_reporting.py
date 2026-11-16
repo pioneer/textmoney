@@ -421,7 +421,7 @@ def test_reports_navigation_and_custom_range_validation(
         view._refresh()
 
         assert view._selected_index() == 3
-        assert len(view.navigation_bar.destinations) == 4
+        assert len(view.bottom_buttons) == 4
         assert view.report_period.value == "current_month"
         empty_state = view.report_summary.controls[0]
         assert isinstance(empty_state, ft.Text)

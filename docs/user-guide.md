@@ -14,8 +14,11 @@ For release-file selection and platform caveats, see
 ## Find your way around
 
 On desktop, the sidebar opens Home, Transactions, Budgets, Reports, Accounts,
-Categories and Settings. On a phone, the bottom bar opens the first four;
-**More** beside the separate Settings gear opens Accounts and Categories.
+Categories and Settings. On a phone, the bottom bar shows Home, Transactions,
+Budgets, Reports and **More**. More opens Accounts, Categories and Settings,
+with Settings separated from the journal-management entries. The bar remains
+visible on these screens with More selected. Opening or dismissing the menu
+does not change your current screen.
 On the desktop app, shared **Back** and **Forward** header arrows retrace visits;
 unavailable directions stay visible but disabled. Use **Alt+Left/Right** on
 Windows/Linux, or **Command+[/]** on macOS. Operations visits restore their own
@@ -27,9 +30,9 @@ history; at the beginning it uses the usual platform behavior. A different
 destination after going Back discards later visits. There is no mobile Forward
 control. Resizing preserves the current screen and form state.
 
-<img src="screenshots/navigation-mobile.png" alt="More menu for Accounts and Categories beside the Settings gear" width="360">
+<img src="screenshots/navigation-mobile.png" alt="Bottom More menu with Accounts, Categories and Settings" width="360">
 
-Screenshots use synthetic data from TextMoney v0.4.9 (build 57), not a personal
+Screenshots use synthetic data from TextMoney v0.4.10 (build 58), not a personal
 journal. Compact screenshots are browser-rendered mobile-layout previews, not
 physical Android captures.
 

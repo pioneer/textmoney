@@ -84,7 +84,7 @@ def test_startup_shows_only_spinner_until_preferences_and_language_are_ready(
         def check_loading() -> None:
             assert not view.startup_complete
             assert view.controls == [view.startup_spinner]
-            assert page.navigation_bar is None
+            assert page.bottom_appbar is None
             assert page.floating_action_button is None
 
         async def device() -> DeviceInfo:
@@ -110,12 +110,14 @@ def test_startup_shows_only_spinner_until_preferences_and_language_are_ready(
         assert view.startup_spinner not in view.controls
         assert view.language == expected
         assert page.locale_configuration.current_locale == ft.Locale(language_code=expected)
-        assert view.navigation_bar.destinations[0].label == view.tr("nav_home")
+        assert view.bottom_buttons[0].tooltip == ft.Tooltip(
+            view.tr("nav_home"), exclude_from_semantics=True
+        )
         assert page.floating_action_button is view.fab
         if width == 390:
-            assert page.navigation_bar is view.navigation_bar
+            assert page.bottom_appbar is view.navigation_bar
         else:
-            assert page.navigation_bar is None
+            assert page.bottom_appbar is None
             assert view.body in view.controls
 
     asyncio.run(scenario())

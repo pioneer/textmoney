@@ -92,13 +92,18 @@ language choices are discovered from those compiled catalogs, with English as
 the required fallback. See the [localization guide](localization.md) for
 validation, compilation and Weblate setup. One width classifier selects bottom navigation for compact displays and
 a navigation rail for medium/expanded displays. The ordered rail destinations are
-the single source for compact navigation: exclude Settings, show the first four
-in the bottom bar, and put the remainder in an icon-only, localized More menu
-beside the separate Settings gear. Currently the bottom destinations are Home,
-Transactions, Budgets and Reports; overflow destinations are Accounts and Categories.
-The More button is hidden when there is no overflow. Compact overflow screens
-and Settings hide the bottom bar and transaction action; no unrelated bottom
-destination is selected for an overflow screen. A session navigation-history cursor
+the single source for compact navigation: exclude Settings from the first four
+destinations and put the remainder, followed by Settings, in a localized More
+menu. Currently the bottom bar has five equal, labeled slots: Home, Transactions,
+Budgets, Reports and More. More opens an upward native popup with Accounts,
+Categories and a divider before Settings. A native BottomAppBar hosts the four
+navigation buttons and PopupMenuButton, retaining the platform bottom safe area.
+Unlike NavigationBar destinations, the popup is itself the entire fifth tap
+target; merged semantics expose each button and its selection as one action.
+There are no duplicate header navigation menus. Compact overflow screens,
+including Settings, keep the bar visible with More selected, but hide the
+transaction action. Opening or dismissing More does not change the screen,
+selection or history. A session navigation-history cursor
 tracks all destination changes, preserving screen state across Back, Settings
 and resizing. Each Operations visit captures its account/category, immutable
 scope, filter-panel visibility and a bounded-page cursor, not transaction pages.
@@ -254,8 +259,8 @@ in a dialog, including superseded, future and stopped limits. Budget filters cov
 category, currency and overspending, not accounts.
 All controls have a single parent and share the same journal and budget view
 coordinator. Month, filters and open drafts persist across navigation, saves and
-resizing. Compact navigation retains
-four destinations; the medium/wide rail has seven.
+resizing. Compact navigation has four direct destinations and More; the
+medium/wide rail has seven direct destinations.
 Operations has optional account and category selectors, combined with AND.
 The selectors start collapsed behind a filter icon; collapsing them preserves
 active selections, indicated by the highlighted icon. Each selector includes

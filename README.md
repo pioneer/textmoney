@@ -38,7 +38,7 @@ editing on another device.
     <img src="docs/screenshots/expense-mobile.png" height="500" alt="TextMoney mobile expense editor with account and category icons">
   </a>
   <a href="docs/screenshots/navigation-mobile.png">
-    <img src="docs/screenshots/navigation-mobile.png" height="500" alt="TextMoney mobile navigation with Accounts and Categories in the More menu">
+    <img src="docs/screenshots/navigation-mobile.png" height="500" alt="TextMoney bottom More menu with Accounts, Categories and Settings">
   </a>
   <br>
   <em>Mobile layout</em>

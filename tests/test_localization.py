@@ -314,17 +314,17 @@ def test_navigation_has_consistent_destinations_and_adapts_on_resize(
     monkeypatch.setattr(FinanceView, "page", property(lambda self: page))
     view.update = MagicMock()
     view._apply_layout(390)
-    assert [item.label for item in view.navigation_bar.destinations] == [
-        "Home",
-        "Transactions",
-        "Budgets",
-        "Reports",
+    assert [item.tooltip for item in view.bottom_buttons] == [
+        ft.Tooltip(label, exclude_from_semantics=True)
+        for label in ("Home", "Transactions", "Budgets", "Reports")
     ]
-    assert len(view.navigation_bar.destinations) == 4
+    assert len(view.bottom_buttons) == 4
     assert len(view.nav_rail.destinations) == 7
-    assert view.settings_button.visible
+    assert view.overflow_menu.visible
+    assert isinstance(view.overflow_menu.tooltip, ft.Tooltip)
+    assert view.overflow_menu.tooltip.message == "More"
     assert view.screen_class == ScreenClass.COMPACT
-    assert page.navigation_bar is view.navigation_bar
+    assert page.bottom_appbar is view.navigation_bar
 
     view._apply_layout(800)
     assert view.screen_class == ScreenClass.MEDIUM
@@ -333,14 +333,14 @@ def test_navigation_has_consistent_destinations_and_adapts_on_resize(
     surface = view.controls[0].content
     assert isinstance(surface, ft.Container)
     assert surface.content is view.nav_rail
-    assert page.navigation_bar is None
-    assert not view.settings_button.visible
+    assert page.bottom_appbar is None
+    assert not view.overflow_menu.visible
     assert view.nav_rail.destinations[-1].label == "Settings"
 
     view._apply_layout(1366)
     assert view.screen_class == ScreenClass.EXPANDED
     assert view.nav_rail.extended
-    assert not view.settings_button.visible
+    assert not view.overflow_menu.visible
 
 
 def test_manual_language_switch_is_immediate_and_persisted(
@@ -540,7 +540,7 @@ def test_page_owned_controls_receive_language_theme_and_transaction_updates(
         event.control = view.language_choice
         event.control.value = "uk"
         await view._language_changed(event)
-        assert page.navigation_bar.destinations[0].label == "Головна"
+        assert view.bottom_buttons[0].tooltip == ft.Tooltip("Головна", exclude_from_semantics=True)
         assert page.floating_action_button.content == "Додати операцію"
         page.update.assert_called()
 

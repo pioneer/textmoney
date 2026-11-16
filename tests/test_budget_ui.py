@@ -496,7 +496,7 @@ def test_budget_navigation_responsive_and_localized(
         assert not any(isinstance(item, ft.Tabs) for item in walk(host.budgets_screen))
         assert host.budgets.history.content == host.tr("budget_limit_history")
         assert host._selected_index() == 2
-        host._open_settings(MagicMock())
+        host._navigate("settings")
         host._back()
         assert host.current_screen == "budgets"
         assert host.screen_host.content is host.budgets_screen
@@ -504,8 +504,8 @@ def test_budget_navigation_responsive_and_localized(
         host._navigate("categories")
         assert host.screen_host.content is host.categories_screen
         assert host.accounts_panel.width == host.categories_panel.width
-        assert host._selected_index() == (None if width <= 599 else 5)
-        host._open_settings(MagicMock())
+        assert host._selected_index() == (4 if width <= 599 else 5)
+        host._navigate("settings")
         host._back()
         assert host.current_screen == "categories"
         host._navigate("budgets")

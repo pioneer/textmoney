@@ -21,10 +21,10 @@ def test_light_palette_uses_white_content_and_restrained_mint() -> None:
     assert scheme.on_surface_variant == "#59645f"
     assert scheme.outline_variant == "#dce5e0"
     assert theme.navigation_rail_theme is not None
-    assert theme.navigation_bar_theme is not None
-    for navigation in (theme.navigation_rail_theme, theme.navigation_bar_theme):
-        assert navigation.bgcolor == NAVIGATION_SURFACE
-        assert navigation.indicator_color == MINT_SURFACE
+    assert theme.navigation_rail_theme.bgcolor == NAVIGATION_SURFACE
+    assert theme.navigation_rail_theme.indicator_color == MINT_SURFACE
+    assert theme.bottom_appbar_theme is not None
+    assert theme.bottom_appbar_theme.bgcolor == NAVIGATION_SURFACE
 
 
 def test_summary_surfaces_are_scoped_without_dark_overrides() -> None:

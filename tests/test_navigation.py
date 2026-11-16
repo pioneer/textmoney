@@ -35,22 +35,21 @@ def test_mobile_screen_history_back_forward_and_branching(
 ) -> None:
     view, page = navigation
     view.budgets.month = date(2026, 2, 1)
-    view.navigation_bar.selected_index = 2
-    view._bar_changed(MagicMock(control=view.navigation_bar))
+    click(view.bottom_buttons[2])
     view._overflow_selected(MagicMock(control=MagicMock(data="accounts")))
-    view._open_settings(MagicMock())
+    view._navigate("settings")
     assert view.screen_history == ["home", "budgets", "accounts", "settings"]
 
     for screen in ("accounts", "budgets", "home"):
         click(view.navigation_back)
         assert view.current_screen == screen
     assert not view.navigation_back.visible
-    assert view.navigation_bar.selected_index == 0
+    assert view._compact_selected_index() == 0
     assert view._forward()
     assert view.current_screen == "budgets"
     assert view.budgets.month == date(2026, 2, 1)
-    assert view.navigation_bar.selected_index == 2
-    assert page.navigation_bar is view.navigation_bar
+    assert view._compact_selected_index() == 2
+    assert page.bottom_appbar is view.navigation_bar
     assert view._forward() and view.current_screen == "accounts"
     assert view._forward() and view.current_screen == "settings"
     assert not view._forward()
@@ -199,8 +198,8 @@ def test_shortcuts_filters_and_resizing_preserve_screen_history(
     assert view.current_screen == "transactions"
     assert view.operations_filters.visible
     assert view.operations_account.value == "Assets:Cash"
-    assert view.navigation_bar.selected_index == 1
-    assert page.navigation_bar is view.navigation_bar
+    assert view._compact_selected_index() == 1
+    assert page.bottom_appbar is view.navigation_bar
 
 
 def test_android_back_handler_is_installed_and_removed(
@@ -235,7 +234,7 @@ def test_browser_back_and_forward_retrace_visits(
     assert view.current_screen == "accounts"
     view._browser_route_changed(MagicMock(route=budget_route))
     assert view.current_screen == "budgets"
-    assert view.navigation_bar.selected_index == 2
+    assert view._compact_selected_index() == 2
     view._browser_route_changed(MagicMock(route="/"))
     assert view.current_screen == "home"
     view._browser_route_changed(MagicMock(route=budget_route))
@@ -373,7 +372,7 @@ def test_destination_opened_during_browser_back_branches_after_back(
         ("home", "transactions", "budgets", "reports", "accounts", "categories", "settings"),
         ("settings", "categories", "accounts", "home", "reports", "transactions", "budgets"),
     ],
-    ids=["no-overflow", "added-destination", "two-overflow", "reordered"],
+    ids=["settings-only", "added-destination", "management-and-settings", "reordered"],
 )
 def test_mobile_groups_follow_the_shared_order_and_navigate_directly(
     navigation: tuple[FinanceView, MagicMock],
@@ -383,14 +382,15 @@ def test_mobile_groups_follow_the_shared_order_and_navigate_directly(
     view, page = navigation
     monkeypatch.setattr(finance, "RAIL_DESTINATIONS", order)
     screens = tuple(screen for screen in order if screen != "settings")
-    bottom, overflow = screens[:4], screens[4:]
+    bottom, overflow = screens[:4], (*screens[4:], "settings")
     view._apply_layout(page.width)
     assert finance.mobile_destination_groups() == (bottom, overflow)
-    assert [item.label for item in view.navigation_bar.destinations] == [
-        view.nav_rail.destinations[order.index(screen)].label for screen in bottom
-    ]
-    assert [item.data for item in view.overflow_menu.items] == list(overflow)
-    assert [item.content for item in view.overflow_menu.items] == [
+    for button, screen in zip(view.bottom_buttons, bottom, strict=True):
+        label = view.nav_rail.destinations[order.index(screen)].label
+        assert isinstance(label, str)
+        assert button.tooltip == ft.Tooltip(label, exclude_from_semantics=True)
+    assert [item.data for item in view.overflow_menu.items if item.data] == list(overflow)
+    assert [item.content for item in view.overflow_menu.items if item.data] == [
         view.nav_rail.destinations[order.index(screen)].label for screen in overflow
     ]
     items = tuple(view.overflow_menu.items)
@@ -402,18 +402,23 @@ def test_mobile_groups_follow_the_shared_order_and_navigate_directly(
     assert view.overflow_menu.visible == bool(overflow)
     header = view.body.controls[0]
     assert isinstance(header, ft.Container) and isinstance(header.content, ft.Row)
-    assert header.content.controls[-2:] == [view.overflow_menu, view.settings_button]
-    assert view.overflow_menu.content is None
-    assert isinstance(view.overflow_menu.icon, ft.Icon)
-    assert view.overflow_menu.icon.icon == ft.Icons.MORE_VERT
-    assert view.overflow_menu.icon.semantics_label == view.tr("nav_more")
+    assert header.content.controls == [
+        view.navigation_back,
+        view.navigation_forward,
+        view.header_titles,
+    ]
+    for item, semantics in zip(
+        view.navigation_row.controls, (*view.bottom_semantics, view.more_semantics), strict=True
+    ):
+        assert isinstance(item, ft.Container)
+        assert isinstance(item.content, ft.MergeSemantics)
+        assert item.content.content is semantics
     for index, screen in enumerate(bottom):
-        view.navigation_bar.selected_index = index
-        view._bar_changed(MagicMock(control=view.navigation_bar))
+        click(view.bottom_buttons[index])
         assert view.current_screen == screen
         assert view.screen_host.content is getattr(view, f"{screen}_screen")
         assert view._selected_index() == index
-        assert page.navigation_bar is view.navigation_bar
+        assert page.bottom_appbar is view.navigation_bar
         assert view.navigation_back.visible == (view.history_index > 0)
     for screen in overflow:
         view._navigate(bottom[0])
@@ -422,8 +427,8 @@ def test_mobile_groups_follow_the_shared_order_and_navigate_directly(
         cast(Callable[[object], object], item.on_click)(MagicMock(control=item))
         assert view.current_screen == screen
         assert view.screen_host.content is getattr(view, f"{screen}_screen")
-        assert view._selected_index() is None
-        assert page.navigation_bar is None
+        assert view._selected_index() == len(bottom)
+        assert page.bottom_appbar is view.navigation_bar
         assert view.navigation_back.visible and view.overflow_menu.visible
         for width in (800, 390):
             page.width = width
@@ -431,16 +436,18 @@ def test_mobile_groups_follow_the_shared_order_and_navigate_directly(
             assert view.current_screen == screen
             assert view.nav_rail.selected_index == order.index(screen)
             assert view.overflow_menu.visible == (width <= 599)
-            assert page.navigation_bar is None
-        view._open_settings(MagicMock())
-        assert not view.overflow_menu.visible
-        click(view.navigation_back)
-        assert view.current_screen == screen
-        assert view._selected_index() is None and page.navigation_bar is None
+            assert page.bottom_appbar is (view.navigation_bar if width <= 599 else None)
+        if screen != "settings":
+            view._navigate("settings")
+            assert view.overflow_menu.visible
+            click(view.navigation_back)
+            assert view.current_screen == screen
+            assert view._selected_index() == len(bottom)
+            assert page.bottom_appbar is view.navigation_bar
         click(view.navigation_back)
         assert view.current_screen == bottom[0]
-        assert view.navigation_bar.selected_index == 0
-        assert page.navigation_bar is view.navigation_bar
+        assert view._compact_selected_index() == 0
+        assert page.bottom_appbar is view.navigation_bar
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
@@ -526,46 +533,45 @@ def test_settings_keep_group_frames_and_right_aligned_local_actions(
 @pytest.mark.parametrize(
     "screen", ["home", "transactions", "accounts", "categories", "reports", "budgets"]
 )
-def test_mobile_settings_gear_opens_separate_view_and_back_restores_screen(
+def test_mobile_more_settings_opens_separate_view_and_back_restores_screen(
     navigation: tuple[FinanceView, MagicMock], language: str, screen: str
 ) -> None:
     view, page = navigation
     view.language = language
     view._navigate(screen)
-    assert view.settings_button.visible
-    assert view.settings_button.icon == ft.Icons.SETTINGS_OUTLINED
-    assert view.settings_button.icon_size == 20
-    assert view.settings_button.size_constraints is None
-    assert view.settings_button.tooltip == view.tr("nav_settings")
-    assert view.settings_button.on_click == view._open_settings
-    assert [item.label for item in view.navigation_bar.destinations] == [
-        view.tr(key) for key in ("nav_home", "nav_transactions", "budget_title", "nav_reports")
+    item = view.overflow_menu.items[-1]
+    assert item.content == view.tr("nav_settings")
+    assert item.icon == ft.Icons.SETTINGS_OUTLINED
+    assert [item.tooltip for item in view.bottom_buttons] == [
+        ft.Tooltip(view.tr(key), exclude_from_semantics=True)
+        for key in ("nav_home", "nav_transactions", "budget_title", "nav_reports")
     ]
-    view._open_settings(MagicMock())
+    assert item.on_click is not None
+    cast(Callable[[object], object], item.on_click)(MagicMock(control=item))
     assert view.current_screen == "settings"
     assert view.screen_host.content is view.settings_screen
     assert view.screen_history[view.history_index - 1] == screen
-    assert page.navigation_bar is None
+    assert page.bottom_appbar is view.navigation_bar
     assert page.floating_action_button is None
-    assert not view.settings_button.visible and view.navigation_back.visible
+    assert view.overflow_menu.visible and view.navigation_back.visible
     assert view.navigation_back.tooltip == view.tr("nav_back")
     assert view.navigation_back.icon == ft.Icons.ARROW_BACK
     assert view.navigation_back.on_click == view._back_clicked
-    assert 0 <= view.navigation_bar.selected_index < 4
+    assert view._compact_selected_index() == 4
+    assert view.more_semantics.selected
+    assert all(not semantics.selected for semantics in view.bottom_semantics)
 
     click(view.navigation_back)
     assert view.current_screen == screen
-    assert page.navigation_bar is (
-        None if screen in {"accounts", "categories"} else view.navigation_bar
-    )
+    assert page.bottom_appbar is view.navigation_bar
     assert page.floating_action_button is (
         None if screen in {"accounts", "categories"} else view.fab
     )
-    assert view.settings_button.visible
+    assert view.overflow_menu.visible
     if screen in {"accounts", "categories"}:
-        assert view._selected_index() is None
+        assert view._selected_index() == 4
     else:
-        assert view.navigation_bar.selected_index == view._selected_index()
+        assert view._compact_selected_index() == view._selected_index()
 
 
 @pytest.mark.parametrize("width", [320, 599, 600, 800, 1023, 1024, 1366])
@@ -576,15 +582,15 @@ def test_settings_destination_follows_layout_width(
     page.width = width
     view._apply_layout(width)
     compact = width <= 599
-    assert view.settings_button.visible == compact
+    assert view.overflow_menu.visible == compact
     assert not view.navigation_back.visible
-    assert len(view.navigation_bar.destinations) == 4
+    assert len(view.bottom_buttons) == 4
     assert len(view.nav_rail.destinations) == 7
     assert view.nav_rail.destinations[-1].label == view.tr("nav_settings")
     if compact:
-        assert page.navigation_bar is view.navigation_bar
+        assert page.bottom_appbar is view.navigation_bar
     else:
-        assert page.navigation_bar is None
+        assert page.bottom_appbar is None
         assert isinstance(view.controls[0], ft.Container)
         surface = view.controls[0].content
         assert isinstance(surface, ft.Container)
@@ -595,7 +601,7 @@ def test_settings_destination_follows_layout_width(
         view._rail_changed(MagicMock(control=view.nav_rail))
         assert view.current_screen == "settings"
         assert view.nav_rail.selected_index == 6
-        assert not view.settings_button.visible and not view.navigation_back.visible
+        assert not view.overflow_menu.visible and not view.navigation_back.visible
 
 
 def test_settings_resize_preserves_return_screen_and_unsaved_preferences(
@@ -605,7 +611,7 @@ def test_settings_resize_preserves_return_screen_and_unsaved_preferences(
     view._navigate("reports")
     view.report_period.value = "custom"
     view.report_start.occurred.value = "10/"
-    view._open_settings(MagicMock())
+    view._navigate("settings")
     view.operating_currencies.value = "EUR USD draft"
     view.timezone_choice.value = "Europe/Kyiv"
     for width in (800, 390, 1366, 599, 600, 390):
@@ -615,20 +621,20 @@ def test_settings_resize_preserves_return_screen_and_unsaved_preferences(
         assert view.current_screen == "settings"
         assert view.screen_host.content is view.settings_screen
         assert view.nav_rail.selected_index == 6
-        assert view.navigation_bar.selected_index == 3
-        assert page.navigation_bar is None
+        assert view._compact_selected_index() == 4
+        assert page.bottom_appbar is (view.navigation_bar if width <= 599 else None)
         assert view.navigation_back.visible == (width <= 599)
-        assert not view.settings_button.visible
+        assert view.overflow_menu.visible == (width <= 599)
         assert view.operating_currencies.value == "EUR USD draft"
         assert view.timezone_choice.value == "Europe/Kyiv"
         assert view.screen_history[view.history_index - 1] == "reports"
-    view._open_settings(MagicMock())
+    view._navigate("settings")
     assert view.screen_history[view.history_index - 1] == "reports"
     click(view.navigation_back)
     assert view.current_screen == "reports"
     assert view.report_period.value == "custom"
     assert view.report_start.occurred.value == "10/"
-    assert page.navigation_bar is view.navigation_bar
+    assert page.bottom_appbar is view.navigation_bar
 
 
 @pytest.mark.parametrize(
@@ -638,11 +644,12 @@ def test_bottom_bar_still_navigates_to_each_primary_screen(
     navigation: tuple[FinanceView, MagicMock], index: int, screen: str
 ) -> None:
     view, _ = navigation
-    view.navigation_bar.selected_index = index
-    view._bar_changed(MagicMock(control=view.navigation_bar))
+    click(view.bottom_buttons[index])
     assert view.current_screen == screen
-    assert view.navigation_bar.selected_index == index
-    assert view.settings_button.visible
+    assert view._compact_selected_index() == index
+    assert view.overflow_menu.visible
+    assert view.bottom_semantics[index].selected
+    assert not view.more_semantics.selected
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
@@ -657,17 +664,21 @@ def test_compact_management_menu_returns_to_previous_primary_screen(
     view.budgets.month = date(2026, 2, 1)
     view.budgets.category_id = "Expenses:Food"
     assert view.overflow_menu.visible
-    assert view.overflow_menu.content is None
-    assert isinstance(view.overflow_menu.icon, ft.Icon)
-    assert view.overflow_menu.icon.icon == ft.Icons.MORE_VERT
-    assert view.overflow_menu.icon.semantics_label == view.tr("nav_more")
-    assert view.overflow_menu.tooltip == view.tr("nav_more")
-    assert [item.data for item in view.overflow_menu.items] == ["accounts", "categories"]
+    assert not view.more_semantics.selected
+    assert isinstance(view.overflow_menu.tooltip, ft.Tooltip)
+    assert view.overflow_menu.tooltip.message == view.tr("nav_more")
+    assert [item.data for item in view.overflow_menu.items] == [
+        "accounts",
+        "categories",
+        None,
+        "settings",
+    ]
     assert [item.content for item in view.overflow_menu.items] == [
         view.tr("accounts_title"),
         view.tr("categories_title"),
+        None,
+        view.tr("nav_settings"),
     ]
-    assert view.settings_button.visible
     item = view.overflow_menu.items[tab]
     assert item.on_click is not None
     cast(Callable[[object], object], item.on_click)(MagicMock(control=item))
@@ -676,10 +687,12 @@ def test_compact_management_menu_returns_to_previous_primary_screen(
     assert view.screen_host.content is getattr(view, f"{screen}_screen")
     assert view.screen_history[view.history_index - 1] == primary
     assert view.overflow_menu.visible
-    assert view._compact_selected_index() is None
-    assert view.navigation_back.visible and view.settings_button.visible
-    assert page.navigation_bar is None and page.floating_action_button is None
-    view._open_settings(MagicMock())
+    assert view._compact_selected_index() == 4
+    assert view.more_semantics.selected
+    assert view.navigation_back.visible
+    assert page.bottom_appbar is view.navigation_bar
+    assert page.floating_action_button is None
+    view._navigate("settings")
     click(view.navigation_back)
     assert view.current_screen == screen
     assert view.screen_history[view.history_index - 1] == primary
@@ -690,14 +703,17 @@ def test_compact_management_menu_returns_to_previous_primary_screen(
         assert view.current_screen == screen
         assert view.navigation_back.visible == (width <= 599)
         assert view.nav_rail.selected_index == 4 + tab
-        assert page.navigation_bar is None
+        assert page.bottom_appbar is (view.navigation_bar if width <= 599 else None)
         assert view.overflow_menu.visible == (width <= 599)
-        assert view._compact_selected_index() is None
+        assert view._compact_selected_index() == 4
     click(view.navigation_back)
     assert view.current_screen == primary
-    assert page.navigation_bar is view.navigation_bar
-    assert view.navigation_bar.destinations[view.navigation_bar.selected_index].label == view.tr(
-        "budget_title" if primary == "budgets" else f"nav_{primary}"
+    assert page.bottom_appbar is view.navigation_bar
+    index = view._compact_selected_index()
+    assert index is not None
+    assert view.bottom_buttons[index].tooltip == ft.Tooltip(
+        view.tr("budget_title" if primary == "budgets" else f"nav_{primary}"),
+        exclude_from_semantics=True,
     )
     assert view.budgets.month == date(2026, 2, 1)
     assert view.budgets.category_id == "Expenses:Food"
@@ -716,11 +732,11 @@ def test_rail_settings_resizes_into_mobile_settings_with_back_navigation(
     view._apply_layout(page.width)
     assert view.current_screen == "settings"
     assert view.navigation_back.visible
-    assert page.navigation_bar is None
+    assert page.bottom_appbar is view.navigation_bar
     click(view.navigation_back)
     assert view.current_screen == "categories"
-    assert view._selected_index() is None
-    assert view.navigation_back.visible and page.navigation_bar is None
+    assert view._selected_index() == 4
+    assert view.navigation_back.visible and page.bottom_appbar is view.navigation_bar
 
 
 @pytest.mark.parametrize("first,second", [("accounts", "categories"), ("categories", "accounts")])
@@ -740,8 +756,8 @@ def test_management_back_restores_previous_secondary_screen_after_resizing(
         assert view.current_screen == second
         assert view.screen_host.content is getattr(view, f"{second}_screen")
         assert view.nav_rail.selected_index == (4 if second == "accounts" else 5)
-        assert view._compact_selected_index() is None
-    view._open_settings(MagicMock())
+        assert view._compact_selected_index() == 4
+    view._navigate("settings")
     click(view.navigation_back)
     assert view.screen_history[: view.history_index] == ["home", "budgets", first]
     click(view.navigation_back)
@@ -751,7 +767,7 @@ def test_management_back_restores_previous_secondary_screen_after_resizing(
     assert view.navigation_back.visible
     click(view.navigation_back)
     assert view.current_screen == "budgets"
-    assert page.navigation_bar is view.navigation_bar
+    assert page.bottom_appbar is view.navigation_bar
     assert view.screen_history[view.history_index - 1] == "home"
 
 
@@ -774,8 +790,7 @@ def test_budget_report_opens_from_navigation_and_returns_without_losing_state(
     assert view.reports_screen.controls == [view.report_overview]
     assert not hasattr(view, "budgets_button")
     if width <= 599:
-        view.navigation_bar.selected_index = 2
-        view._bar_changed(MagicMock(control=view.navigation_bar))
+        click(view.bottom_buttons[2])
     else:
         view.nav_rail.selected_index = 2
         view._rail_changed(MagicMock(control=view.nav_rail))
@@ -793,32 +808,30 @@ def test_budget_report_opens_from_navigation_and_returns_without_losing_state(
         assert budgets.currency.value == "USD"
         assert budgets.overspent.value
         assert view.nav_rail.selected_index == 2
-        assert view.navigation_bar.selected_index == 2
+        assert view._compact_selected_index() == 2
         assert view._selected_index() == 2
         assert view.budgets_screen.controls == [budgets]
         assert len(view.nav_rail.destinations) == 7
-        assert len(view.navigation_bar.destinations) == 4
+        assert len(view.bottom_buttons) == 4
         assert view.screen_host.padding == ft.Padding.only(bottom=96)
-        assert page.navigation_bar is (view.navigation_bar if resized_width <= 599 else None)
+        assert page.bottom_appbar is (view.navigation_bar if resized_width <= 599 else None)
         view._navigate("home")
         view._navigate("budgets")
-        view._open_settings(MagicMock())
+        view._navigate("settings")
         assert view.screen_history[view.history_index - 1] == "budgets"
-        assert view.navigation_bar.selected_index == 2
+        assert view._compact_selected_index() == 4
         assert view.nav_rail.selected_index == 6
         view._back()
         assert view.current_screen == "budgets"
     page.width = 390
     view._apply_layout(page.width)
-    view.navigation_bar.selected_index = 3
-    view._bar_changed(MagicMock(control=view.navigation_bar))
+    click(view.bottom_buttons[3])
     assert view.current_screen == "reports"
     assert view.screen_host.content is view.reports_screen
     assert view.report_overview is overview
     assert view.report_period.value == "custom"
     assert view.report_start.occurred.value == "10/"
-    view.navigation_bar.selected_index = 2
-    view._bar_changed(MagicMock(control=view.navigation_bar))
+    click(view.bottom_buttons[2])
     assert view.current_screen == "budgets"
     assert budgets.month == date(2026, 2, 1)
     assert budgets.category_id == "Expenses:Food"
@@ -826,7 +839,7 @@ def test_budget_report_opens_from_navigation_and_returns_without_losing_state(
     assert view.screen_host.content is view.categories_screen
     assert not hasattr(view, "accounting_tabs")
     assert view.nav_rail.selected_index == 5
-    assert view.navigation_bar.selected_index == 2
+    assert view._compact_selected_index() == 4
 
 
 @pytest.mark.parametrize("width", [600, 800, 1366])
@@ -920,7 +933,7 @@ def test_accounting_keeps_scroll_clearance_for_both_tabs(
     assert view.screen_host.padding == expected_padding
     assert view.body.scroll == ft.ScrollMode.AUTO
     assert page.floating_action_button is (view.fab if width >= 600 else None)
-    view._open_settings(MagicMock())
+    view._navigate("settings")
     view._back()
     assert view.current_screen == screen
     assert view.screen_host.padding == expected_padding
@@ -934,7 +947,7 @@ def test_settings_clearance_follows_floating_action_visibility(
     view, page = navigation
     page.width = width
     view.diagnostics.controls = [ft.Text("Synthetic diagnostics")]
-    view._open_settings(MagicMock())
+    view._navigate("settings")
     if diagnostics:
         view._diagnostics(MagicMock())
     assert view.screen_host.content is view.settings_screen

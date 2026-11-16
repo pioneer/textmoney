@@ -26,10 +26,7 @@ def light_theme() -> ft.Theme:
             bgcolor=NAVIGATION_SURFACE,
             indicator_color=MINT_SURFACE,
         ),
-        navigation_bar_theme=ft.NavigationBarTheme(
-            bgcolor=NAVIGATION_SURFACE,
-            indicator_color=MINT_SURFACE,
-        ),
+        bottom_appbar_theme=ft.BottomAppBarTheme(bgcolor=NAVIGATION_SURFACE),
         dialog_theme=ft.DialogTheme(bgcolor="#ffffff"),
         dropdown_theme=ft.DropdownTheme(menu_style=ft.MenuStyle(bgcolor="#ffffff")),
         popup_menu_theme=ft.PopupMenuTheme(color="#ffffff"),

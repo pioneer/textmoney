@@ -2,7 +2,7 @@ import asyncio
 import logging
 import re
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future
 from dataclasses import dataclass, replace
@@ -1248,7 +1248,12 @@ class FinanceView(ft.Row):
                         *[
                             ft.Column(
                                 [
-                                    self._entity_label(account.id, ft.Text(account.name)),
+                                    self._entity_label(
+                                        account.id,
+                                        ft.Text(
+                                            self._entity_display_name(account.id, account.name)
+                                        ),
+                                    ),
                                     ft.Text(
                                         self._account_balance_text(
                                             account.id, balances[account.id], currency
@@ -1263,7 +1268,11 @@ class FinanceView(ft.Row):
                             else ft.Row(
                                 [
                                     self._entity_label(
-                                        account.id, ft.Text(account.name, expand=True)
+                                        account.id,
+                                        ft.Text(
+                                            self._entity_display_name(account.id, account.name),
+                                            expand=True,
+                                        ),
                                     ),
                                     ft.Text(
                                         format_amount(balances[account.id], self.language, currency)
@@ -1280,8 +1289,16 @@ class FinanceView(ft.Row):
             for currency, accounts in currency_groups
         ] or [ft.Text(self.tr("home_no_accounts"))]
         self._render_operations_totals(ledger, balances)
-        names = {account.id: account.name for account in ledger.accounts}
-        names.update({category.id: category.name for category in ledger.categories})
+        names = {
+            account.id: self._entity_display_name(account.id, account.name)
+            for account in ledger.accounts
+        }
+        names.update(
+            {
+                category.id: self._entity_display_name(category.id, category.name)
+                for category in ledger.categories
+            }
+        )
         transactions = nlargest(
             5,
             ledger.transactions,
@@ -1337,26 +1354,26 @@ class FinanceView(ft.Row):
                 identifiers.add(control.value)
             if control.value not in identifiers:
                 control.value = ""
-            control.options = [
-                ft.DropdownOption(key="", text=self.tr(all_key)),
-                *[
-                    self._category_form_option(item.id, item.name)
-                    if isinstance(item, Category)
-                    else ft.DropdownOption(
-                        key=item.id,
-                        text=item.name,
-                        leading_icon=self._entity_dropdown_icon(item.id),
-                    )
-                    for item in sorted(items, key=lambda item: item.id.split(":"))
-                ],
-            ]
+            sorted_items = sorted(items, key=lambda item: item.id.split(":"))
             if control is self.operations_category:
-                if control.value and not any(
-                    option.key == control.value for option in control.options
-                ):
-                    control.options.append(self._category_form_option(control.value, control.value))
-                    control.options.sort(key=lambda option: (option.key or "").split(":"))
-                control.options = self._category_option_lines(control.options)
+                entities = [(item.id, item.name) for item in sorted_items]
+                if control.value and control.value not in identifiers:
+                    entities.append((control.value, control.value))
+                    entities.sort(key=lambda item: item[0].split(":"))
+                control.options = self._category_option_lines(
+                    [
+                        ft.DropdownOption(key="", text=self.tr(all_key)),
+                        *self._category_form_options(entities),
+                    ]
+                )
+            else:
+                control.options = [
+                    ft.DropdownOption(key="", text=self.tr(all_key)),
+                    *self._account_options(
+                        [item for item in sorted_items if isinstance(item, Account)],
+                        include_currency=False,
+                    ),
+                ]
             control.leading_icon = self._entity_dropdown_icon(control.value or "")
             control.disabled = not ready
         self.operations_filter_toggle.tooltip = self.tr("operations_filters")
@@ -1627,7 +1644,13 @@ class FinanceView(ft.Row):
                 start=self._account_balance_text(item.identifier, item.opening, item.currency),
                 change=f"+{change}" if item.change > 0 else change,
             )
-            label = self._entity_label(item.identifier, ft.Text(item.name, expand=True))
+            label = self._entity_label(
+                item.identifier,
+                ft.Text(
+                    self._entity_display_name(item.identifier, item.name),
+                    expand=True,
+                ),
+            )
             balance = ft.Text(
                 self._account_balance_text(item.identifier, item.closing, item.currency),
                 weight=ft.FontWeight.W_500,
@@ -1724,13 +1747,14 @@ class FinanceView(ft.Row):
             amount = item.amount(currency)
             if amount == 0 and not children:
                 return None
-            label: ft.Control = self._entity_label(item.identifier, ft.Text(item.name))
+            name = self._entity_display_name(item.identifier, item.name)
+            label: ft.Control = self._entity_label(item.identifier, ft.Text(name))
             if not item.active:
                 label = ft.Column(
                     [label, ft.Text(self.tr("crud_inactive_label"), size=12)],
                     spacing=0,
                 )
-            title = category_line(label, amount, item.identifier, item.name)
+            title = category_line(label, amount, item.identifier, name)
             if children:
                 return compact_tree_tile(ft.ExpansionTile(title=title, controls=children))
             return compact_tree_leaf(title)
@@ -1808,7 +1832,7 @@ class FinanceView(ft.Row):
             title = (
                 self.tr("categories_expenses" if identifier == "Expenses" else "categories_income")
                 if root
-                else item.name
+                else self._entity_display_name(item.id, item.name)
                 if item
                 else identifier.rsplit(":", 1)[-1]
             )
@@ -1905,7 +1929,7 @@ class FinanceView(ft.Row):
 
     def _entity_card(self, item: Account | Category, balance: Decimal | None = None) -> ft.Control:
         lines: list[ft.Control] = [
-            ft.Text(item.name, size=14),
+            ft.Text(self._entity_display_name(item.id, item.name), size=14),
         ]
         if not item.active:
             lines.append(ft.Text(self.tr("crud_inactive_label")))
@@ -2285,7 +2309,10 @@ class FinanceView(ft.Row):
 
         search.on_change = render
         render()
-        label: ft.Control = ft.Text(name, tooltip=identifier, selectable=True)
+        display_name = (
+            self._entity_display_name(identifier, name) if identifier is not None else name
+        )
+        label: ft.Control = ft.Text(display_name, selectable=True)
         if identifier is not None:
             label = self._entity_label(identifier, label)
         labels = [label]
@@ -2574,11 +2601,19 @@ class FinanceView(ft.Row):
         source_identifier = target_identifier = ""
         if simple:
             source_identifier, target_identifier = outgoing[0].account, incoming[0].account
-            source = names.get(
+            source = self._entity_display_name(
                 outgoing[0].account,
-                self.tr("kind_adjustment" if transaction.kind == "adjustment" else "kind_opening"),
+                names.get(
+                    outgoing[0].account,
+                    self.tr(
+                        "kind_adjustment" if transaction.kind == "adjustment" else "kind_opening"
+                    ),
+                ),
             )
-            target = names.get(incoming[0].account, self.tr("kind_external"))
+            target = self._entity_display_name(
+                incoming[0].account,
+                names.get(incoming[0].account, self.tr("kind_external")),
+            )
             if transaction.kind == "opening":
                 opened_account = next(
                     p.account
@@ -2590,7 +2625,10 @@ class FinanceView(ft.Row):
                 )
                 target_identifier = opened_account
                 source = self.tr("kind_opening")
-                target = names.get(opened_account, self.tr("kind_external"))
+                target = self._entity_display_name(
+                    opened_account,
+                    names.get(opened_account, self.tr("kind_external")),
+                )
             title = (
                 f"{self.tr('kind_opening')} → {target}"
                 if transaction.kind == "opening"
@@ -3546,7 +3584,13 @@ class FinanceView(ft.Row):
         self._edit_dialog(
             self.tr("kind_opening"),
             [
-                self._entity_label(account.id, ft.Text(f"{account.name} ({account.currency})")),
+                self._entity_label(
+                    account.id,
+                    ft.Text(
+                        f"{self._entity_display_name(account.id, account.name)} "
+                        f"({account.currency})"
+                    ),
+                ),
                 amount,
                 opening_date,
                 ft.Text(self.tr("crud_opening_help"), size=12),
@@ -3578,8 +3622,16 @@ class FinanceView(ft.Row):
                             raise
                     else:
                         return
-                names = {a.id: a.name for a in journal.ledger.accounts}
-                names.update({c.id: c.name for c in journal.ledger.categories})
+                names = {
+                    account.id: self._entity_display_name(account.id, account.name)
+                    for account in journal.ledger.accounts
+                }
+                names.update(
+                    {
+                        category.id: self._entity_display_name(category.id, category.name)
+                        for category in journal.ledger.categories
+                    }
+                )
 
                 def posting_details(posting: Posting) -> str:
                     description = (
@@ -3758,15 +3810,13 @@ class FinanceView(ft.Row):
             else self.default_account_id
             if transaction is None
             else None,
-            options=[
-                ft.DropdownOption(
-                    key=a.id,
-                    text=f"{a.name} ({a.currency})",
-                    leading_icon=self._entity_dropdown_icon(a.id),
-                )
-                for a in journal.ledger.accounts
-                if a.active or (original_asset and original_asset.account == a.id)
-            ],
+            options=self._account_options(
+                [
+                    account
+                    for account in journal.ledger.accounts
+                    if account.active or (original_asset and original_asset.account == account.id)
+                ]
+            ),
         )
         if transaction is None and account.value not in {option.key for option in account.options}:
             account.value = None
@@ -3942,7 +3992,10 @@ class FinanceView(ft.Row):
         category_values: dict[str, str | None] = {}
         fee_drafts: dict[str, tuple[bool, str, str | None, str | None, str | None]] = {}
         currencies = {a.id: a.currency for a in journal.ledger.accounts}
-        names = {a.id: a.name for a in journal.ledger.accounts}
+        names = {
+            account.id: self._entity_display_name(account.id, account.name)
+            for account in journal.ledger.accounts
+        }
         liabilities = {a.id for a in journal.ledger.accounts if a.liability}
         try:
             current_balances = journal.ledger.balances(today=journal.today())
@@ -4199,35 +4252,39 @@ class FinanceView(ft.Row):
                 if kind == "expense"
                 else "incoming_sender"
             )
-            destination.options = [
-                ft.DropdownOption(
-                    key=a.id,
-                    text=f"{a.name} ({a.currency})",
-                    leading_icon=self._entity_dropdown_icon(a.id),
-                )
-                for a in journal.ledger.accounts
-                if a.id != account.value
-                and (
-                    a.active
-                    or a.id
-                    in {
-                        original_asset.account if original_asset else "",
-                        transfer.target.account if transfer else "",
-                    }
-                )
-            ]
+            destination.options = self._account_options(
+                [
+                    item
+                    for item in journal.ledger.accounts
+                    if item.id != account.value
+                    and (
+                        item.active
+                        or item.id
+                        in {
+                            original_asset.account if original_asset else "",
+                            transfer.target.account if transfer else "",
+                        }
+                    )
+                ]
+            )
             destination.visible = kind == "transfer"
             if destination.visible and destination.value and destination.value == account.value:
                 destination.error_text = self.tr("transfer_accounts")
             else:
                 destination.error_text = None
             category.options = self._category_option_lines(
-                [
-                    self._category_form_option(c.id, c.name)
-                    for c in sorted(journal.ledger.categories, key=lambda item: item.id.split(":"))
-                    if c.id.startswith(root)
-                    and (journal.ledger.category_active(c.id) or c.id == original_category)
-                ]
+                self._category_form_options(
+                    [
+                        (item.id, item.name)
+                        for item in sorted(
+                            journal.ledger.categories, key=lambda item: item.id.split(":")
+                        )
+                        if item.id.startswith(root)
+                        and (
+                            journal.ledger.category_active(item.id) or item.id == original_category
+                        )
+                    ]
+                )
             )
             category.hint_text = (
                 self.tr("category_none_available") if not category.options else None
@@ -4441,13 +4498,16 @@ class FinanceView(ft.Row):
                     source = journal.source
                     identifier = code.code
                     category.options = self._category_option_lines(
-                        [
-                            self._category_form_option(item.id, item.name)
-                            for item in sorted(
-                                journal.ledger.categories, key=lambda item: item.id.split(":")
-                            )
-                            if item.id.startswith(f"{root}:") and item.active
-                        ]
+                        self._category_form_options(
+                            [
+                                (item.id, item.name)
+                                for item in sorted(
+                                    journal.ledger.categories,
+                                    key=lambda item: item.id.split(":"),
+                                )
+                                if item.id.startswith(f"{root}:") and item.active
+                            ]
+                        )
                     )
                     category.hint_text = None
                     category.value = identifier
@@ -4460,13 +4520,16 @@ class FinanceView(ft.Row):
                     )
                     category.leading_icon = self._entity_dropdown_icon(identifier)
                     category.options = self._category_option_lines(
-                        [
-                            self._category_form_option(item.id, item.name)
-                            for item in sorted(
-                                journal.ledger.categories, key=lambda item: item.id.split(":")
-                            )
-                            if item.id.startswith(f"{root}:") and item.active
-                        ]
+                        self._category_form_options(
+                            [
+                                (item.id, item.name)
+                                for item in sorted(
+                                    journal.ledger.categories,
+                                    key=lambda item: item.id.split(":"),
+                                )
+                                if item.id.startswith(f"{root}:") and item.active
+                            ]
+                        )
                     )
 
                 create.disabled = cancel.disabled = True
@@ -4696,7 +4759,8 @@ class FinanceView(ft.Row):
                 ft.Text(
                     identifier,
                     selectable=True,
-                    weight=ft.FontWeight.BOLD,
+                    size=12,
+                    color=ft.Colors.OUTLINE,
                 ),
                 ft.Text(self.tr("crud_category_help" if category else "crud_account_help")),
                 name,
@@ -4829,7 +4893,7 @@ class FinanceView(ft.Row):
                 title=self.tr("category_migration_start"),
                 content=ft.Column(
                     [
-                        ft.Text(identifier, selectable=True),
+                        ft.Text(identifier, selectable=True, size=12, color=ft.Colors.OUTLINE),
                         ft.Text(self.tr("category_migration_intro")),
                         ft.Row([parent]),
                         code,
@@ -4891,7 +4955,12 @@ class FinanceView(ft.Row):
                 title=self.tr("category_migration_review"),
                 content=ft.Column(
                     [
-                        ft.Text(f"{plan.original} → {plan.target}", selectable=True),
+                        ft.Text(
+                            f"{plan.original} → {plan.target}",
+                            selectable=True,
+                            size=12,
+                            color=ft.Colors.OUTLINE,
+                        ),
                         ft.Text(
                             self.tr(
                                 "category_migration_counts",
@@ -4996,7 +5065,12 @@ class FinanceView(ft.Row):
                         title=deletion_title(self.tr("crud_delete_blocked")),
                         content=ft.Column(
                             [
-                                ft.Text(identifier, selectable=True, weight=ft.FontWeight.BOLD),
+                                ft.Text(
+                                    identifier,
+                                    selectable=True,
+                                    size=12,
+                                    color=ft.Colors.OUTLINE,
+                                ),
                                 *([ft.Text(self.tr("crud_has_history"))] if has_history else []),
                                 *([ft.Text(self.tr("crud_children"))] if has_children else []),
                             ],
@@ -5032,7 +5106,15 @@ class FinanceView(ft.Row):
 
             self._edit_dialog(
                 self.tr("crud_confirm"),
-                [ft.Text(self.tr("crud_confirm_body")), ft.Text(identifier, selectable=True)],
+                [
+                    ft.Text(self.tr("crud_confirm_body")),
+                    ft.Text(
+                        identifier,
+                        selectable=True,
+                        size=12,
+                        color=ft.Colors.OUTLINE,
+                    ),
+                ],
                 journal,
                 remove,
                 deleting=True,
@@ -5277,43 +5359,121 @@ class FinanceView(ft.Row):
         return options
 
     def _category_form_option(self, identifier: str, name: str) -> ft.DropdownOption:
-        label = name if name != identifier else identifier.rsplit(":", 1)[-1]
+        return self._category_option(identifier, self._entity_display_name(identifier, name))
+
+    @staticmethod
+    def _entity_display_name(identifier: str, name: str) -> str:
+        return name if name and name != identifier else identifier.rsplit(":", 1)[-1]
+
+    @staticmethod
+    def _selector_text(label: str, identifier: str, *, show_identifier: bool) -> ft.Text:
+        return ft.Text(
+            label,
+            max_lines=2,
+            spans=(
+                [
+                    ft.TextSpan(
+                        f" ({identifier})",
+                        style=ft.TextStyle(size=12, color=ft.Colors.OUTLINE),
+                    )
+                ]
+                if show_identifier
+                else None
+            ),
+        )
+
+    def _category_form_options(self, entities: list[tuple[str, str]]) -> list[ft.DropdownOption]:
+        labels = [
+            (identifier, self._entity_display_name(identifier, name))
+            for identifier, name in entities
+        ]
+        duplicates = Counter(label for _, label in labels)
+        return [
+            self._category_option(identifier, label, show_identifier=duplicates[label] > 1)
+            for identifier, label in labels
+        ]
+
+    def _category_option(
+        self, identifier: str, label: str, *, show_identifier: bool = False
+    ) -> ft.DropdownOption:
         return ft.DropdownOption(
             key=identifier,
-            text=label,
+            text=f"{label} ({identifier})" if show_identifier else label,
             content=ft.Container(
-                self._entity_label(identifier, ft.Text(label, max_lines=2)),
+                self._entity_label(
+                    identifier,
+                    self._selector_text(label, identifier, show_identifier=show_identifier),
+                ),
                 padding=ft.Padding.only(left=16 * (identifier.count(":") - 1)),
             ),
         )
 
-    def _category_dropdown_option(self, item: Category) -> ft.DropdownOption:
-        return ft.DropdownOption(
-            key=item.id,
-            text=f"{item.name} ({item.id})",
-            content=ft.Container(
-                self._entity_label(
-                    item.id,
-                    ft.Text(
-                        item.name,
-                        max_lines=2,
-                        spans=[ft.TextSpan(f" ({item.id})", style=ft.TextStyle(size=12))],
-                    ),
+    def _account_options(
+        self,
+        accounts: list[Account],
+        *,
+        include_currency: bool = True,
+        use_dropdown_icon: bool = True,
+    ) -> list[ft.DropdownOption]:
+        labels = [
+            (
+                account,
+                (
+                    f"{self._entity_display_name(account.id, account.name)} ({account.currency})"
+                    if include_currency
+                    else self._entity_display_name(account.id, account.name)
                 ),
-                padding=ft.Padding.only(left=16 * (item.id.count(":") - 1)),
-            ),
+            )
+            for account in sorted(accounts, key=lambda account: account.id.split(":"))
+        ]
+        duplicates = Counter(label for _, label in labels)
+        return [
+            ft.DropdownOption(
+                key=account.id,
+                text=(f"{label} ({account.id})" if duplicates[label] > 1 else label),
+                content=(
+                    self._selector_text(label, account.id, show_identifier=True)
+                    if duplicates[label] > 1
+                    else None
+                ),
+                leading_icon=(
+                    self._entity_dropdown_icon(account.id)
+                    if use_dropdown_icon
+                    else self._entity_icon(account.id)
+                ),
+            )
+            for account, label in labels
+        ]
+
+    def _category_dropdown_option(
+        self, item: Category, *, show_identifier: bool = False
+    ) -> ft.DropdownOption:
+        return self._category_option(
+            item.id,
+            self._entity_display_name(item.id, item.name),
+            show_identifier=show_identifier,
         )
 
     def _category_parent_options(
         self, categories: tuple[Category, ...], root: str
     ) -> list[ft.DropdownOption]:
         options = [ft.DropdownOption(key="", text=self.tr("category_parent_none"))]
+        items = [
+            item
+            for item in sorted(categories, key=lambda item: item.id.split(":"))
+            if item.active and item.id.startswith(f"{root}:")
+        ]
+        duplicates = Counter(self._entity_display_name(item.id, item.name) for item in items)
         options.extend(
             self._category_option_lines(
                 [
-                    self._category_dropdown_option(item)
-                    for item in sorted(categories, key=lambda item: item.id.split(":"))
-                    if item.active and item.id.startswith(f"{root}:")
+                    self._category_dropdown_option(
+                        item,
+                        show_identifier=(
+                            duplicates[self._entity_display_name(item.id, item.name)] > 1
+                        ),
+                    )
+                    for item in items
                 ]
             )
         )
@@ -5439,21 +5599,24 @@ class FinanceView(ft.Row):
         accounts = journal.ledger.accounts if journal is not None else ()
         active = {account.id for account in accounts if account.active}
         options = [ft.DropdownOption(key="", text=self.tr("default_account_none"))]
-        options += [
-            ft.DropdownOption(
-                key=account.id,
-                text=f"{account.name} ({account.currency})",
-                leading_icon=self._entity_icon(account.id),
-            )
-            for account in accounts
-            if account.active
-        ]
+        options += self._account_options(
+            [account for account in accounts if account.active],
+            use_dropdown_icon=False,
+        )
         selected = self.default_account.value
         if selected and selected not in active:
+            unavailable = next((account for account in accounts if account.id == selected), None)
+            label = (
+                f"{unavailable.name} ({unavailable.currency})"
+                if unavailable is not None
+                and unavailable.name
+                and unavailable.name != unavailable.id
+                else selected
+            )
             options.append(
                 ft.DropdownOption(
                     key=selected,
-                    text=self.tr("default_account_unavailable_choice", identifier=selected),
+                    text=self.tr("default_account_unavailable_choice", identifier=label),
                 )
             )
         if [
@@ -5529,14 +5692,53 @@ class FinanceView(ft.Row):
             c.id == BANK_FEES for c in journal.ledger.categories
         ) and fee_category_in_branches(BANK_FEES, branches):
             items[BANK_FEES] = self.tr("transfer_bank_fees")
+        labels: list[tuple[str, str]] = []
+        for identifier in sorted(items, key=lambda identifier: identifier.split(":")):
+            category = next(
+                (item for item in journal.ledger.categories if item.id == identifier),
+                None,
+            )
+            unavailable = identifier == retained and (
+                not journal.ledger.category_active(identifier)
+                or not fee_category_in_branches(identifier, branches)
+            )
+            if unavailable:
+                display = (
+                    category.name
+                    if category is not None and category.name and category.name != identifier
+                    else items[identifier]
+                    if identifier == BANK_FEES
+                    else identifier
+                )
+                label = self._category_label(
+                    identifier,
+                    self.tr("default_account_unavailable_choice", identifier=display),
+                )
+            else:
+                label = self._category_label(
+                    identifier,
+                    self._entity_display_name(identifier, items[identifier]),
+                )
+            labels.append((identifier, label))
+        duplicates = Counter(label.strip() for _, label in labels)
         return self._category_option_lines(
             [
                 ft.DropdownOption(
                     key=identifier,
-                    text=self._category_label(identifier, items[identifier]),
-                    leading_icon=self._entity_icon(identifier),
+                    text=f"{label} ({identifier})" if duplicates[label.strip()] > 1 else label,
+                    content=ft.Container(
+                        self._entity_label(
+                            identifier,
+                            self._selector_text(
+                                label.strip(),
+                                identifier,
+                                show_identifier=duplicates[label.strip()] > 1,
+                            ),
+                        ),
+                        padding=ft.Padding.only(left=16 * (identifier.count(":") - 1)),
+                    ),
                 )
-                for identifier in sorted(items, key=lambda identifier: identifier.split(":"))
+                for identifier, label in labels
             ]
         )
 
@@ -5559,7 +5761,7 @@ class FinanceView(ft.Row):
         choices = tuple(
             (
                 identifier,
-                items[identifier],
+                self._entity_display_name(identifier, items[identifier]),
                 fee_category_in_branches(identifier, self.fee_branches_draft),
                 any(identifier.startswith(branch + ":") for branch in self.fee_branches_draft),
             )
@@ -5573,7 +5775,6 @@ class FinanceView(ft.Row):
                         identifier,
                         ft.Checkbox(
                             label=label,
-                            tooltip=identifier,
                             data=identifier,
                             value=checked,
                             disabled=inherited,
@@ -5588,12 +5789,23 @@ class FinanceView(ft.Row):
             self.journal, self.fee_branches_draft, retained=self.default_fee.value
         )
         if self.default_fee.value and self.default_fee.value not in {o.key for o in options}:
+            unavailable = next(
+                (
+                    category
+                    for category in self.journal.ledger.categories
+                    if category.id == self.default_fee.value
+                ),
+                None,
+            )
+            label = (
+                unavailable.name
+                if unavailable is not None and unavailable.name != unavailable.id
+                else self.default_fee.value
+            )
             options.append(
                 ft.DropdownOption(
                     key=self.default_fee.value,
-                    text=self.tr(
-                        "default_account_unavailable_choice", identifier=self.default_fee.value
-                    ),
+                    text=self.tr("default_account_unavailable_choice", identifier=label),
                 )
             )
         self.default_fee.leading_icon = self._entity_dropdown_icon(self.default_fee.value or "")

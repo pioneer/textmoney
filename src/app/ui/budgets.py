@@ -199,10 +199,13 @@ class BudgetView(ft.Column):
 
     def _sync_filters(self) -> None:
         tr = self.host.tr
-        category = self.category_choices.get(self.category_id, self.category_id)
+        category = self.category_choices.get(
+            self.category_id,
+            self.host._entity_display_name(self.category_id, self.category_id),
+        )
         self.scope.label = tr("budget_category")
         self.scope.value = self.category_id
-        self.scope.tooltip = self.category_id or None
+        self.scope.tooltip = None
         self.scope.leading_icon = self.host._entity_dropdown_icon(self.category_id)
         self.filter_toggle.tooltip = tr("operations_filters")
         self.filter_toggle.selected = self.filters.visible
@@ -227,12 +230,12 @@ class BudgetView(ft.Column):
         self.scope.options = self.host._category_option_lines(
             [
                 ft.DropdownOption(key="", text=tr("operations_all_categories")),
-                *[
-                    self.host._category_form_option(identifier, name)
-                    for identifier, name in sorted(
-                        self.category_choices.items(), key=lambda item: item[0].split(":")
+                *self.host._category_form_options(
+                    sorted(
+                        self.category_choices.items(),
+                        key=lambda item: item[0].split(":"),
                     )
-                ],
+                ),
             ]
         )
         chips: list[ft.Control] = []
@@ -460,11 +463,10 @@ class BudgetView(ft.Column):
                         ft.Container(width=12 * depth),
                         *self.host._entity_icon_controls(account),
                         ft.Text(
-                            names.get(account, account),
+                            self.host._entity_display_name(account, names.get(account, account)),
                             expand=True,
                             max_lines=2,
                             overflow=ft.TextOverflow.ELLIPSIS,
-                            tooltip=account,
                         ),
                         up,
                         down,
@@ -530,7 +532,10 @@ class BudgetView(ft.Column):
             render()
             choices = [
                 ft.Text(
-                    " → ".join(names.get(account, account) for account in choice),
+                    " → ".join(
+                        self.host._entity_display_name(account, names.get(account, account))
+                        for account in choice
+                    ),
                     selectable=True,
                 )
                 for choice in store.conflicts.get("budget_order", ())
@@ -851,8 +856,16 @@ class BudgetView(ft.Column):
 
     def _account_names(self) -> dict[str, str]:
         journal = self.host._require_journal()
-        names = {item.id: item.name for item in journal.ledger.accounts}
-        names.update({item.id: item.name for item in journal.ledger.categories})
+        names = {
+            item.id: self.host._entity_display_name(item.id, item.name)
+            for item in journal.ledger.accounts
+        }
+        names.update(
+            {
+                item.id: self.host._entity_display_name(item.id, item.name)
+                for item in journal.ledger.categories
+            }
+        )
         names.update(
             {
                 "Expenses": self.host.tr("categories_expenses"),
@@ -937,10 +950,11 @@ class BudgetView(ft.Column):
                                             ft.Container(width=_REPORT_TEXT_INSET, height=48),
                                             *self.host._entity_icon_controls(account),
                                             ft.Text(
-                                                names.get(account, account.rsplit(":", 1)[-1]),
+                                                self.host._entity_display_name(
+                                                    account, names.get(account, account)
+                                                ),
                                                 size=16,
                                                 weight=ft.FontWeight.BOLD,
-                                                tooltip=account,
                                                 expand=True,
                                             ),
                                         ],
@@ -1159,15 +1173,16 @@ class BudgetView(ft.Column):
     def _definition(self, budget: Budget) -> ft.Control:
         tr = self.host.tr
         names = self._account_names()
+        account_name = self.host._entity_display_name(
+            budget.account, names.get(budget.account, budget.account)
+        )
         return self.host._action_row(
             ft.Column(
                 [
                     self.host._entity_label(
                         budget.account,
                         ft.Text(
-                            f"{names.get(budget.account, budget.account)}"
-                            f" · {format_date(budget.date, self.host.language)}",
-                            tooltip=budget.account,
+                            f"{account_name} · {format_date(budget.date, self.host.language)}",
                             selectable=True,
                             weight=ft.FontWeight.BOLD,
                         ),
@@ -1218,10 +1233,12 @@ class BudgetView(ft.Column):
             on_select=self.host._entity_dropdown_selected,
             leading_icon=self.host._entity_dropdown_icon(budget.account) if budget else None,
             options=self.host._category_option_lines(
-                [
-                    self.host._category_form_option(key, identifiers[key])
-                    for key in sorted(identifiers, key=lambda identifier: identifier.split(":"))
-                ]
+                self.host._category_form_options(
+                    [
+                        (key, identifiers[key])
+                        for key in sorted(identifiers, key=lambda identifier: identifier.split(":"))
+                    ]
+                )
             ),
             value=budget.account if budget else None,
         )
@@ -1311,8 +1328,9 @@ class BudgetView(ft.Column):
                 self.host._entity_label(
                     budget.account,
                     ft.Text(
-                        names.get(budget.account, budget.account),
-                        tooltip=budget.account,
+                        self.host._entity_display_name(
+                            budget.account, names.get(budget.account, budget.account)
+                        ),
                         weight=ft.FontWeight.BOLD,
                     ),
                 ),

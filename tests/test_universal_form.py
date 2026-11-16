@@ -7,7 +7,14 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import pytest
 from beancount import loader
-from form_controls import change, click, click_async, dropdown_field, transaction_form
+from form_controls import (
+    category_content,
+    change,
+    click,
+    click_async,
+    dropdown_field,
+    transaction_form,
+)
 
 from app.domain.ledger import ADJUSTMENTS, BANK_FEES, EPOCH, LedgerError
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -55,6 +62,60 @@ def assert_validation_error(view: FinanceView, page: MagicMock, key: str | None 
     if key is not None:
         assert localized_error(view.language, key) in dialog.content.value
     assert view.error_message is None
+
+
+def test_transaction_selectors_hide_unique_codes_and_disambiguate_duplicate_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        await journal.create_account("Cash-Other", "Cash", "UAH")
+        await journal.create_category("Food-Other", "Food")
+        await journal.create_category("Travel", "Travel")
+        view, page = ui(journal, monkeypatch)
+        view._new_transaction(MagicMock())
+        form = transaction_form(page.show_dialog.call_args.args[0])
+
+        assert [(option.key, option.text) for option in form.account.options] == [
+            ("Assets:Bank", "Bank (UAH)"),
+            ("Assets:Cash", "Cash (UAH) (Assets:Cash)"),
+            ("Assets:Cash-Other", "Cash (UAH) (Assets:Cash-Other)"),
+            ("Assets:Dollar", "Dollar (USD)"),
+        ]
+        cash_options = [
+            option
+            for option in form.account.options
+            if option.key in {"Assets:Cash", "Assets:Cash-Other"}
+        ]
+        for option in cash_options:
+            assert isinstance(option.content, ft.Text) and option.content.spans
+        for option in form.account.options:
+            if option.key in {"Assets:Bank", "Assets:Dollar"}:
+                content = option.content
+                assert content is None or isinstance(content, ft.Text) and not content.spans
+
+        food_options = [
+            option
+            for option in form.category.options
+            if option.key in {"Expenses:Food", "Expenses:Food-Other"}
+        ]
+        assert [(option.key, option.text) for option in food_options] == [
+            ("Expenses:Food", "Food (Expenses:Food)"),
+            ("Expenses:Food-Other", "Food (Expenses:Food-Other)"),
+        ]
+        for option in food_options:
+            content = category_content(option)
+            assert isinstance(content.content, ft.Text)
+            assert content.content.spans
+            span = content.content.spans[0]
+            assert span.style and span.style.color == ft.Colors.OUTLINE
+
+        unique = next(option for option in form.category.options if option.key == "Expenses:Travel")
+        assert unique.text == "Travel"
+        content = category_content(unique).content
+        assert isinstance(content, ft.Text) and not content.spans
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])

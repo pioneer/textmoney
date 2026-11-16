@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import pytest
 from flet.controls.device_info import DeviceInfo
-from form_controls import change, click_async, transaction_form
+from form_controls import category_content, change, click_async, transaction_form
 
 from app.domain.ledger import BANK_FEES
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -131,6 +131,7 @@ def test_every_fee_selector_shows_hierarchy_and_only_configured_branches(
             "    Monthly",
             "  Card",
         ]
+        assert all(checkbox(view, identifier).tooltip is None for identifier in expected)
         assert checkbox(view, BRANCH).value
         assert checkbox(view, LEAF).value and checkbox(view, LEAF).disabled
         assert not checkbox(view, "Expenses:Fees-Other").value
@@ -145,6 +146,61 @@ def test_every_fee_selector_shows_hierarchy_and_only_configured_branches(
         ]
         assert form.fee_category.value == CHILD and not form.fee_category.disabled
         assert journal.source == SOURCE
+
+    asyncio.run(scenario())
+
+
+def test_fee_selector_disambiguates_duplicate_names_without_exposing_checklist_codes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        view, _, journal = await setup(tmp_path, monkeypatch, restricted=False)
+        await journal.create_category("Fees:Card-Other", "Card")
+        view.fee_branches_draft = (BRANCH,)
+        view._render_fee_settings()
+
+        duplicates = [
+            option
+            for option in view.default_fee.options
+            if option.key in {"Expenses:Fees:Card", "Expenses:Fees:Card-Other"}
+        ]
+        assert [option.text for option in duplicates] == [
+            "  Card (Expenses:Fees:Card)",
+            "  Card (Expenses:Fees:Card-Other)",
+        ]
+        for option in duplicates:
+            label = category_content(option).content
+            assert isinstance(label, ft.Text) and label.spans
+            assert label.spans[0].style
+            assert label.spans[0].style.color == ft.Colors.OUTLINE
+        assert all(
+            isinstance(container, ft.Container)
+            and isinstance(container.content, ft.Checkbox)
+            and container.content.tooltip is None
+            for container in view.fee_category_choices.controls
+        )
+
+    asyncio.run(scenario())
+
+
+def test_unavailable_fee_choice_uses_name_when_known_and_code_only_when_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        view, _, journal = await setup(tmp_path, monkeypatch, restricted=False)
+        await journal.create_category("Old-Fee", "Old fee")
+        await journal.edit_category("Expenses:Old-Fee", "Old fee", False, journal.source)
+        view.fee_branches_draft = ("Expenses",)
+        view.default_fee.value = "Expenses:Old-Fee"
+        view._render_fee_settings()
+        option = next(item for item in view.default_fee.options if item.key == "Expenses:Old-Fee")
+        assert option.text == "Old fee (unavailable)"
+        assert option.content is not None
+
+        view.default_fee.value = "Expenses:Missing"
+        view._render_fee_settings()
+        option = next(item for item in view.default_fee.options if item.key == "Expenses:Missing")
+        assert option.text == "Expenses:Missing (unavailable)"
 
     asyncio.run(scenario())
 
@@ -313,7 +369,10 @@ def test_saved_excluded_fee_is_still_editable_and_retains_hierarchy(
         dialog = page.show_dialog.call_args.args[0]
         form = transaction_form(dialog)
         assert form.fee_category.value == LEAF
-        assert (LEAF, "    Monthly") in [(o.key, o.text) for o in form.fee_category.options]
+        assert (
+            LEAF,
+            f"    {view.tr('default_account_unavailable_choice', identifier='Monthly')}",
+        ) in [(o.key, o.text) for o in form.fee_category.options]
         form.description.value = "Edited synthetic"
         if inactive:
             form.fee_enabled.value = False

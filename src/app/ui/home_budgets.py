@@ -172,7 +172,10 @@ class HomeBudgets(ft.Column):
                         host._entity_label(
                             budget.account,
                             ft.Text(
-                                names.get(budget.account, budget.account.split(":")[-1]),
+                                host._entity_display_name(
+                                    budget.account,
+                                    names.get(budget.account, budget.account),
+                                ),
                             ),
                         ),
                         *progress,

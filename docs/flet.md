@@ -105,7 +105,8 @@ boundary beneath the parent row, independent of its icons or wrapped label.
 Existing entity icons are unchanged. Menus have no expand/collapse controls;
 the main tree retains its native expansion behavior. Transaction and budget menus retain
 name-only labels and a 672-pixel height limit on compact screens, with the
-default full-height menu on wider screens. Category-parent menus retain codes.
+default full-height menu on wider screens. Category-parent menus show names and
+hierarchy; they show a smaller, muted code only when names collide.
 
 Budget card titles and their entity icons align with the first 48-pixel action
 row, even when actions wrap below it. The title can grow for longer names.

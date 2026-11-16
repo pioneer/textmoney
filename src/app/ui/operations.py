@@ -273,8 +273,8 @@ class OperationsView:
             "report_uncategorized" if self.scope.unassigned else "operations_categorized"
         )
         labels = {
-            "account": names.get(account, account),
-            "category": names.get(category, category),
+            "account": host._entity_display_name(account, names.get(account, account)),
+            "category": host._entity_display_name(category, names.get(category, category)),
             "start": f"{tr('report_start_date')}: {format_date(self.scope.start, host.language)}"
             if self.scope.start
             else "",

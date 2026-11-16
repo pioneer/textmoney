@@ -305,7 +305,7 @@ def test_category_creation_dropdowns_fill_the_form(
 
 @pytest.mark.parametrize("category", [False, True])
 @pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
-def test_entity_edit_codes_are_bold_and_fields_fill_the_form(
+def test_entity_edit_codes_are_secondary_and_fields_fill_the_form(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, category: bool, language: str, width: int
 ) -> None:
     async def scenario() -> None:
@@ -331,7 +331,8 @@ def test_entity_edit_codes_are_bold_and_fields_fill_the_form(
             if isinstance(control, ft.Text) and control.value == item.id
         )
         assert code.selectable
-        assert code.weight == ft.FontWeight.BOLD
+        assert code.size == 12 and code.color == ft.Colors.OUTLINE
+        assert code.weight is None
         assert dialog.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
         name = next(
             control
@@ -446,6 +447,10 @@ def test_protected_delete_explains_the_reason_before_explicit_edit(
         assert dialog.modal and dialog.scrollable
         assert isinstance(dialog.content, ft.Column)
         assert all(isinstance(control, ft.Text) for control in dialog.content.controls)
+        code = dialog.content.controls[0]
+        assert isinstance(code, ft.Text)
+        assert code.value == identifier
+        assert code.size == 12 and code.color == ft.Colors.OUTLINE
         text = [c.value for c in dialog.content.controls if isinstance(c, ft.Text)]
         assert identifier in text
         assert (view.tr("crud_has_history") in text) == (reason in {"opening", "history", "both"})
@@ -493,6 +498,13 @@ def test_unused_entity_still_gets_a_real_delete_confirmation(
         dialog = page.show_dialog.call_args.args[0]
         assert_deletion_title(dialog, view.tr("crud_confirm"))
         assert dialog.actions[-1].content == view.tr("crud_delete")
+        assert isinstance(dialog.content, ft.Column)
+        code = next(
+            item
+            for item in dialog.content.controls
+            if isinstance(item, ft.Text) and item.value == identifier
+        )
+        assert code.selectable and code.size == 12 and code.color == ft.Colors.OUTLINE
         if cancel:
             click(dialog.actions[0])
             assert journal.source == original

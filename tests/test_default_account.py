@@ -25,6 +25,9 @@ SOURCE = """option "operating_currency" "USD"
 2000-01-01 open Liabilities:Card USD
     name: "Credit card"
 2000-01-01 open Assets:Hidden USD
+    name: "Hidden account"
+    textmoney-active: FALSE
+2000-01-01 open Assets:Unlabeled USD
     textmoney-active: FALSE
 2000-01-01 open Expenses:Food
 2000-01-01 open Income:Salary
@@ -169,7 +172,7 @@ def test_default_does_not_replace_account_in_existing_transaction(
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("identifier", ["Assets:Missing", "Assets:Hidden"])
+@pytest.mark.parametrize("identifier", ["Assets:Missing", "Assets:Hidden", "Assets:Unlabeled"])
 def test_unavailable_default_has_notice_and_no_fallback_to_another_account(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, identifier: str
 ) -> None:
@@ -182,6 +185,10 @@ def test_unavailable_default_has_notice_and_no_fallback_to_another_account(
         assert view.default_account_notice.value == view.tr("default_account_unavailable")
         assert view.default_account.value == identifier
         assert view.default_account.options[-1].key == identifier
+        if identifier == "Assets:Hidden":
+            assert view.default_account.options[-1].text == "Hidden account (USD) (unavailable)"
+        else:
+            assert view.default_account.options[-1].text == f"{identifier} (unavailable)"
         view._new_transaction(MagicMock())
         assert transaction_form(page.show_dialog.call_args.args[0]).account.value is None
         view.default_account.value = ""

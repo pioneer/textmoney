@@ -612,6 +612,53 @@ def test_budget_category_dropdown_is_parent_first_and_indented(
     asyncio.run(scenario())
 
 
+def test_budget_category_codes_only_disambiguate_duplicate_options(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        journal = await load(host, tmp_path)
+        await journal.create_category("Food-Other", "Groceries")
+        host._refresh()
+
+        host.budgets._form()
+        form_category, _, _, _ = fields(page.show_dialog.call_args.args[0])
+        duplicate_form_options = [
+            option
+            for option in form_category.options
+            if option.key in {"Expenses:Food", "Expenses:Food-Other"}
+        ]
+        assert [option.text for option in duplicate_form_options] == [
+            "Groceries (Expenses:Food)",
+            "Groceries (Expenses:Food-Other)",
+        ]
+        for option in duplicate_form_options:
+            label = category_content(option).content
+            assert isinstance(label, ft.Text) and label.spans
+        host._dismiss(MagicMock())
+
+        host.budgets.category_choices = {
+            "Expenses:Food": "Groceries",
+            "Expenses:Food-Other": "Groceries",
+        }
+        host.budgets._sync_filters()
+        assert host.budgets.scope.tooltip is None
+        duplicate_filter_options = [
+            option
+            for option in host.budgets.scope.options
+            if option.key in {"Expenses:Food", "Expenses:Food-Other"}
+        ]
+        assert [option.text for option in duplicate_filter_options] == [
+            "Groceries (Expenses:Food)",
+            "Groceries (Expenses:Food-Other)",
+        ]
+        await host.budgets._select_category("Expenses:Food")
+        chip = host.budgets.active_filters.controls[0]
+        assert isinstance(chip, ft.Chip) and chip.tooltip == "Category: Groceries"
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
 @pytest.mark.parametrize("mode", ["add", "edit", "change", "stop"])
 def test_budget_form_dropdowns_fill_the_form(
@@ -1061,7 +1108,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         definition = host.budgets.definitions.controls[0]
         heading = next(item for item in walk(definition) if isinstance(item, ft.Text))
         assert str(heading.value).startswith(f"{display_name} · ")
-        assert heading.tooltip == budget.account
+        assert heading.tooltip is None
         assert heading.weight == ft.FontWeight.BOLD
         food = next(
             item
@@ -1073,7 +1120,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         assert food.subtitle is None
         label = next(item for item in walk(food) if isinstance(item, ft.Text))
         assert label.value == display_name
-        assert label.tooltip == budget.account
+        assert label.tooltip is None
         assert label.weight == ft.FontWeight.BOLD
         transaction_button = next(
             item
@@ -1084,7 +1131,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         dialog = page.show_dialog.call_args.args[0]
         assert isinstance(dialog.content, ft.Column)
         texts = [item for item in walk(dialog.content) if isinstance(item, ft.Text)]
-        assert texts[0].value == display_name and texts[0].tooltip == budget.account
+        assert texts[0].value == display_name and texts[0].tooltip is None
         assert any(str(item.value).endswith(f"→ {display_name}") for item in texts[1:])
         host.budgets._delete(budget)
         dialog = page.show_dialog.call_args.args[0]
@@ -1092,7 +1139,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
         assert isinstance(dialog.content, ft.Column)
         confirmation = dialog.content.controls[0]
         assert isinstance(confirmation, ft.Text)
-        assert confirmation.value == display_name and confirmation.tooltip == budget.account
+        assert confirmation.value == display_name and confirmation.tooltip is None
         assert confirmation.weight == ft.FontWeight.BOLD
         assert journal.ledger.budgets == (budget,)
         assert budget.account == "Expenses:Food"
@@ -1100,7 +1147,7 @@ def test_budget_category_names_are_used_in_management_reports_and_dialogs(
     asyncio.run(scenario())
 
 
-def test_budget_category_without_display_name_keeps_account_code(
+def test_budget_category_without_display_name_uses_the_path_leaf(
     view: tuple[FinanceView, MagicMock], tmp_path: Path
 ) -> None:
     async def scenario() -> None:
@@ -1111,8 +1158,8 @@ def test_budget_category_without_display_name_keeps_account_code(
         await host.budgets.refresh()
         definition = host.budgets.definitions.controls[0]
         heading = next(item for item in walk(definition) if isinstance(item, ft.Text))
-        assert str(heading.value).startswith("Expenses:Food · ")
-        assert heading.tooltip == "Expenses:Food"
+        assert str(heading.value).startswith("Food · ")
+        assert heading.tooltip is None
         assert heading.weight == ft.FontWeight.BOLD
 
     asyncio.run(scenario())
@@ -2422,7 +2469,7 @@ def test_definition_opens_current_month_when_applicable_and_reveals_nested_repor
         for tile in (ancestor, target):
             assert isinstance(tile.title, ft.Column)
             label = next(item for item in walk(tile.title) if isinstance(item, ft.Text))
-            assert label.tooltip == tile.data.account
+            assert label.tooltip is None
             assert label.weight == ft.FontWeight.BOLD
         assert ancestor.content_padding == ft.Padding.all(16)
         assert target.content_padding == ft.Padding(left=32, top=16, right=16, bottom=16)

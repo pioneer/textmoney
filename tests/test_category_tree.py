@@ -416,7 +416,7 @@ def test_expansion_state_survives_refresh_language_resize_and_accounting_is_unch
 @pytest.mark.parametrize("width", [390, 1366])
 @pytest.mark.parametrize("root", ["Expenses", "Income"])
 @pytest.mark.parametrize("inline", [False, True])
-def test_parent_selectors_show_names_smaller_codes_and_contiguous_hierarchy(
+def test_parent_selectors_show_names_and_only_disambiguate_duplicate_names(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     language: str,
@@ -482,21 +482,26 @@ def test_parent_selectors_show_names_smaller_codes_and_contiguous_hierarchy(
         assert [(option.key, option.text) for option in parent.options] == [
             ("", view.tr("category_parent_none")),
             (f"{root}:Food", f"Food ({root}:Food)"),
-            (f"{root}:Food:Shops", f"Shops ({root}:Food:Shops)"),
-            (f"{root}:Food:Shops:Market", f"Market ({root}:Food:Shops:Market)"),
+            (f"{root}:Food:Shops", "Shops"),
+            (f"{root}:Food:Shops:Market", "Market"),
             (f"{root}:Food-Other", f"Food ({root}:Food-Other)"),
-            (f"{root}:Hidden:Child", f"Child ({root}:Hidden:Child)"),
+            (f"{root}:Hidden:Child", "Child"),
         ]
         for option, depth in zip(parent.options[1:], [0, 1, 2, 0, 1], strict=True):
             content = category_content(option)
             assert content.padding == ft.Padding.only(left=16 * depth)
             label = content.content
             assert isinstance(label, ft.Text) and label.size is None and label.weight is None
-            assert label.spans and len(label.spans) == 1
-            span = label.spans[0]
-            assert span.text == f" ({option.key})"
-            assert span.style and span.style.size == 12
-            assert f"{label.value}{span.text}" == option.text
+            if (option.text or "").startswith("Food"):
+                assert label.spans and len(label.spans) == 1
+                span = label.spans[0]
+                assert span.text == f" ({option.key})"
+                assert span.style and span.style.size == 12
+                assert span.style.color == ft.Colors.OUTLINE
+                assert f"{label.value}{span.text}" == option.text
+            else:
+                assert not label.spans
+                assert label.value == option.text
         parent.value = f"{root}:Food:Shops"
         change(parent)
         name.value = "Synthetic child"

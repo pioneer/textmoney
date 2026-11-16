@@ -1643,7 +1643,7 @@ msgstr "Account name"
 
 #. Stable TextMoney key: ui.account_code; do not translate this identifier.
 msgid "ui.account_code"
-msgstr "Account code (advanced)"
+msgstr "Account code"
 
 #. Stable TextMoney key: ui.account_code_hint; do not translate this identifier.
 msgid "ui.account_code_hint"
@@ -1663,7 +1663,7 @@ msgstr "Create category"
 
 #. Stable TextMoney key: ui.category_path; do not translate this identifier.
 msgid "ui.category_path"
-msgstr "Category path"
+msgstr "Category code"
 
 #. Stable TextMoney key: ui.category_path_hint; do not translate this
 #. identifier.
@@ -1875,7 +1875,7 @@ msgstr ""
 
 #. Stable TextMoney key: ui.error_identifier; do not translate this identifier.
 msgid "ui.error_identifier"
-msgstr "Use uppercase-starting path segments separated by colons."
+msgstr "Use uppercase-starting code segments separated by colons."
 
 #. Stable TextMoney key: ui.error_name; do not translate this identifier.
 msgid "ui.error_name"

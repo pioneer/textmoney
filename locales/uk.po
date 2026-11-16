@@ -1650,7 +1650,7 @@ msgstr "Назва рахунку"
 
 #. Stable TextMoney key: ui.account_code; do not translate this identifier.
 msgid "ui.account_code"
-msgstr "Код рахунку (додатково)"
+msgstr "Код рахунку"
 
 #. Stable TextMoney key: ui.account_code_hint; do not translate this identifier.
 msgid "ui.account_code_hint"
@@ -1670,7 +1670,7 @@ msgstr "Створити категорію"
 
 #. Stable TextMoney key: ui.category_path; do not translate this identifier.
 msgid "ui.category_path"
-msgstr "Шлях категорії"
+msgstr "Код категорії"
 
 #. Stable TextMoney key: ui.category_path_hint; do not translate this
 #. identifier.
@@ -1879,7 +1879,7 @@ msgstr "До коми має бути не більше 12 цифр, після 
 
 #. Stable TextMoney key: ui.error_identifier; do not translate this identifier.
 msgid "ui.error_identifier"
-msgstr "Сегменти шляху мають починатися з великої літери й розділятися двокрапкою."
+msgstr "Сегменти коду мають починатися з великої літери й розділятися двокрапкою."
 
 #. Stable TextMoney key: ui.error_name; do not translate this identifier.
 msgid "ui.error_name"

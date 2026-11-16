@@ -4756,12 +4756,7 @@ class FinanceView(ft.Row):
             )
             icon.set_icon(self.icons.assets.get(identifier) if self.icons is not None else None)
             controls: list[ft.Control] = [
-                ft.Text(
-                    identifier,
-                    selectable=True,
-                    size=12,
-                    color=ft.Colors.OUTLINE,
-                ),
+                ft.Text(identifier, selectable=True, weight=ft.FontWeight.BOLD),
                 ft.Text(self.tr("crud_category_help" if category else "crud_account_help")),
                 name,
                 active,
@@ -4893,7 +4888,7 @@ class FinanceView(ft.Row):
                 title=self.tr("category_migration_start"),
                 content=ft.Column(
                     [
-                        ft.Text(identifier, selectable=True, size=12, color=ft.Colors.OUTLINE),
+                        ft.Text(identifier, selectable=True),
                         ft.Text(self.tr("category_migration_intro")),
                         ft.Row([parent]),
                         code,
@@ -5326,7 +5321,9 @@ class FinanceView(ft.Row):
             else dropdown
         )
 
-    def _category_option_lines(self, options: list[ft.DropdownOption]) -> list[ft.DropdownOption]:
+    def _category_option_lines(
+        self, options: list[ft.DropdownOption], *, fit_content: bool = False
+    ) -> list[ft.DropdownOption]:
         paths = [(option.key or "").split(":") for option in options]
         for index, option in enumerate(options):
             parts = paths[index]
@@ -5352,7 +5349,7 @@ class FinanceView(ft.Row):
                     padding=ft.Padding.only(left=16 * depth),
                 )
                 option.leading_icon = None
-            content.height = self.category_menu_row_height
+            content.height = None if fit_content else self.category_menu_row_height
             content.alignment = ft.Alignment.CENTER_LEFT
             option.content = CategoryConnectorRow(content, continued, branch_length=11)
             option.style = ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=12))
@@ -5448,10 +5445,15 @@ class FinanceView(ft.Row):
     def _category_dropdown_option(
         self, item: Category, *, show_identifier: bool = False
     ) -> ft.DropdownOption:
-        return self._category_option(
-            item.id,
-            self._entity_display_name(item.id, item.name),
-            show_identifier=show_identifier,
+        name = self._entity_display_name(item.id, item.name)
+        label = f"{name} ({item.id})" if show_identifier else name
+        return ft.DropdownOption(
+            key=item.id,
+            text=label,
+            content=ft.Container(
+                self._entity_label(item.id, ft.Text(label)),
+                padding=ft.Padding.only(left=16 * (item.id.count(":") - 1), top=8, bottom=8),
+            ),
         )
 
     def _category_parent_options(
@@ -5463,18 +5465,10 @@ class FinanceView(ft.Row):
             for item in sorted(categories, key=lambda item: item.id.split(":"))
             if item.active and item.id.startswith(f"{root}:")
         ]
-        duplicates = Counter(self._entity_display_name(item.id, item.name) for item in items)
         options.extend(
             self._category_option_lines(
-                [
-                    self._category_dropdown_option(
-                        item,
-                        show_identifier=(
-                            duplicates[self._entity_display_name(item.id, item.name)] > 1
-                        ),
-                    )
-                    for item in items
-                ]
+                [self._category_dropdown_option(item, show_identifier=True) for item in items],
+                fit_content=True,
             )
         )
         return options

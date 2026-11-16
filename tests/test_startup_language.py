@@ -47,7 +47,9 @@ def test_category_menu_row_height_matches_native_platform_density(
         with pytest.raises(asyncio.CancelledError):
             await view._lifecycle()
         category = Category("Expenses:Food", "Food", date(2000, 1, 1))
-        option = view._category_parent_options((category,), "Expenses")[1]
+        option = view._category_option_lines(
+            view._category_form_options([(category.id, category.name)])
+        )[0]
         assert isinstance(option.content, CategoryConnectorRow)
         assert option.content.height == height
         assert isinstance(option.content.content, ft.Container)

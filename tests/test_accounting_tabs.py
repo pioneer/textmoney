@@ -305,7 +305,7 @@ def test_category_creation_dropdowns_fill_the_form(
 
 @pytest.mark.parametrize("category", [False, True])
 @pytest.mark.parametrize("language,width", [("en", 1366), ("uk", 390), ("ru", 800)])
-def test_entity_edit_codes_are_secondary_and_fields_fill_the_form(
+def test_entity_edit_codes_are_fully_visible_and_fields_fill_the_form(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, category: bool, language: str, width: int
 ) -> None:
     async def scenario() -> None:
@@ -331,8 +331,9 @@ def test_entity_edit_codes_are_secondary_and_fields_fill_the_form(
             if isinstance(control, ft.Text) and control.value == item.id
         )
         assert code.selectable
-        assert code.size == 12 and code.color == ft.Colors.OUTLINE
-        assert code.weight is None
+        assert code.size is None and code.color is None
+        assert code.max_lines is None and not code.no_wrap
+        assert code.weight == ft.FontWeight.BOLD
         assert dialog.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
         name = next(
             control

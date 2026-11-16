@@ -157,7 +157,9 @@ def test_category_menu_lines_continue_through_descendants_and_end_at_last_siblin
             "Expenses:Travel",
         )
     )
-    options = view._category_parent_options(categories, "Expenses")[1:]
+    options = view._category_option_lines(
+        view._category_form_options([(item.id, item.name) for item in categories])
+    )
     last_child = options[3].content
     assert isinstance(last_child, fc.Canvas)
     assert isinstance(last_child.shapes[-1], fc.Path)
@@ -416,7 +418,7 @@ def test_expansion_state_survives_refresh_language_resize_and_accounting_is_unch
 @pytest.mark.parametrize("width", [390, 1366])
 @pytest.mark.parametrize("root", ["Expenses", "Income"])
 @pytest.mark.parametrize("inline", [False, True])
-def test_parent_selectors_show_names_and_only_disambiguate_duplicate_names(
+def test_parent_selectors_show_all_codes_when_modifying_categories(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     language: str,
@@ -482,28 +484,24 @@ def test_parent_selectors_show_names_and_only_disambiguate_duplicate_names(
         assert [(option.key, option.text) for option in parent.options] == [
             ("", view.tr("category_parent_none")),
             (f"{root}:Food", f"Food ({root}:Food)"),
-            (f"{root}:Food:Shops", "Shops"),
-            (f"{root}:Food:Shops:Market", "Market"),
+            (f"{root}:Food:Shops", f"Shops ({root}:Food:Shops)"),
+            (f"{root}:Food:Shops:Market", f"Market ({root}:Food:Shops:Market)"),
             (f"{root}:Food-Other", f"Food ({root}:Food-Other)"),
-            (f"{root}:Hidden:Child", "Child"),
+            (f"{root}:Hidden:Child", f"Child ({root}:Hidden:Child)"),
         ]
         for option, depth in zip(parent.options[1:], [0, 1, 2, 0, 1], strict=True):
             content = category_content(option)
-            assert content.padding == ft.Padding.only(left=16 * depth)
+            assert content.padding == ft.Padding.only(left=16 * depth, top=8, bottom=8)
+            assert content.height is None
             label = content.content
             assert isinstance(label, ft.Text) and label.size is None and label.weight is None
-            if (option.text or "").startswith("Food"):
-                assert label.spans and len(label.spans) == 1
-                span = label.spans[0]
-                assert span.text == f" ({option.key})"
-                assert span.style and span.style.size == 12
-                assert span.style.color == ft.Colors.OUTLINE
-                assert f"{label.value}{span.text}" == option.text
-            else:
-                assert not label.spans
-                assert label.value == option.text
+            assert label.value == option.text
+            assert label.max_lines is None and not label.no_wrap
+            assert not label.spans
         parent.value = f"{root}:Food:Shops"
         change(parent)
+        selected = next(option for option in parent.options if option.key == parent.value)
+        assert selected.text == f"Shops ({root}:Food:Shops)"
         name.value = "Synthetic child"
         change(name)
         assert code.value and code.value.startswith(f"{parent.value}:")

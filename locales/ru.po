@@ -1647,7 +1647,7 @@ msgstr "Название счёта"
 
 #. Stable TextMoney key: ui.account_code; do not translate this identifier.
 msgid "ui.account_code"
-msgstr "Код счёта (дополнительно)"
+msgstr "Код счёта"
 
 #. Stable TextMoney key: ui.account_code_hint; do not translate this identifier.
 msgid "ui.account_code_hint"
@@ -1667,7 +1667,7 @@ msgstr "Создать категорию"
 
 #. Stable TextMoney key: ui.category_path; do not translate this identifier.
 msgid "ui.category_path"
-msgstr "Путь категории"
+msgstr "Код категории"
 
 #. Stable TextMoney key: ui.category_path_hint; do not translate this
 #. identifier.
@@ -1877,7 +1877,7 @@ msgstr "До запятой допускается не более 12 цифр, 
 #. Stable TextMoney key: ui.error_identifier; do not translate this identifier.
 msgid "ui.error_identifier"
 msgstr ""
-"Сегменты пути должны начинаться с заглавной буквы и разделяться "
+"Сегменты кода должны начинаться с заглавной буквы и разделяться "
 "двоеточием."
 
 #. Stable TextMoney key: ui.error_name; do not translate this identifier.

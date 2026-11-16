@@ -552,17 +552,21 @@ def build_target(
     if target == "apk":
         version, _ = release_identity()
         (ROOT / "build/apk/textmoney.apk").replace(ROOT / f"build/apk/textmoney-{version}.apk")
+    if target in {"linux", "windows", "macos"}:
+        (ROOT / "build" / target / ".textmoney-client").write_text(
+            web_client_fingerprint(), encoding="ascii"
+        )
 
 
-def prepare_linux_dev_client() -> Path:
-    """Brand an isolated stock client without changing Flet's shared cache."""
+def prepare_linux_dev_client(bundle: Path | None = None) -> Path:
+    """Brand an isolated client without changing its source bundle."""
     import flet_desktop
 
     validate_icon()
-    stock = flet_desktop.ensure_client_cached() / "flet"
-    original = STOCK_CLIENT_APP_ID + b"\0"
-    replacement = LINUX_DEV_APP_ID.encode("ascii") + b"\0"
-    binary = (stock / "flet").read_bytes()
+    stock = bundle if bundle is not None else flet_desktop.ensure_client_cached() / "flet"
+    original = (b"com.pioneer.textmoney" if bundle is not None else STOCK_CLIENT_APP_ID) + b"\0"
+    replacement = (LINUX_DEV_APP_ID.encode("ascii") + b"\0").ljust(len(original), b"\0")
+    binary = (stock / ("textmoney" if bundle is not None else "flet")).read_bytes()
     if len(original) != len(replacement) or binary.count(original) != 1:
         raise Exit(
             "Flet Linux client identity changed; update the development icon adapter.", code=1
@@ -603,10 +607,12 @@ def prepare_linux_dev_client() -> Path:
 
 def web_client_fingerprint() -> str:
     paths = [ROOT / "pyproject.toml", ROOT / "uv.lock"]
-    for extension in ("browser-history-bridge", "finance-saf"):
+    for extension in ("browser-history-bridge", "finance-saf", "popup-keyboard"):
         base = ROOT / "extensions" / extension
         paths.append(base / "pyproject.toml")
-        paths.extend(sorted((base / "src/flutter").rglob("*")))
+        flutter = base / "src/flutter"
+        paths.extend(sorted(flutter.glob("*/pubspec.yaml")))
+        paths.extend(sorted(flutter.glob("*/lib/**/*")))
     digest = hashlib.sha256()
     for path in paths:
         if path.is_file():
@@ -626,6 +632,18 @@ def require_web_dev_client() -> Path:
     ):
         raise Exit("Web preview client missing or stale. Run uv run inv build-web-client.", code=1)
     return client
+
+
+def require_desktop_client() -> None:
+    target = {"Linux": "linux", "Windows": "windows", "Darwin": "macos"}[platform.system()]
+    directory = ROOT / "build" / target
+    marker = directory / ".textmoney-client"
+    if not marker.is_file() or marker.read_text(encoding="ascii") != web_client_fingerprint():
+        raise Exit(
+            f"Desktop client missing or stale. Run uv run inv build-{target} "
+            "to include the popup keyboard extension.",
+            code=1,
+        )
 
 
 @task
@@ -668,10 +686,12 @@ def run_app(*, web: bool = False, debug: bool = False, port: int = 8550) -> None
     env = debug_env(debug)
     if web:
         env["FLET_WEB_PATH"] = str(require_web_dev_client())
+    if not web:
+        require_desktop_client()
     if not web and platform.system() == "Linux":
-        env["FLET_VIEW_PATH"] = str(prepare_linux_dev_client())
+        env["FLET_VIEW_PATH"] = str(prepare_linux_dev_client(ROOT / "build/linux"))
         env["FLET_APP_ID"] = LINUX_DEV_APP_ID
-        # Flet prefers cwd/build/linux over FLET_VIEW_PATH, even during hot reload.
+        # Select the branded, extension-enabled copy rather than cwd/build/linux.
         execute(*args, env=env, cwd=ROOT / "src")
     else:
         execute(*args, env=env)
@@ -987,6 +1007,15 @@ def typecheck(context: Context, platform: str = "") -> None:
     if platform and platform not in {"Windows", "Linux", "Darwin", "All"}:
         raise Exit("Pyright platform must be Windows, Linux, Darwin, or All.", code=1)
     execute("pyright", *(["--pythonplatform", platform] if platform else []))
+
+
+@task
+def test_popup_keyboard(context: Context, flutter: str = "flutter") -> None:
+    """Run real Flutter popup/dropdown keyboard regressions (requires Flutter SDK)."""
+    directory = ROOT / "extensions/popup-keyboard/src/flutter/popup_keyboard"
+    execute(flutter, "pub", "get", cwd=directory)
+    execute(flutter, "analyze", cwd=directory)
+    execute(flutter, "test", "--no-pub", cwd=directory)
 
 
 @task

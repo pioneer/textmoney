@@ -9,6 +9,7 @@ Clone the repository, then use Invoke for project operations:
 git clone https://github.com/pioneer/textmoney.git
 cd textmoney
 uv sync
+uv run inv build-local
 uv run inv run
 ```
 
@@ -52,6 +53,10 @@ resolve another `python` from the system installation or `PATH`.
 Use `uv run inv run` for desktop or `uv run inv run-web` for browser UI previews.
 Build the web client first and rebuild after extension or dependency changes;
 see [Flet web development](flet.md#extension-enabled-web-development).
+Desktop source runs also require an extension-enabled host build:
+`uv run inv build-local`. Rebuild after extension or dependency changes; the
+runner explicitly rejects missing/stale clients. Ordinary Python edits do not
+need a rebuild.
 Folder selection is unsupported in web mode; the preview is not a browser
 journal-storage implementation. See [web deployment limits](deployment.md).
 Both hot-reload the source tree. Stop with Ctrl+C. Web binds to localhost, not the
@@ -62,7 +67,9 @@ On Linux, `run` and `debug` prepare a branded client under
 Its GTK identity is `dev.textmoney.app`, separate from the packaged app and other
 Flet apps. This gives the development window a generated circular blue badge
 with transparent corners and the canonical artwork without
-modifying Flet's shared client. The adapter checks the pinned client's binary
+modifying the built bundle. The adapter derives this copy from the host build,
+including the popup keyboard extension, rather than Flet's stock client.
+It checks the pinned client's binary
 identity before patching the local copy and fails explicitly if it changes.
 The runner supplies `FLET_APP_ID=dev.textmoney.app` so Wayland's application
 identity matches that desktop entry. It starts Flet from `src` with an absolute

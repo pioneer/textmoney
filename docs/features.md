@@ -38,6 +38,7 @@ and limitations; the guides are the source of truth when details change.
 
 - **Desktop navigation:** Shared Back/Forward arrows and keyboard shortcuts
   retrace screen visits, restoring each Operations visit's filters and page.
+  Escape cancels the active popup, including after closing a dropdown menu.
   Mobile retains Back navigation without a Forward button.
   See [navigation](user-guide.md#find-your-way-around).
 - **Offline, local records:** No sign-up or backend is needed. The journal is a

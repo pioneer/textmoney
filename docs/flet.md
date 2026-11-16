@@ -70,6 +70,14 @@ acknowledges the request, not completion of navigation;
 the browser may have no previous entry or may leave the app. Calling it on a
 non-web client raises an error. It does not manage application screen history.
 
+Desktop popup keyboard handling also needs the local `popup-keyboard` extension.
+Before `uv run inv run` or `uv run inv debug`, build the host client once with
+`uv run inv build-linux`, `uv run inv build-windows` or `uv run inv build-macos`.
+Rebuild after changing an extension or its dependencies. The run tasks reject
+missing/stale clients instead of launching the stock client without the fix;
+ordinary Python edits still hot reload. Linux retains its isolated branded
+development client and icon, now derived from the extension-enabled build.
+
 ## Flet 1.1.2 upgrade verification
 
 The runtime, CLI, desktop/web clients, platform assets, MCP and local extension
@@ -166,7 +174,8 @@ the current transaction forms:
   [desktop popup checklist](testing.md#desktop-popup-keyboard-shortcuts), including
   valid/invalid inputs, action-button focus, nesting and disabled actions.
 
-The shared helper adds `KeyboardListener` controls around content and actions.
+The shared helper adds `PopupKeyboardListener` controls (subclasses of Flet's
+`KeyboardListener`) around content and actions.
 Listeners follow the dialog's focus tree, so dropdown menus and nested pickers
 can consume keys without also closing/submitting the parent. Action-button Enter
 uses native activation, not a second synthetic click. The pinned Material
@@ -177,6 +186,13 @@ Flet 1.1.2 has no public programmatic button-click dispatch; the helper uses
 `button._trigger_event` and checks the active dialog stack. Regression tests
 exercise real sessions and protocol serialization; recheck these compatibility
 boundaries and actual keyboard delivery on a Flet upgrade.
+
+Flet 1.1.2's Material dropdown retains an internal Escape shortcut even after its
+menu closes. The local popup keyboard extension uses a focus-scoped Flutter
+action dispatcher to forward only a **closed** menu's dismissal intent to the
+same listener's Escape handler. Open menus keep native Escape/Enter behavior;
+there is no page-wide hardware-key handler or forced focus change. The existing
+Python helper still enforces active-dialog, disabled-action and busy-state guards.
 
 ## storage diagnostics verification
 

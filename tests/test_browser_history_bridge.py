@@ -30,11 +30,11 @@ def test_preview_build_uses_dynamic_index_and_rejects_stale_client(
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
     (tmp_path / "pyproject.toml").write_text("manifest", encoding="utf-8")
     (tmp_path / "uv.lock").write_text("lock", encoding="utf-8")
-    for extension in ("browser-history-bridge", "finance-saf"):
+    for extension in ("browser-history-bridge", "finance-saf", "popup-keyboard"):
         base = tmp_path / "extensions" / extension
-        (base / "src/flutter").mkdir(parents=True)
+        (base / "src/flutter/example/lib").mkdir(parents=True)
         (base / "pyproject.toml").write_text("extension", encoding="utf-8")
-        (base / "src/flutter/example.dart").write_text("source", encoding="utf-8")
+        (base / "src/flutter/example/lib/example.dart").write_text("source", encoding="utf-8")
     web = tmp_path / "build/web"
     web.mkdir(parents=True)
     (web / "index.html").write_text("static index", encoding="utf-8")
@@ -54,8 +54,10 @@ def test_preview_build_uses_dynamic_index_and_rejects_stale_client(
     patch_index_html(str(index), "/", websocket_endpoint_path="/ws")
     assert "flet.pyodide = false;" in index.read_text(encoding="utf-8")
     assert 'flet.webSocketEndpoint="/ws";' in index.read_text(encoding="utf-8")
-    (tmp_path / "extensions/browser-history-bridge/src/flutter/example.dart").write_text(
-        "changed", encoding="utf-8"
-    )
+    flutter = tmp_path / "extensions/popup-keyboard/src/flutter/example"
+    (flutter / ".dart_tool").mkdir()
+    (flutter / ".dart_tool/generated").write_text("ignored", encoding="utf-8")
+    tasks.require_web_dev_client()
+    (flutter / "lib/example.dart").write_text("changed", encoding="utf-8")
     with pytest.raises(Exit, match="missing or stale"):
         tasks.require_web_dev_client()

@@ -7,6 +7,7 @@ dependencies = [
     "flet==1.1.2",
     "finance-saf==0.1.0",
     "browser-history-bridge==0.1.0",
+    "popup-keyboard==0.1.0",
     "beancount-parser==1.2.3",
     "autobean-refactor==0.3.1",
     "lark==1.3.1",
@@ -18,6 +19,7 @@ dependencies = [
 [tool.uv.sources]
 finance-saf = { path = "extensions/finance-saf" }
 browser-history-bridge = { path = "extensions/browser-history-bridge" }
+popup-keyboard = { path = "extensions/popup-keyboard" }
 
 [dependency-groups]
 dev = [
@@ -44,7 +46,7 @@ extend-exclude = ["build", "dist", "src/assets", "src/.flet"]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pyright]
-include = ["src", "tests", "tasks.py", "tools", "extensions/finance-saf/src/finance_saf", "extensions/browser-history-bridge/src/browser_history_bridge"]
+include = ["src", "tests", "tasks.py", "tools", "extensions/finance-saf/src/finance_saf", "extensions/browser-history-bridge/src/browser_history_bridge", "extensions/popup-keyboard/src/popup_keyboard"]
 exclude = ["src/assets", "src/.flet", "**/__pycache__"]
 extraPaths = ["src", "."]
 pythonVersion = "3.13"
@@ -73,6 +75,7 @@ signing_alias = "android-release"
 [tool.flet.dev_packages]
 finance-saf = "extensions/finance-saf"
 browser-history-bridge = "extensions/browser-history-bridge"
+popup-keyboard = "extensions/popup-keyboard"
 
 [tool.flet.android]
 adaptive_icon_background = "#164675"

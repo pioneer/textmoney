@@ -6,6 +6,7 @@ from dataclasses import fields
 from typing import cast
 
 import flet as ft
+from popup_keyboard import PopupKeyboardListener
 
 
 def deletion_title(title: str) -> ft.Row:
@@ -140,14 +141,14 @@ def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
 
         # Scope listeners to the route's focus tree, not Page's hardware keys:
         # a dropdown or nested picker must consume Escape before its parent.
-        dialog.content = ft.KeyboardListener(
+        dialog.content = PopupKeyboardListener(
             content,
             autofocus=not inputs,
             include_semantics=False,
             on_key_down=content_key,
         )
         dialog.actions = [
-            ft.KeyboardListener(action, include_semantics=False, on_key_down=cancel_key)
+            PopupKeyboardListener(action, include_semantics=False, on_key_down=cancel_key)
             for action in dialog.actions
         ]
     page.show_dialog(dialog)

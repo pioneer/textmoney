@@ -376,9 +376,11 @@ def test_app_icon_rejects_bad_sources_without_overwriting_canonical(
     assert canonical.read_bytes() == original
 
 
-def test_linux_development_icon_does_not_modify_shared_client(
+@pytest.mark.parametrize("custom", [False, True])
+def test_linux_development_icon_does_not_modify_source_client(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    custom: bool,
 ) -> None:
     if sys.platform == "win32":
         pytest.skip("Linux development client requires POSIX executable permissions and symlinks.")
@@ -390,22 +392,27 @@ def test_linux_development_icon_does_not_modify_shared_client(
     (stock / "lib").mkdir()
     (stock / "data/flutter_assets").mkdir()
     (stock / "data/app_icon.png").write_bytes(b"generic icon")
-    binary = b"prefix" + tasks.STOCK_CLIENT_APP_ID + b"\0suffix"
-    (stock / "flet").write_bytes(binary)
+    identity = b"com.pioneer.textmoney" if custom else tasks.STOCK_CLIENT_APP_ID
+    executable = stock / ("textmoney" if custom else "flet")
+    binary = b"prefix" + identity + b"\0suffix"
+    executable.write_bytes(binary)
     monkeypatch.setattr(tasks, "ROOT", root)
     monkeypatch.setattr(flet_desktop, "ensure_client_cached", lambda: stock.parent)
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "user-data"))
 
-    client = tasks.prepare_linux_dev_client()
+    def prepare() -> Path:
+        return tasks.prepare_linux_dev_client(stock if custom else None)
+
+    client = prepare()
     assert (client / "flet").read_bytes() == (
-        b"prefix" + tasks.LINUX_DEV_APP_ID.encode() + b"\0suffix"
+        b"prefix" + tasks.LINUX_DEV_APP_ID.encode().ljust(len(identity), b"\0") + b"\0suffix"
     )
     assert (client / "flet").stat().st_mode & 0o111
     with tasks.Image.open(client / "data/app_icon.png") as icon:
         assert icon.tobytes() == tasks.desktop_icon().tobytes()
     assert (client / "lib").resolve() == stock / "lib"
     assert (client / "data/flutter_assets").resolve() == stock / "data/flutter_assets"
-    assert (stock / "flet").read_bytes() == binary
+    assert executable.read_bytes() == binary
     assert (stock / "data/app_icon.png").read_bytes() == b"generic icon"
     entry = tmp_path / "user-data/applications" / f"{tasks.LINUX_DEV_APP_ID}.desktop"
     icon_line = next(line for line in entry.read_text().splitlines() if line.startswith("Icon="))
@@ -415,48 +422,52 @@ def test_linux_development_icon_does_not_modify_shared_client(
     assert f"StartupWMClass={tasks.LINUX_DEV_APP_ID}" in entry.read_text()
 
     tasks.Image.new("RGB", (1024, 1024), "blue").save(root / "assets/icon.png")
-    tasks.prepare_linux_dev_client()
+    prepare()
     with tasks.Image.open(client / "data/app_icon.png") as icon:
         assert icon.tobytes() == tasks.desktop_icon().tobytes()
     updated_line = next(line for line in entry.read_text().splitlines() if line.startswith("Icon="))
     assert updated_line != icon_line
     updated_icon = Path(updated_line.removeprefix("Icon="))
     assert updated_icon.read_bytes() == (client / "data/app_icon.png").read_bytes()
-    tasks.prepare_linux_dev_client()
+    prepare()
     assert updated_line in entry.read_text().splitlines()
-    (stock / "flet").write_bytes(b"changed upstream binary")
+    executable.write_bytes(b"changed upstream binary")
     with pytest.raises(Exit, match="identity changed"):
-        tasks.prepare_linux_dev_client()
+        prepare()
 
 
-@pytest.mark.parametrize(
-    "host,web,branded", [("Linux", False, True), ("Linux", True, False), ("Windows", False, False)]
-)
-def test_only_linux_native_run_uses_branded_client(
+@pytest.mark.parametrize("host,web", [("Linux", False), ("Linux", True), ("Windows", False)])
+def test_native_run_requires_extension_enabled_client(
     monkeypatch: pytest.MonkeyPatch,
     host: str,
     web: bool,
-    branded: bool,
 ) -> None:
+    require = MagicMock()
     prepare = MagicMock(return_value=Path("/synthetic/client"))
     execute = MagicMock()
     monkeypatch.setattr(tasks, "stage_release", lambda: None)
     monkeypatch.setattr(tasks.platform, "system", lambda: host)
+    monkeypatch.setattr(tasks, "require_desktop_client", require)
     monkeypatch.setattr(tasks, "prepare_linux_dev_client", prepare)
     monkeypatch.setattr(tasks, "require_web_dev_client", lambda: Path("/synthetic/web"))
     monkeypatch.setattr(tasks, "execute", execute)
     tasks.run_app(web=web, debug=True)
-    if branded:
-        prepare.assert_called_once()
+    if not web:
+        require.assert_called_once()
+    else:
+        require.assert_not_called()
+    if host == "Linux" and not web:
+        prepare.assert_called_once_with(tasks.ROOT / "build/linux")
         assert execute.call_args.kwargs["env"]["FLET_VIEW_PATH"] == str(Path("/synthetic/client"))
         assert execute.call_args.kwargs["env"]["FLET_APP_ID"] == tasks.LINUX_DEV_APP_ID
         assert execute.call_args.kwargs["cwd"] == tasks.ROOT / "src"
     else:
         prepare.assert_not_called()
         assert "FLET_VIEW_PATH" not in execute.call_args.kwargs["env"]
+        assert "cwd" not in execute.call_args.kwargs
 
 
-def test_linux_run_selects_development_client_even_after_packaging(
+def test_linux_run_selects_extension_client_and_rejects_stale_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (tmp_path / "src").mkdir()
@@ -470,24 +481,28 @@ def test_linux_run_selects_development_client_even_after_packaging(
     monkeypatch.setattr(tasks, "ROOT", tmp_path)
     monkeypatch.setattr(tasks, "stage_release", lambda: None)
     monkeypatch.setattr(tasks.platform, "system", lambda: "Linux")
-    monkeypatch.setattr(tasks, "prepare_linux_dev_client", lambda: client)
+    monkeypatch.setattr(tasks, "web_client_fingerprint", lambda: "current")
+    monkeypatch.setattr(tasks, "prepare_linux_dev_client", lambda bundle: client)
     monkeypatch.setattr(tasks, "compile_translations", lambda: None)
+    with pytest.raises(Exit, match="Desktop client missing or stale"):
+        tasks.run_app()
+    marker = packaged.parent / ".textmoney-client"
+    marker.write_text("current", encoding="ascii")
 
-    def launch(*args: str, env: dict[str, str], cwd: Path = tmp_path) -> None:
+    def launch(*args: str, env: dict[str, str], cwd: Path) -> None:
         monkeypatch.chdir(cwd)
         for name, value in env.items():
             monkeypatch.setenv(name, value)
         locate = getattr(flet_desktop, "__locate_and_unpack_flet_view")
         command, _, _ = locate("http://127.0.0.1:1", str(tmp_path / "assets"), False)
         assert command[0] == str(client / "flet")
-        identity_args = getattr(flet_desktop, "__linux_identity_args")
-        command, extra = identity_args(command)
-        assert command[0] == tasks.LINUX_DEV_APP_ID
-        assert extra == {"executable": str(client / "flet")}
         assert Path(args[2]).is_absolute()
 
     monkeypatch.setattr(tasks, "execute", launch)
     tasks.run_app()
+    marker.write_text("old", encoding="ascii")
+    with pytest.raises(Exit, match="Desktop client missing or stale"):
+        tasks.run_app()
 
 
 def test_release_staging_and_versioned_apk_output(

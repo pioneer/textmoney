@@ -239,6 +239,9 @@ With a disposable journal on a desktop:
    closes, another Escape cancels the parent form.
 3. Open calendar/clock pickers, dropdown menus, month selection and searchable
    budget trees. Escape must close only the active picker/menu, not its parent.
+   After closing a category/account dropdown with Escape, by selecting an option
+   (mouse or keyboard), or by clicking outside, another Escape must cancel the
+   popup normally. Repeat inside a nested popup and preserve the parent draft.
 4. Enter must save valid new/edit transaction, account, category and budget
    forms exactly once. Invalid amounts, names, dates, times, selections and
    stale sources must follow click validation and preserve unsaved input.
@@ -253,6 +256,13 @@ With a disposable journal on a desktop:
    repeated Enter must not submit again while an operation is pending.
    Check Linux and Windows keyboard behavior; headless tests do not certify
    native input delivery.
+
+Run the real Flutter dropdown regressions with
+`uv run inv test-popup-keyboard` (Flutter SDK on `PATH`, or pass
+`--flutter=/path/to/flutter`). These tests exercise actual focus and shortcut
+delivery, unlike Python tests that dispatch a serialized key event directly.
+They cover Escape dismissal, pointer/keyboard selection and outside clicks.
+`uv run inv check` remains the Python/protocol suite and does not require Flutter.
 
 ## Existing-category migration
 

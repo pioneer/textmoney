@@ -6,6 +6,8 @@ src/app/.debug-mode
 src/app/.release.json
 src/.flet/
 .flet/
+.dart_tool/
+extensions/popup-keyboard/src/flutter/popup_keyboard/pubspec.lock
 *.p8
 __pycache__/
 *.py[cod]

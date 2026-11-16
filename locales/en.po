@@ -444,10 +444,10 @@ msgid "ui.category_migration_advanced"
 msgstr "Advanced: change category code or hierarchy"
 
 msgid "ui.category_migration_start"
-msgstr "Move or rename category branch…"
+msgstr "Change category code or move it…"
 
 msgid "ui.category_migration_intro"
-msgstr "This separate operation changes the technical code of this category and all descendants, including historical records and budgets. Display names and active states stay unchanged; unsaved edits above are not applied. Merging and changing between Expenses and Income are not allowed."
+msgstr "This separate operation changes the selected category's technical code and/or parent. Any descendants move with it: their paths are updated, but their own code components stay unchanged. Historical records and budgets are updated to use the new paths. Display names and active states stay unchanged; unsaved edits above are not applied. Merging and changing between Expenses and Income are not allowed."
 
 msgid "ui.category_migration_code"
 msgstr "Enter one code component, without colons."

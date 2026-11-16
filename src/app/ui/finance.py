@@ -4888,7 +4888,7 @@ class FinanceView(ft.Row):
                 title=self.tr("category_migration_start"),
                 content=ft.Column(
                     [
-                        ft.Text(identifier, selectable=True),
+                        ft.Text(identifier, weight=ft.FontWeight.BOLD, selectable=True),
                         ft.Text(self.tr("category_migration_intro")),
                         ft.Row([parent]),
                         code,

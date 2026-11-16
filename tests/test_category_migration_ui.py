@@ -70,6 +70,20 @@ def open_migration(page: MagicMock) -> ft.AlertDialog:
     return page.show_dialog.call_args.args[0]
 
 
+def test_migration_form_displays_selected_category_code_in_bold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        _, page, _ = await setup(tmp_path, monkeypatch)
+        dialog = open_migration(page)
+        code = next(
+            c for c in controls(dialog) if isinstance(c, ft.Text) and c.value == "Expenses:Old"
+        )
+        assert code.weight == ft.FontWeight.BOLD
+
+    asyncio.run(scenario())
+
+
 async def review(page: MagicMock) -> ft.AlertDialog:
     form = open_migration(page)
     code = next(c for c in controls(form) if isinstance(c, ft.TextField))

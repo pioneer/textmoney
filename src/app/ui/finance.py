@@ -554,9 +554,10 @@ class FinanceView(ft.Row):
         self.bottom_buttons: list[ft.TextButton] = []
         self.bottom_semantics: list[ft.Semantics] = []
         self.navigation_row = ft.Row(spacing=0)
+        # A Flet height here also constrains the outer widget, leaving no room
+        # for BottomAppBar's system-safe-area padding.
         self.navigation_bar = ft.BottomAppBar(
             content=self.navigation_row,
-            height=80,
             padding=0,
             elevation=0,
         )

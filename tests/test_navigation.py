@@ -30,6 +30,18 @@ def navigation(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]
     return view, page
 
 
+def test_compact_navigation_leaves_room_for_system_insets(
+    navigation: tuple[FinanceView, MagicMock],
+) -> None:
+    view, page = navigation
+    assert page.bottom_appbar is view.navigation_bar
+    assert view.navigation_bar.height is None
+    assert view.navigation_bar.content is view.navigation_row
+    assert all(button.height == 80 for button in view.bottom_buttons)
+    assert isinstance(view.overflow_menu.content, ft.Column)
+    assert view.overflow_menu.content.height == 80
+
+
 def test_mobile_screen_history_back_forward_and_branching(
     navigation: tuple[FinanceView, MagicMock],
 ) -> None:

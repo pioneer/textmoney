@@ -98,6 +98,8 @@ menu. Currently the bottom bar has five equal, labeled slots: Home, Transactions
 Budgets, Reports and More. More opens an upward native popup with Accounts,
 Categories and a divider before Settings. A native BottomAppBar hosts the four
 navigation buttons and PopupMenuButton, retaining the platform bottom safe area.
+The bar has no explicit Flet height: Flet applies it outside Flutter's safe area,
+which would compress the 80-pixel buttons when system navigation is present.
 Unlike NavigationBar destinations, the popup is itself the entire fifth tap
 target; merged semantics expose each button and its selection as one action.
 There are no duplicate header navigation menus. Compact overflow screens,

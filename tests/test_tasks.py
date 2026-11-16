@@ -570,6 +570,56 @@ def test_normal_apk_build_clears_production_signing_environment(
     assert execute.call_args.kwargs["unset_env"] == tasks.ANDROID_SIGNING_ENV
 
 
+@pytest.mark.parametrize("failure", [False, True], ids=["built", "build-failed"])
+def test_standalone_dev_apk_uses_isolated_identity_and_preserves_failures(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failure: bool
+) -> None:
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    stage_assets = MagicMock()
+    monkeypatch.setattr(tasks, "stage_assets", stage_assets)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.4.11"\n[tool.flet]\nbuild_number = 59\n',
+        encoding="utf-8",
+    )
+    marker = tmp_path / "src/app/.debug-mode"
+    marker.parent.mkdir(parents=True)
+    marker.write_text("1", encoding="ascii")
+    output = tmp_path / "build/apk"
+    output.mkdir(parents=True)
+    previous = output / "textmoney-dev-0.4.11.apk"
+    previous.write_bytes(b"previous dev apk")
+
+    def build(*args: str, **kwargs: object) -> None:
+        assert args == (
+            "flet",
+            "build",
+            "apk",
+            "--yes",
+            "--bundle-id",
+            "com.pioneer.textmoney.dev",
+            "--product",
+            "TextMoney Dev",
+        )
+        assert kwargs["unset_env"] == tasks.ANDROID_SIGNING_ENV
+        assert kwargs["env"] == tasks.debug_env(False)
+        assert not marker.exists()
+        if failure:
+            raise Exit("build failed", code=1)
+        (output / "textmoney.apk").write_bytes(b"standalone dev apk")
+
+    monkeypatch.setattr(tasks, "execute", build)
+    if failure:
+        with pytest.raises(Exit, match="build failed"):
+            tasks.build_android_dev(Context())
+        assert previous.read_bytes() == b"previous dev apk"
+    else:
+        tasks.build_android_dev(Context())
+        assert previous.read_bytes() == b"standalone dev apk"
+        assert not (output / "textmoney-0.4.11.apk").exists()
+        assert not (output / "textmoney.apk").exists()
+    stage_assets.assert_called_once_with(linux=False, windows=False, android=True)
+
+
 def test_release_build_passes_explicit_signing_environment(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

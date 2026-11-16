@@ -1144,6 +1144,15 @@ def build_android(context: Context) -> None:
 
 
 @task
+def build_android_dev(context: Context) -> None:
+    """Build a standalone TextMoney Dev APK alongside the production app."""
+    build_target("apk", "--bundle-id", "com.pioneer.textmoney.dev", "--product", "TextMoney Dev")
+    version, _ = release_identity()
+    output = ROOT / "build/apk"
+    (output / f"textmoney-{version}.apk").replace(output / f"textmoney-dev-{version}.apk")
+
+
+@task
 def validate_android_release(context: Context, tag: str = "") -> None:
     """Check release tag and version code against the latest stable release."""
     release_tag = tag or os.environ.get("GITHUB_REF_NAME", "")

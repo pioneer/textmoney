@@ -1,5 +1,14 @@
 # Debugging
 
+## Phone UX testing without a debugger
+
+Use `uv run inv build-android-dev` to build a standalone **TextMoney Dev** APK.
+Copy `build/apk/textmoney-dev-<version>.apk` to your phone and open it to install.
+Its separate application ID lets it coexist with the production installation;
+no USB connection or logs are required. Use a separate test journal folder.
+See [development APKs](development.md#packaging) for signing and storage details.
+The connected debugging workflow below still uses the normal application ID.
+
 ## Reproduce First
 
 Record the target, Python/Flet versions, task, smallest reproduction, expected

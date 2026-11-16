@@ -23,7 +23,8 @@ Other useful commands:
 uv run inv build-web-client  # Build extension-enabled browser preview client
 uv run inv run-web        # Local browser UI preview
 uv run inv check          # Format check, lint, Pyright, catalogs and tests
-uv run inv build-android  # Development Android APK
+uv run inv build-android-dev  # Standalone TextMoney Dev APK for phone UX testing
+uv run inv build-android  # Local APK with the production application ID
 uv run inv build-linux    # Linux x86_64 AppImage
 uv run inv build-local    # Build for the current desktop OS
 uv run inv version        # Highest published stable release version on GitHub
@@ -148,6 +149,30 @@ Platform-specific tasks reject incompatible hosts before starting a build.
 The [version metadata](#version-metadata) below describes the authoritative
 version/build fields.
 Development APK builds produce `build/apk/textmoney-<project.version>.apk`.
+For a temporary, standalone phone UX test, use:
+
+```sh
+uv run inv build-android-dev
+```
+
+Copy `build/apk/textmoney-dev-<project.version>.apk` to your phone and open it
+to install **TextMoney Dev**. Allow installation from that source if prompted.
+No USB debugging, connected computer or log streaming is needed to run it.
+It uses `com.pioneer.textmoney.dev` and your local development signing key, so
+it installs alongside the production app without replacing or uninstalling it.
+Later builds from the same development key can update that Dev installation.
+It retains normal logging and reuses the maintained app icon; identify it by
+its **TextMoney Dev** launcher label. Configured production-signing environment
+variables are ignored, as for `build-android`.
+
+The Dev app has separate private settings and folder grants, but a folder
+selected through Android SAF is still real external storage. **Use a separate
+test journal folder**, not your production records. Uninstall only TextMoney Dev
+when finished; this removes its settings/grants, not your external test journal.
+This task leaves production/release and connected `debug-android` workflows
+unchanged. Builds share staging/output directories; do not run them concurrently.
+Flet may clear `build/apk` on the next APK build, so copy out artifacts you need.
+
 Production builds collect three standalone architecture APKs in `dist/android/`;
 generated packaged version metadata is staged alongside assets and removed by `clean`.
 Linux AppImage builds reuse Flet's bundled Linux output and produce
@@ -159,7 +184,7 @@ ship obsolete renamed-module bytecode. Source files are preserved.
 | Tasks | Host / tools | Output |
 | --- | --- | --- |
 | `build-web` | Linux, Windows, macOS; Flutter | `build/web` |
-| `build-android`, `build-android-aab` | Linux, Windows, macOS; JDK 17, Android SDK | `build/apk`, `build/aab` |
+| `build-android-dev`, `build-android`, `build-android-aab` | Linux, Windows, macOS; JDK 17, Android SDK | `build/apk`, `build/aab` |
 | `build-ios` | macOS; Xcode 15+, CocoaPods 1.16+, provisioning/certificates | `build/ipa` |
 | `build-ios-simulator` | macOS; Xcode and CocoaPods, no signing required | `build/ios-simulator` |
 | `build-macos` | macOS; Xcode and CocoaPods | `build/macos` |

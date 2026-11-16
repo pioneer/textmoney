@@ -1,6 +1,6 @@
 import asyncio
 import inspect
-from collections.abc import Callable, Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import fields
 from datetime import date
 from pathlib import Path
@@ -47,11 +47,20 @@ def walk(control: ft.Control) -> Iterator[ft.Control]:
                     yield from walk(child)
 
 
-def menus(control: ft.Control) -> list[ft.PopupMenuButton]:
-    return [child for child in walk(control) if isinstance(child, ft.PopupMenuButton)]
+def menus(control: ft.Control) -> list[ft.ContextMenu]:
+    return [child for child in walk(control) if isinstance(child, ft.ContextMenu)]
 
 
 async def fire(control: ft.Control, name: str) -> None:
+    if isinstance(control, ft.ContextMenu) and name == "open":
+        assert isinstance(control.content, ft.GestureDetector)
+        callback = cast(Callable[..., Awaitable[None]], control.content.on_tap)
+        await callback(
+            ft.TapEvent(control=control.content, name="tap", global_position=ft.Offset(120, 200))
+        )
+        return
+    if isinstance(control, ft.ContextMenu) and name == "cancel":
+        name = "dismiss"
     callback = cast(Callable[..., object], getattr(control, f"on_{name}"))
     assert callback is not None
     result = callback(ft.Event(control=control, name=name, data=None))
@@ -59,7 +68,7 @@ async def fire(control: ft.Control, name: str) -> None:
         await result
 
 
-async def choose(menu: ft.PopupMenuButton, label: str) -> None:
+async def choose(menu: ft.ContextMenu, label: str) -> None:
     await fire(menu, "open")
     await fire(next(item for item in menu.items if item.content == label), "click")
 
@@ -74,6 +83,7 @@ def view(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, 
     page.views = [MagicMock(spec=ft.View)]
     monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
     monkeypatch.setattr(FinanceView, "_today", lambda _: date(2026, 1, 31))
+    monkeypatch.setattr(ft.ContextMenu, "open", AsyncMock())
     host = FinanceView()
     host.body.scroll_to = AsyncMock()
     host.startup_complete = True
@@ -134,14 +144,14 @@ def test_mobile_category_expansion_has_a_separate_action_target(
         for child in walk(host.category_list)
         if isinstance(child, ft.ExpansionTile) and child.data == "Expenses:Food"
     )
-    assert isinstance(parent.title, ft.PopupMenuButton)
+    assert isinstance(parent.title, ft.ContextMenu)
     assert parent.on_change is not None
     cast(Callable[..., object], parent.on_change)(
         ft.Event(control=parent, name="change", data=True)
     )
     assert host.category_expansion["Expenses:Food"]
-    assert isinstance(parent.title.content, ft.MergeSemantics)
-    assert parent.title.on_open is not parent.on_change
+    assert isinstance(parent.title.content, ft.GestureDetector)
+    assert parent.title.content.on_tap is not parent.on_change
     assert not any(isinstance(child, ft.IconButton) for child in walk(host.category_list))
 
 
@@ -358,8 +368,9 @@ def test_menu_has_localized_accessible_name_and_touch_sized_entries(
     assert host.journal is not None
     transaction = host.journal.ledger.transactions[-1]
     menu = menus(host._transaction_card(transaction, {}))[0]
-    assert isinstance(menu.content, ft.MergeSemantics)
-    semantics = menu.content.content
+    assert isinstance(menu.content, ft.GestureDetector)
+    assert isinstance(menu.content.content, ft.MergeSemantics)
+    semantics = menu.content.content.content
     assert isinstance(semantics, ft.Semantics)
     assert semantics.label == host.tr("item_actions", name=transaction.narration)
     assert isinstance(semantics.content, ft.Container) and semantics.content.min_height == 48
@@ -386,5 +397,70 @@ def test_menu_dispatch_awaits_handlers_and_reports_failures(
         await choose(menu, "Edit")
         assert received == ["id"]
         assert page.show_dialog.call_args.args[0].title == host.tr("action_failed")
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("position", [(28, 180), (185, 420), (358, 720)])
+def test_menu_opens_at_completed_tap_position(
+    view: tuple[FinanceView, MagicMock], position: tuple[int, int]
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        menu = host._item_menu(
+            ft.Text("Item"), "Item", [ft.TextButton("Edit", on_click=lambda _: None)]
+        )
+        assert isinstance(menu, ft.ContextMenu)
+        assert isinstance(menu.content, ft.GestureDetector)
+        menu.open = AsyncMock()
+        assert menu.content.on_tap is not None
+        event = ft.TapEvent(
+            control=menu.content,
+            name="tap",
+            local_position=ft.Offset(12, 16),
+            global_position=ft.Offset(*position),
+        )
+        await cast(Callable[..., Awaitable[None]], menu.content.on_tap)(event)
+        menu.open.assert_awaited_once_with(
+            local_position=event.local_position, global_position=event.global_position
+        )
+        assert menu.content.on_tap_down is None
+        assert menu.primary_trigger is None
+        assert menu.secondary_trigger is None
+
+    asyncio.run(scenario())
+
+
+def test_menu_reuses_desktop_action_icons(view: tuple[FinanceView, MagicMock]) -> None:
+    host, _ = view
+    actions = [
+        ft.IconButton(icon=ft.Icons.EDIT_OUTLINED, tooltip="Edit", on_click=lambda _: None),
+        ft.IconButton(icon=ft.Icons.DELETE_OUTLINE, tooltip="Delete", on_click=lambda _: None),
+        ft.TextButton("Report", icon=ft.Icons.BAR_CHART_OUTLINED, on_click=lambda _: None),
+    ]
+    menu = host._item_menu(ft.Text("Item"), "Item", actions)
+    assert [item.icon for item in menu.items[1:]] == [action.icon for action in actions]
+
+
+@pytest.mark.parametrize("accessible", [False, True])
+def test_menu_open_failures_are_reported_and_cannot_dispatch(
+    view: tuple[FinanceView, MagicMock], accessible: bool
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        action = MagicMock()
+        menu = host._item_menu(ft.Text("Item"), "Item", [ft.TextButton("Edit", on_click=action)])
+        menu.open = AsyncMock(side_effect=RuntimeError("Menu unavailable"))
+        if accessible:
+            semantics = next(
+                child for child in walk(menu.content) if isinstance(child, ft.Semantics)
+            )
+            await fire(semantics, "tap")
+        else:
+            await fire(menu, "open")
+        menu.open.assert_awaited_once()
+        assert page.show_dialog.call_args.args[0].title == host.tr("action_failed")
+        await fire(menu.items[1], "click")
+        action.assert_not_called()
 
     asyncio.run(scenario())

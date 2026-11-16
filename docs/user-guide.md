@@ -43,7 +43,8 @@ On Android, **tap an item's label or body** to open its actions menu: transactio
 and report category rows. Edit/Delete and other per-item buttons are not shown
 inline. Tap outside the menu or use system Back to dismiss it without changing
 anything. Choose an action to open the existing editor, confirmation or scoped
-transaction view.
+transaction view. Menus open at the tap location, adjusted to fit screen edges,
+and actions retain the same icons as their desktop controls.
 
 Category expansion arrows remain separate from the tappable label. On budget
 cards, tap the heading for actions; the figures below remain selectable text.

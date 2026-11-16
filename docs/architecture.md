@@ -125,10 +125,13 @@ Settings rail destinations without the header gear or More menu. Budgets
 selects its own item in both layouts and has no temporary back-to-Reports action.
 This follows available width, not the operating system.
 Per-item action presentation is instead platform-based: Android/iOS use native
-single-tap popups with the row or heading as custom content; desktop platforms
+single-tap context menus with the row or heading as their trigger; desktop platforms
 retain inline action controls, including at compact widths. Web follows the
 reported operating system. Category expansion arrows remain outside the popup
 target, and budget figures remain selectable outside their heading's popup.
+Completed taps pass their local/global position to Flet's native ContextMenu;
+Flutter fits the popup to screen edges. Accessible activation uses the trigger's
+center. Menu entries reuse desktop action icons.
 The shared UI helper dispatches existing button handlers with their original
 payloads after Flutter dismisses the menu. It rejects changed journal/source,
 navigation, Operations page/filter and budget/report contexts rather than

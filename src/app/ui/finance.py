@@ -2023,16 +2023,33 @@ class FinanceView(ft.Row):
 
     def _item_menu(
         self, content: ft.Control, name: str, actions: list[ft.Control]
-    ) -> ft.PopupMenuButton:
+    ) -> ft.ContextMenu:
         journal = self.journal
         source = journal.source if journal else None
         opened: tuple[object, ...] | None = None
 
-        def opening(event: ft.Event[ft.PopupMenuButton]) -> None:
+        async def opening(event: ft.TapEvent[ft.GestureDetector]) -> None:
             nonlocal opened
             opened = self._item_menu_context()
+            try:
+                await menu.open(
+                    local_position=event.local_position,
+                    global_position=event.global_position,
+                )
+            except Exception as exc:
+                opened = None
+                self._error(exc, notify=True)
 
-        def cancel(event: ft.Event[ft.PopupMenuButton]) -> None:
+        async def accessible_open(event: ft.Event[ft.Semantics]) -> None:
+            nonlocal opened
+            opened = self._item_menu_context()
+            try:
+                await menu.open()
+            except Exception as exc:
+                opened = None
+                self._error(exc, notify=True)
+
+        def cancel(event: ft.ContextMenuDismissEvent) -> None:
             nonlocal opened
             opened = None
 
@@ -2071,23 +2088,30 @@ class FinanceView(ft.Row):
 
             return ft.PopupMenuItem(
                 content=label,
+                icon=action.icon,
                 data=action.data,
                 disabled=action.disabled,
                 on_click=select,
             )
 
-        return ft.PopupMenuButton(
-            content=ft.MergeSemantics(
-                content=ft.Semantics(
-                    label=self.tr("item_actions", name=name),
-                    content=ft.Container(content, min_height=48),
-                )
+        menu = ft.ContextMenu(
+            content=ft.GestureDetector(
+                on_tap=opening,
+                content=ft.MergeSemantics(
+                    content=ft.Semantics(
+                        label=self.tr("item_actions", name=name),
+                        button=True,
+                        on_tap=accessible_open,
+                        content=ft.Container(content, min_height=48),
+                    )
+                ),
             ),
-            padding=0,
+            secondary_trigger=None,
+            tertiary_trigger=None,
             items=[ft.PopupMenuItem(content=name, disabled=True), *[item(a) for a in actions]],
-            on_open=opening,
-            on_cancel=cancel,
+            on_dismiss=cancel,
         )
+        return menu
 
     def _entity_card(self, item: Account | Category, balance: Decimal | None = None) -> ft.Control:
         lines: list[ft.Control] = [

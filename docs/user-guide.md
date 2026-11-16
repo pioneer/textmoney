@@ -36,6 +36,29 @@ Screenshots use synthetic data from TextMoney v0.4.10 (build 58), not a personal
 journal. Compact screenshots are browser-rendered mobile-layout previews, not
 physical Android captures.
 
+### Item actions
+
+On Android, **tap an item's label or body** to open its actions menu: transactions
+(including Home's recent activity), accounts, categories, budget headings/history
+and report category rows. Edit/Delete and other per-item buttons are not shown
+inline. Tap outside the menu or use system Back to dismiss it without changing
+anything. Choose an action to open the existing editor, confirmation or scoped
+transaction view.
+
+Category expansion arrows remain separate from the tappable label. On budget
+cards, tap the heading for actions; the figures below remain selectable text.
+Multi-currency budget menus identify each definition by currency and effective
+date. Read-only transaction previews have no mutation menu; unsupported
+transactions offer details rather than editing, and deletion stays unavailable.
+Accounts/categories with history still cannot be deleted; use Edit to change
+their active state.
+
+Windows/Linux retain their familiar inline action icons/buttons, including in
+narrow windows. Mobile action presentation is platform-based, not width-based,
+so Android keeps tap menus in landscape and on tablets. iOS selects mobile
+menus and macOS desktop controls; web follows the reported operating system.
+Those targets are not released or device-validated.
+
 ## Add accounts, categories and opening balances
 
 1. Choose a dedicated local folder for your records.

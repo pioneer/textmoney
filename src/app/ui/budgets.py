@@ -938,34 +938,38 @@ class BudgetView(ft.Column):
                     action.visual_density = ft.VisualDensity.STANDARD
                     action.size_constraints = ft.BoxConstraints(min_width=48, min_height=48)
 
+                heading: ft.Control = ft.Row(
+                    [
+                        ft.Container(width=_REPORT_TEXT_INSET, height=48),
+                        *self.host._entity_icon_controls(account),
+                        ft.Text(
+                            self.host._entity_display_name(account, names.get(account, account)),
+                            size=16,
+                            weight=ft.FontWeight.BOLD,
+                            expand=True,
+                        ),
+                    ],
+                    expand=True,
+                    spacing=0,
+                )
+                card_actions = self._card_actions(row, actions)
+                if self.host._mobile_item_actions:
+                    heading.expand = None
+                    heading = self.host._item_menu(
+                        heading, names.get(account, account), card_actions.controls
+                    )
+                else:
+                    heading = ft.Row(
+                        [heading, card_actions],
+                        spacing=0,
+                        vertical_alignment=ft.CrossAxisAlignment.START,
+                    )
                 highlighted = self.highlighted == key
                 tile = ft.ListTile(
                     key=ft.ScrollKey(f"budget-report:{begin.isoformat()}:{account}"),
                     title=ft.Column(
                         [
-                            ft.Row(
-                                [
-                                    ft.Row(
-                                        [
-                                            ft.Container(width=_REPORT_TEXT_INSET, height=48),
-                                            *self.host._entity_icon_controls(account),
-                                            ft.Text(
-                                                self.host._entity_display_name(
-                                                    account, names.get(account, account)
-                                                ),
-                                                size=16,
-                                                weight=ft.FontWeight.BOLD,
-                                                expand=True,
-                                            ),
-                                        ],
-                                        expand=True,
-                                        spacing=0,
-                                    ),
-                                    self._card_actions(row, actions),
-                                ],
-                                spacing=0,
-                                vertical_alignment=ft.CrossAxisAlignment.START,
-                            ),
+                            heading,
                             *self._limit_controls(row),
                             *(
                                 [
@@ -1047,7 +1051,14 @@ class BudgetView(ft.Column):
             budget = self._active_budget(row.account, row.end, currency)
             if budget is None:
                 continue
-            if len(currencies) > 1:
+            if self.host._mobile_item_actions:
+                controls.append(
+                    ft.Text(
+                        f"{budget.currency} · {format_date(budget.date, self.host.language)}"
+                        f" · {self.host.tr(f'budget_{budget.interval}')}",
+                    )
+                )
+            elif len(currencies) > 1:
                 controls.append(ft.Text(currency, size=12))
             controls.extend(self._budget_actions(budget).controls)
         return ft.Row(
@@ -1176,34 +1187,43 @@ class BudgetView(ft.Column):
         account_name = self.host._entity_display_name(
             budget.account, names.get(budget.account, budget.account)
         )
+        title: ft.Control = self.host._entity_label(
+            budget.account,
+            ft.Text(
+                f"{account_name} · {format_date(budget.date, self.host.language)}",
+                selectable=not self.host._mobile_item_actions,
+                weight=ft.FontWeight.BOLD,
+            ),
+        )
+        report = ft.Row(
+            [
+                ft.TextButton(
+                    tr("budget_view_report"),
+                    icon=ft.Icons.BAR_CHART_OUTLINED,
+                    data=budget,
+                    on_click=self._history_report,
+                ),
+            ],
+            wrap=True,
+            spacing=0,
+        )
+        actions = self._budget_actions(budget)
+        if self.host._mobile_item_actions:
+            title = self.host._item_menu(
+                title,
+                f"{account_name} · {budget.currency}"
+                f" · {format_date(budget.date, self.host.language)}",
+                [*report.controls, *actions.controls],
+            )
         return self.host._action_row(
             ft.Column(
                 [
-                    self.host._entity_label(
-                        budget.account,
-                        ft.Text(
-                            f"{account_name} · {format_date(budget.date, self.host.language)}",
-                            selectable=True,
-                            weight=ft.FontWeight.BOLD,
-                        ),
-                    ),
+                    title,
                     ft.Text(
                         f"{budget.amount} {budget.currency} · {tr(f'budget_{budget.interval}')}",
                         selectable=True,
                     ),
-                    ft.Row(
-                        [
-                            ft.TextButton(
-                                tr("budget_view_report"),
-                                icon=ft.Icons.BAR_CHART_OUTLINED,
-                                data=budget,
-                                on_click=self._history_report,
-                            ),
-                        ],
-                        wrap=True,
-                        spacing=0,
-                    ),
-                    self._budget_actions(budget),
+                    *([] if self.host._mobile_item_actions else [report, actions]),
                 ],
                 spacing=4,
             )

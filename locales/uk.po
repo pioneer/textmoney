@@ -1176,6 +1176,10 @@ msgstr "Вибрати дату"
 msgid "ui.pick_time"
 msgstr "Вибрати час"
 
+#. Stable TextMoney key: ui.item_actions; do not translate this identifier.
+msgid "ui.item_actions"
+msgstr "Дії для {name}"
+
 #. Stable TextMoney key: ui.details; do not translate this identifier.
 msgid "ui.details"
 msgstr "Подробиці"

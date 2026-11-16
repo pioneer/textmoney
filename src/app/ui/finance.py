@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 import re
 import time
@@ -11,6 +12,7 @@ from decimal import Decimal, localcontext
 from enum import StrEnum
 from heapq import nlargest
 from itertools import groupby
+from typing import cast
 from uuid import uuid4
 from zoneinfo import available_timezones
 
@@ -196,6 +198,7 @@ class FinanceView(ft.Row):
         self._history = [NavigationVisit("home")]
         self.history_index = 0
         self.desktop_navigation = False
+        self._mobile_item_actions = False
         self.browser_routes: list[str] = []
         self._browser_route_prefix = uuid4().hex
         self._browser_route_sequence = 0
@@ -615,6 +618,10 @@ class FinanceView(ft.Row):
         self._refresh()
 
     def did_mount(self) -> None:
+        self._mobile_item_actions = self.page.platform in {
+            ft.PagePlatform.ANDROID,
+            ft.PagePlatform.IOS,
+        }
         self.page.padding = 0
         self.page.on_resize = self._resized
         self.page.on_locale_change = self._host_locale_changed
@@ -1776,9 +1783,10 @@ class FinanceView(ft.Row):
                 ft.Text(format_amount(amount, self.language, currency)),
                 ft.Text(percentage(amount), width=72, text_align=ft.TextAlign.RIGHT),
             ]
+            actions: list[ft.Control] = []
             if on_transactions is not None:
                 callback = on_transactions
-                values.append(
+                actions.append(
                     ft.IconButton(
                         icon=ft.Icons.RECEIPT_LONG,
                         icon_size=20,
@@ -1786,15 +1794,23 @@ class FinanceView(ft.Row):
                         on_click=lambda event: callback(identifier, name),
                     )
                 )
+            if not self._mobile_item_actions:
+                values.extend(actions)
             if stacked:
-                return ft.Column(
+                line: ft.Control = ft.Column(
                     [label, ft.Row(values, wrap=True, spacing=8, run_spacing=0)],
                     tight=True,
                     spacing=0,
                     horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                 )
-            label.expand = True
-            return ft.Row([label, *values], spacing=8)
+            else:
+                label.expand = True
+                line = ft.Row([label, *values], spacing=8)
+            return (
+                self._item_menu(line, name, actions)
+                if actions and self._mobile_item_actions
+                else line
+            )
 
         def node(item: CategoryReport) -> ft.Control | None:
             children = [child for sub in item.children if (child := node(sub)) is not None]
@@ -1895,14 +1911,17 @@ class FinanceView(ft.Row):
             ]
             if item and not item.active:
                 labels.append(ft.Text(self.tr("crud_inactive_label"), size=12))
-            row = ft.Row(
+            actions = self._entity_actions(item) if item else []
+            row: ft.Control = ft.Row(
                 [
                     *self._entity_icon_controls(identifier),
                     ft.Column(labels, spacing=0, expand=True),
-                    *(self._entity_actions(item) if item else []),
+                    *([] if self._mobile_item_actions else actions),
                 ],
                 spacing=0,
             )
+            if item and self._mobile_item_actions:
+                row = self._item_menu(row, title, actions)
             descendants = sorted(children.get(identifier, ()))
             control: ft.Control
             if descendants or root:
@@ -1927,7 +1946,7 @@ class FinanceView(ft.Row):
                 return CategoryConnectorRow(
                     ft.Container(control, padding=ft.Padding.only(left=16)),
                     (continued,),
-                    header_height=TREE_ROW_HEIGHT,
+                    header_height=48 if item and self._mobile_item_actions else TREE_ROW_HEIGHT,
                 )
             return control
 
@@ -1981,6 +2000,95 @@ class FinanceView(ft.Row):
             padding=padding,
         )
 
+    def _item_menu_context(self) -> tuple[object, ...]:
+        journal = self.journal
+        return (
+            id(journal),
+            journal.source if journal else None,
+            bool(journal and journal.ready),
+            self.current_screen,
+            self.history_index,
+            self.operations.location(),
+            id(self.operations.page),
+            self.operations.busy,
+            self.budgets.generation,
+            self.budgets.month,
+            self.budgets.category_id,
+            self.budgets.currency.value,
+            self.budgets.overspent.value,
+            self._report_range,
+            self.language,
+            tuple(id(dialog) for dialog in self.page._dialogs.controls if dialog.open),
+        )
+
+    def _item_menu(
+        self, content: ft.Control, name: str, actions: list[ft.Control]
+    ) -> ft.PopupMenuButton:
+        journal = self.journal
+        source = journal.source if journal else None
+        opened: tuple[object, ...] | None = None
+
+        def opening(event: ft.Event[ft.PopupMenuButton]) -> None:
+            nonlocal opened
+            opened = self._item_menu_context()
+
+        def cancel(event: ft.Event[ft.PopupMenuButton]) -> None:
+            nonlocal opened
+            opened = None
+
+        def item(action: ft.Control) -> ft.PopupMenuItem:
+            if isinstance(action, ft.Text):
+                return ft.PopupMenuItem(content=action.value, disabled=True)
+            if not isinstance(action, (ft.IconButton, ft.TextButton)) or action.on_click is None:
+                raise ValueError("Item menus require labeled action buttons.")
+            label = action.tooltip if isinstance(action, ft.IconButton) else action.content
+            if not isinstance(label, str):
+                raise ValueError("Item menu actions require text labels.")
+
+            async def select(event: ft.Event[ft.PopupMenuItem]) -> None:
+                nonlocal opened
+                try:
+                    if (
+                        self.journal is not journal
+                        or journal is None
+                        or not journal.ready
+                        or journal.source != source
+                        or opened is None
+                        or opened != self._item_menu_context()
+                    ):
+                        raise LedgerError("crud_stale")
+                    opened = None
+                    if action.disabled or not action.visible:
+                        raise LedgerError("crud_stale")
+                    # Flutter pops the native menu before this event. Reuse the
+                    # original button handler and payload without mounting it.
+                    callback = cast(Callable[..., object], action.on_click)
+                    result = callback(ft.Event(control=action, name="click", data=None))
+                    if inspect.isawaitable(result):
+                        await result
+                except Exception as exc:
+                    self._error(exc, notify=True)
+
+            return ft.PopupMenuItem(
+                content=label,
+                data=action.data,
+                disabled=action.disabled,
+                on_click=select,
+            )
+
+        return ft.PopupMenuButton(
+            content=ft.MergeSemantics(
+                content=ft.Semantics(
+                    label=self.tr("item_actions", name=name),
+                    content=ft.Container(content, min_height=48),
+                )
+            ),
+            padding=0,
+            items=[ft.PopupMenuItem(content=name, disabled=True), *[item(a) for a in actions]],
+            on_open=opening,
+            on_cancel=cancel,
+        )
+
     def _entity_card(self, item: Account | Category, balance: Decimal | None = None) -> ft.Control:
         lines: list[ft.Control] = [
             ft.Text(self._entity_display_name(item.id, item.name), size=14),
@@ -1991,16 +2099,20 @@ class FinanceView(ft.Row):
             lines.append(
                 ft.Text(self._account_balance_text(item.id, balance, item.currency), size=14)
             )
+        actions = self._entity_actions(item)
+        content: ft.Control = ft.Row(
+            [
+                *self._entity_icon_controls(item.id),
+                ft.Column(lines, spacing=0, expand=True),
+                *([] if self._mobile_item_actions else actions),
+            ],
+            spacing=0,
+        )
         return self._action_row(
             padding=ft.Padding.symmetric(vertical=2),
-            content=ft.Row(
-                [
-                    *self._entity_icon_controls(item.id),
-                    ft.Column(lines, spacing=0, expand=True),
-                    *self._entity_actions(item),
-                ],
-                spacing=0,
-            ),
+            content=self._item_menu(content, item.name, actions)
+            if self._mobile_item_actions
+            else content,
         )
 
     def _entity_icon(self, identifier: str) -> ft.Image | None:
@@ -2839,7 +2951,7 @@ class FinanceView(ft.Row):
                 ),
             ]
         )
-        if not compact and not read_only:
+        if (not compact or self._mobile_item_actions) and not read_only:
             actions.append(
                 ft.IconButton(
                     icon=ft.Icons.DELETE_OUTLINE,
@@ -2849,28 +2961,42 @@ class FinanceView(ft.Row):
                     on_click=self._delete_transaction,
                 )
             )
+        content: ft.Control = ft.Row(
+            [
+                *leading_controls,
+                ft.Column(
+                    lines,
+                    spacing=1,
+                    expand=True,
+                    alignment=ft.MainAxisAlignment.CENTER
+                    if leading_controls
+                    else ft.MainAxisAlignment.START,
+                ),
+                *([] if self._mobile_item_actions else actions),
+            ],
+            spacing=0,
+            intrinsic_height=bool(leading_controls),
+            vertical_alignment=ft.CrossAxisAlignment.STRETCH
+            if leading_controls
+            else ft.CrossAxisAlignment.CENTER,
+        )
+        if self._mobile_item_actions and not read_only:
+            if self.journal is not None:
+                try:
+                    self.journal.transaction_for_edit(transaction.id)
+                except LedgerError as exc:
+                    if str(exc) != "crud_transaction_readonly":
+                        raise
+                    edit, delete = actions
+                    assert isinstance(edit, ft.IconButton) and isinstance(delete, ft.IconButton)
+                    if transaction.kind != "opening":
+                        edit.tooltip = self.tr("details")
+                    delete.disabled = True
+            content = self._item_menu(content, display, actions)
         container = ft.Container if read_only else self._action_row
         return container(
             padding=ft.Padding.symmetric(vertical=2),
-            content=ft.Row(
-                [
-                    *leading_controls,
-                    ft.Column(
-                        lines,
-                        spacing=1,
-                        expand=True,
-                        alignment=ft.MainAxisAlignment.CENTER
-                        if leading_controls
-                        else ft.MainAxisAlignment.START,
-                    ),
-                    *actions,
-                ],
-                spacing=0,
-                intrinsic_height=bool(leading_controls),
-                vertical_alignment=ft.CrossAxisAlignment.STRETCH
-                if leading_controls
-                else ft.CrossAxisAlignment.CENTER,
-            ),
+            content=content,
         )
 
     async def _lifecycle(self) -> None:

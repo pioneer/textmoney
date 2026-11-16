@@ -38,6 +38,11 @@ and limitations; the guides are the source of truth when details change.
 
 ## Storage and settings
 
+- **Item actions:** Android uses single-tap item menus instead of inline
+  Edit/Delete/etc. buttons for transactions, accounts, categories, budgets/history
+  and report drill-downs. Windows/Linux retain inline controls at every width.
+  Category expansion and read-only restrictions remain unchanged.
+  See [item actions](user-guide.md#item-actions).
 - **Desktop navigation:** Shared Back/Forward arrows and keyboard shortcuts
   retrace screen visits, restoring each Operations visit's filters and page.
   Escape cancels the active popup, including after closing a dropdown menu.

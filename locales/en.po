@@ -1175,6 +1175,10 @@ msgstr "Choose date"
 msgid "ui.pick_time"
 msgstr "Choose time"
 
+#. Stable TextMoney key: ui.item_actions; do not translate this identifier.
+msgid "ui.item_actions"
+msgstr "Actions for {name}"
+
 #. Stable TextMoney key: ui.details; do not translate this identifier.
 msgid "ui.details"
 msgstr "Details"

@@ -124,6 +124,15 @@ Medium/expanded layouts use Home, Transactions, Budgets, Reports, Accounts, Cate
 Settings rail destinations without the header gear or More menu. Budgets
 selects its own item in both layouts and has no temporary back-to-Reports action.
 This follows available width, not the operating system.
+Per-item action presentation is instead platform-based: Android/iOS use native
+single-tap popups with the row or heading as custom content; desktop platforms
+retain inline action controls, including at compact widths. Web follows the
+reported operating system. Category expansion arrows remain outside the popup
+target, and budget figures remain selectable outside their heading's popup.
+The shared UI helper dispatches existing button handlers with their original
+payloads after Flutter dismisses the menu. It rejects changed journal/source,
+navigation, Operations page/filter and budget/report contexts rather than
+executing an old action from a native menu retained during refresh.
 Operations retains one page of at most 50 transactions, selected with a bounded
 heap rather than another sorted copy of the complete transaction list.
 Quiet Newer/Older controls at both ends replace the page; Latest returns to

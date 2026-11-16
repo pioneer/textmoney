@@ -243,8 +243,8 @@ With a disposable journal on a desktop:
    (mouse or keyboard), or by clicking outside, another Escape must cancel the
    popup normally. Repeat inside a nested popup and preserve the parent draft.
    In **Categories > Edit category**, use the mouse to open the date picker,
-   icon picker and icon-removal picker. Close each child with Escape or its
-   Cancel/Save button, then verify Escape still cancels the category editor.
+   icon picker and icon-removal confirmation. Close each child with Escape or its
+   Cancel/action button, then verify Escape still cancels the category editor.
    Keep an unsaved name throughout; keyboard-only opening does not reproduce
    the mouse-induced focus loss.
 4. Enter must save valid new/edit transaction, account, category and budget

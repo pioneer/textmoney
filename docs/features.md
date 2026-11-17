@@ -41,6 +41,9 @@ and limitations; the guides are the source of truth when details change.
 - **Item actions:** Android uses single-tap item menus instead of inline
   Edit/Delete/etc. buttons for transactions, accounts, categories, budgets/history
   and report drill-downs. Windows/Linux retain inline controls at every width.
+  Whole mobile budget items open their menu, including figures and progress.
+  Tappable mobile elements show feedback within the original touched control;
+  item-menu triggers use native bounded ink ripples.
   Category expansion and read-only restrictions remain unchanged.
   See [item actions](user-guide.md#item-actions).
 - **Desktop navigation:** Shared Back/Forward arrows and keyboard shortcuts

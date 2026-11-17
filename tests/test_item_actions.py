@@ -1,6 +1,6 @@
 import asyncio
 import inspect
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import fields
 from datetime import date
 from pathlib import Path
@@ -53,11 +53,10 @@ def menus(control: ft.Control) -> list[ft.ContextMenu]:
 
 async def fire(control: ft.Control, name: str) -> None:
     if isinstance(control, ft.ContextMenu) and name == "open":
-        assert isinstance(control.content, ft.GestureDetector)
-        callback = cast(Callable[..., Awaitable[None]], control.content.on_tap)
-        await callback(
-            ft.TapEvent(control=control.content, name="tap", global_position=ft.Offset(120, 200))
-        )
+        target = next(child for child in walk(control.content) if isinstance(child, ft.Container))
+        pressed = cast(Callable[..., None], target.on_tap_down)
+        pressed(ft.TapEvent(control=target, name="tap_down", global_position=ft.Offset(120, 200)))
+        await fire(target, "click")
         return
     if isinstance(control, ft.ContextMenu) and name == "cancel":
         name = "dismiss"
@@ -150,8 +149,8 @@ def test_mobile_category_expansion_has_a_separate_action_target(
         ft.Event(control=parent, name="change", data=True)
     )
     assert host.category_expansion["Expenses:Food"]
-    assert isinstance(parent.title.content, ft.GestureDetector)
-    assert parent.title.content.on_tap is not parent.on_change
+    target = next(child for child in walk(parent.title.content) if isinstance(child, ft.Container))
+    assert target.on_click is not parent.on_change
     assert not any(isinstance(child, ft.IconButton) for child in walk(host.category_list))
 
 
@@ -280,7 +279,7 @@ def test_mobile_readonly_preview_and_unsupported_transaction_remain_safe(
     asyncio.run(scenario())
 
 
-def test_budget_menus_keep_currency_targets_and_selectable_figures(
+def test_budget_menus_cover_entire_item_and_keep_currency_targets(
     view: tuple[FinanceView, MagicMock],
 ) -> None:
     async def scenario() -> None:
@@ -295,8 +294,18 @@ def test_budget_menus_keep_currency_targets_and_selectable_figures(
             isinstance(child, (ft.IconButton, ft.TextButton))
             for child in walk(host.budgets.results)
         )
+        tile = next(child for child in walk(menu.content) if isinstance(child, ft.ListTile))
+        assert tile.data is not None
+        assert any(isinstance(child, ft.ProgressBar) for child in walk(menu.content))
         assert any(
-            isinstance(child, ft.Text) and child.selectable for child in walk(host.budgets.results)
+            isinstance(child, ft.Semantics)
+            and child.exclude_semantics
+            and isinstance(child.content, ft.ProgressBar)
+            for child in walk(menu.content)
+        )
+        assert any(
+            isinstance(child, ft.Text) and host.tr("budget_planned") in child.value
+            for child in walk(menu.content)
         )
         assert isinstance(menu.content, ft.Control)
         assert not any(
@@ -331,6 +340,13 @@ def test_budget_history_menu_preserves_popup_handoff(
         assert isinstance(budget, Budget)
         assert budget.currency in str(menu.items[0].content)
         assert format_date(budget.date, host.language) in str(menu.items[0].content)
+        assert any(
+            isinstance(child, ft.Text) and f"{budget.amount} {budget.currency}" in child.value
+            for child in walk(menu.content)
+        )
+        assert not any(
+            isinstance(child, ft.Text) and child.selectable for child in walk(menu.content)
+        )
         await choose(menu, host.tr("budget_view_report"))
         page.pop_dialog.assert_called_once()
         assert host.current_screen == "budgets"
@@ -368,9 +384,8 @@ def test_menu_has_localized_accessible_name_and_touch_sized_entries(
     assert host.journal is not None
     transaction = host.journal.ledger.transactions[-1]
     menu = menus(host._transaction_card(transaction, {}))[0]
-    assert isinstance(menu.content, ft.GestureDetector)
-    assert isinstance(menu.content.content, ft.MergeSemantics)
-    semantics = menu.content.content.content
+    assert isinstance(menu.content, ft.MergeSemantics)
+    semantics = menu.content.content
     assert isinstance(semantics, ft.Semantics)
     assert semantics.label == host.tr("item_actions", name=transaction.narration)
     assert isinstance(semantics.content, ft.Container) and semantics.content.min_height == 48
@@ -411,22 +426,44 @@ def test_menu_opens_at_completed_tap_position(
             ft.Text("Item"), "Item", [ft.TextButton("Edit", on_click=lambda _: None)]
         )
         assert isinstance(menu, ft.ContextMenu)
-        assert isinstance(menu.content, ft.GestureDetector)
+        target = next(child for child in walk(menu.content) if isinstance(child, ft.Container))
         menu.open = AsyncMock()
-        assert menu.content.on_tap is not None
+        assert target.on_tap_down is not None
         event = ft.TapEvent(
-            control=menu.content,
-            name="tap",
+            control=target,
+            name="tap_down",
             local_position=ft.Offset(12, 16),
             global_position=ft.Offset(*position),
         )
-        await cast(Callable[..., Awaitable[None]], menu.content.on_tap)(event)
+        cast(Callable[..., None], target.on_tap_down)(event)
+        menu.open.assert_not_awaited()
+        await fire(target, "click")
         menu.open.assert_awaited_once_with(
             local_position=event.local_position, global_position=event.global_position
         )
-        assert menu.content.on_tap_down is None
         assert menu.primary_trigger is None
         assert menu.secondary_trigger is None
+
+    asyncio.run(scenario())
+
+
+def test_accessible_activation_does_not_reuse_cancelled_tap_coordinates(
+    view: tuple[FinanceView, MagicMock],
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        menu = host._item_menu(
+            ft.Text("Item"), "Item", [ft.TextButton("Edit", on_click=lambda _: None)]
+        )
+        target = next(child for child in walk(menu.content) if isinstance(child, ft.Container))
+        menu.open = AsyncMock()
+        cast(Callable[..., None], target.on_tap_down)(
+            ft.TapEvent(control=target, name="tap_down", global_position=ft.Offset(20, 200))
+        )
+        assert isinstance(menu.content, ft.MergeSemantics)
+        assert isinstance(menu.content.content, ft.Semantics)
+        await fire(menu.content.content, "tap")
+        menu.open.assert_awaited_once_with(local_position=None, global_position=None)
 
     asyncio.run(scenario())
 
@@ -440,6 +477,20 @@ def test_menu_reuses_desktop_action_icons(view: tuple[FinanceView, MagicMock]) -
     ]
     menu = host._item_menu(ft.Text("Item"), "Item", actions)
     assert [item.icon for item in menu.items[1:]] == [action.icon for action in actions]
+
+
+def test_item_menu_uses_native_bounded_feedback_on_original_item(
+    view: tuple[FinanceView, MagicMock],
+) -> None:
+    host, _ = view
+    content = ft.Text("Tapped item")
+    menu = host._item_menu(content, "Item", [ft.TextButton("Edit", on_click=lambda _: None)])
+    target = next(child for child in walk(menu.content) if isinstance(child, ft.Container))
+    assert target.ink
+    assert target.clip_behavior == ft.ClipBehavior.HARD_EDGE
+    assert target.content is content
+    assert target.on_click is not None
+    assert target.on_tap_down is not None
 
 
 @pytest.mark.parametrize("accessible", [False, True])

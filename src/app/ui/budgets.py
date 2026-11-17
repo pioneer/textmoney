@@ -800,16 +800,16 @@ class BudgetView(ft.Column):
             lines: list[ft.Control] = [
                 ft.Text(
                     f"{tr('budget_planned')}: {planned_text}",
-                    selectable=True,
+                    selectable=not self.host._mobile_item_actions,
                 ),
                 ft.Text(
                     f"{tr('budget_actual')}: {actual_text}",
-                    selectable=True,
+                    selectable=not self.host._mobile_item_actions,
                 ),
                 ft.Text(
                     f"{tr('budget_remaining')}: {remaining_text}",
                     color=ft.Colors.ERROR if overspent else None,
-                    selectable=True,
+                    selectable=not self.host._mobile_item_actions,
                 ),
             ]
             progress_label = None
@@ -817,10 +817,15 @@ class BudgetView(ft.Column):
                 progress_label = ft.Text(
                     f"{tr('budget_consumed')}: {format_budget_number(consumed, 2)}%"
                 )
+                progress: ft.Control = budget_progress_bar(consumed, overspent)
+                if self.host._mobile_item_actions:
+                    # The adjacent percentage is accessible; the bar's role must
+                    # not override the whole item's merged button semantics.
+                    progress = ft.Semantics(content=progress, exclude_semantics=True)
                 lines.extend(
                     [
                         progress_label,
-                        budget_progress_bar(consumed, overspent),
+                        progress,
                     ]
                 )
             elif currency in budget:
@@ -831,14 +836,14 @@ class BudgetView(ft.Column):
                     ft.Text(
                         f"{tr('budget_overspent')}: {self._number(remaining.copy_abs(), currency)}",
                         color=ft.Colors.ERROR,
-                        selectable=True,
+                        selectable=not self.host._mobile_item_actions,
                     )
                 )
             controls.append(
                 ft.Column(
                     [
                         line
-                        if isinstance(line, ft.ProgressBar)
+                        if isinstance(line, (ft.ProgressBar, ft.Semantics))
                         else ft.Container(
                             line,
                             padding=ft.Padding(
@@ -955,9 +960,6 @@ class BudgetView(ft.Column):
                 card_actions = self._card_actions(row, actions)
                 if self.host._mobile_item_actions:
                     heading.expand = None
-                    heading = self.host._item_menu(
-                        heading, names.get(account, account), card_actions.controls
-                    )
                 else:
                     heading = ft.Row(
                         [heading, card_actions],
@@ -993,14 +995,24 @@ class BudgetView(ft.Column):
                     visual_density=ft.VisualDensity.COMPACT,
                     content_padding=ft.Padding(left=16 * (depth + 1), top=16, right=16, bottom=16),
                     shape=ft.RoundedRectangleBorder(),
-                    bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
+                    bgcolor=ft.Colors.SECONDARY_CONTAINER
+                    if highlighted and not self.host._mobile_item_actions
+                    else None,
                 )
                 if highlighted and self.reveal_requested:
                     # The client must lay out the target before scroll_to can find its key.
                     tile.on_size_change = self._reveal_report
                     self.scroll_target = tile
+                content: ft.Control = tile
+                if self.host._mobile_item_actions:
+                    content = self.host._item_menu(
+                        tile,
+                        names.get(account, account),
+                        card_actions.controls,
+                        bgcolor=ft.Colors.SECONDARY_CONTAINER if highlighted else None,
+                    )
                 return [
-                    self.host._action_row(tile),
+                    self.host._action_row(content),
                     *[control for child in children for control in node(child, depth + 1)],
                 ]
 
@@ -1030,7 +1042,7 @@ class BudgetView(ft.Column):
                                     interval=self.host.tr(f"budget_{budget.interval}"),
                                     date=format_date(budget.date, self.host.language),
                                 ),
-                                selectable=True,
+                                selectable=not self.host._mobile_item_actions,
                             ),
                         ],
                         spacing=0,
@@ -1208,26 +1220,25 @@ class BudgetView(ft.Column):
             spacing=0,
         )
         actions = self._budget_actions(budget)
-        if self.host._mobile_item_actions:
-            title = self.host._item_menu(
+        content: ft.Control = ft.Column(
+            [
                 title,
+                ft.Text(
+                    f"{budget.amount} {budget.currency} · {tr(f'budget_{budget.interval}')}",
+                    selectable=not self.host._mobile_item_actions,
+                ),
+                *([] if self.host._mobile_item_actions else [report, actions]),
+            ],
+            spacing=4,
+        )
+        if self.host._mobile_item_actions:
+            content = self.host._item_menu(
+                content,
                 f"{account_name} · {budget.currency}"
                 f" · {format_date(budget.date, self.host.language)}",
                 [*report.controls, *actions.controls],
             )
-        return self.host._action_row(
-            ft.Column(
-                [
-                    title,
-                    ft.Text(
-                        f"{budget.amount} {budget.currency} · {tr(f'budget_{budget.interval}')}",
-                        selectable=True,
-                    ),
-                    *([] if self.host._mobile_item_actions else [report, actions]),
-                ],
-                spacing=4,
-            )
-        )
+        return self.host._action_row(content)
 
     def _new(self, event: ft.Event[ft.Button]) -> None:
         self._form()

@@ -39,15 +39,19 @@ physical Android captures.
 ### Item actions
 
 On Android, **tap an item's label or body** to open its actions menu: transactions
-(including Home's recent activity), accounts, categories, budget headings/history
+(including Home's recent activity), accounts, categories, budget cards/history
 and report category rows. Edit/Delete and other per-item buttons are not shown
 inline. Tap outside the menu or use system Back to dismiss it without changing
 anything. Choose an action to open the existing editor, confirmation or scoped
 transaction view. Menus open at the tap location, adjusted to fit screen edges,
 and actions retain the same icons as their desktop controls.
 
-Category expansion arrows remain separate from the tappable label. On budget
-cards, tap the heading for actions; the figures below remain selectable text.
+Category expansion arrows remain separate from the tappable label. On mobile,
+tap anywhere within a budget card or history item, including its figures,
+progress bar and padding, for actions. Budget text remains selectable on desktop.
+Tappable mobile elements show feedback within the touched element; item menus
+use a bounded ripple on the original row/card. Scrolling cancels the tap without
+opening a menu.
 Multi-currency budget menus identify each definition by currency and effective
 date. Read-only transaction previews have no mutation menu; unsupported
 transactions offer details rather than editing, and deletion stays unavailable.

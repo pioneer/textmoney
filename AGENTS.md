@@ -9,6 +9,14 @@
 - Use imperative Flet 1.x. Before changing Flet code, query the configured Flet
   MCP for exact APIs, event types, enums, icons, examples, CLI, and packaging
   settings. Await async methods in async handlers. Do not guess from older Flet.
+- Every tappable mobile UI element must show immediate, visible tap feedback
+  inside the touched element, app-wide: rows/cards, buttons, navigation,
+  expansion affordances, filters, paging and dialog controls. Reuse native
+  ripple/highlight feedback; add it where missing, clipped to the target bounds.
+  Feedback belongs to the original tapped element, not just its context menu.
+  Cancel feedback appropriately during scrolling without opening menus or
+  executing actions. Do not make non-interactive content tappable merely to
+  animate it. Verify this behavior when adding or changing UI interactions.
 - Keep domain code Flet-free. UI calls domain/services; integrations belong behind
   service/infrastructure boundaries introduced only when needed. Avoid import
   side effects and hidden global mutable state.

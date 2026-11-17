@@ -2023,29 +2023,32 @@ class FinanceView(ft.Row):
         )
 
     def _item_menu(
-        self, content: ft.Control, name: str, actions: list[ft.Control]
+        self,
+        content: ft.Control,
+        name: str,
+        actions: list[ft.Control],
+        *,
+        bgcolor: ft.ColorValue | None = None,
     ) -> ft.ContextMenu:
         journal = self.journal
         source = journal.source if journal else None
         opened: tuple[object, ...] | None = None
+        tap: ft.TapEvent[ft.Container] | None = None
 
-        async def opening(event: ft.TapEvent[ft.GestureDetector]) -> None:
-            nonlocal opened
+        def pressed(event: ft.TapEvent[ft.Container]) -> None:
+            nonlocal tap
+            tap = event
+
+        async def opening(event: ft.Event[ft.Container] | ft.Event[ft.Semantics]) -> None:
+            nonlocal opened, tap
+            position = tap if isinstance(event.control, ft.Container) else None
+            tap = None
             opened = self._item_menu_context()
             try:
                 await menu.open(
-                    local_position=event.local_position,
-                    global_position=event.global_position,
+                    local_position=position.local_position if position else None,
+                    global_position=position.global_position if position else None,
                 )
-            except Exception as exc:
-                opened = None
-                self._error(exc, notify=True)
-
-        async def accessible_open(event: ft.Event[ft.Semantics]) -> None:
-            nonlocal opened
-            opened = self._item_menu_context()
-            try:
-                await menu.open()
             except Exception as exc:
                 opened = None
                 self._error(exc, notify=True)
@@ -2096,15 +2099,20 @@ class FinanceView(ft.Row):
             )
 
         menu = ft.ContextMenu(
-            content=ft.GestureDetector(
-                on_tap=opening,
-                content=ft.MergeSemantics(
-                    content=ft.Semantics(
-                        label=self.tr("item_actions", name=name),
-                        button=True,
-                        on_tap=accessible_open,
-                        content=ft.Container(content, min_height=48),
-                    )
+            content=ft.MergeSemantics(
+                content=ft.Semantics(
+                    label=self.tr("item_actions", name=name),
+                    button=True,
+                    on_tap=opening,
+                    content=ft.Container(
+                        content,
+                        min_height=48,
+                        bgcolor=bgcolor,
+                        ink=True,
+                        clip_behavior=ft.ClipBehavior.HARD_EDGE,
+                        on_tap_down=pressed,
+                        on_click=opening,
+                    ),
                 ),
             ),
             secondary_trigger=None,

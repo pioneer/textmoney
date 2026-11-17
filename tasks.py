@@ -29,7 +29,7 @@ HOSTS = {"linux": "Linux", "windows": "Windows", "macos": "Darwin"}
 UNATTENDED = "--yes"
 LINUX_DEV_APP_ID = "dev.textmoney.app"
 STOCK_CLIENT_APP_ID = b"com.appveyor.flet"
-ANDROID_ICON_CANVAS_SIZE = 714
+ANDROID_ICON_CANVAS_SIZE = 660
 ANDROID_ICON_BACKGROUND = "#164675"
 ANDROID_SIGNING_ENV = (
     "FLET_ANDROID_SIGNING_KEY_STORE",

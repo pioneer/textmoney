@@ -83,7 +83,7 @@ Restart an already-running development window after changing the artwork.
 Linux builds stage that circular derivative as `src/assets/icon_linux.png`;
 Windows stages the same complete badge as `src/assets/icon_windows.png`.
 Android builds and device-debug runs generate a padded `icon_android.png`
-variant to preserve the previous adaptive-safe artwork size.
+variant to keep the round ledger inside Android's adaptive safe circle.
 These are generated, not maintained. See [branding](branding.md) for the
 artwork and framing policy.
 `.env.example` is documentation, not automatically loaded configuration. Set

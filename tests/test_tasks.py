@@ -283,9 +283,8 @@ def test_android_icon_staging_preserves_precomposed_round_framing(
         mask = _icon_artwork_mask(image)
         bounds = mask.getbbox()
         assert bounds is not None
-        assert max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 1024 == pytest.approx(
-            0.456, abs=0.005
-        )
+        extent = max(bounds[2] - bounds[0], bounds[3] - bounds[1]) / 1024
+        assert 0.58 <= extent <= 66 / 108
         # Android guarantees a central 66-dp circle within its 108-dp adaptive layer.
         safe_radius = 1024 * 33 / 108
         for index, value in enumerate(mask.tobytes()):

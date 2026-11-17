@@ -160,7 +160,7 @@ class NavigationVisit:
 
 
 class FinanceView(ft.Row):
-    def __init__(self) -> None:
+    def __init__(self, *, mobile_preview: bool = False) -> None:
         super().__init__(expand=True, spacing=0, alignment=ft.MainAxisAlignment.CENTER)
         self.journal: Journal | None = None
         self.icons: IconStore | None = None
@@ -204,6 +204,7 @@ class FinanceView(ft.Row):
         self._history = [NavigationVisit("home")]
         self.history_index = 0
         self.desktop_navigation = False
+        self._mobile_preview = mobile_preview
         self._mobile_item_actions = False
         self.browser_routes: list[str] = []
         self._browser_route_prefix = uuid4().hex
@@ -640,18 +641,19 @@ class FinanceView(ft.Row):
         self._refresh()
 
     def did_mount(self) -> None:
-        self._mobile_item_actions = self.page.platform in {
+        self._mobile_item_actions = self._mobile_preview or self.page.platform in {
             ft.PagePlatform.ANDROID,
             ft.PagePlatform.IOS,
         }
         self.page.padding = 0
         self.page.on_resize = self._resized
         self.page.on_locale_change = self._host_locale_changed
-        self.desktop_navigation = not self.page.web and self.page.platform in {
-            ft.PagePlatform.LINUX,
-            ft.PagePlatform.WINDOWS,
-            ft.PagePlatform.MACOS,
-        }
+        self.desktop_navigation = (
+            not self._mobile_preview
+            and not self.page.web
+            and self.page.platform
+            in {ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS, ft.PagePlatform.MACOS}
+        )
         if self.desktop_navigation:
             self.page.on_keyboard_event = self._navigation_key
         if self.page.web:
@@ -1204,6 +1206,14 @@ class FinanceView(ft.Row):
             )
 
     def _build_home_layout(self) -> None:
+        balance_width = (
+            self.accounts_panel.width
+            if self.screen_class == ScreenClass.COMPACT and self._mobile_item_actions
+            else 250
+        )
+        for card in self.home_balances.controls:
+            if isinstance(card, ft.Container):
+                card.width = balance_width
         if self.screen_class == ScreenClass.EXPANDED:
             self.home_screen.controls = [
                 self.welcome,

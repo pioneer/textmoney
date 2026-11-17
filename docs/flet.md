@@ -99,6 +99,14 @@ reduces initial web font loading.
 
 Historical validation sections below retain their original versions.
 
+## Home balance cards
+
+On compact Android/iOS displays, Home currency balance cards fill the same
+content width as Accounts, retaining the shared 16-pixel padding, border and
+12-pixel corners. Resizing or refreshing recalculates their width. Desktop
+cards at every window width and medium/expanded mobile layouts retain the
+existing 250-pixel wrapping layout.
+
 ## Category menu hierarchy
 
 Category menus and the main category tree share 16-pixel hierarchy gutters and

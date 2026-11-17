@@ -666,7 +666,9 @@ def build_web_client(context: Context) -> None:
     (destination / ".textmoney-client").write_text(web_client_fingerprint(), encoding="ascii")
 
 
-def run_app(*, web: bool = False, debug: bool = False, port: int = 8550) -> None:
+def run_app(
+    *, web: bool = False, debug: bool = False, port: int = 8550, mobile: bool = False
+) -> None:
     compile_translations()
     stage_release()
     args = [
@@ -683,7 +685,7 @@ def run_app(*, web: bool = False, debug: bool = False, port: int = 8550) -> None
         args += ["--web", "--host", "127.0.0.1", "--port", str(port)]
     if debug:
         args += ["-v"]
-    env = debug_env(debug)
+    env = debug_env(debug) | {"APP_MOBILE_PREVIEW": "1" if mobile else "0"}
     if web:
         env["FLET_WEB_PATH"] = str(require_web_dev_client())
     if not web:
@@ -814,10 +816,10 @@ def app_icon(context: Context, source: str = "") -> None:
     image.save(ROOT / "assets/icon.png")
 
 
-@task
-def run(context: Context) -> None:
+@task(help={"mobile": "Start at phone width with mobile UI behavior on desktop."})
+def run(context: Context, mobile: bool = False) -> None:
     """Desktop hot reload with INFO application logging."""
-    run_app()
+    run_app(mobile=mobile)
 
 
 @task

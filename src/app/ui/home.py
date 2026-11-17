@@ -248,7 +248,7 @@ class StorageView(ft.Column):
         await self._operate("backup")
 
 
-def home_view() -> ft.SafeArea:
+def home_view(*, mobile_preview: bool = False) -> ft.SafeArea:
     from app.ui.finance import FinanceView
 
-    return ft.SafeArea(expand=True, content=FinanceView())
+    return ft.SafeArea(expand=True, content=FinanceView(mobile_preview=mobile_preview))

@@ -15,7 +15,7 @@ def report_page_error(event: ft.Event[ft.Page]) -> None:
     logger.error("Unhandled Flet error: %s", event.data)
 
 
-async def main(page: ft.Page) -> None:
+async def main(page: ft.Page, *, mobile_preview: bool = False) -> None:
     asyncio.get_running_loop().set_exception_handler(report_async_error)
     page.on_error = report_page_error
     page.title = APP_NAME
@@ -30,6 +30,8 @@ async def main(page: ft.Page) -> None:
             ft.Locale(language_code="ru"),
         ]
     )
-    page.add(home_view())
+    if mobile_preview:
+        page.window.width = 390
+    page.add(home_view(mobile_preview=mobile_preview))
     logger.info("Application ready")
     logger.debug("Page initialization complete")

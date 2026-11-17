@@ -20,6 +20,7 @@ OS and 3.14 on Linux.
 Other useful commands:
 
 ```sh
+uv run inv run --mobile   # Preview phone-width UI in a desktop window
 uv run inv build-web-client  # Build extension-enabled browser preview client
 uv run inv run-web        # Local browser UI preview
 uv run inv check          # Format check, lint, Pyright, catalogs and tests
@@ -58,6 +59,11 @@ Desktop source runs also require an extension-enabled host build:
 `uv run inv build-local`. Rebuild after extension or dependency changes; the
 runner explicitly rejects missing/stale clients. Ordinary Python edits do not
 need a rebuild.
+`uv run inv run --mobile` starts at 390 logical pixels and enables mobile UI
+behavior, including full-width Main balance cards at compact widths and
+mobile item menus. The window remains resizable. This is a UI preview:
+storage and folder picking still use the host desktop platform. Run without
+`--mobile` to use the normal desktop UI.
 Folder selection is unsupported in web mode; the preview is not a browser
 journal-storage implementation. See [web deployment limits](deployment.md).
 Both hot-reload the source tree. Stop with Ctrl+C. Web binds to localhost, not the

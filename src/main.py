@@ -1,5 +1,7 @@
 """Flet entry point, shared by development and packaged applications."""
 
+from functools import partial
+
 import flet as ft
 
 from app.application import main
@@ -12,7 +14,10 @@ def run() -> None:
     configure_logging(debug=False)
     settings = Settings.from_env()
     configure_logging(settings.debug)
-    ft.run(main, route_url_strategy=ft.RouteUrlStrategy.HASH)
+    ft.run(
+        partial(main, mobile_preview=settings.mobile_preview),
+        route_url_strategy=ft.RouteUrlStrategy.HASH,
+    )
 
 
 if __name__ == "__main__":

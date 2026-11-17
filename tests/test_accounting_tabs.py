@@ -111,6 +111,66 @@ def test_welcome_create_account_link_opens_accounts_screen(
     assert view.screen_host.content is view.accounts_screen
 
 
+@pytest.mark.parametrize(
+    ("platform", "preview"),
+    [
+        (ft.PagePlatform.ANDROID, False),
+        (ft.PagePlatform.IOS, False),
+        (ft.PagePlatform.LINUX, False),
+        (ft.PagePlatform.WINDOWS, False),
+        (ft.PagePlatform.MACOS, False),
+        (ft.PagePlatform.LINUX, True),
+    ],
+)
+def test_home_balance_card_width_matches_accounts_only_on_compact_mobile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: ft.PagePlatform, preview: bool
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page, width=390)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        view = FinanceView(mobile_preview=preview)
+        page.platform = platform
+        page.web = False
+        page.views = [MagicMock(spec=ft.View)]
+        view.startup_complete = True
+        view.did_mount()
+        mobile = preview or platform in {ft.PagePlatform.ANDROID, ft.PagePlatform.IOS}
+        assert view.desktop_navigation is not mobile
+        if preview:
+            assert page.views[0].on_confirm_pop != view._system_back
+        journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await journal.load()
+        await journal.create_account("Cash", "Wallet", "USD", "25", opened=EPOCH)
+        await journal.create_account("Euro", "Euro wallet", "EUR", "50", opened=EPOCH)
+        view.journal = journal
+        source = journal.source
+        view._refresh()
+
+        for width in (390, 320, 800, 1366, 390):
+            page.width = width
+            view._apply_layout(width)
+            for refresh in (False, True):
+                if refresh:
+                    view._refresh()
+                expected_width = width - 40 if width < 600 and mobile else 250
+                assert len(view.home_balances.controls) == 2
+                for home, accounts in zip(
+                    view.home_balances.controls, view.account_list.controls, strict=True
+                ):
+                    assert isinstance(home, ft.Container)
+                    assert isinstance(accounts, ft.Container)
+                    assert home.width == expected_width
+                    assert accounts.width is None
+                    assert home.padding == accounts.padding == 16
+                    assert home.border == accounts.border
+                    assert home.border_radius == accounts.border_radius == 12
+                if expected_width != 250:
+                    assert expected_width == view.accounts_panel.width
+        assert journal.source == source
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("width", [320, 800, 1366])
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
 def test_currency_groups_preserve_account_rows_and_actions_after_edit_and_reload(

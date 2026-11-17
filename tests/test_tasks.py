@@ -466,6 +466,23 @@ def test_native_run_requires_extension_enabled_client(
         assert "cwd" not in execute.call_args.kwargs
 
 
+@pytest.mark.parametrize("mobile", [False, True])
+def test_run_sets_mobile_preview_only_when_requested(
+    monkeypatch: pytest.MonkeyPatch, mobile: bool
+) -> None:
+    monkeypatch.setenv("APP_MOBILE_PREVIEW", "1")
+    monkeypatch.setattr(tasks, "compile_translations", MagicMock())
+    monkeypatch.setattr(tasks, "stage_release", MagicMock())
+    monkeypatch.setattr(tasks.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(tasks, "require_desktop_client", MagicMock())
+    execute = MagicMock()
+    monkeypatch.setattr(tasks, "execute", execute)
+
+    tasks.run(Context(), mobile=mobile)
+
+    assert execute.call_args.kwargs["env"]["APP_MOBILE_PREVIEW"] == ("1" if mobile else "0")
+
+
 def test_linux_run_selects_extension_client_and_rejects_stale_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

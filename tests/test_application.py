@@ -40,6 +40,27 @@ def test_page_startup() -> None:
     assert page.add.call_args.args[0].expand
 
 
+def test_mobile_preview_launches_at_phone_width_without_changing_platform(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import main as entrypoint
+
+    page = MagicMock(spec=ft.Page)
+    page.platform = ft.PagePlatform.LINUX
+    page.window = MagicMock(spec=ft.Window)
+    monkeypatch.setenv("APP_MOBILE_PREVIEW", "1")
+    monkeypatch.setattr(entrypoint, "configure_logging", MagicMock())
+    monkeypatch.setattr(entrypoint, "install_exception_hooks", MagicMock())
+    launch = MagicMock()
+    monkeypatch.setattr(ft, "run", launch)
+
+    entrypoint.run()
+    asyncio.run(launch.call_args.args[0](page))
+
+    assert page.window.width == 390
+    assert page.platform == ft.PagePlatform.LINUX
+
+
 def test_flet_event_exception_is_logged(caplog: pytest.LogCaptureFixture) -> None:
     async def scenario() -> None:
         session = Session(MagicMock())

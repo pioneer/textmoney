@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from PIL import Image, ImageDraw
-from playwright.sync_api import Browser
+from playwright.sync_api import Browser, Page
 
 from app.domain.budgets import current_month_summary
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -75,6 +75,23 @@ def test_release_defaults_to_current_or_uses_override(override: str, expected: s
 def test_invalid_release_is_rejected() -> None:
     with pytest.raises(RuntimeError, match="stable version"):
         screenshots.capture_release("0.4.9", "not a version")
+
+
+def test_home_capture_waits_for_merged_balances_button() -> None:
+    page = MagicMock(spec=Page)
+    page.title.return_value = screenshots.READY
+
+    def text_locator(text: object, **kwargs: object) -> MagicMock:
+        if text == "Your balances":
+            raise AssertionError("The native button merges its heading and icon labels.")
+        return MagicMock()
+
+    page.get_by_text.side_effect = text_locator
+    screenshots.prepare_page(page, screenshots.SCENES[0], "0.4.12")
+    role = page.get_by_role.call_args
+    assert role.args == ("button",)
+    assert role.kwargs["name"].search("Your balances Open accounts")
+    page.get_by_role.return_value.wait_for.assert_called_once()
 
 
 def test_demo_journal_and_settings_are_isolated_and_show_budget_activity(tmp_path: Path) -> None:

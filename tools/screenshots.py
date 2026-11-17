@@ -273,7 +273,7 @@ def prepare_page(page: Page, scene: Scene, release: str) -> None:
         page.get_by_role("textbox", name="Description").wait_for()
     else:
         page.get_by_text(re.compile(rf"^v{re.escape(release)} \(\d+\)$")).wait_for()
-        page.get_by_text("Your balances", exact=True).wait_for()
+        page.get_by_role("button", name=re.compile(r"^Your balances\b")).wait_for()
         if scene.filename == "navigation-mobile.png":
             page.get_by_role("button", name="More", exact=True).click()
             page.get_by_role("menuitem", name="Accounts", exact=True).wait_for()

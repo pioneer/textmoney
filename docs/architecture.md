@@ -117,8 +117,9 @@ drops later visits. Native desktop platforms expose stable shared header
 Back/Forward buttons, disabled at history boundaries, at every window width.
 Alt+Left/Right navigate on Linux/Windows; Command+[/] navigate on macOS.
 Shortcuts do not navigate through an open modal. Mobile/tablet layouts have no
-in-app Back or Forward buttons, regardless of width. On Android, the root view
-handles system Back after Flutter has handled any open dialog or menu, and
+in-app Back or Forward buttons, regardless of width. On Android, Flutter
+dismisses an open dialog, popup menu, dropdown, or date/time picker before the
+root view handles system Back; the root view then navigates screen history and
 delegates at the start. On web, screen changes create browser history entries
 and browser Back/Forward restore the same session cursor. Web is not a released
 or validated platform.

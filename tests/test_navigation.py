@@ -179,13 +179,19 @@ def test_system_back_uses_history_and_allows_exit_at_start(
     root.confirm_pop.assert_awaited_once_with(True)
 
 
+@pytest.mark.parametrize(
+    "popup_type",
+    [ft.AlertDialog, ft.DatePicker, ft.TimePicker],
+    ids=["alert-dialog", "date-picker", "time-picker"],
+)
 def test_system_back_dismisses_dialog_before_screen(
     navigation: tuple[FinanceView, MagicMock],
+    popup_type: type[ft.DialogControl],
 ) -> None:
     view, page = navigation
     root = MagicMock(spec=ft.View)
     view._navigate("accounts")
-    page.pop_dialog.side_effect = [ft.AlertDialog(), None]
+    page.pop_dialog.side_effect = [popup_type(), None]
     asyncio.run(view._system_back(MagicMock(control=root)))
     assert view.current_screen == "accounts"
     assert view.screen_history == ["home", "accounts"]

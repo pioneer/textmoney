@@ -951,7 +951,11 @@ class FinanceView(ft.Row):
         self.welcome.visible = not ready or not bool(self.journal and self.journal.ledger.accounts)
         self.home_screen.controls = [
             self.welcome,
-            home_heading(self.tr("home_balances"), self.home_accounts_open),
+            home_heading(
+                self.tr("home_balances"),
+                self.home_accounts_open,
+                left_padding=0 if self.screen_class == ScreenClass.COMPACT else 12,
+            ),
             self.home_balances,
             ft.Text(self.tr("home_recent"), size=21, weight=ft.FontWeight.W_600),
             self.home_activity,
@@ -1171,7 +1175,13 @@ class FinanceView(ft.Row):
                             expand=3,
                             content=ft.Column(
                                 [
-                                    home_heading(self.tr("home_balances"), self.home_accounts_open),
+                                    home_heading(
+                                        self.tr("home_balances"),
+                                        self.home_accounts_open,
+                                        left_padding=0
+                                        if self.screen_class == ScreenClass.COMPACT
+                                        else 12,
+                                    ),
                                     self.home_balances,
                                     self.home_budgets,
                                 ],
@@ -1183,7 +1193,11 @@ class FinanceView(ft.Row):
                             content=ft.Column(
                                 [
                                     home_heading(
-                                        self.tr("home_recent"), self.home_transactions_open
+                                        self.tr("home_recent"),
+                                        self.home_transactions_open,
+                                        left_padding=0
+                                        if self.screen_class == ScreenClass.COMPACT
+                                        else 12,
                                     ),
                                     self.home_activity,
                                 ],
@@ -1198,9 +1212,17 @@ class FinanceView(ft.Row):
         elif self.current_screen == "home":
             self.home_screen.controls = [
                 self.welcome,
-                home_heading(self.tr("home_balances"), self.home_accounts_open),
+                home_heading(
+                    self.tr("home_balances"),
+                    self.home_accounts_open,
+                    left_padding=0 if self.screen_class == ScreenClass.COMPACT else 12,
+                ),
                 self.home_balances,
-                home_heading(self.tr("home_recent"), self.home_transactions_open),
+                home_heading(
+                    self.tr("home_recent"),
+                    self.home_transactions_open,
+                    left_padding=0 if self.screen_class == ScreenClass.COMPACT else 12,
+                ),
                 self.home_activity,
                 self.home_budgets,
             ]

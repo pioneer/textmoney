@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def home_heading(title: str, action: ft.TextButton) -> ft.Row:
+def home_heading(title: str, action: ft.TextButton, *, left_padding: float) -> ft.Row:
     label = action.tooltip if isinstance(action.tooltip, str) else title
     action.content = ft.Row(
         [
@@ -47,7 +47,7 @@ def home_heading(title: str, action: ft.TextButton) -> ft.Row:
     action.height = 48
     action.expand = True
     action.style = ft.ButtonStyle(
-        padding=ft.Padding.all(0),
+        padding=ft.Padding.only(left=left_padding),
         alignment=ft.Alignment.CENTER_LEFT,
     )
     return ft.Row([action], spacing=4, tight=False)
@@ -133,7 +133,13 @@ class HomeBudgets(ft.Column):
         summary = self.summary
         self.visible = host.show_home_budgets and (self.failed or bool(summary and summary.total))
         self.open.tooltip = host.tr("home_view_budgets")
-        self.controls = [home_heading(host.tr("budget_title"), self.open)]
+        self.controls = [
+            home_heading(
+                host.tr("budget_title"),
+                self.open,
+                left_padding=0 if host.screen_class == "compact" else 12,
+            )
+        ]
         if self.failed:
             self.controls.append(ft.Text(host.tr("home_budgets_failed"), color=ft.Colors.ERROR))
             return

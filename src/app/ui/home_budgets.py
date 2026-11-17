@@ -18,14 +18,39 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def home_heading(title: str, action: ft.IconButton) -> ft.Row:
-    return ft.Row(
+def home_heading(title: str, action: ft.TextButton) -> ft.Row:
+    label = action.tooltip if isinstance(action.tooltip, str) else title
+    action.content = ft.Row(
         [
-            ft.Text(title, size=21, weight=ft.FontWeight.W_600, expand=True, expand_loose=True),
-            action,
+            ft.Text(
+                title,
+                size=21,
+                weight=ft.FontWeight.W_600,
+                color=ft.Colors.ON_SURFACE,
+                expand=True,
+                expand_loose=True,
+            ),
+            ft.Container(
+                content=ft.Icon(
+                    ft.Icons.ARROW_FORWARD,
+                    size=18,
+                    color=ft.Colors.ON_SURFACE_VARIANT,
+                    semantics_label=label,
+                ),
+                width=48,
+                height=48,
+                alignment=ft.Alignment.CENTER,
+            ),
         ],
         spacing=4,
     )
+    action.height = 48
+    action.expand = True
+    action.style = ft.ButtonStyle(
+        padding=ft.Padding.all(0),
+        alignment=ft.Alignment.CENTER_LEFT,
+    )
+    return ft.Row([action], spacing=4, tight=False)
 
 
 class HomeBudgets(ft.Column):
@@ -37,7 +62,7 @@ class HomeBudgets(ft.Column):
         self.summary: BudgetSummary | None = None
         self.failed = False
         self.generation = 0
-        self.open = ft.IconButton(icon_size=18, width=48, height=48, on_click=self._open)
+        self.open = ft.TextButton(on_click=self._open)
 
     def cancel(self) -> None:
         self.generation += 1
@@ -108,9 +133,6 @@ class HomeBudgets(ft.Column):
         summary = self.summary
         self.visible = host.show_home_budgets and (self.failed or bool(summary and summary.total))
         self.open.tooltip = host.tr("home_view_budgets")
-        self.open.icon = ft.Icon(
-            ft.Icons.ARROW_FORWARD, size=18, semantics_label=host.tr("home_view_budgets")
-        )
         self.controls = [home_heading(host.tr("budget_title"), self.open)]
         if self.failed:
             self.controls.append(ft.Text(host.tr("home_budgets_failed"), color=ft.Colors.ERROR))
@@ -195,7 +217,7 @@ class HomeBudgets(ft.Column):
                 )
             )
 
-    def _open(self, event: ft.Event[ft.IconButton]) -> None:
+    def _open(self, event: ft.Event[ft.TextButton]) -> None:
         self.host.budgets.month = self.host._today().replace(day=1)
         self.host.budgets.category_id = ""
         self.host.budgets.currency.value = ""

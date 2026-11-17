@@ -453,12 +453,8 @@ class FinanceView(ft.Row):
         )
         self.home_activity = ft.Column(spacing=0)
         self.home_budgets = HomeBudgets(self)
-        self.home_transactions_open = ft.IconButton(
-            icon_size=18, width=48, height=48, on_click=self._home_transactions
-        )
-        self.home_accounts_open = ft.IconButton(
-            icon_size=18, width=48, height=48, on_click=self._home_accounts
-        )
+        self.home_transactions_open = ft.TextButton(on_click=self._home_transactions)
+        self.home_accounts_open = ft.TextButton(on_click=self._home_accounts)
         self.accounts_panel_content = ft.Column(spacing=16)
         self.categories_panel_content = ft.Column(spacing=16)
         self.accounts_panel = ft.Container(
@@ -814,11 +810,6 @@ class FinanceView(ft.Row):
             (self.home_accounts_open, "home_view_accounts"),
         ):
             button.tooltip = self.tr(key)
-            button.icon = ft.Icon(
-                ft.Icons.ARROW_FORWARD,
-                size=18,
-                semantics_label=self.tr(key),
-            )
         self.home_budgets.sync()
         self._build_home_layout()
         self.budgets.sync()
@@ -3607,13 +3598,13 @@ class FinanceView(ft.Row):
 
         await self._action(save)
 
-    def _home_transactions(self, event: ft.Event[ft.IconButton]) -> None:
+    def _home_transactions(self, event: ft.Event[ft.TextButton]) -> None:
         self._navigate(
             "transactions",
             operations=OperationsLocation(filters_visible=self.operations_filters.visible),
         )
 
-    def _home_accounts(self, event: ft.Event[ft.IconButton]) -> None:
+    def _home_accounts(self, event: ft.Event[ft.TextButton]) -> None:
         self._navigate("accounts")
 
     async def _preview_backup_cleanup(self, event: ft.Event[ft.Button]) -> None:

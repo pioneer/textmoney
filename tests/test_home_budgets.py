@@ -144,9 +144,9 @@ def test_home_budget_layout_rank_counts_and_currency(
             balances_heading = host.home_screen.controls[1]
             heading = host.home_screen.controls[3]
         assert isinstance(balances_heading, ft.Row)
-        assert balances_heading.controls[1] is host.home_accounts_open
+        assert balances_heading.controls == [host.home_accounts_open]
         assert isinstance(heading, ft.Row)
-        assert heading.controls[1] is host.home_transactions_open
+        assert heading.controls == [host.home_transactions_open]
         assert isinstance(summary.controls[0], ft.Row)
         assert heading.spacing == summary.controls[0].spacing == 4
         for button, label in (
@@ -154,11 +154,16 @@ def test_home_budget_layout_rank_counts_and_currency(
             (host.home_transactions_open, "Переглянути операції"),
             (host.home_accounts_open, "Переглянути рахунки"),
         ):
-            assert button.width == button.height == 48 and button.icon_size == 18
+            assert isinstance(button, ft.TextButton)
+            assert button.height == 48 and button.expand
             assert button.tooltip == label
-            assert isinstance(button.icon, ft.Icon) and button.icon.semantics_label == label
-        text = heading.controls[0]
-        assert isinstance(text, ft.Text) and text.expand and text.expand_loose
+            assert isinstance(button.content, ft.Row)
+            assert button.content.spacing == 4
+            text, arrow = button.content.controls
+            assert isinstance(text, ft.Text) and text.expand and text.expand_loose
+            assert isinstance(arrow, ft.Container) and arrow.width == arrow.height == 48
+            assert isinstance(arrow.content, ft.Icon)
+            assert arrow.content.semantics_label == label
         assert host.home_budgets_label.width is not None
         assert host.home_budgets_label.width + 108 <= (host.body.width or width) - 40
 
@@ -217,9 +222,11 @@ def test_many_budget_preview_ranks_all_budgets_and_has_noninteractive_omitted_co
             host.language, "home_budgets_more", "home_budgets_more.plural", 24 - limit
         )
         assert omitted.value == ("Ще 19 бюджетів" if limit == 5 else "Ще 21 бюджет")
-        assert not any(
-            isinstance(control, (ft.TextButton, ft.Button)) for control in walk(host.home_budgets)
-        )
+        assert [
+            control
+            for control in walk(host.home_budgets)
+            if isinstance(control, (ft.TextButton, ft.Button))
+        ] == [host.home_budgets.open]
         texts = [
             control.value for control in walk(host.home_budgets) if isinstance(control, ft.Text)
         ]
@@ -229,7 +236,7 @@ def test_many_budget_preview_ranks_all_budgets_and_has_noninteractive_omitted_co
     asyncio.run(scenario())
 
 
-def test_summary_does_not_use_budget_filters_and_arrows_open_full_screens(
+def test_summary_ignores_budget_filters_and_home_headings_open_full_screens(
     view: tuple[FinanceView, MagicMock], tmp_path: Path
 ) -> None:
     async def scenario() -> None:

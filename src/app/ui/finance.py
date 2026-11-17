@@ -2090,9 +2090,14 @@ class FinanceView(ft.Row):
                 except Exception as exc:
                     self._error(exc, notify=True)
 
+            # Flet's native icon/content row does not constrain the label.
+            icon = action.icon
+            row: list[ft.Control] = []
+            if icon is not None:
+                row.append(icon if isinstance(icon, ft.Control) else ft.Icon(icon))
+            row.append(ft.Text(label, expand=True))
             return ft.PopupMenuItem(
-                content=label,
-                icon=action.icon,
+                content=ft.Row(row, spacing=8),
                 data=action.data,
                 disabled=action.disabled,
                 on_click=select,

@@ -69,7 +69,14 @@ async def fire(control: ft.Control, name: str) -> None:
 
 async def choose(menu: ft.ContextMenu, label: str) -> None:
     await fire(menu, "open")
-    await fire(next(item for item in menu.items if item.content == label), "click")
+    await fire(next(item for item in menu.items if menu_label(item) == label), "click")
+
+
+def menu_label(item: ft.PopupMenuItem) -> str:
+    if isinstance(item.content, str):
+        return item.content
+    assert isinstance(item.content, ft.Control)
+    return next(child.value for child in walk(item.content) if isinstance(child, ft.Text))
 
 
 @pytest.fixture
@@ -122,7 +129,7 @@ def test_item_actions_follow_platform_not_width(
         buttons = [child for child in walk(card) if isinstance(child, ft.IconButton)]
         assert len(buttons) == (0 if mobile else 1 if compact else 2)
         if mobile:
-            assert [item.content for item in menus(card)[0].items[1:]] == [
+            assert [menu_label(item) for item in menus(card)[0].items[1:]] == [
                 host.tr("crud_edit"),
                 host.tr("crud_delete"),
             ]
@@ -269,7 +276,7 @@ def test_mobile_readonly_preview_and_unsupported_transaction_remain_safe(
         await host.journal.load()
         split = host.journal.ledger.transactions[-1]
         menu = menus(host._transaction_card(split, {}))[0]
-        assert menu.items[1].content == host.tr("details")
+        assert menu_label(menu.items[1]) == host.tr("details")
         assert menu.items[2].disabled
         original = host.journal.source
         await choose(menu, host.tr("details"))
@@ -390,8 +397,8 @@ def test_menu_has_localized_accessible_name_and_touch_sized_entries(
     assert semantics.label == host.tr("item_actions", name=transaction.narration)
     assert isinstance(semantics.content, ft.Container) and semantics.content.min_height == 48
     assert all(item.height >= 48 for item in menu.items)
-    assert menu.items[1].content == host.tr("crud_edit")
-    assert menu.items[2].content == host.tr("crud_delete")
+    assert menu_label(menu.items[1]) == host.tr("crud_edit")
+    assert menu_label(menu.items[2]) == host.tr("crud_delete")
 
 
 def test_menu_dispatch_awaits_handlers_and_reports_failures(
@@ -476,7 +483,49 @@ def test_menu_reuses_desktop_action_icons(view: tuple[FinanceView, MagicMock]) -
         ft.TextButton("Report", icon=ft.Icons.BAR_CHART_OUTLINED, on_click=lambda _: None),
     ]
     menu = host._item_menu(ft.Text("Item"), "Item", actions)
-    assert [item.icon for item in menu.items[1:]] == [action.icon for action in actions]
+    assert [
+        child.icon
+        for item in menu.items[1:]
+        for child in walk(cast(ft.Control, item.content))
+        if isinstance(child, ft.Icon)
+    ] == [action.icon for action in actions]
+
+
+@pytest.mark.parametrize("icon_kind", ["native", "custom", "none"])
+def test_long_menu_action_wraps_within_available_width(
+    view: tuple[FinanceView, MagicMock], icon_kind: str
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        host.language = "uk"
+        name = "A long category name with several words and " + "x" * 100
+        label = f"{host.tr('show_operations')}: {name}"
+        icon = (
+            ft.Icon(ft.Icons.RECEIPT_LONG)
+            if icon_kind == "custom"
+            else ft.Icons.RECEIPT_LONG
+            if icon_kind == "native"
+            else None
+        )
+        handler = MagicMock()
+        action = ft.TextButton(label, icon=icon, data="Expenses:Food", on_click=handler)
+        menu = host._item_menu(ft.Text(name), name, [action])
+        entry = menu.items[1]
+        # A separate native item icon creates an unconstrained Flutter Row.
+        assert entry.icon is None
+        assert isinstance(entry.content, ft.Row)
+        text = entry.content.controls[-1]
+        assert isinstance(text, ft.Text) and text.expand
+        assert text.value == label and not text.no_wrap and text.max_lines is None
+        assert entry.height >= 48 and entry.content.height is None
+        if icon_kind == "custom":
+            assert entry.content.controls[0] is icon
+        await choose(menu, label)
+        handler.assert_called_once()
+        assert handler.call_args.args[0].control is action
+        assert handler.call_args.args[0].control.data == "Expenses:Food"
+
+    asyncio.run(scenario())
 
 
 def test_item_menu_uses_native_bounded_feedback_on_original_item(

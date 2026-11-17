@@ -138,7 +138,9 @@ position only; the native completed-click callback opens Flet's ContextMenu,
 so scrolling cancels activation without backend-driven animation.
 Completed taps pass their local/global position to Flet's native ContextMenu;
 Flutter fits the popup to screen edges. Accessible activation uses the trigger's
-center. Menu entries reuse desktop action icons.
+center. Menu entries reuse desktop action icons. Action labels share a constrained
+row with their icon and wrap within the popup; entries grow beyond the minimum
+48-pixel touch height when needed.
 The shared UI helper dispatches existing button handlers with their original
 payloads after Flutter dismisses the menu. It rejects changed journal/source,
 navigation, Operations page/filter and budget/report contexts rather than

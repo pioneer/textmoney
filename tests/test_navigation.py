@@ -46,16 +46,20 @@ def test_mobile_screen_history_back_forward_and_branching(
     navigation: tuple[FinanceView, MagicMock],
 ) -> None:
     view, page = navigation
+    assert not view.navigation_back.visible
+    assert not view.navigation_forward.visible
     view.budgets.month = date(2026, 2, 1)
     click(view.bottom_buttons[2])
     view._overflow_selected(MagicMock(control=MagicMock(data="accounts")))
     view._navigate("settings")
     assert view.screen_history == ["home", "budgets", "accounts", "settings"]
+    assert not view.navigation_back.visible
+    assert not view.navigation_forward.visible
 
     for screen in ("accounts", "budgets", "home"):
-        click(view.navigation_back)
+        assert view._back()
         assert view.current_screen == screen
-    assert not view.navigation_back.visible
+        assert not view.navigation_back.visible
     assert view._compact_selected_index() == 0
     assert view._forward()
     assert view.current_screen == "budgets"
@@ -107,10 +111,13 @@ def test_desktop_history_buttons_follow_platform_not_width(
     assert view.navigation_back.tooltip == view.tr("nav_back")
     assert view.navigation_forward.tooltip == view.tr("nav_forward")
     view._navigate("budgets")
-    assert view.navigation_back.visible == (desktop or width <= 599)
+    assert view.navigation_back.visible == desktop
     assert view.navigation_forward.visible == desktop
     assert not view.navigation_back.disabled and view.navigation_forward.disabled
-    click(view.navigation_back)
+    if desktop:
+        click(view.navigation_back)
+    else:
+        assert view._back()
     assert view.current_screen == "home"
     assert view.navigation_back.visible == desktop
     assert view.navigation_back.disabled and not view.navigation_forward.disabled
@@ -162,6 +169,8 @@ def test_system_back_uses_history_and_allows_exit_at_start(
     view, _ = navigation
     root = MagicMock(spec=ft.View)
     view._navigate("budgets")
+    assert not view.navigation_back.visible
+    assert not view.navigation_forward.visible
     asyncio.run(view._system_back(MagicMock(control=root)))
     assert view.current_screen == "home"
     root.confirm_pop.assert_awaited_once_with(False)
@@ -431,7 +440,8 @@ def test_mobile_groups_follow_the_shared_order_and_navigate_directly(
         assert view.screen_host.content is getattr(view, f"{screen}_screen")
         assert view._selected_index() == index
         assert page.bottom_appbar is view.navigation_bar
-        assert view.navigation_back.visible == (view.history_index > 0)
+        assert not view.navigation_back.visible
+        assert not view.navigation_forward.visible
     for screen in overflow:
         view._navigate(bottom[0])
         item = next(item for item in view.overflow_menu.items if item.data == screen)
@@ -441,7 +451,9 @@ def test_mobile_groups_follow_the_shared_order_and_navigate_directly(
         assert view.screen_host.content is getattr(view, f"{screen}_screen")
         assert view._selected_index() == len(bottom)
         assert page.bottom_appbar is view.navigation_bar
-        assert view.navigation_back.visible and view.overflow_menu.visible
+        assert not view.navigation_back.visible
+        assert not view.navigation_forward.visible
+        assert view.overflow_menu.visible
         for width in (800, 390):
             page.width = width
             view._apply_layout(width)
@@ -452,11 +464,11 @@ def test_mobile_groups_follow_the_shared_order_and_navigate_directly(
         if screen != "settings":
             view._navigate("settings")
             assert view.overflow_menu.visible
-            click(view.navigation_back)
+            assert view._back()
             assert view.current_screen == screen
             assert view._selected_index() == len(bottom)
             assert page.bottom_appbar is view.navigation_bar
-        click(view.navigation_back)
+        assert view._back()
         assert view.current_screen == bottom[0]
         assert view._compact_selected_index() == 0
         assert page.bottom_appbar is view.navigation_bar
@@ -565,15 +577,14 @@ def test_mobile_more_settings_opens_separate_view_and_back_restores_screen(
     assert view.screen_history[view.history_index - 1] == screen
     assert page.bottom_appbar is view.navigation_bar
     assert page.floating_action_button is None
-    assert view.overflow_menu.visible and view.navigation_back.visible
-    assert view.navigation_back.tooltip == view.tr("nav_back")
-    assert view.navigation_back.icon == ft.Icons.ARROW_BACK
-    assert view.navigation_back.on_click == view._back_clicked
+    assert view.overflow_menu.visible
+    assert not view.navigation_back.visible
+    assert not view.navigation_forward.visible
     assert view._compact_selected_index() == 4
     assert view.more_semantics.selected
     assert all(not semantics.selected for semantics in view.bottom_semantics)
 
-    click(view.navigation_back)
+    assert view._back()
     assert view.current_screen == screen
     assert page.bottom_appbar is view.navigation_bar
     assert page.floating_action_button is (
@@ -635,14 +646,15 @@ def test_settings_resize_preserves_return_screen_and_unsaved_preferences(
         assert view.nav_rail.selected_index == 6
         assert view._compact_selected_index() == 4
         assert page.bottom_appbar is (view.navigation_bar if width <= 599 else None)
-        assert view.navigation_back.visible == (width <= 599)
+        assert not view.navigation_back.visible
+        assert not view.navigation_forward.visible
         assert view.overflow_menu.visible == (width <= 599)
         assert view.operating_currencies.value == "EUR USD draft"
         assert view.timezone_choice.value == "Europe/Kyiv"
         assert view.screen_history[view.history_index - 1] == "reports"
     view._navigate("settings")
     assert view.screen_history[view.history_index - 1] == "reports"
-    click(view.navigation_back)
+    assert view._back()
     assert view.current_screen == "reports"
     assert view.report_period.value == "custom"
     assert view.report_start.occurred.value == "10/"
@@ -701,11 +713,12 @@ def test_compact_management_menu_returns_to_previous_primary_screen(
     assert view.overflow_menu.visible
     assert view._compact_selected_index() == 4
     assert view.more_semantics.selected
-    assert view.navigation_back.visible
+    assert not view.navigation_back.visible
+    assert not view.navigation_forward.visible
     assert page.bottom_appbar is view.navigation_bar
     assert page.floating_action_button is None
     view._navigate("settings")
-    click(view.navigation_back)
+    assert view._back()
     assert view.current_screen == screen
     assert view.screen_history[view.history_index - 1] == primary
     for width in (800, 390, 1366, 599, 600, 390):
@@ -713,12 +726,13 @@ def test_compact_management_menu_returns_to_previous_primary_screen(
         view._apply_layout(width)
         view._refresh_labels()
         assert view.current_screen == screen
-        assert view.navigation_back.visible == (width <= 599)
+        assert not view.navigation_back.visible
+        assert not view.navigation_forward.visible
         assert view.nav_rail.selected_index == 4 + tab
         assert page.bottom_appbar is (view.navigation_bar if width <= 599 else None)
         assert view.overflow_menu.visible == (width <= 599)
         assert view._compact_selected_index() == 4
-    click(view.navigation_back)
+    assert view._back()
     assert view.current_screen == primary
     assert page.bottom_appbar is view.navigation_bar
     index = view._compact_selected_index()
@@ -743,12 +757,13 @@ def test_rail_settings_resizes_into_mobile_settings_with_back_navigation(
     page.width = 390
     view._apply_layout(page.width)
     assert view.current_screen == "settings"
-    assert view.navigation_back.visible
+    assert not view.navigation_back.visible
+    assert not view.navigation_forward.visible
     assert page.bottom_appbar is view.navigation_bar
-    click(view.navigation_back)
+    assert view._back()
     assert view.current_screen == "categories"
     assert view._selected_index() == 4
-    assert view.navigation_back.visible and page.bottom_appbar is view.navigation_bar
+    assert not view.navigation_back.visible and page.bottom_appbar is view.navigation_bar
 
 
 @pytest.mark.parametrize("first,second", [("accounts", "categories"), ("categories", "accounts")])
@@ -770,14 +785,14 @@ def test_management_back_restores_previous_secondary_screen_after_resizing(
         assert view.nav_rail.selected_index == (4 if second == "accounts" else 5)
         assert view._compact_selected_index() == 4
     view._navigate("settings")
-    click(view.navigation_back)
+    assert view._back()
     assert view.screen_history[: view.history_index] == ["home", "budgets", first]
-    click(view.navigation_back)
+    assert view._back()
     assert view.current_screen == first
     restored = view.screen_host.content
     assert isinstance(restored, ft.Column) and restored.controls == [first_panel]
-    assert view.navigation_back.visible
-    click(view.navigation_back)
+    assert not view.navigation_back.visible
+    assert view._back()
     assert view.current_screen == "budgets"
     assert page.bottom_appbar is view.navigation_bar
     assert view.screen_history[view.history_index - 1] == "home"

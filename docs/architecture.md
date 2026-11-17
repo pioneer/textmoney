@@ -116,12 +116,12 @@ visits. Repeated destinations do not add visits; a new destination after Back
 drops later visits. Native desktop platforms expose stable shared header
 Back/Forward buttons, disabled at history boundaries, at every window width.
 Alt+Left/Right navigate on Linux/Windows; Command+[/] navigate on macOS.
-Shortcuts do not navigate through an open modal. Mobile/tablet layouts have
-no Forward button, regardless of width. On Android, the root view handles system Back after
-Flutter has handled any open dialog or menu, and delegates at the start.
-There is no mobile Forward control. On web, screen changes create browser
-history entries and Back/Forward restore the same session cursor; compact
-in-app Back uses browser history too. Web is not a released or validated platform.
+Shortcuts do not navigate through an open modal. Mobile/tablet layouts have no
+in-app Back or Forward buttons, regardless of width. On Android, the root view
+handles system Back after Flutter has handled any open dialog or menu, and
+delegates at the start. On web, screen changes create browser history entries
+and browser Back/Forward restore the same session cursor. Web is not a released
+or validated platform.
 Medium/expanded layouts use Home, Transactions, Budgets, Reports, Accounts, Categories and
 Settings rail destinations without the header gear or More menu. Budgets
 selects its own item in both layouts and has no temporary back-to-Reports action.

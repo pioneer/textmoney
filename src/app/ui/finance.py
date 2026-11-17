@@ -892,7 +892,7 @@ class FinanceView(ft.Row):
         self.more_semantics.selected = selected == len(bottom)
         self.overflow_menu.visible = compact and bool(overflow)
         desktop = self.desktop_navigation
-        self.navigation_back.visible = desktop or (compact and self.history_index > 0)
+        self.navigation_back.visible = desktop
         self.navigation_back.disabled = self.history_index == 0
         self.navigation_back.tooltip = self.tr("nav_back")
         self.navigation_forward.visible = desktop

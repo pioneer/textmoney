@@ -307,7 +307,8 @@ def test_budget_menus_cover_entire_item_and_keep_currency_targets(
         assert any(
             isinstance(child, ft.Semantics)
             and child.exclude_semantics
-            and isinstance(child.content, ft.ProgressBar)
+            and isinstance(child.content, ft.Control)
+            and any(isinstance(item, ft.ProgressBar) for item in walk(child.content))
             for child in walk(menu.content)
         )
         assert any(

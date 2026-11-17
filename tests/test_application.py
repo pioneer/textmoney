@@ -9,6 +9,7 @@ from flet.messaging.session import Session
 from app.application import main, report_page_error
 from app.domain import readiness_message
 from app.ui.home import home_view
+from app.ui.theme import dark_theme
 
 
 def test_import_and_view_without_gui() -> None:
@@ -29,10 +30,7 @@ def test_page_startup() -> None:
     assert page.theme.scaffold_bgcolor == "#ffffff"
     assert page.theme.color_scheme.surface == "#ffffff"
     assert page.theme.floating_action_button_theme.bgcolor == ft.Colors.PRIMARY
-    assert page.dark_theme == ft.Theme(
-        color_scheme_seed="#81c6b3",
-        surfaces=ft.ThemeSurfaces.TONAL,
-    )
+    assert page.dark_theme == dark_theme()
     assert [locale.language_code for locale in page.locale_configuration.supported_locales] == [
         "en",
         "uk",

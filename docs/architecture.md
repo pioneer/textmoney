@@ -173,12 +173,18 @@ language/theme choices are saved locally. Domain functions use Python types and 
 exceptions. Services decide retry, timeout, cancellation, and user-facing failure
 semantics. Adapters expose expected errors without hiding unexpected failures.
 
-The light theme uses white content/input surfaces, faint mint navigation, muted
-mint selection and Operations balance/daily-summary surfaces, and a deep teal
-transaction action. Summary and navigation-gutter overrides are scoped to light
-mode; dark mode retains the inherited seeded Material palette with tonal
-surfaces. Application dialogs,
-dropdown menus and date/time picker surfaces are white in light mode.
+The light theme uses white content/input surfaces, nearly-white mint navigation
+(`#effaf5`), and pale mint icon/Operations summary surfaces (`#d5f3e5`).
+The primary action has a subtle dark-green gradient (`#016d59` to `#00836a`);
+selected navigation pills blend `#bcebd6` to `#d5f3e5`. Both the desktop rail
+and compact bottom bar keep flat navigation backgrounds. Dark mode uses deep
+green surfaces with legible mint accents and matching semantic gradients, never
+the light mint surfaces. Shared theme roles drive gradients so system/light/dark
+changes apply without rebuilding decoration or changing financial meaning.
+The action remains a native floating action button with a decorative gradient fill;
+budget gradients mask native progress indicators and leave over-budget bars red.
+Application dialogs, dropdown menus and date/time picker surfaces are white in
+light mode and deep green in dark mode.
 Transaction leading icons have a rounded theme-aware background; grouping dates
 and both report-month headings include a calendar icon. The main status line
 uses matching small outlined-circle success, information or error/warning icons.

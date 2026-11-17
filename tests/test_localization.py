@@ -542,7 +542,8 @@ def test_page_owned_controls_receive_language_theme_and_transaction_updates(
         event.control.value = "uk"
         await view._language_changed(event)
         assert view.bottom_buttons[0].tooltip == ft.Tooltip("Головна", exclude_from_semantics=True)
-        assert page.floating_action_button.content == "Додати операцію"
+        assert page.floating_action_button is view.fab
+        assert view.fab_label.value == "Додати операцію"
         page.update.assert_called()
 
         page.update.reset_mock()

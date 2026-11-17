@@ -66,7 +66,9 @@ def walk(control: ft.Control) -> Iterator[ft.Control]:
     if isinstance(control, (ft.Row, ft.Column)):
         for child in control.controls:
             yield from walk(child)
-    if isinstance(control, ft.Container) and isinstance(control.content, ft.Control):
+    if isinstance(control, (ft.Container, ft.ShaderMask)) and isinstance(
+        control.content, ft.Control
+    ):
         yield from walk(control.content)
 
 

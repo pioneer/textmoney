@@ -1,48 +1,119 @@
 from datetime import date
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 import flet as ft
 import pytest
 
 from app.domain.ledger import LedgerError
+from app.ui.budgets import budget_progress_bar
 from app.ui.finance import FinanceView
-from app.ui.theme import MINT_SURFACE, NAVIGATION_SURFACE, light_theme
+from app.ui.theme import (
+    ACCENT_SURFACE,
+    DARK_ACCENT_SURFACE,
+    DARK_NAVIGATION_SURFACE,
+    NAVIGATION_SURFACE,
+    ON_ACCENT_SURFACE,
+    PRIMARY_COLOR,
+    dark_theme,
+    light_theme,
+)
 from app.ui.tree_style import CategoryMenuAnchor
 
 
-def test_light_palette_uses_white_content_and_restrained_mint() -> None:
+def test_light_palette_uses_white_content_and_approved_mint() -> None:
     theme = light_theme()
     scheme = theme.color_scheme
     assert scheme is not None
+    assert theme.color_scheme_seed == PRIMARY_COLOR == "#016d59"
     assert scheme.surface == scheme.surface_container_low == "#ffffff"
     assert scheme.surface_container_highest == "#ffffff"
-    assert scheme.primary == "#287a6a" and scheme.on_primary == "#ffffff"
+    assert scheme.primary == PRIMARY_COLOR and scheme.on_primary == "#ffffff"
+    assert scheme.secondary_container == ACCENT_SURFACE == "#d5f3e5"
+    assert scheme.on_secondary_container == ON_ACCENT_SURFACE
     assert scheme.on_surface == "#202725"
     assert scheme.on_surface_variant == "#59645f"
-    assert scheme.outline_variant == "#dce5e0"
+    assert scheme.outline_variant == "#d7e7df"
     assert theme.navigation_rail_theme is not None
-    assert theme.navigation_rail_theme.bgcolor == NAVIGATION_SURFACE
-    assert theme.navigation_rail_theme.indicator_color == MINT_SURFACE
+    assert theme.navigation_rail_theme.bgcolor == NAVIGATION_SURFACE == "#effaf5"
+    assert theme.navigation_rail_theme.indicator_color == ft.Colors.TRANSPARENT
     assert theme.bottom_appbar_theme is not None
     assert theme.bottom_appbar_theme.bgcolor == NAVIGATION_SURFACE
 
 
-def test_summary_surfaces_are_scoped_without_dark_overrides() -> None:
+def test_summary_surfaces_have_separate_light_and_dark_mint() -> None:
     view = FinanceView()
     summary = view._daily_summary(MagicMock(), date(2026, 11, 5), ())
     for surface in (view.operations_totals, summary):
         assert surface.theme is not None
         assert surface.theme.color_scheme is not None
-        assert surface.theme.color_scheme.surface == MINT_SURFACE
-        assert surface.theme.color_scheme.primary == "#205f50"
-        assert surface.dark_theme == ft.Theme()
+        assert surface.theme.color_scheme.surface == ACCENT_SURFACE
+        assert surface.theme.color_scheme.primary == ON_ACCENT_SURFACE
+        assert surface.dark_theme is not None
+        assert surface.dark_theme.color_scheme is not None
+        assert surface.dark_theme.color_scheme.surface == DARK_ACCENT_SURFACE
         assert surface.theme_mode is None
     assert summary.theme is not None
     assert summary.theme.text_button_theme is not None
     assert summary.theme.text_button_theme.style is not None
-    assert summary.theme.text_button_theme.style.bgcolor == MINT_SURFACE
+    assert summary.theme.text_button_theme.style.bgcolor == ACCENT_SURFACE
     assert isinstance(view.operations_totals.content, ft.Container)
     assert view.operations_totals.content.bgcolor == ft.Colors.SURFACE
+
+
+def test_dark_palette_keeps_navigation_and_popups_dark() -> None:
+    theme = dark_theme()
+    assert theme.color_scheme is not None
+    assert theme.color_scheme.surface == theme.scaffold_bgcolor == "#101c18"
+    assert theme.color_scheme.secondary_container == DARK_ACCENT_SURFACE
+    assert theme.navigation_rail_theme is not None
+    assert theme.navigation_rail_theme.bgcolor == DARK_NAVIGATION_SURFACE
+    assert theme.bottom_appbar_theme is not None
+    assert theme.bottom_appbar_theme.bgcolor == DARK_NAVIGATION_SURFACE
+    assert theme.dialog_theme is not None and theme.dialog_theme.bgcolor == "#172a21"
+    assert theme.dropdown_theme is not None and theme.dropdown_theme.menu_style is not None
+    assert theme.dropdown_theme.menu_style.bgcolor == "#172a21"
+
+
+def test_gradient_decorations_retain_native_actions_and_theme_roles() -> None:
+    view = FinanceView()
+    assert view.fab.content is view.fab_surface
+    assert view.fab.on_click == view._new_transaction
+    assert view.fab.disabled
+    assert view.fab_surface.opacity == 0.38
+    assert isinstance(view.fab_surface.gradient, ft.LinearGradient)
+    assert view.fab_surface.gradient.colors == [ft.Colors.PRIMARY, ft.Colors.SECONDARY]
+    view._build_navigation()
+    selected_icon = view.nav_rail.destinations[0].selected_icon
+    assert isinstance(selected_icon, ft.Container)
+    assert isinstance(selected_icon.gradient, ft.LinearGradient)
+    bottom = view._bottom_content("Home", ft.Icons.HOME, True)
+    pill = bottom.controls[0]
+    assert isinstance(pill, ft.Container) and isinstance(pill.gradient, ft.LinearGradient)
+    assert pill.gradient == selected_icon.gradient
+    assert pill.gradient.colors == [
+        ft.Colors.PRIMARY_CONTAINER,
+        ft.Colors.SECONDARY_CONTAINER,
+    ]
+    unselected = view._bottom_content("Other", ft.Icons.HOME, False).controls[0]
+    assert isinstance(unselected, ft.Container) and unselected.gradient is None
+
+
+@pytest.mark.parametrize("consumed,expected", [("-5", 0), ("50", 0.5), ("125", 1)])
+def test_budget_gradient_preserves_native_value_and_red_overspending(
+    consumed: str, expected: float
+) -> None:
+    progress = budget_progress_bar(Decimal(consumed), False, compact=True)
+    assert isinstance(progress, ft.Container) and isinstance(progress.content, ft.ShaderMask)
+    native = progress.content.content
+    assert isinstance(native, ft.ProgressBar)
+    assert native.value == expected
+    assert native.height == native.bar_height == 3
+    assert progress.content.blend_mode == ft.BlendMode.SRC_IN
+    assert native.bgcolor == ft.Colors.TRANSPARENT
+    overspent = budget_progress_bar(Decimal(consumed), True)
+    assert isinstance(overspent, ft.ProgressBar)
+    assert overspent.value == expected and overspent.color == ft.Colors.ERROR
 
 
 def test_light_popup_surfaces_are_white() -> None:
@@ -151,7 +222,8 @@ def test_status_error_icon_resets_after_success() -> None:
     assert view.message_icon.icon == ft.Icons.CHECK_CIRCLE_OUTLINE
 
 
-def test_palette_text_contrast() -> None:
+@pytest.mark.parametrize("theme", [light_theme(), dark_theme()], ids=["light", "dark"])
+def test_palette_text_contrast(theme: ft.Theme) -> None:
     def luminance(color: str) -> float:
         channels = [int(color[index : index + 2], 16) / 255 for index in (1, 3, 5)]
         linear = [
@@ -162,14 +234,23 @@ def test_palette_text_contrast() -> None:
             value * weight for value, weight in zip(linear, (0.2126, 0.7152, 0.0722), strict=True)
         )
 
+    scheme = theme.color_scheme
+    assert scheme is not None
     for foreground, background in (
-        ("#202725", "#ffffff"),
-        ("#59645f", "#ffffff"),
-        ("#202725", MINT_SURFACE),
-        ("#59645f", MINT_SURFACE),
-        ("#287a6a", "#ffffff"),
-        ("#205f50", MINT_SURFACE),
-        ("#ffffff", "#287a6a"),
+        (scheme.on_surface, scheme.surface),
+        (scheme.on_surface_variant, scheme.surface),
+        (scheme.on_surface, scheme.secondary_container),
+        (scheme.on_surface_variant, scheme.secondary_container),
+        (scheme.primary, scheme.surface),
+        (scheme.on_secondary_container, scheme.secondary_container),
+        (scheme.on_secondary_container, scheme.primary_container),
+        (scheme.on_primary, scheme.primary),
+        (scheme.on_primary, scheme.secondary),
+        (
+            scheme.on_surface,
+            NAVIGATION_SURFACE if theme == light_theme() else DARK_NAVIGATION_SURFACE,
+        ),
     ):
+        assert isinstance(foreground, str) and isinstance(background, str)
         lighter, darker = sorted((luminance(foreground), luminance(background)), reverse=True)
-        assert (lighter + 0.05) / (darker + 0.05) >= 4.5
+        assert (lighter + 0.05) / (darker + 0.05) >= 4.5, (foreground, background)

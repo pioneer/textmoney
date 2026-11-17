@@ -16,6 +16,7 @@ from app.journal import FILENAME, Journal
 from app.ui import finance
 from app.ui.finance import FinanceView
 from app.ui.operations import OperationsLocation
+from app.ui.theme import DARK_NAVIGATION_SURFACE
 
 
 @pytest.fixture
@@ -625,7 +626,9 @@ def test_settings_destination_follows_layout_width(
         assert isinstance(surface, ft.Container)
         assert surface.content is view.nav_rail
         assert surface.bgcolor == ft.Colors.SURFACE
-        assert view.controls[0].dark_theme == ft.Theme()
+        assert view.controls[0].dark_theme == ft.Theme(
+            color_scheme=ft.ColorScheme(surface=DARK_NAVIGATION_SURFACE)
+        )
         view.nav_rail.selected_index = 6
         view._rail_changed(MagicMock(control=view.nav_rail))
         assert view.current_screen == "settings"

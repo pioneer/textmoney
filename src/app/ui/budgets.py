@@ -34,6 +34,7 @@ from app.storage import StorageError
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import show_dialog
 from app.ui.layout import action_toolbar, month_navigation
+from app.ui.theme import action_gradient
 from app.ui.tree_style import compact_tree_theme
 
 if TYPE_CHECKING:
@@ -43,10 +44,25 @@ _REPORT_TEXT_INSET = 14
 logger = logging.getLogger(__name__)
 
 
-def budget_progress_bar(consumed: Decimal, overspent: bool) -> ft.ProgressBar:
-    return ft.ProgressBar(
+def budget_progress_bar(
+    consumed: Decimal, overspent: bool, *, compact: bool = False
+) -> ft.ProgressBar | ft.Container:
+    bar = ft.ProgressBar(
         value=float(max(Decimal(0), min(Decimal(100), consumed))) / 100,
-        color=ft.Colors.ERROR if overspent else None,
+        color=ft.Colors.ERROR if overspent else ft.Colors.WHITE,
+        bgcolor=ft.Colors.SECONDARY_CONTAINER if overspent else ft.Colors.TRANSPARENT,
+        height=3 if compact else None,
+        bar_height=3 if compact else None,
+    )
+    if overspent:
+        return bar
+    return ft.Container(
+        bgcolor=ft.Colors.SECONDARY_CONTAINER,
+        content=ft.ShaderMask(
+            content=bar,
+            shader=action_gradient(),
+            blend_mode=ft.BlendMode.SRC_IN,
+        ),
     )
 
 
@@ -813,11 +829,12 @@ class BudgetView(ft.Column):
                 ),
             ]
             progress_label = None
+            progress: ft.Control | None = None
             if consumed is not None:
                 progress_label = ft.Text(
                     f"{tr('budget_consumed')}: {format_budget_number(consumed, 2)}%"
                 )
-                progress: ft.Control = budget_progress_bar(consumed, overspent)
+                progress = budget_progress_bar(consumed, overspent)
                 if self.host._mobile_item_actions:
                     # The adjacent percentage is accessible; the bar's role must
                     # not override the whole item's merged button semantics.
@@ -843,7 +860,7 @@ class BudgetView(ft.Column):
                 ft.Column(
                     [
                         line
-                        if isinstance(line, (ft.ProgressBar, ft.Semantics))
+                        if line is progress
                         else ft.Container(
                             line,
                             padding=ft.Padding(

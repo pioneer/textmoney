@@ -91,7 +91,13 @@ from app.ui.home_budgets import HomeBudgets, home_heading
 from app.ui.icons import IconDraft, IconField, IconPicker, IconRemovalDialog, icon_image
 from app.ui.layout import HoverRow, action_toolbar, month_navigation
 from app.ui.operations import OperationsLocation, OperationsView
-from app.ui.theme import NAVIGATION_SURFACE, summary_theme
+from app.ui.theme import (
+    DARK_NAVIGATION_SURFACE,
+    NAVIGATION_SURFACE,
+    action_gradient,
+    selection_gradient,
+    summary_theme,
+)
 from app.ui.tree_style import (
     TREE_MENU_ROW_HEIGHT,
     TREE_MOBILE_MENU_ROW_HEIGHT,
@@ -348,7 +354,7 @@ class FinanceView(ft.Row):
         self.operations_totals = ft.Container(
             visible=False,
             theme=summary_theme(),
-            dark_theme=ft.Theme(),
+            dark_theme=summary_theme(dark=True),
             content=ft.Container(
                 bgcolor=ft.Colors.SURFACE,
                 padding=ft.Padding.symmetric(horizontal=14, vertical=10),
@@ -470,8 +476,27 @@ class FinanceView(ft.Row):
         self.category_save = ft.Button(
             icon=ft.Icons.ADD, width=240, height=48, on_click=self._create_category
         )
+        self.fab_label = ft.Text(
+            self.tr("add_transaction"),
+            color=ft.Colors.ON_PRIMARY,
+            size=14,
+            weight=ft.FontWeight.W_500,
+        )
+        self.fab_surface = ft.Container(
+            content=ft.Row(
+                [ft.Icon(ft.Icons.ADD, color=ft.Colors.ON_PRIMARY), self.fab_label],
+                tight=True,
+                spacing=8,
+            ),
+            gradient=action_gradient(),
+            border_radius=16,
+            padding=ft.Padding.symmetric(horizontal=16),
+            height=56,
+            # Keep the native button's ink/focus overlay visible through the fill.
+            opacity=0.38,
+        )
         self.fab = ft.FloatingActionButton(
-            icon=ft.Icons.ADD,
+            content=self.fab_surface,
             on_click=self._new_transaction,
             disabled=True,
         )
@@ -866,7 +891,16 @@ class FinanceView(ft.Row):
             )
         self.nav_rail.destinations = [
             ft.NavigationRailDestination(
-                label=self.tr(label), icon=icon, selected_icon=selected_icon
+                label=self.tr(label),
+                icon=icon,
+                selected_icon=ft.Container(
+                    content=ft.Icon(selected_icon, color=ft.Colors.ON_SECONDARY_CONTAINER),
+                    width=56,
+                    height=32,
+                    alignment=ft.Alignment.CENTER,
+                    border_radius=16,
+                    gradient=selection_gradient(),
+                ),
             )
             for screen in RAIL_DESTINATIONS
             for label, icon, selected_icon in [destinations[screen]]
@@ -917,7 +951,7 @@ class FinanceView(ft.Row):
                     height=32,
                     alignment=ft.Alignment.CENTER,
                     border_radius=16,
-                    bgcolor=ft.Colors.SECONDARY_CONTAINER if selected else None,
+                    gradient=selection_gradient() if selected else None,
                 ),
                 ft.Text(
                     label,
@@ -960,8 +994,9 @@ class FinanceView(ft.Row):
             ft.Text(self.tr("home_recent"), size=21, weight=ft.FontWeight.W_600),
             self.home_activity,
         ]
-        self.fab.content = self.tr("add_transaction")
+        self.fab_label.value = self.tr("add_transaction")
         self.fab.disabled = not ready
+        self.fab_surface.opacity = 0.38 if self.fab.disabled else 0.9
         self.transactions_screen.controls = [
             action_toolbar(self.operations.reset, self.operations_filter_toggle),
             self.operations_filters,
@@ -1131,7 +1166,9 @@ class FinanceView(ft.Row):
             self.controls = [
                 ft.Container(
                     theme=ft.Theme(color_scheme=ft.ColorScheme(surface=NAVIGATION_SURFACE)),
-                    dark_theme=ft.Theme(),
+                    dark_theme=ft.Theme(
+                        color_scheme=ft.ColorScheme(surface=DARK_NAVIGATION_SURFACE)
+                    ),
                     content=ft.Container(
                         bgcolor=ft.Colors.SURFACE,
                         padding=ft.Padding.symmetric(horizontal=5),
@@ -1159,8 +1196,9 @@ class FinanceView(ft.Row):
             else None
         )
         if self.page:
-            self.fab.content = self.tr("add_transaction")
+            self.fab_label.value = self.tr("add_transaction")
             self.fab.disabled = not (self.journal and self.journal.ready)
+            self.fab_surface.opacity = 0.38 if self.fab.disabled else 0.9
             self.page.floating_action_button = (
                 None if self.screen_class == ScreenClass.COMPACT and secondary else self.fab
             )
@@ -2662,7 +2700,7 @@ class FinanceView(ft.Row):
         return ft.Container(
             padding=ft.Padding.only(bottom=4),
             theme=summary_theme(),
-            dark_theme=ft.Theme(),
+            dark_theme=summary_theme(dark=True),
             content=ft.Column([ft.Row([button])], spacing=0),
         )
 

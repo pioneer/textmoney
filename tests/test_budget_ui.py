@@ -50,7 +50,9 @@ def walk(control: ft.Control) -> Iterator[ft.Control]:
     if isinstance(control, (ft.Column, ft.Row, ft.ListView)):
         for child in control.controls:
             yield from walk(child)
-    if isinstance(control, (ft.Container, fc.Canvas)) and isinstance(control.content, ft.Control):
+    if isinstance(control, (ft.Container, ft.ShaderMask, fc.Canvas)) and isinstance(
+        control.content, ft.Control
+    ):
         yield from walk(control.content)
     if isinstance(control, ft.ListTile) and isinstance(control.title, ft.Control):
         yield from walk(control.title)
@@ -772,8 +774,10 @@ def test_budget_report_non_expanding_rows_have_transaction_actions(
                     continue
                 lines = section.controls if isinstance(section, ft.Column) else [section]
                 for line in lines:
-                    if isinstance(line, ft.ProgressBar):
-                        bars.append(line)
+                    if isinstance(line, ft.ProgressBar) or (
+                        isinstance(line, ft.Container) and isinstance(line.content, ft.ShaderMask)
+                    ):
+                        bars.extend(item for item in walk(line) if isinstance(item, ft.ProgressBar))
                     else:
                         assert isinstance(line, ft.Container)
                         assert isinstance(line.content, ft.Text)
@@ -783,7 +787,10 @@ def test_budget_report_non_expanding_rows_have_transaction_actions(
                         )
                         assert line.content.tooltip is None
                         if progress:
-                            assert isinstance(lines[lines.index(line) + 1], ft.ProgressBar)
+                            assert any(
+                                isinstance(item, ft.ProgressBar)
+                                for item in walk(lines[lines.index(line) + 1])
+                            )
                             assert isinstance(section, ft.Column) and section.spacing == 4
             assert bars
             transactions = actions[0]

@@ -176,9 +176,8 @@ class HomeBudgets(ft.Column):
                     )
                     progress.append(ft.Text(f"{currency}: {message}", size=12))
                     continue
-                bar = budget_progress_bar(consumed, overspent)
+                bar = budget_progress_bar(consumed, overspent, compact=True)
                 bar.expand = True
-                bar.height = bar.bar_height = 3
                 percentage = f"{format_budget_number(consumed, 2)}%"
                 progress.append(
                     ft.Row(

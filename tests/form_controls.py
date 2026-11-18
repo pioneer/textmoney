@@ -68,6 +68,7 @@ class TransactionForm:
     fee_mode: ft.Dropdown
     fee_currency: ft.Dropdown
     fee_category: ft.Dropdown
+    fee_category_create: ft.IconButton
     preview: ft.Text
     when: DateTimeFields
 
@@ -128,6 +129,7 @@ def transaction_form(dialog: ft.AlertDialog) -> TransactionForm:
         fee_mode=get("fee_mode", ft.Dropdown),
         fee_currency=get("fee_currency", ft.Dropdown),
         fee_category=get("fee_category", ft.Dropdown),
+        fee_category_create=get("fee_category_create", ft.IconButton),
         preview=get("preview", ft.Text),
         when=when,
     )

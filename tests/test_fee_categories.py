@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import pytest
 from flet.controls.device_info import DeviceInfo
-from form_controls import category_content, change, click_async, transaction_form
+from form_controls import category_content, change, click, click_async, transaction_form
 
 from app.domain.ledger import BANK_FEES
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -146,6 +146,101 @@ def test_every_fee_selector_shows_hierarchy_and_only_configured_branches(
         ]
         assert form.fee_category.value == CHILD and not form.fee_category.disabled
         assert journal.source == SOURCE
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("branch", [BRANCH, "Expenses:Processing"])
+def test_inline_fee_category_enforces_branches_and_preserves_transaction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, branch: str
+) -> None:
+    async def scenario() -> None:
+        view, page, journal = await setup(tmp_path, monkeypatch)
+        default = FeePreferences((branch,), branch)
+        view.fee_preferences = default
+        view._new_transaction(MagicMock())
+        parent = page.show_dialog.call_args.args[0]
+        form = transaction_form(parent)
+        assert not form.fee_category.visible and not form.fee_category_create.visible
+        form.account.value = "Assets:Cash"
+        form.category.value = "Expenses:Food"
+        form.amount.value = "20"
+        form.description.value = "Draft"
+        form.fee_enabled.value = True
+        change(form.fee_enabled)
+        form.fee.value = "3"
+        assert form.fee_category.visible and form.fee_category_create.visible
+
+        click(form.fee_category_create)
+        child = page.show_dialog.call_args.args[0]
+        assert isinstance(child, ft.AlertDialog) and isinstance(child.content, ft.Column)
+        fields = {
+            item.data: item for item in child.content.controls if isinstance(item, ft.TextField)
+        }
+        path, name = fields["quick_category_path"], fields["quick_category_name"]
+        name.value = "Service"
+        change(name)
+        proposed = path.value
+        assert proposed == branch + ":Service"
+        path.value = "Expenses:Fees-Other:Service"
+        action = child.actions[-1]
+        assert isinstance(action, ft.TextButton)
+        await click_async(action)
+        assert view.error_message == "fee_category_branch_required"
+        page.pop_dialog.assert_not_called()
+        assert journal.source == SOURCE
+        assert form.category.value == "Expenses:Food"
+
+        path.value = proposed
+        await click_async(action)
+        page.pop_dialog.assert_called_once()
+        assert form.fee_category.value == proposed
+        assert proposed in {item.key for item in form.fee_category.options}
+        assert form.category.value == "Expenses:Food"
+        assert (form.description.value, form.amount.value, form.fee.value) == ("Draft", "20", "3")
+        assert not journal.ledger.transactions
+        assert view.fee_preferences == default
+        await click_async(parent.actions[-1])
+        assert view.error_message is None
+        transaction = journal.ledger.transactions[-1]
+        details = journal.ledger.cashflow_details(transaction)
+        assert details.account.account == "Assets:Cash"
+        assert details.category.account == "Expenses:Food"
+        assert details.fee_category == proposed
+
+    asyncio.run(scenario())
+
+
+def test_inline_fee_category_explains_when_all_permitted_branches_are_inactive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        view, page, journal = await setup(tmp_path, monkeypatch)
+        path = tmp_path / FILENAME
+        path.write_text(
+            SOURCE.replace('    name: "Fees"', '    name: "Fees"\n    textmoney-active: FALSE')
+        )
+        await journal.load()
+        assert not journal.ledger.category_active(CHILD)
+        view._new_transaction(MagicMock())
+        dialog = page.show_dialog.call_args.args[0]
+        form = transaction_form(dialog)
+        form.fee_enabled.value = True
+        change(form.fee_enabled)
+        assert form.fee_category.visible and not form.fee_category_create.visible
+        notice = view.tr("fee_category_branch_required")
+        assert form.advanced.controls is not None
+        (advanced_content,) = form.advanced.controls
+        assert isinstance(advanced_content, ft.Column)
+        fee_fields = next(
+            item
+            for item in advanced_content.controls
+            if isinstance(item, ft.Column) and form.fee_enabled in item.controls
+        )
+        assert any(
+            isinstance(item, ft.Text) and item.value == notice and item.visible
+            for item in fee_fields.controls
+        )
 
     asyncio.run(scenario())
 

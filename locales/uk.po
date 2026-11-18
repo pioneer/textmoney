@@ -956,6 +956,9 @@ msgstr "Журнал перенесено, але спільні налашту�
 msgid "ui.fee_categories_all"
 msgstr "Усі категорії витрат"
 
+msgid "ui.fee_category_branch_required"
+msgstr "Для нової категорії комісій потрібна активна гілка витрат, дозволена для комісій у налаштуваннях."
+
 #. Stable TextMoney key: ui.fee_categories_invalid; do not translate this identifier.
 msgid "ui.fee_categories_invalid"
 msgstr "Виберіть хоча б одну гілку категорій витрат і типову категорію в цих гілках. Якщо збережені параметри некоректні, перевірте налаштування комісій цього пристрою."

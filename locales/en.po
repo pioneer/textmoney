@@ -954,6 +954,9 @@ msgstr "The journal was migrated, but shared commission settings could not be up
 msgid "ui.fee_categories_all"
 msgstr "All expense categories"
 
+msgid "ui.fee_category_branch_required"
+msgstr "New fee categories require an active expense branch allowed for commissions in Settings."
+
 #. Stable TextMoney key: ui.fee_categories_invalid; do not translate this identifier.
 msgid "ui.fee_categories_invalid"
 msgstr "Select at least one expense category branch and a default within those branches. If saved settings are invalid, check this device's commission settings."

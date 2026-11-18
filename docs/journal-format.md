@@ -232,6 +232,11 @@ for sequential synchronization, conflict review and failure semantics.
 Fee selectors (including the Settings default) use path order and nesting
 indentation. An existing transaction's fee remains available when editing even if
 later excluded; inactive categories retain the existing save validation.
+The transaction fee picker can create an expense category inside the commission
+branches available to that draft, without changing the saved branches or default.
+Budget Add, Edit, and New version can create an expense or income category;
+Stop budget and report filters only select existing categories. Inline creation
+saves the category immediately and selects it without submitting the parent draft.
 A missing `Expenses:Bank-Fees`
 is declared only on first nonzero use, in the same guarded save.
 

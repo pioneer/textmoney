@@ -15,6 +15,7 @@ import pytest
 from form_controls import (
     assert_deletion_title,
     category_content,
+    change,
     click,
     click_async,
     dropdown_field,
@@ -82,6 +83,92 @@ async def load(view: FinanceView, tmp_path: Path, source: str = SOURCE) -> Journ
     view.budgets.month = date(2026, 1, 1)
     await view.budgets.refresh()
     return journal
+
+
+@pytest.mark.parametrize("mode", ["add", "edit", "version", "stop"])
+def test_budget_inline_category_preserves_draft(
+    view: tuple[FinanceView, MagicMock],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        monkeypatch.setattr(host, "_today", lambda: date(2026, 11, 18))
+        empty = 'option "operating_currency" "USD"\n2000-01-01 open Assets:Cash USD\n'
+        journal = await load(host, tmp_path, empty if mode == "add" else SOURCE)
+        original_budgets = journal.ledger.budgets
+        existing = original_budgets[0] if original_budgets else None
+        host.budgets._form(existing, new=mode in {"version", "stop"}, stop=mode == "stop")
+        parent = page.show_dialog.call_args.args[0]
+        assert isinstance(parent, ft.AlertDialog) and isinstance(parent.content, ft.Column)
+        buttons = [
+            item
+            for item in walk(parent.content)
+            if isinstance(item, ft.IconButton) and item.data == "budget_category_create"
+        ]
+        if mode == "stop":
+            assert not buttons
+            return
+        (create,) = buttons
+        category, amount, currency, effective = fields(parent)
+        interval = next(
+            item
+            for item in walk(parent.content)
+            if isinstance(item, ft.Dropdown) and item.label == host.tr("budget_interval")
+        )
+        original_category = category.value
+        if mode == "add":
+            assert not category.options
+        amount.value, currency.value, interval.value = "42", "EUR", "weekly"
+        effective.occurred.value = date_input(date(2026, 11, 10), host.language)
+
+        click(create)
+        cancelled = page.show_dialog.call_args.args[0]
+        click(cancelled.actions[0])
+        assert category.value == original_category
+        assert journal.ledger.budgets == original_budgets
+        assert all(item.id != "Income:Bonus" for item in journal.ledger.categories)
+
+        click(create)
+        child = page.show_dialog.call_args.args[0]
+        assert isinstance(child, ft.AlertDialog) and isinstance(child.content, ft.Column)
+        root = next(
+            item
+            for item in walk(child.content)
+            if isinstance(item, ft.Dropdown) and item.data == "quick_category_root"
+        )
+        root.value = "Income"
+        change(root)
+        drafts = {item.data: item for item in walk(child.content) if isinstance(item, ft.TextField)}
+        drafts["quick_category_path"].value = "Bonus"
+        drafts["quick_category_name"].value = "Bonus"
+        await submit(child)
+        assert host.error_message is None
+        assert category.value == "Income:Bonus"
+        assert any(option.key == category.value for option in category.options)
+        assert journal.ledger.budgets == original_budgets
+        assert (amount.value, currency.value, interval.value, effective.values()[0]) == (
+            "42",
+            "EUR",
+            "weekly",
+            "2026-11-10",
+        )
+        created = next(item for item in journal.ledger.categories if item.id == category.value)
+        assert created.opened == date(2026, 11, 10)
+
+        await submit(parent)
+        assert host.error_message is None
+        assert len(journal.ledger.budgets) == (2 if mode == "version" else 1)
+        saved = next(item for item in journal.ledger.budgets if item.account == category.value)
+        assert (saved.amount, saved.currency, saved.interval, saved.date) == (
+            Decimal("42"),
+            "EUR",
+            "weekly",
+            date(2026, 11, 10),
+        )
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("width", [390, 1366])
@@ -692,11 +779,17 @@ def test_budget_form_dropdowns_fill_the_form(
             row = next(
                 control
                 for control in dialog.content.controls
-                if isinstance(control, ft.Row)
-                and [dropdown_field(child) for child in control.controls] == [dropdown]
+                if isinstance(control, ft.Row) and dropdown_field(control.controls[0]) is dropdown
             )
             assert row.width is None and not row.wrap
             assert dropdown.expand is True and dropdown.width is None
+            if dropdown is dropdowns[0] and mode != "stop":
+                _, create = row.controls
+                assert isinstance(create, ft.IconButton) and create.tooltip == host.tr(
+                    "create_category"
+                )
+            else:
+                assert len(row.controls) == 1
         host._dismiss(MagicMock())
         assert journal.source == before
         assert (tmp_path / FILENAME).read_text() == SOURCE

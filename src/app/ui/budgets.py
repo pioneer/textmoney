@@ -1271,23 +1271,27 @@ class BudgetView(ft.Column):
             return
         source = journal.source
         tr = self.host.tr
-        identifiers = {category.id: category.name for category in journal.ledger.categories}
-        if budget is not None:
-            identifiers.setdefault(budget.account, budget.account)
-        category = ft.Dropdown(
-            expand=True,
-            menu_height=self.host._category_menu_height(),
-            label=tr("budget_category"),
-            on_select=self.host._entity_dropdown_selected,
-            leading_icon=self.host._entity_dropdown_icon(budget.account) if budget else None,
-            options=self.host._category_option_lines(
+
+        def category_options() -> list[ft.DropdownOption]:
+            identifiers = {item.id: item.name for item in journal.ledger.categories}
+            if budget is not None:
+                identifiers.setdefault(budget.account, budget.account)
+            return self.host._category_option_lines(
                 self.host._category_form_options(
                     [
                         (key, identifiers[key])
                         for key in sorted(identifiers, key=lambda identifier: identifier.split(":"))
                     ]
                 )
-            ),
+            )
+
+        category = ft.Dropdown(
+            expand=True,
+            menu_height=self.host._category_menu_height(),
+            label=tr("budget_category"),
+            on_select=self.host._entity_dropdown_selected,
+            leading_icon=self.host._entity_dropdown_icon(budget.account) if budget else None,
+            options=category_options(),
             value=budget.account if budget else None,
         )
         amount = ft.TextField(
@@ -1331,6 +1335,34 @@ class BudgetView(ft.Column):
 
         interval.on_select = interval_changed
 
+        def create_category(event: ft.Event[ft.IconButton]) -> None:
+            def select_created(identifier: str, updated_source: str) -> None:
+                nonlocal source
+                source = updated_source
+                category.options = category_options()
+                category.value = identifier
+                category.leading_icon = self.host._entity_dropdown_icon(identifier)
+
+            roots = (
+                ("Income", "Expenses")
+                if (category.value or "").startswith("Income:")
+                else ("Expenses", "Income")
+            )
+            self.host._quick_category_dialog(
+                journal, source, effective, roots=roots, on_created=select_created
+            )
+
+        category_row = ft.Row([self.host._category_menu_anchor(category)], spacing=0)
+        if not stop:
+            category_row.controls.append(
+                ft.IconButton(
+                    data="budget_category_create",
+                    icon=ft.Icons.ADD,
+                    tooltip=tr("create_category"),
+                    on_click=create_category,
+                )
+            )
+
         async def save() -> str | None:
             return await journal.save_budget(
                 category.value or "",
@@ -1354,7 +1386,7 @@ class BudgetView(ft.Column):
                         else "budget_new_help"
                     )
                 ),
-                ft.Row([self.host._category_menu_anchor(category)]),
+                category_row,
                 amount,
                 currency,
                 ft.Row([interval]),

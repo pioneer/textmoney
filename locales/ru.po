@@ -957,6 +957,9 @@ msgstr "Журнал перенесён, но общие настройки ко
 msgid "ui.fee_categories_all"
 msgstr "Все категории расходов"
 
+msgid "ui.fee_category_branch_required"
+msgstr "Для новой категории комиссий нужна активная ветка расходов, разрешённая для комиссий в настройках."
+
 #. Stable TextMoney key: ui.fee_categories_invalid; do not translate this identifier.
 msgid "ui.fee_categories_invalid"
 msgstr "Выберите хотя бы одну ветку категорий расходов и категорию по умолчанию в этих ветках. Если сохранённые параметры некорректны, проверьте настройки комиссий этого устройства."

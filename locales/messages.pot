@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TextMoney 0.4.11\n"
+"Project-Id-Version: TextMoney 0.4.12\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-11-16 20:11+0200\n"
-"PO-Revision-Date: 2026-11-16 20:11+0200\n"
+"POT-Creation-Date: 2026-11-18 03:09+0200\n"
+"PO-Revision-Date: 2026-11-18 03:09+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -908,6 +908,9 @@ msgstr ""
 #. Stable TextMoney key: ui.fee_categories_all; do not translate this
 #. identifier.
 msgid "ui.fee_categories_all"
+msgstr ""
+
+msgid "ui.fee_category_branch_required"
 msgstr ""
 
 #. Stable TextMoney key: ui.fee_categories_invalid; do not translate this

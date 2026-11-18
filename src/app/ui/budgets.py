@@ -1069,12 +1069,18 @@ class BudgetView(ft.Column):
             )
         return controls
 
-    def _card_actions(self, row: BudgetRow, actions: list[ft.IconButton]) -> ft.Row:
+    def _card_actions(
+        self,
+        row: BudgetRow,
+        actions: list[ft.IconButton],
+        *,
+        include_all_currencies: bool = False,
+    ) -> ft.Row:
         controls: list[ft.Control] = list(actions)
         currencies = [
             currency
             for currency in sorted(row.direct_budget)
-            if not self.currency.value or self.currency.value == currency
+            if include_all_currencies or not self.currency.value or self.currency.value == currency
         ]
         for currency in currencies:
             budget = self._active_budget(row.account, row.end, currency)
@@ -1149,16 +1155,17 @@ class BudgetView(ft.Column):
             return None
         return max(candidates, key=lambda item: (item[1].date, item[0]))[1]
 
-    def _transactions(self, event: ft.Event[ft.IconButton]) -> None:
+    def _transactions(self, event: ft.Event[ft.IconButton], *, currency: str | None = None) -> None:
         row = event.control.data
         assert isinstance(row, BudgetRow)
+        selected_currency = (self.currency.value or "") if currency is None else currency
         names = self._account_names()
         transactions = tuple(
             transaction
             for transaction in row.transactions
-            if not self.currency.value
+            if not selected_currency
             or any(
-                posting.currency == self.currency.value
+                posting.currency == selected_currency
                 and (
                     posting.account == row.account or posting.account.startswith(row.account + ":")
                 )
@@ -1173,7 +1180,7 @@ class BudgetView(ft.Column):
             scope=OperationScope(
                 start=row.begin,
                 end=row.end - timedelta(days=1),
-                currency=str(self.currency.value or ""),
+                currency=selected_currency,
             ),
         )
 

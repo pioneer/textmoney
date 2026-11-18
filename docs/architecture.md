@@ -133,6 +133,9 @@ retain inline action controls, including at compact widths. Web follows the
 reported operating system. Category expansion arrows remain outside the popup
 target. The whole mobile budget report/history item, including figures,
 progress and padding, opens its menu; budget text stays selectable on desktop.
+The full-width Main mobile budget preview row, including its whitespace, uses
+the same tap menu, with Transactions and all current per-currency definition
+actions (Edit, Delete, Change, Stop).
 Native ink-enabled containers provide bounded touch feedback on item triggers.
 Other tappable controls retain their native Material feedback. Tap-down captures
 position only; the native completed-click callback opens Flet's ContextMenu,

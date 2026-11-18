@@ -193,24 +193,46 @@ class HomeBudgets(ft.Column):
                         spacing=8,
                     )
                 )
-            self.controls.append(
-                ft.Column(
-                    [
-                        host._entity_label(
-                            budget.account,
-                            ft.Text(
-                                host._entity_display_name(
-                                    budget.account,
-                                    names.get(budget.account, budget.account),
-                                ),
+            item: ft.Control = ft.Column(
+                [
+                    host._entity_label(
+                        budget.account,
+                        ft.Text(
+                            host._entity_display_name(
+                                budget.account,
+                                names.get(budget.account, budget.account),
                             ),
                         ),
-                        *progress,
-                    ],
-                    data=budget.account,
-                    spacing=4,
-                )
+                    ),
+                    *progress,
+                ],
+                data=budget.account,
+                spacing=4,
             )
+            if host._mobile_item_actions:
+                transactions = ft.IconButton(
+                    icon=ft.Icons.RECEIPT_LONG,
+                    tooltip=host.tr("budget_transactions"),
+                    data=budget,
+                    icon_size=20,
+                    on_click=lambda event: host.budgets._transactions(event, currency=""),
+                )
+                actions = host.budgets._card_actions(
+                    budget,
+                    [transactions],
+                    include_all_currencies=True,
+                )
+                menu = host._item_menu(
+                    item,
+                    host._entity_display_name(
+                        budget.account,
+                        names.get(budget.account, budget.account),
+                    ),
+                    actions.controls,
+                )
+                menu.expand = True
+                item = ft.Row([menu], spacing=0)
+            self.controls.append(item)
         omitted = summary.total - limit
         if omitted > 0:
             self.controls.append(

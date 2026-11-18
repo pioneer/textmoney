@@ -2077,6 +2077,8 @@ class FinanceView(ft.Row):
             self.budgets.category_id,
             self.budgets.currency.value,
             self.budgets.overspent.value,
+            self.home_budgets.generation,
+            self.home_budgets.cache_key,
             self._report_range,
             self.language,
             tuple(id(dialog) for dialog in self.page._dialogs.controls if dialog.open),

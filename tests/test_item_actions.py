@@ -363,6 +363,51 @@ def test_budget_history_menu_preserves_popup_handoff(
     asyncio.run(scenario())
 
 
+def test_home_budget_menu_includes_all_currency_actions_and_transactions(
+    view: tuple[FinanceView, MagicMock],
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        page.platform = ft.PagePlatform.LINUX
+        host._mobile_preview = True
+        host.did_mount()
+        assert host._mobile_item_actions
+        host.budgets.currency.value = "EUR"
+        await host.home_budgets.refresh()
+
+        menu = menus(host.home_budgets)[0]
+        tappable_row = next(
+            control
+            for control in host.home_budgets.controls
+            if isinstance(control, ft.Row) and menu in menus(control)
+        )
+        assert tappable_row.controls == [menu]
+        assert menu.expand
+        labels = [menu_label(item) for item in menu.items]
+        assert labels == [
+            "Food",
+            host.tr("budget_transactions"),
+            f"EUR · {format_date(date(2026, 1, 2), host.language)} · {host.tr('budget_monthly')}",
+            host.tr("crud_edit"),
+            host.tr("crud_delete"),
+            host.tr("budget_change"),
+            host.tr("budget_stop"),
+            f"USD · {format_date(date(2026, 1, 1), host.language)} · {host.tr('budget_monthly')}",
+            host.tr("crud_edit"),
+            host.tr("crud_delete"),
+            host.tr("budget_change"),
+            host.tr("budget_stop"),
+        ]
+
+        await choose(menu, host.tr("budget_transactions"))
+        dialog = page.show_dialog.call_args.args[0]
+        texts = [child.value for child in walk(dialog) if isinstance(child, ft.Text)]
+        assert "Synthetic lunch 59" in texts
+        assert any(host.tr("budget_all_currencies") in text for text in texts)
+
+    asyncio.run(scenario())
+
+
 def test_mobile_report_menu_preserves_drilldown_scope(
     view: tuple[FinanceView, MagicMock],
 ) -> None:

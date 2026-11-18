@@ -990,7 +990,7 @@ class FinanceView(ft.Row):
             home_heading(
                 self.tr("home_balances"),
                 self.home_accounts_open,
-                left_padding=0 if self.screen_class == ScreenClass.COMPACT else 12,
+                left_padding=12,
             ),
             self.home_balances,
             ft.Text(self.tr("home_recent"), size=21, weight=ft.FontWeight.W_600),
@@ -1226,9 +1226,7 @@ class FinanceView(ft.Row):
                                     home_heading(
                                         self.tr("home_balances"),
                                         self.home_accounts_open,
-                                        left_padding=0
-                                        if self.screen_class == ScreenClass.COMPACT
-                                        else 12,
+                                        left_padding=12,
                                     ),
                                     self.home_balances,
                                     self.home_budgets,
@@ -1243,9 +1241,7 @@ class FinanceView(ft.Row):
                                     home_heading(
                                         self.tr("home_recent"),
                                         self.home_transactions_open,
-                                        left_padding=0
-                                        if self.screen_class == ScreenClass.COMPACT
-                                        else 12,
+                                        left_padding=12,
                                     ),
                                     self.home_activity,
                                 ],
@@ -1263,13 +1259,13 @@ class FinanceView(ft.Row):
                 home_heading(
                     self.tr("home_balances"),
                     self.home_accounts_open,
-                    left_padding=0 if self.screen_class == ScreenClass.COMPACT else 12,
+                    left_padding=12,
                 ),
                 self.home_balances,
                 home_heading(
                     self.tr("home_recent"),
                     self.home_transactions_open,
-                    left_padding=0 if self.screen_class == ScreenClass.COMPACT else 12,
+                    left_padding=12,
                 ),
                 self.home_activity,
                 self.home_budgets,

@@ -160,9 +160,7 @@ def test_home_budget_layout_rank_counts_and_currency(
             assert button.height == 48 and button.expand
             assert button.tooltip == label
             assert isinstance(button.style, ft.ButtonStyle)
-            assert button.style.padding == ft.Padding.only(
-                left=0 if host.screen_class == finance.ScreenClass.COMPACT else 12
-            )
+            assert button.style.padding == ft.Padding.only(left=12)
             assert isinstance(button.content, ft.Row)
             assert button.content.spacing == 4
             text, arrow = button.content.controls

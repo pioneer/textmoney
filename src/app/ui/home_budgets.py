@@ -137,7 +137,7 @@ class HomeBudgets(ft.Column):
             home_heading(
                 host.tr("budget_title"),
                 self.open,
-                left_padding=0 if host.screen_class == "compact" else 12,
+                left_padding=12,
             )
         ]
         if self.failed:

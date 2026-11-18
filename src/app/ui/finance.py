@@ -1187,6 +1187,9 @@ class FinanceView(ft.Row):
         self.accounts_panel.width = self.categories_panel.width = min(
             MAX_CONTENT_WIDTH - 40, available
         )
+        action_width = available if available < 560 else 240
+        self.account_save.width = self.category_save.width = action_width
+        self.budgets.add.width = self.budgets.history.width = action_width
         self._build_navigation()
         self.home_budgets.sync()
         self._build_home_layout()

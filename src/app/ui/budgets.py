@@ -130,7 +130,7 @@ class BudgetView(ft.Column):
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         )
         self.history_help = ft.Text(size=12)
-        self.history = ft.Button(width=240, height=48, on_click=self._show_history)
+        self.history = ft.OutlinedButton(width=240, height=48, on_click=self._show_history)
         self.controls = [
             action_toolbar(self.add, self.history),
             ft.Column(
@@ -300,7 +300,7 @@ class BudgetView(ft.Column):
     async def _category_changed(self, event: ft.Event[ft.Dropdown]) -> None:
         await self._select_category(str(self.scope.value or ""))
 
-    def _show_history(self, event: ft.Event[ft.Button]) -> None:
+    def _show_history(self, event: ft.Event[ft.OutlinedButton]) -> None:
         self.sync()
         show_dialog(
             self.host.page,

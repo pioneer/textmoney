@@ -33,11 +33,13 @@ MIT algorithms and their complete license notice are shipped in
   **Discontinue from a date**. Change and discontinue append a dated definition
   (zero for discontinuation), preserving earlier records. Saving does not reset
   the selected month or filters.
-- Open **Budget history**, next to **Create budget**, for a dialog containing all
+- Open **Budget history** for a dialog containing all
   dated records, including earlier limits superseded within the same month,
   future and stopped limits, with the same editing actions. Both buttons remain
   available when no cards are shown. Closing history preserves the month and filters.
-  The two buttons have equal widths and stay right-aligned when they wrap on mobile.
+  On narrow layouts, both buttons fill the content width, with the outlined
+  **Budget history** below **Create budget**. On wider layouts they sit side by
+  side, aligned to the right.
   Their 240-by-48-pixel size and toolbar spacing match Create on Accounts and Categories.
 - Each history definition has **View in reports**. It opens the cards at the
   current month when the definition applies during any part of that month;

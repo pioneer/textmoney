@@ -38,7 +38,7 @@ def change(control: ft.Dropdown | ft.Checkbox | ft.SegmentedButton | ft.TextFiel
     cast(Callable[[object], object], handler)(MagicMock())
 
 
-def click(control: ft.Button | ft.IconButton | ft.TextButton) -> object:
+def click(control: ft.Button | ft.IconButton | ft.OutlinedButton | ft.TextButton) -> object:
     assert control.on_click is not None
     return cast(Callable[[object], object], control.on_click)(MagicMock(control=control))
 

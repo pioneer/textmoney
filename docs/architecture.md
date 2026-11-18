@@ -196,9 +196,11 @@ treatment. Both views include inactive and zero-balance accounts, order configur
 operating currencies first and remaining currencies alphabetically, and sort
 accounts by display name then identifier within each group. Home's balance
 heading links to Accounts; no duplicate balance section or destination is added.
-Categories remains an unframed list; both right-aligned creation
-toolbars match Budgets, with 240-by-48-pixel buttons and eight-pixel wrapping
-gaps. Borders remain around meaningful Home/Accounts currency, Operations summary,
+Categories remains an unframed list. On Accounts, Categories, and Budgets, page
+actions fill the content width when it is below 560 logical pixels. Budget
+history is outlined and stacks below Create budget in this layout. Above that
+breakpoint the actions are compact and right-aligned. Borders remain around
+meaningful Home/Accounts currency, Operations summary,
 Reports and Settings groups (16-pixel padding, 12-pixel corners), not whole
 management screens. Settings actions align to the right of their own section;
 Cancel precedes Save. Shared action and month-navigation layouts live in

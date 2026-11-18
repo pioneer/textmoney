@@ -493,7 +493,6 @@ def test_budget_navigation_responsive_and_localized(
         page.width = width
         host._apply_layout(width)
         host._refresh_labels()
-        assert host.budgets.add.width == host.budgets.history.width == 240
         assert host.page_title.value == host.tr("budget_title")
         assert not any(isinstance(item, ft.Tabs) for item in walk(host.budgets_screen))
         assert host.budgets.history.content == host.tr("budget_limit_history")

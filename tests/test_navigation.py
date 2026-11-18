@@ -482,13 +482,23 @@ def test_mobile_groups_follow_the_shared_order_and_navigate_directly(
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
-def test_management_toolbars_share_unframed_gutters_and_wrapping_actions(
+def test_management_actions_fill_narrow_content_and_align_right_on_wider_screens(
     navigation: tuple[FinanceView, MagicMock], language: str
 ) -> None:
     view, page = navigation
     view.language = language
-    for width in (320, 390, 800, 1366):
+    for width, action_width in (
+        (320, 280),
+        (390, 350),
+        (599, 559),
+        (600, 470),
+        (689, 559),
+        (690, 240),
+        (1366, 240),
+        (390, 350),
+    ):
         page.width = width
+        view._resized(MagicMock(spec=ft.PageResizeEvent, width=width))
         for screen, panel, controls in (
             ("accounts", view.accounts_panel, [view.account_save]),
             ("categories", view.categories_panel, [view.category_save]),
@@ -510,10 +520,12 @@ def test_management_toolbars_share_unframed_gutters_and_wrapping_actions(
             assert row.alignment == ft.MainAxisAlignment.END
             assert row.controls == controls
             assert row.spacing == row.run_spacing == 8
+            assert isinstance(controls[0], ft.Button)
+            if screen == "budgets":
+                assert isinstance(controls[1], ft.OutlinedButton)
             for button in controls:
-                assert isinstance(button, ft.Button)
-                assert button.width == 240 and button.height == 48
-                assert button.width <= view.body.width - 40
+                assert button.width == action_width and button.height == 48
+                assert button.disabled
         view._navigate("transactions")
         toggle = view.transactions_screen.controls[0]
         assert isinstance(toggle, ft.Container) and isinstance(toggle.content, ft.Row)

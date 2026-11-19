@@ -15,3 +15,8 @@ class MobileCategoryMenu(ft.Container):
     """Constrain a category dropdown's native overlay to the reachable viewport."""
 
     menu_height_limit: float = 672
+
+
+@ft.control("PopupMenuBackScope")
+class PopupMenuBackScope(ft.Container):
+    """Dismiss an open dropdown before its Android dialog."""

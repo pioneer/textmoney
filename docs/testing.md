@@ -63,6 +63,16 @@ packaging is not a supported financial-storage target; see [Web deployment](depl
 Apple build tasks do not establish device-tested iOS/macOS support. The main
 developer does not have Apple devices to validate app behavior on those platforms.
 
+## Android popup Back
+
+`uv run inv test-popup-keyboard` exercises Flutter system-Back dispatch against
+Flet dialogs, ordinary and wrapped dropdowns, nested drafts and route guards.
+Before release, use an Android device or emulator to check the dropdown checklist
+in issue #32, including gesture and button Back, a visible IME, nested dialogs,
+and returning to screen history. Flutter widget tests do not simulate Android's
+IME or predictive gesture dispatch. Recheck desktop Escape/Enter and disclose
+untested platforms.
+
 ## Background refresh and scrolling
 
 Use an isolated synthetic journal with enough transactions, accounts, categories

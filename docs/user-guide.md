@@ -25,8 +25,9 @@ Windows/Linux, or **Command+[/]** on macOS. Operations visits restore their own
 filters and transaction page, using current journal data rather than stale cached
 transactions. Editing filters or opening a popup does not add a visit.
 The mobile Back arrow returns through screens visited in this session. On Android,
-system Back first dismisses an open dialog or menu, then returns through screen
-history; at the beginning it uses the usual platform behavior. A different
+system Back first dismisses the keyboard or an open menu, including a dropdown
+inside a dialog. It then dismisses the active dialog before returning through
+screen history; at the beginning it uses the usual platform behavior. A different
 destination after going Back discards later visits. There is no mobile Forward
 control. Resizing preserves the current screen and form state.
 

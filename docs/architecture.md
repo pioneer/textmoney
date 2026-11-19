@@ -43,7 +43,7 @@ src/app/infrastructure/beancount_journal.py lossless reading, directive splices 
 src/app/storage.py         shared read/backup/conflict/write policy and draft
 src/app/infrastructure/    desktop I/O and Android bridge transport
 extensions/finance-saf/    local Python/Dart service; existing native SAF libraries
-extensions/popup-keyboard/ focus-scoped dropdown/nested-dialog Escape compatibility
+extensions/popup-keyboard/ dropdown/dialog Escape and Android Back compatibility
 assets/                   canonical maintained assets
 tests/                    non-GUI behavior and task contract tests
 tasks.py                  the sole project automation interface

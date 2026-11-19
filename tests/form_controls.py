@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import flet as ft
 import flet.canvas as fc
+from popup_keyboard import PopupMenuBackScope
 
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.tree_style import CategoryMenuAnchor
@@ -82,7 +83,7 @@ class TransactionForm:
 
 def transaction_form(dialog: ft.AlertDialog) -> TransactionForm:
     content = dialog.content
-    if isinstance(content, ft.KeyboardListener):
+    if isinstance(content, (ft.KeyboardListener, PopupMenuBackScope)):
         content = content.content
     assert isinstance(content, ft.Column)
     controls: dict[str, ft.Control] = {}

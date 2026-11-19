@@ -6,7 +6,7 @@ from dataclasses import fields
 from typing import cast
 
 import flet as ft
-from popup_keyboard import PopupKeyboardListener
+from popup_keyboard import PopupKeyboardListener, PopupMenuBackScope
 
 
 class EditorDialog(ft.AlertDialog):
@@ -70,15 +70,14 @@ def deletion_title(title: str) -> ft.Row:
     )
 
 
-def _text_fields(root: ft.Control) -> Iterator[ft.TextField]:
+def _controls(root: ft.Control) -> Iterator[ft.Control]:
     visited: set[int] = set()
 
-    def visit(control: ft.Control) -> Iterator[ft.TextField]:
+    def visit(control: ft.Control) -> Iterator[ft.Control]:
         if control._i in visited:
             return
         visited.add(control._i)
-        if isinstance(control, ft.TextField):
-            yield control
+        yield control
         for field in fields(control):
             if field.metadata.get("skip") or field.name.startswith("_"):
                 continue
@@ -103,6 +102,13 @@ def _enabled(control: ft.BaseControl) -> bool:
 
 
 def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
+    if (
+        page.platform == ft.PagePlatform.ANDROID
+        and not page.web
+        and dialog.content is not None
+        and any(isinstance(control, ft.Dropdown) for control in _controls(dialog.content))
+    ):
+        dialog.content = PopupMenuBackScope(dialog.content)
     if page.platform in {
         ft.PagePlatform.LINUX,
         ft.PagePlatform.WINDOWS,
@@ -119,7 +125,7 @@ def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
         if submit.on_click is None:
             raise ValueError("Modal dialog submission requires a click handler.")
         content = dialog.content if dialog.content is not None else ft.Container()
-        inputs = list(_text_fields(content))
+        inputs = [control for control in _controls(content) if isinstance(control, ft.TextField)]
         focused: ft.TextField | None = None
         dispatching = False
 

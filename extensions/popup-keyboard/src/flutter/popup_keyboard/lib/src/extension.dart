@@ -5,10 +5,17 @@ import 'package:flutter/widgets.dart';
 
 import 'category_menu_bounds.dart';
 import 'popup_keyboard_scope.dart';
+import 'popup_menu_back_scope.dart';
 
 class Extension extends FletExtension {
   @override
   Widget? createWidget(Key? key, Control control) {
+    if (control.type == 'PopupMenuBackScope') {
+      return PopupMenuBackScope(
+        key: key,
+        child: ContainerControl(control: control),
+      );
+    }
     if (control.type == 'MobileCategoryMenu') {
       return CategoryMenuBounds(
         key: key,

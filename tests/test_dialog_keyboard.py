@@ -11,6 +11,7 @@ import pytest
 from flet.messaging.protocol import configure_encode_object_for_msgpack
 from flet.messaging.session import Session
 from form_controls import assert_deletion_title, transaction_form
+from popup_keyboard import PopupMenuBackScope
 
 from app.domain.ledger import EPOCH
 from app.domain.operations import OperationScope
@@ -357,6 +358,33 @@ def test_mobile_keyboard_behavior_is_unchanged(platform: ft.PagePlatform) -> Non
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("web", [False, True])
+def test_android_dropdown_dialog_uses_native_back_scope_only(web: bool) -> None:
+    session = keyboard_session(ft.PagePlatform.ANDROID)
+    session.page.web = web
+    dropdown = ft.Dropdown(options=[ft.DropdownOption(key="food", text="Food")])
+    content = ft.Column([ft.Row([dropdown])])
+    dialog = ft.AlertDialog(content=content)
+    show_dialog(session.page, dialog)
+    if web:
+        assert dialog.content is content
+    else:
+        assert isinstance(dialog.content, PopupMenuBackScope)
+        assert dialog.content.content is content
+
+
+def test_android_budget_month_picker_uses_dropdown_back_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = keyboard_session(ft.PagePlatform.ANDROID)
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
+    view = FinanceView()
+    view.budgets._pick_month(MagicMock())
+    dialog = session.page._dialogs.controls[-1]
+    assert isinstance(dialog, ft.AlertDialog)
+    assert isinstance(dialog.content, PopupMenuBackScope)
+
+
 def test_escape_closes_only_the_top_dialog_and_waits_for_dismissal() -> None:
     async def scenario() -> None:
         session = keyboard_session()
@@ -493,6 +521,8 @@ def test_main_editors_adapt_to_width_not_platform(
             view.budgets._form()
         editor = session.page._dialogs.controls[-1]
         assert isinstance(editor, EditorDialog) and editor.modal and not editor.scrollable
+        if platform == ft.PagePlatform.ANDROID:
+            assert isinstance(editor.content, PopupMenuBackScope)
         assert editor.form.scroll == ft.ScrollMode.AUTO
         assert editor.form.height == (float("inf") if width == 599 else None)
         assert editor.form.max_height == (float("inf") if width == 599 else 560)
@@ -540,6 +570,8 @@ def test_resize_preserves_main_editor_and_nested_popup_drafts(
             )
         child = session.page._dialogs.controls[-1]
         assert isinstance(child, ft.AlertDialog)
+        if platform == ft.PagePlatform.ANDROID and nested == "category":
+            assert isinstance(child.content, PopupMenuBackScope)
         child_content = child.content
         assert child.scrollable and child.inset_padding is None
 

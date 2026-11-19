@@ -235,6 +235,16 @@ restored input/button focus or handle Enter, and never focuses an obscured route
 There is no page-wide hardware-key handler. The existing Python helper still
 enforces active-dialog, disabled-action and busy-state guards.
 
+On native Android, `show_dialog` also wraps dialog content containing dropdowns
+in the local `PopupMenuBackScope`. Flet's Material dropdown menu is an overlay rather than
+a dialog route, so the scope checks the dialog subtree for an open dropdown
+menu and closes it before allowing Back to pop the dialog. With no open menu it
+uses the navigator's normal pop checks, including other route guards. Nested
+dialogs and native date/time pickers remain separate routes. Android's IME
+handles Back before the application when appropriate; web and iOS are not
+wrapped. The scope depends on the pinned Flet/Material dropdown widget structure
+and blocks predictive route popping while the dialog is open; recheck it on upgrades.
+
 ## storage diagnostics verification
 
 `uv run inv verify-flet` opens a real MCP stdio session and queries FilePicker

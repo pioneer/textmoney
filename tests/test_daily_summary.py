@@ -323,7 +323,7 @@ def test_operations_filters_start_hidden_and_toggle_without_losing_selections(
         row.controls for row in view.operations_filters.controls if isinstance(row, ft.Row)
     ] == [
         [view.operations_account],
-        [view.operations_category],
+        view.operations_category_row.controls,
         [view.operations.start, view.operations.end_date],
         [view.operations.currency],
         [view.operations.search],

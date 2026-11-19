@@ -494,7 +494,9 @@ def test_unified_form_creates_edits_and_deletes_each_supported_movement(
         monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
         view._new_transaction(MagicMock())
         dialog = page.show_dialog.call_args.args[0]
-        assert dialog.scrollable and dialog.modal
+        assert not dialog.scrollable and dialog.modal
+        assert isinstance(dialog.content, ft.Column)
+        assert dialog.content.scroll == ft.ScrollMode.AUTO
         form = transaction_form(dialog)
         account, reference, category, amount = (
             form.account,

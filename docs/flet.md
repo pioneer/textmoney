@@ -119,11 +119,13 @@ Category menu rows match native account menu density: 40 pixels on desktop and
 Child stems start at the
 boundary beneath the parent row, independent of its icons or wrapped label.
 Existing entity icons are unchanged. Menus have no expand/collapse controls;
-the main tree retains its native expansion behavior. Transaction and budget menus retain
-name-only labels and a 672-pixel height limit on compact screens, with the
-default full-height menu on wider screens. Category-parent menus in creation and
-code/parent-editing dialogs always show names and full codes. These rows wrap
-without a line limit and grow to fit their content instead of using a fixed height.
+the main tree retains its native expansion behavior. Category selectors in
+transactions (including fee categories), budgets, category parents, filters and
+default-fee settings use a 672-pixel height limit on compact screens and the
+default full-height menu on wider screens. Transaction and budget menus retain
+name-only labels; category-parent menus in creation and code/parent-editing
+dialogs show names and full codes. These rows wrap without a line limit and grow
+to fit their content instead of using a fixed height.
 
 Budget card titles and their entity icons align with the first 48-pixel action
 row, even when actions wrap below it. The title can grow for longer names.
@@ -137,6 +139,13 @@ Flutter retains screen-edge and keyboard-inset handling. Wide-screen positioning
 is unchanged. The compact limit is 40% taller than the former 480 pixels, adding
 96 pixels (20% of the former height) on each side when enough space and options
 are available.
+On mobile (Android/iOS and mobile preview), compact category menus open with
+their top edge 20% down the usable screen, measured below safe-area insets and
+above the software keyboard. The local popup extension measures the native
+field's position and caps the menu to the remaining space. Long lists still
+scroll inside the native menu. All these mobile menus use the same usable-screen
+width with 16-pixel side margins inside the safe area, independent of the field
+width or label length. Desktop and wide layouts are unchanged.
 
 Mobile menu positioning preserves the dropdown's explicit visual style or the
 active light/dark dropdown theme, overriding only alignment and padding. Category
@@ -151,6 +160,24 @@ rounded elbows, keeping a one-pixel gap before the existing content. Main-tree
 branches remain eight pixels long.
 
 ## Required popup keyboard convention
+
+Main transaction, account, category and budget add/edit forms share
+`app.ui.dialogs.EditorDialog`. At compact widths (up to 599 logical pixels)
+its zero-inset, square-cornered surface fills the available safe area. Wider
+layouts retain the existing 360-pixel form width and themed dialog appearance,
+with the body capped at 560 pixels to avoid stretching short forms across a
+tall desktop window.
+The title and Cancel/Save actions remain outside the scrollable body. The body's
+preferred compact dimensions fill Flutter's constraints; the native dialog
+already subtracts keyboard insets, so there is no hardcoded keyboard height.
+The shell updates in place on resize, including while a child popup is open.
+An editor first opened over another modal stays an ordinary popup, even after
+resizing. Snackbars do not make a main editor nested. Delete confirmations and
+other dialogs do not opt into this presentation.
+
+The Flet MCP documentation search had no indexed results for this layout.
+The implementation was verified against the pinned Flet 1.1.2 Dart client and
+its Material dialog constraints, SafeArea and keyboard-inset handling.
 
 Every new or changed popup must preserve desktop **Escape = Cancel** and
 **Enter = Submit** behavior. This is a requirement for future features, not only

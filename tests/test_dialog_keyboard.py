@@ -18,7 +18,7 @@ from app.domain.storage import ConflictError
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
 from app.localization import date_input
-from app.ui.dialogs import show_dialog
+from app.ui.dialogs import EditorDialog, show_dialog
 from app.ui.finance import FinanceView
 
 
@@ -465,6 +465,134 @@ async def finance_session(
     view.journal = journal
     view.timezone_name = "UTC"
     return session, view, journal
+
+
+@pytest.mark.parametrize("platform", [ft.PagePlatform.LINUX, ft.PagePlatform.ANDROID])
+@pytest.mark.parametrize("width", [599, 600])
+@pytest.mark.parametrize("kind", ["transaction", "account", "category", "budget"])
+def test_main_editors_adapt_to_width_not_platform(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    platform: ft.PagePlatform,
+    width: int,
+    kind: str,
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        session.page.platform = platform
+        session.page.width = width
+        view._apply_layout(width)
+        original = journal.source
+        if kind == "transaction":
+            view._transaction_dialog(journal)
+        elif kind == "account":
+            view._create_account(MagicMock())
+        elif kind == "category":
+            view._create_category(MagicMock())
+        else:
+            view.budgets._form()
+        editor = session.page._dialogs.controls[-1]
+        assert isinstance(editor, EditorDialog) and editor.modal and not editor.scrollable
+        assert editor.form.scroll == ft.ScrollMode.AUTO
+        assert editor.form.height == (float("inf") if width == 599 else None)
+        assert editor.form.max_height == (float("inf") if width == 599 else 560)
+        assert editor.form.width == (width if width == 599 else 360)
+        assert editor.inset_padding == (0 if width == 599 else None)
+        assert editor.shape == (ft.RoundedRectangleBorder(radius=0) if width == 599 else None)
+        assert len(editor.actions) == 2
+        assert journal.source == original
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("platform", [ft.PagePlatform.LINUX, ft.PagePlatform.ANDROID])
+@pytest.mark.parametrize("nested", ["category", "editor", "confirmation"])
+def test_resize_preserves_main_editor_and_nested_popup_drafts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    platform: ft.PagePlatform,
+    nested: str,
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        session.page.platform = platform
+        session.page.on_resize = view._resized
+        view._navigate("accounts")
+        original = journal.source
+        history = view.screen_history
+        view._transaction_dialog(journal)
+        editor = session.page._dialogs.controls[-1]
+        assert isinstance(editor, EditorDialog)
+        form = transaction_form(editor)
+        form.description.value = "Unfinished draft"
+        form.amount.value = "17."
+        form.when.clock.value = "18:"
+        form.advanced.expanded = True
+        if nested == "category":
+            await session.dispatch_event(form.category_create._i, "click", None)
+        else:
+            view._edit_dialog(
+                "Nested popup",
+                [ft.TextField(value="Nested draft")],
+                journal,
+                AsyncMock(),
+                deleting=nested == "confirmation",
+            )
+        child = session.page._dialogs.controls[-1]
+        assert isinstance(child, ft.AlertDialog)
+        child_content = child.content
+        assert child.scrollable and child.inset_padding is None
+
+        for width, height in ((1200, 900), (390, 800), (390, 400), (600, 400), (599, 800)):
+            session.page.width, session.page.height = width, height
+            await session.dispatch_event(
+                session.page._i, "resize", {"width": width, "height": height}
+            )
+            assert session.page._dialogs.controls[-1] is child and child.open
+            assert child.content is child_content and child.inset_padding is None
+            assert editor.form.height == (float("inf") if width < 600 else None)
+            assert editor.open and transaction_form(editor).amount is form.amount
+            assert form.description.value == "Unfinished draft"
+            assert form.amount.value == "17." and form.when.clock.value == "18:"
+            assert form.advanced.expanded
+
+        if platform == ft.PagePlatform.ANDROID:
+            root = MagicMock(spec=ft.View)
+            await view._system_back(MagicMock(control=root))
+            root.confirm_pop.assert_awaited_once_with(False)
+        else:
+            await press(session)
+        assert not child.open and editor.open
+        await session.dispatch_event(child._i, "dismiss", None)
+        if platform == ft.PagePlatform.ANDROID:
+            await view._system_back(MagicMock(control=MagicMock(spec=ft.View)))
+        else:
+            await press(session)
+        assert not editor.open and view.screen_history == history
+        assert journal.source == original
+        assert (tmp_path / FILENAME).read_text() == original
+
+    asyncio.run(scenario())
+
+
+def test_top_level_delete_remains_a_small_confirmation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        view._edit_dialog(
+            "Delete", [ft.Text("Confirm deletion")], journal, AsyncMock(), deleting=True
+        )
+        dialog = session.page._dialogs.controls[-1]
+        assert isinstance(dialog, ft.AlertDialog) and not isinstance(dialog, EditorDialog)
+        assert dialog.scrollable and dialog.inset_padding is None
+        assert isinstance(dialog.content, ft.KeyboardListener)
+        assert isinstance(dialog.content.content, ft.Column)
+        assert dialog.content.content.height is None
+        await press(session)
+        assert not dialog.open
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize(

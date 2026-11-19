@@ -71,6 +71,14 @@ desktop Escape invokes Cancel and Enter invokes the existing submit action,
 respecting validation and disabled states. Shortcuts affect only the active popup
 without losing a parent draft; Shift+Enter inserts multiline text.
 Application-owned dialogs must use the shared `app.ui.dialogs.show_dialog` helper.
+Main add/edit forms use its `EditorDialog` shell: compact widths through 599
+logical pixels fill the available safe area; wider layouts keep a centered,
+bounded dialog. The form body scrolls independently of the title and actions.
+Flutter constrains it above the software keyboard, without Python-side inset
+calculations or new navigation routes. The existing width classifier drives
+layout updates without replacing the form controls or drafts. Editors opened
+over another modal retain ordinary popup presentation for their lifetime;
+nested category/icon/date pickers and deletion confirmations are unchanged.
 
 Optional [entity icons](entity-icons.md) are stored beside the journal in an
 append-only sidecar directory, never in Beancount metadata. Icon selection uses

@@ -16,6 +16,7 @@ from app.localization import date_input
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.finance import FinanceView
 from app.ui.layout import HoverRow
+from app.ui.tree_style import CategoryMenuAnchor
 
 
 def select_management_screen(view: FinanceView, index: int) -> None:
@@ -265,8 +266,9 @@ def open_creation(view: FinanceView, page: MagicMock, category: bool) -> ft.Aler
         assert view.opening.label == view.tr("transfer_owed")
     dialog = page.show_dialog.call_args.args[0]
     assert isinstance(dialog, ft.AlertDialog)
-    assert dialog.modal and dialog.scrollable
+    assert dialog.modal and not dialog.scrollable
     assert isinstance(dialog.content, ft.Column)
+    assert dialog.content.scroll == ft.ScrollMode.AUTO
     assert dialog.content.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
     return dialog
 
@@ -355,10 +357,23 @@ def test_category_creation_dropdowns_fill_the_form(
             row = next(
                 control
                 for control in dialog.content.controls
-                if isinstance(control, ft.Row) and control.controls == [dropdown]
+                if isinstance(control, ft.Row)
+                and (
+                    control.controls == [dropdown]
+                    or (
+                        len(control.controls) == 1
+                        and isinstance(control.controls[0], CategoryMenuAnchor)
+                        and control.controls[0].dropdown is dropdown
+                    )
+                )
             )
             assert row.width is None and not row.wrap
             assert dropdown.expand is True and dropdown.width is None
+            if dropdown is view.category_parent and width <= 599:
+                assert isinstance(row.controls[0], CategoryMenuAnchor)
+                assert dropdown.menu_height == 672
+            else:
+                assert row.controls[0] is dropdown
 
     asyncio.run(scenario())
 

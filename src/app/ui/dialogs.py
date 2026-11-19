@@ -1,4 +1,4 @@
-"""Focus-scoped desktop modal cancellation and submission."""
+"""Adaptive main editors and focus-scoped modal keyboard handling."""
 
 import inspect
 from collections.abc import Callable, Iterator
@@ -7,6 +7,55 @@ from typing import cast
 
 import flet as ft
 from popup_keyboard import PopupKeyboardListener
+
+
+class EditorDialog(ft.AlertDialog):
+    """Keep the editor body scrollable without scrolling its title or actions."""
+
+    def __init__(
+        self,
+        title: str,
+        form: ft.Column,
+        actions: list[ft.Control],
+        *,
+        compact: Callable[[], bool],
+    ) -> None:
+        super().__init__(modal=True, title=title, content=form, actions=actions)
+        self.form = form
+        self._compact = compact
+        self._top_level: bool | None = None
+        self._apply_layout()
+
+    def before_update(self) -> None:
+        super().before_update()
+        if self._top_level is None:
+            # Decide once: dismissing an ancestor must not promote a nested popup.
+            self._top_level = True
+            for dialog in self.page._dialogs.controls:
+                if dialog is self:
+                    break
+                if not isinstance(dialog, ft.SnackBar) and getattr(dialog, "open", False):
+                    self._top_level = False
+                    break
+        self._apply_layout(self.page.width)
+
+    def _apply_layout(self, width: float | None = None) -> None:
+        main = self._top_level is not False
+        compact = main and self._compact()
+        self.scrollable = not main
+        self.form.scroll = ft.ScrollMode.AUTO if main else None
+        # Flutter clamps these preferred dimensions to the safe area minus the
+        # keyboard, title and actions. No keyboard-height calculation is needed.
+        self.form.width = width if compact else 360
+        self.form.height = float("inf") if compact else None
+        # Keep the client's constraint wrapper mounted across the width boundary
+        # so text-field focus, selection and local edits survive resizing.
+        self.form.max_height = (float("inf") if compact else 560) if main else None
+        self.inset_padding = 0 if compact else None
+        self.shape = ft.RoundedRectangleBorder(radius=0) if compact else None
+        self.title_padding = ft.Padding.only(left=16, top=16, right=16) if compact else None
+        self.content_padding = ft.Padding.symmetric(horizontal=16, vertical=12) if compact else None
+        self.actions_padding = ft.Padding.all(8) if compact else None
 
 
 def deletion_title(title: str) -> ft.Row:

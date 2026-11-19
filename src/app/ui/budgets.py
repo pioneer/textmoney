@@ -102,6 +102,7 @@ class BudgetView(ft.Column):
             text_style=ft.TextStyle(size=16),
             on_select=self._category_changed,
         )
+        self.scope_row = ft.Row([self.scope])
         self.currency = ft.Dropdown(value="", width=220, on_select=self._changed, visible=False)
         self.overspent = ft.Checkbox(value=False, on_change=self._changed)
         self.reset = ft.TextButton(on_click=self._reset)
@@ -119,7 +120,7 @@ class BudgetView(ft.Column):
         )
         self.filters = ft.Column(
             [
-                ft.Row([self.scope]),
+                self.scope_row,
                 self.currency,
                 self.overspent,
                 self.active_filters,
@@ -161,6 +162,9 @@ class BudgetView(ft.Column):
             self.loading,
             ft.Container(self.results, theme=compact_tree_theme()),
         ]
+
+    def update_category_menu_layout(self) -> None:
+        self.host._set_category_menu_row(self.scope_row, self.scope)
 
     def sync(self) -> None:
         tr = self.host.tr
@@ -1294,7 +1298,6 @@ class BudgetView(ft.Column):
 
         category = ft.Dropdown(
             expand=True,
-            menu_height=self.host._category_menu_height(),
             label=tr("budget_category"),
             on_select=self.host._entity_dropdown_selected,
             leading_icon=self.host._entity_dropdown_icon(budget.account) if budget else None,

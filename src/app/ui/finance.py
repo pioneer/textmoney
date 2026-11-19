@@ -86,7 +86,7 @@ from app.storage import RecoveryRequired, StorageError
 from app.timekeeping import local_datetime, named_zone
 from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
-from app.ui.dialogs import deletion_title, show_dialog
+from app.ui.dialogs import EditorDialog, deletion_title, show_dialog
 from app.ui.home_budgets import HomeBudgets, home_heading
 from app.ui.icons import IconDraft, IconField, IconPicker, IconRemovalDialog, icon_image
 from app.ui.layout import HoverRow, action_toolbar, month_navigation
@@ -241,6 +241,7 @@ class FinanceView(ft.Row):
             value="Assets", expand=True, on_select=self._account_type_changed
         )
         self.default_fee = ft.Dropdown(expand=True, on_select=self._entity_dropdown_selected)
+        self.default_fee_row = ft.Row([self.default_fee])
         self.default_account = ft.Dropdown(
             expand=True, value="", on_select=self._entity_dropdown_selected
         )
@@ -335,6 +336,7 @@ class FinanceView(ft.Row):
             text_style=ft.TextStyle(size=16),
             on_select=self._operations_filter_changed,
         )
+        self.operations_category_row = ft.Row([self.operations_category])
         self.operations_filter_toggle = ft.IconButton(
             icon=ft.Icons.FILTER_LIST,
             on_click=self._toggle_operations_filters,
@@ -342,7 +344,7 @@ class FinanceView(ft.Row):
         self.operations_filters = ft.Column(
             [
                 ft.Row([self.operations_account]),
-                ft.Row([self.operations_category]),
+                self.operations_category_row,
                 *self.operations.extra_filters,
             ],
             spacing=8,
@@ -1091,7 +1093,7 @@ class FinanceView(ft.Row):
                         ft.Divider(),
                         self.fee_category_settings,
                         ft.Text(self.tr("fee_categories_help"), size=12),
-                        ft.Row([self.default_fee]),
+                        self.default_fee_row,
                         action_toolbar(self.default_fee_save),
                         self.default_fee_notice,
                     ],
@@ -1145,6 +1147,9 @@ class FinanceView(ft.Row):
 
     def _apply_layout(self, width: float | None) -> None:
         self.screen_class = screen_class(width)
+        self._set_category_menu_row(self.operations_category_row, self.operations_category)
+        self._set_category_menu_row(self.default_fee_row, self.default_fee)
+        self.budgets.update_category_menu_layout()
         _bottom, overflow = mobile_destination_groups()
         secondary = self.current_screen in overflow
         if not self.startup_complete:
@@ -3788,24 +3793,31 @@ class FinanceView(ft.Row):
                 self.page.update()
 
         submit.on_click = commit
-        show_dialog(
-            self.page,
-            ft.AlertDialog(
+        form = ft.Column(
+            controls,
+            tight=True,
+            spacing=12,
+            width=360,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH
+            if stretch
+            else ft.CrossAxisAlignment.START,
+        )
+        if not deleting:
+            dialog = EditorDialog(
+                title,
+                form,
+                [cancel, submit],
+                compact=lambda: self.screen_class == ScreenClass.COMPACT,
+            )
+        else:
+            dialog = ft.AlertDialog(
                 modal=True,
                 scrollable=True,
                 title=deletion_title(title) if deleting else title,
-                content=ft.Column(
-                    controls,
-                    tight=True,
-                    spacing=12,
-                    width=360,
-                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH
-                    if stretch
-                    else ft.CrossAxisAlignment.START,
-                ),
+                content=form,
                 actions=[cancel, submit],
-            ),
-        )
+            )
+        show_dialog(self.page, dialog)
 
     def _transaction_code(self, transaction: Transaction) -> ft.Text:
         return ft.Text(
@@ -4249,7 +4261,7 @@ class FinanceView(ft.Row):
                             if fee_branches and "Expenses" not in fee_branches
                             else []
                         ),
-                        ft.Row([category_parent]),
+                        ft.Row([self._category_menu_anchor(category_parent)]),
                         category_name,
                         icon,
                         category_path,
@@ -4271,10 +4283,14 @@ class FinanceView(ft.Row):
         source = journal.source
         dropdown_rows: list[ft.Row] = []
 
-        def aligned_dropdown(control: ft.Dropdown, *actions: ft.Control) -> ft.Row:
+        def aligned_dropdown(control: ft.Control, *actions: ft.Control) -> ft.Row:
             row = ft.Row([control, *actions])
             dropdown_rows.append(row)
             return row
+
+        def dropdown_row_field(row: ft.Row) -> ft.Control:
+            control = row.controls[0]
+            return control.dropdown if isinstance(control, CategoryMenuAnchor) else control
 
         transfer = (
             journal.transfer_details(transaction)
@@ -4369,7 +4385,6 @@ class FinanceView(ft.Row):
         category = ft.Dropdown(
             data="category",
             expand=True,
-            menu_height=self._category_menu_height(),
             label=self.tr("expense_category"),
             value=original_category,
         )
@@ -4458,7 +4473,7 @@ class FinanceView(ft.Row):
                 fee,
                 aligned_dropdown(fee_mode),
                 aligned_dropdown(fee_currency),
-                aligned_dropdown(fee_category, fee_category_create),
+                aligned_dropdown(self._category_menu_anchor(fee_category), fee_category_create),
                 fee_category_restriction,
             ],
             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
@@ -4874,7 +4889,7 @@ class FinanceView(ft.Row):
                 details.append(when.clock.value or "")
             advanced.subtitle = " · ".join(details) or None
             for row in dropdown_rows:
-                row.visible = row.controls[0].visible
+                row.visible = dropdown_row_field(row).visible
             for selector in (account, category, destination, fee_category):
                 selector.leading_icon = self._entity_dropdown_icon(selector.value or "")
             if event is not None:
@@ -4945,7 +4960,7 @@ class FinanceView(ft.Row):
         def recalculate(event: ft.Event[ft.TextField] | ft.Event[ft.Dropdown]) -> None:
             update_exchange()
             for row in dropdown_rows:
-                row.visible = row.controls[0].visible
+                row.visible = dropdown_row_field(row).visible
             self.page.update()
 
         amount.on_change = received.on_change = fee.on_change = recalculate
@@ -5249,7 +5264,7 @@ class FinanceView(ft.Row):
                     [
                         ft.Text(identifier, weight=ft.FontWeight.BOLD, selectable=True),
                         ft.Text(self.tr("category_migration_intro")),
-                        ft.Row([parent]),
+                        ft.Row([self._category_menu_anchor(parent)]),
                         code,
                         ft.Text(self.tr("category_migration_code")),
                     ],
@@ -5674,11 +5689,20 @@ class FinanceView(ft.Row):
         )
 
     def _category_menu_anchor(self, dropdown: ft.Dropdown) -> ft.Control:
-        return (
-            CategoryMenuAnchor(dropdown, menu_style_provider=self._category_menu_base_style)
-            if self.screen_class == ScreenClass.COMPACT
-            else dropdown
+        if self.screen_class != ScreenClass.COMPACT:
+            return dropdown
+        return CategoryMenuAnchor(
+            dropdown,
+            menu_style_provider=self._category_menu_base_style,
+            mobile=self._mobile_item_actions,
+            menu_height=self._category_menu_height(),
         )
+
+    def _set_category_menu_row(self, row: ft.Row, dropdown: ft.Dropdown) -> None:
+        current = row.controls[0]
+        if isinstance(current, CategoryMenuAnchor):
+            current.restore()
+        row.controls = [self._category_menu_anchor(dropdown)]
 
     def _category_option_lines(
         self, options: list[ft.DropdownOption], *, fit_content: bool = False
@@ -6263,7 +6287,7 @@ class FinanceView(ft.Row):
             self.tr("category_form_title"),
             [
                 ft.Row([self.category_root]),
-                ft.Row([self.category_parent]),
+                ft.Row([self._category_menu_anchor(self.category_parent)]),
                 self.category_name,
                 icon,
                 self.category_id,

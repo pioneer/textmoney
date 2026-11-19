@@ -386,11 +386,12 @@ def test_inline_category_suggestion_uses_parent_and_preserves_transaction_draft(
             for control in controls
             if isinstance(control, ft.Row)
             and any(
-                isinstance(child, ft.Dropdown) and child.data == "quick_category_parent"
+                isinstance(dropdown_field(child), ft.Dropdown)
+                and dropdown_field(child).data == "quick_category_parent"
                 for child in control.controls
             )
         )
-        parent = parent_row.controls[0]
+        parent = dropdown_field(parent_row.controls[0])
         assert isinstance(parent, ft.Dropdown)
         assert parent.expand is True and parent.width is None
         assert parent_row.width is None and not parent_row.wrap

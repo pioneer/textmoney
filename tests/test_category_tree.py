@@ -8,7 +8,8 @@ from unittest.mock import MagicMock
 import flet as ft
 import flet.canvas as fc
 import pytest
-from form_controls import category_content, change, click, transaction_form
+from form_controls import category_content, change, click, dropdown_field, transaction_form
+from popup_keyboard import MobileCategoryMenu
 
 from app.domain.ledger import Category
 from app.icons import DISPLAY_SIZE
@@ -55,8 +56,13 @@ def toggle(control: ft.ExpansionTile, expanded: bool) -> None:
 @pytest.mark.parametrize("field_height", [40, 56, 80])
 @pytest.mark.parametrize("option_count", [1, 3, 20])
 @pytest.mark.parametrize("height_limit", [320, 672])
-def test_mobile_category_menu_is_centered_on_measured_field(
-    monkeypatch: pytest.MonkeyPatch, field_height: int, option_count: int, height_limit: int
+@pytest.mark.parametrize("mobile", [False, True])
+def test_category_menu_alignment_uses_measured_field_and_actual_menu_height(
+    monkeypatch: pytest.MonkeyPatch,
+    field_height: int,
+    option_count: int,
+    height_limit: int,
+    mobile: bool,
 ) -> None:
     dropdown = ft.Dropdown(
         menu_height=height_limit,
@@ -65,7 +71,7 @@ def test_mobile_category_menu_is_centered_on_measured_field(
             for index in range(option_count)
         ],
     )
-    anchor = CategoryMenuAnchor(dropdown)
+    anchor = CategoryMenuAnchor(dropdown, mobile=mobile)
     update = MagicMock()
     monkeypatch.setattr(anchor, "update", update)
     anchor._resized(MagicMock(spec=fc.CanvasResizeEvent, height=field_height, width=300))
@@ -82,18 +88,25 @@ def test_mobile_category_menu_is_centered_on_measured_field(
     dropdown.options.pop()
     anchor.before_update()
     assert dropdown.menu_style.alignment == ft.Alignment(
-        -1, -min(height_limit, (option_count - 1) * 48 + 16) / field_height
+        -1,
+        -min(height_limit, (option_count - 1) * 48 + 16) / field_height,
     )
+    assert isinstance(anchor.content, MobileCategoryMenu) is mobile
+    if isinstance(anchor.content, MobileCategoryMenu):
+        assert anchor.content.menu_height_limit == height_limit
+        assert anchor.content.content is dropdown
 
 
 @pytest.mark.parametrize("field_height", [40, 56, 80])
-def test_mobile_category_menu_grows_twenty_percent_on_each_side(
-    monkeypatch: pytest.MonkeyPatch, field_height: int
+@pytest.mark.parametrize("mobile", [False, True])
+def test_compact_category_menu_reserves_reachable_viewport_only_on_mobile(
+    monkeypatch: pytest.MonkeyPatch, field_height: int, mobile: bool
 ) -> None:
     page = MagicMock(spec=ft.Page)
     page.width = 390
     monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
     view = FinanceView()
+    view._mobile_item_actions = mobile
     view._apply_layout(390)
     dropdown = ft.Dropdown(
         height=field_height,
@@ -110,8 +123,42 @@ def test_mobile_category_menu_grows_twenty_percent_on_each_side(
     assert dropdown.menu_height == 480 * 1.4
     top = field_height / 2 + dropdown.menu_style.alignment.y * field_height / 2
     bottom = top + dropdown.menu_height
-    assert (field_height - 480) / 2 - top == pytest.approx(480 * 0.2)
-    assert bottom - (field_height + 480) / 2 == pytest.approx(480 * 0.2)
+    assert top == pytest.approx((field_height - dropdown.menu_height) / 2)
+    assert bottom == pytest.approx((field_height + dropdown.menu_height) / 2)
+    assert isinstance(anchor.content, MobileCategoryMenu) is mobile
+
+
+def test_persistent_category_selectors_use_the_compact_menu_layout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    page.width = 390
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+    view = FinanceView()
+    view._mobile_item_actions = True
+    view._apply_layout(390)
+
+    for row, dropdown in (
+        (view.operations_category_row, view.operations_category),
+        (view.default_fee_row, view.default_fee),
+        (view.budgets.scope_row, view.budgets.scope),
+    ):
+        assert len(row.controls) == 1
+        anchor = row.controls[0]
+        assert isinstance(anchor, CategoryMenuAnchor)
+        assert anchor.dropdown is dropdown
+        assert isinstance(anchor.content, MobileCategoryMenu)
+        assert dropdown.menu_height == 672
+
+    view._apply_layout(1366)
+    for row, dropdown in (
+        (view.operations_category_row, view.operations_category),
+        (view.default_fee_row, view.default_fee),
+        (view.budgets.scope_row, view.budgets.scope),
+    ):
+        assert row.controls == [dropdown]
+        assert dropdown.menu_height is None
+        assert dropdown.menu_style is None
 
 
 def test_main_category_tree_uses_connector_gutters_without_losing_native_tiles() -> None:
@@ -267,8 +314,13 @@ def test_transaction_categories_are_indented_and_menu_height_is_bounded(
         if width <= 599:
             assert form.category.menu_style and form.category.menu_style.alignment
             assert form.category.menu_style.alignment.y < 0
+            assert form.fee_category.menu_height == 672
+            assert form.fee_category.menu_style and form.fee_category.menu_style.alignment
+            assert form.fee_category.menu_style.alignment.y < 0
         else:
             assert form.category.menu_style is None
+            assert form.fee_category.menu_height is None
+            assert form.fee_category.menu_style is None
         assert [option.key for option in form.category.options] == [
             f"{root}:Food",
             f"{root}:Food:Shops",
@@ -459,12 +511,15 @@ def test_parent_selectors_show_all_codes_when_modifying_categories(
             click(transaction.category_create)
             dialog = page.show_dialog.call_args.args[0]
             assert isinstance(dialog.content, ft.Column)
-            parent = next(
-                child
-                for control in dialog.content.controls
-                if isinstance(control, ft.Row)
-                for child in control.controls
-                if isinstance(child, ft.Dropdown) and child.data == "quick_category_parent"
+            parent = dropdown_field(
+                next(
+                    child
+                    for control in dialog.content.controls
+                    if isinstance(control, ft.Row)
+                    for child in control.controls
+                    if isinstance(dropdown_field(child), ft.Dropdown)
+                    and dropdown_field(child).data == "quick_category_parent"
+                )
             )
             name, code = (
                 next(
@@ -480,6 +535,11 @@ def test_parent_selectors_show_all_codes_when_modifying_categories(
             view._create_category(MagicMock())
             dialog = page.show_dialog.call_args.args[0]
             parent, name, code = view.category_parent, view.category_name, view.category_id
+        assert isinstance(parent, ft.Dropdown)
+        if width <= 599:
+            assert parent.menu_height == 672
+            assert parent.menu_style and parent.menu_style.alignment
+            assert parent.menu_style.alignment.y < 0
         assert not name.value
         assert [(option.key, option.text) for option in parent.options] == [
             ("", view.tr("category_parent_none")),

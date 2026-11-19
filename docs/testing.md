@@ -215,6 +215,37 @@ the available horizontal space.
   Expanded budget details use a larger 40-pixel indent so direct-only figures
   begin to the right of the parent title; other trees retain their 16-pixel indent.
 
+## Adaptive main editors
+
+With a disposable journal, open new/edit transactions, accounts, categories and
+budgets at phone and desktop widths:
+
+- Through 599 logical pixels the editor fills the available safe area; at 600
+  and wider it is a centered, bounded dialog. Resize an open editor across this
+  boundary in both directions. Keep partially entered amounts, descriptions,
+  dates/times, selections and expanded advanced fields; the draft must not reset.
+- On a physical Android device, show numeric and text keyboards. Scroll to the
+  last field, expand transfer/fee controls and verify the focused input remains
+  reachable. The title and Cancel/Save actions must remain accessible above the
+  keyboard, including in landscape and with larger system text.
+- In a compact mobile editor, open a short and a long category menu. Its top
+  should sit about one fifth down the usable screen, not at the status bar.
+  Repeat with the keyboard visible; the menu should fit above it and long lists
+  should scroll without selecting a row until tapped.
+- Open Create category, icon and date/time pickers over an editor. They remain
+  popups, as do budget editors opened from the budget-history dialog. Close the
+  child with its action, Back or desktop Escape; the parent draft must survive.
+  Resize while the child is open and repeat. Back must dismiss the child/editor
+  before navigating the underlying screen.
+- Delete confirmations remain small popups. Invalid or stale saves retain the
+  editor and draft. A save in progress must not be submitted twice or cancelled
+  through the action buttons/desktop shortcuts.
+
+Session/protocol tests cover the width boundary on Android and desktop, live
+resize with nested drafts, unchanged confirmations and the existing validation,
+conflict, save and keyboard paths. They cannot establish actual soft-keyboard
+geometry or physical-device focus behavior.
+
 ## Desktop popup keyboard shortcuts
 
 Escape must behave like the active popup's **Cancel** (or **Keep editing**)

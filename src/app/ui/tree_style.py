@@ -5,6 +5,7 @@ from dataclasses import replace
 
 import flet as ft
 import flet.canvas as fc
+from popup_keyboard import MobileCategoryMenu
 
 from app.icons import DISPLAY_SIZE
 
@@ -20,19 +21,38 @@ class CategoryMenuAnchor(fc.Canvas):
         dropdown: ft.Dropdown,
         *,
         menu_style_provider: Callable[[], ft.MenuStyle | None] | None = None,
+        mobile: bool = False,
+        menu_height: float | None = None,
     ) -> None:
         height = dropdown.height or 56
+        base_menu_height = dropdown.menu_height
+        base_menu_style = dropdown.menu_style
+        if menu_height is not None:
+            dropdown.menu_height = menu_height
         super().__init__(
-            content=ft.Container(dropdown, alignment=ft.Alignment.CENTER_LEFT),
+            content=(
+                MobileCategoryMenu(
+                    dropdown,
+                    menu_height_limit=float(dropdown.menu_height or 672),
+                    alignment=ft.Alignment.CENTER_LEFT,
+                )
+                if mobile
+                else ft.Container(dropdown, alignment=ft.Alignment.CENTER_LEFT)
+            ),
             height=height,
             expand=dropdown.expand,
             on_resize=self._resized,
         )
         self.dropdown = dropdown
-        self._base_menu_style = dropdown.menu_style
+        self._base_menu_height = base_menu_height
+        self._base_menu_style = base_menu_style
         self._menu_style_provider = menu_style_provider
         self._field_height: float | None = float(height)
         self._align_menu()
+
+    def restore(self) -> None:
+        self.dropdown.menu_height = self._base_menu_height
+        self.dropdown.menu_style = self._base_menu_style
 
     def before_update(self) -> None:
         super().before_update()

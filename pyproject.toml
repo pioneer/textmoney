@@ -84,8 +84,9 @@ adaptive_icon_background = "#E0F8EF"
 extract_packages = ["autobean_refactor", "beancount_parser", "lark", "babel"]
 
 [tool.flet.flutter.pubspec.dependency_overrides]
-# Flet's generated jni_flutter 1.1.0 bindings require jni ^1.2.0.
-jni = "1.2.0"
+# JNI 1.2.0 crashes on Android; jni_flutter 1.1.0 requires that broken release.
+jni = "1.1.2"
+jni_flutter = "1.0.4+1"
 
 [tool.flet.app]
 path = "src"

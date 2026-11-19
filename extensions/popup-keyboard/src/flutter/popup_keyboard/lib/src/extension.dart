@@ -4,12 +4,23 @@ import 'package:flet/src/controls/container.dart';
 import 'package:flutter/widgets.dart';
 
 import 'category_menu_bounds.dart';
+import 'category_menu_connector.dart';
 import 'popup_keyboard_scope.dart';
 import 'popup_menu_back_scope.dart';
 
 class Extension extends FletExtension {
   @override
   Widget? createWidget(Key? key, Control control) {
+    if (control.type == 'CategoryMenuConnector') {
+      return LayoutControl(
+        key: key,
+        control: control,
+        child: CategoryMenuGuides(
+          continued: control.get<List>('continued', const [])!.cast<bool>(),
+          child: control.buildWidget('content'),
+        ),
+      );
+    }
     if (control.type == 'PopupMenuBackScope') {
       return PopupMenuBackScope(
         key: key,

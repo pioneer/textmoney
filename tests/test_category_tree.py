@@ -7,9 +7,11 @@ from unittest.mock import MagicMock
 
 import flet as ft
 import flet.canvas as fc
+import msgpack
 import pytest
+from flet.messaging.protocol import configure_encode_object_for_msgpack
 from form_controls import category_content, change, click, dropdown_field, transaction_form
-from popup_keyboard import MobileCategoryMenu
+from popup_keyboard import CategoryMenuConnector, MobileCategoryMenu
 
 from app.domain.ledger import Category
 from app.icons import DISPLAY_SIZE
@@ -235,6 +237,24 @@ def test_category_menu_lines_continue_through_descendants_and_end_at_last_siblin
             assert shape.paint.color == ft.Colors.OUTLINE_VARIANT
             assert shape.paint.stroke_width == 1.25
             assert shape.paint.style == ft.PaintingStyle.STROKE
+
+
+@pytest.mark.parametrize("fit_content", [False, True])
+def test_mobile_category_rows_send_guides_not_resize_handlers(fit_content: bool) -> None:
+    view = FinanceView()
+    view._mobile_item_actions = True
+    options = view._category_option_lines(
+        view._category_form_options([("Expenses:Food:Shops", "Shops")]),
+        fit_content=fit_content,
+    )
+    row = options[0].content
+    assert isinstance(row, CategoryMenuConnector)
+    encode = configure_encode_object_for_msgpack(ft.BaseControl)
+    wire = msgpack.unpackb(msgpack.packb(row, default=encode))
+    assert wire["_c"] == "CategoryMenuConnector"
+    assert wire["continued"] == [False]
+    assert "on_resize" not in wire
+    assert wire.get("height") == (None if fit_content else view.category_menu_row_height)
 
 
 @pytest.mark.parametrize("height", [32, 48, 72, 96])

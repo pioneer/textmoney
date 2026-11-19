@@ -17,6 +17,13 @@ class MobileCategoryMenu(ft.Container):
     menu_height_limit: float = 672
 
 
+@ft.control("CategoryMenuConnector")
+class CategoryMenuConnector(ft.Container):
+    """Draw a mobile category row's hierarchy guides in the client."""
+
+    continued: tuple[bool, ...] = ()
+
+
 @ft.control("PopupMenuBackScope")
 class PopupMenuBackScope(ft.Container):
     """Dismiss an open dropdown before its Android dialog."""

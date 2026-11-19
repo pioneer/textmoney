@@ -19,6 +19,7 @@ from zoneinfo import available_timezones
 import flet as ft
 from browser_history_bridge import BrowserHistory
 from finance_saf import FinanceSaf
+from popup_keyboard import CategoryMenuConnector
 
 from app.domain.category_migration import CategoryMigration, migrated_category
 from app.domain.code_suggestions import (
@@ -5780,7 +5781,11 @@ class FinanceView(ft.Row):
                 option.leading_icon = None
             content.height = None if fit_content else self.category_menu_row_height
             content.alignment = ft.Alignment.CENTER_LEFT
-            option.content = CategoryConnectorRow(content, continued, branch_length=11)
+            option.content = (
+                CategoryMenuConnector(content=content, height=content.height, continued=continued)
+                if self._mobile_item_actions
+                else CategoryConnectorRow(content, continued, branch_length=11)
+            )
             option.style = ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=12))
         return options
 

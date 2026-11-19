@@ -81,6 +81,8 @@ Rebuild after changing an extension or its dependencies. The run tasks reject
 missing/stale clients instead of launching the stock client without the fix;
 ordinary Python edits still hot reload. Linux retains its isolated branded
 development client and icon, now derived from the extension-enabled build.
+If the popup extension's Python API changed, refresh its local wheel with
+`uv sync --locked --reinstall-package popup-keyboard` before running checks.
 
 ## Flet 1.1.2 upgrade verification
 
@@ -117,7 +119,8 @@ Category menus and the main category tree share 16-pixel hierarchy gutters and
 1.25-pixel Material
 `OUTLINE_VARIANT` connector lines. Ancestor guides continue through descendants;
 the final sibling gets a rounded elbow and its stem stops at the row centre.
-The reusable connector canvas derives geometry from its measured row height.
+Mobile category menu rows draw their guides in Flutter at the rendered row
+height, without sending per-option resize events to Python when the menu opens.
 Category menu rows match native account menu density: 40 pixels on desktop and
 48 pixels on mobile, independent of window width, keeping guides joined.
 Child stems start at the

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import flet as ft
 import flet.canvas as fc
-from popup_keyboard import PopupMenuBackScope
+from popup_keyboard import CategoryMenuConnector, PopupMenuBackScope
 
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.tree_style import CategoryMenuAnchor
@@ -28,7 +28,7 @@ def assert_deletion_title(dialog: ft.AlertDialog, title: str) -> None:
 
 
 def category_content(option: ft.DropdownOption) -> ft.Container:
-    assert isinstance(option.content, fc.Canvas)
+    assert isinstance(option.content, (fc.Canvas, CategoryMenuConnector))
     assert isinstance(option.content.content, ft.Container)
     return option.content.content
 

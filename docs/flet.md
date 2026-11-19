@@ -4,6 +4,8 @@ The app pins Flet 1.1.2 and uses imperative controls with `ft.run(main)`.
 Do not copy deprecated APIs or introduce `@ft.component`.
 Keep the runtime, `all` extras, MCP, and local SAF extension's Python and Dart
 dependencies aligned. Their pins and locked packages are checked by tests.
+The Flutter pubspec overrides `jni` to 1.2.0 because Flet's generated
+`jni_flutter` 1.1.0 bindings require that API level.
 
 [.mcp.json](../.mcp.json) configures Copilot's `flet` stdio server with
 `uv run flet mcp`. Run `uv sync` and start Copilot from the repository root so

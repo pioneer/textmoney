@@ -84,8 +84,8 @@ adaptive_icon_background = "#E0F8EF"
 extract_packages = ["autobean_refactor", "beancount_parser", "lark", "babel"]
 
 [tool.flet.flutter.pubspec.dependency_overrides]
-# Flet's shell pins 1.0.0, but current shared_preferences bindings require 1.1.
-jni = "1.1.0"
+# Flet's generated jni_flutter 1.1.0 bindings require jni ^1.2.0.
+jni = "1.2.0"
 
 [tool.flet.app]
 path = "src"

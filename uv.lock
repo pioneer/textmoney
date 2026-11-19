@@ -2497,7 +2497,7 @@ wheels = [
 
 [[package]]
 name = "textmoney"
-version = "0.4.15"
+version = "0.4.16"
 source = { virtual = "." }
 dependencies = [
     { name = "autobean-refactor" },

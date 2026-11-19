@@ -103,6 +103,7 @@ interactive terminal the first time to authenticate. The session is stored in
 `~/.local/share/textmoney/telegram` with owner-only directory permissions; do
 not share or commit it. The standalone upload task defaults to the current
 versioned dev APK and accepts `--apk=PATH` for another APK.
+The terminal reports transfer progress in 5% increments.
 
 ## Refresh README screenshots
 

@@ -1187,9 +1187,28 @@ def upload_telegram_file(apk: Path) -> None:
     session = session_dir / "session"
 
     client = TelegramClient(str(session), api_id, api_hash)
+    last_progress = -5
+
+    def report_progress(current: int, total: int) -> None:
+        nonlocal last_progress
+        percent = int(current * 100 / total) if total else 100
+        if percent >= last_progress + 5 or percent == 100:
+            print(
+                f"Telegram upload: {current / 1024**2:.1f}/{total / 1024**2:.1f} MiB ({percent}%)",
+                flush=True,
+            )
+            last_progress = percent
+
     try:
         client.start()
-        client.loop.run_until_complete(client.send_file("me", str(apk)))
+        print(
+            f"Uploading {apk.name} ({apk.stat().st_size / 1024**2:.1f} MiB) "
+            "to Telegram Saved Messages.",
+            flush=True,
+        )
+        client.loop.run_until_complete(
+            client.send_file("me", str(apk), progress_callback=report_progress)
+        )
     except RPCError as exc:
         raise Exit("Telegram rejected the APK upload; check Telegram API access.", code=1) from exc
     except OSError as exc:

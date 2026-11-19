@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tomllib
 from base64 import b64encode
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock
@@ -660,7 +661,7 @@ def test_standalone_dev_apk_can_upload_after_build(
 
 
 def test_upload_telegram_sends_to_saved_messages_with_private_session(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     calls: list[tuple[object, ...]] = []
 
@@ -672,8 +673,12 @@ def test_upload_telegram_sends_to_saved_messages_with_private_session(
         def start(self) -> None:
             calls.append(("start",))
 
-        async def send_file(self, recipient: str, path: str) -> None:
+        async def send_file(
+            self, recipient: str, path: str, progress_callback: Callable[[int, int], None]
+        ) -> None:
             calls.append(("send_file", recipient, path))
+            progress_callback(5 * 1024**2, 10 * 1024**2)
+            progress_callback(10 * 1024**2, 10 * 1024**2)
 
         def disconnect(self) -> None:
             calls.append(("disconnect",))
@@ -701,6 +706,9 @@ def test_upload_telegram_sends_to_saved_messages_with_private_session(
         ("disconnect",),
     ]
     assert session_dir.stat().st_mode & 0o777 == 0o700
+    output = capsys.readouterr().out
+    assert "Telegram upload: 5.0/10.0 MiB (50%)" in output
+    assert "Telegram upload: 10.0/10.0 MiB (100%)" in output
 
 
 def test_upload_telegram_task_defaults_to_current_dev_apk(
@@ -745,7 +753,12 @@ def test_upload_telegram_reports_remote_failure_and_disconnects(
         def start(self) -> None:
             calls.append("start")
 
-        async def send_file(self, recipient: str, path: str) -> None:
+        async def send_file(
+            self,
+            recipient: str,
+            path: str,
+            progress_callback: Callable[[int, int], None],
+        ) -> None:
             calls.append("send_file")
             raise FakeRPCError("private Telegram response")
 

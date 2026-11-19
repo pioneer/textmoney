@@ -735,6 +735,16 @@ def test_upload_telegram_sends_to_saved_messages_with_private_session(
     ]
     if sys.platform != "win32":
         assert session_dir.stat().st_mode & 0o777 == 0o700
+        assert (session_dir / "credentials.json").stat().st_mode & 0o777 == 0o600
+    monkeypatch.delenv("TELEGRAM_API_ID")
+    monkeypatch.delenv("TELEGRAM_API_HASH")
+    tasks.upload_telegram_file(apk)
+    assert calls[-4:] == [
+        ("client", str(session_dir / "session"), 12345, "test-api-hash"),
+        ("start",),
+        ("send_file", "me", str(apk)),
+        ("disconnect",),
+    ]
     output = capsys.readouterr().out
     assert "Telegram upload: 5.0/10.0 MiB (50%)" in output
     assert "Telegram upload: 10.0/10.0 MiB (100%)" in output
@@ -758,6 +768,7 @@ def test_upload_telegram_requires_credentials_and_apk(
 ) -> None:
     monkeypatch.delenv("TELEGRAM_API_ID", raising=False)
     monkeypatch.delenv("TELEGRAM_API_HASH", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
     with pytest.raises(Exit, match="APK not found"):
         tasks.upload_telegram_file(tmp_path / "missing.apk")
 
@@ -765,6 +776,46 @@ def test_upload_telegram_requires_credentials_and_apk(
     apk.write_bytes(b"dev apk")
     with pytest.raises(Exit, match="TELEGRAM_API_ID and TELEGRAM_API_HASH"):
         tasks.upload_telegram_file(apk)
+
+
+def test_telegram_credentials_override_saved_pair(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("TELEGRAM_API_ID", "123")
+    monkeypatch.setenv("TELEGRAM_API_HASH", "first")
+    assert tasks.telegram_credentials(tmp_path) == (123, "first")
+    monkeypatch.setenv("TELEGRAM_API_ID", "456")
+    monkeypatch.setenv("TELEGRAM_API_HASH", "second")
+    assert tasks.telegram_credentials(tmp_path) == (456, "second")
+    monkeypatch.delenv("TELEGRAM_API_ID")
+    monkeypatch.delenv("TELEGRAM_API_HASH")
+    assert tasks.telegram_credentials(tmp_path) == (456, "second")
+
+
+def test_telegram_credentials_reject_partial_override_and_invalid_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("TELEGRAM_API_ID", "123")
+    monkeypatch.delenv("TELEGRAM_API_HASH", raising=False)
+    with pytest.raises(Exit, match="Set both"):
+        tasks.telegram_credentials(tmp_path)
+    monkeypatch.delenv("TELEGRAM_API_ID")
+    (tmp_path / "credentials.json").write_text('{"api_hash": "secret"', encoding="utf-8")
+    with pytest.raises(Exit, match="Cannot read saved Telegram credentials") as failure:
+        tasks.telegram_credentials(tmp_path)
+    assert "secret" not in str(failure.value)
+
+
+def test_telegram_credentials_report_save_failure_without_exposing_hash(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("TELEGRAM_API_ID", "123")
+    monkeypatch.setenv("TELEGRAM_API_HASH", "secret")
+    monkeypatch.setattr(tasks.os, "replace", MagicMock(side_effect=OSError("secret")))
+    with pytest.raises(Exit, match="Cannot save Telegram credentials") as failure:
+        tasks.telegram_credentials(tmp_path)
+    assert "secret" not in str(failure.value)
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_upload_telegram_reports_remote_failure_and_disconnects(

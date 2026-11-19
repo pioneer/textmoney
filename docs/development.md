@@ -99,9 +99,14 @@ variables in your shell/IDE; keep local `.env` files out of version control.
 Telegram uploads use a local Telegram user session to send the APK to Saved
 Messages. Set `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` from
 [my.telegram.org](https://my.telegram.org), then run `upload-telegram` in an
-interactive terminal the first time to authenticate. The session is stored in
-`~/.local/share/textmoney/telegram` with owner-only directory permissions; do
-not share or commit it. The standalone upload task defaults to the current
+interactive terminal the first time to authenticate. The task saves the pair in
+`~/.local/share/textmoney/telegram/credentials.json` for later uploads. Set both
+variables again to replace the saved pair, or unset both to use it; supplying only
+one is an error. Delete the file to forget the API credentials. The credentials
+are plaintext, not encrypted. On POSIX, the file and session directory are
+restricted to the owner; on Windows, protect the directory using filesystem
+permissions. The Telegram login session is stored in the same directory; deleting
+the credentials file does not log out. Do not share or commit either. The standalone upload task defaults to the current
 versioned dev APK and accepts `--apk=PATH` for another APK.
 The terminal reports transfer progress in 5% increments.
 

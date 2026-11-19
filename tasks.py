@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 from base64 import b64decode, b64encode
 from pathlib import Path
@@ -1157,22 +1158,59 @@ def build_android_dev(context: Context, upload_telegram: bool = False) -> None:
         upload_telegram_file(apk)
 
 
-def upload_telegram_file(apk: Path) -> None:
-    if not apk.is_file():
-        raise Exit(f"APK not found: {apk}", code=1)
+def telegram_credentials(session_dir: Path) -> tuple[int, str]:
     api_id_text = os.environ.get("TELEGRAM_API_ID", "")
     api_hash = os.environ.get("TELEGRAM_API_HASH", "")
-    if not api_id_text or not api_hash:
-        raise Exit(
-            "Set TELEGRAM_API_ID and TELEGRAM_API_HASH to upload to Saved Messages.",
-            code=1,
-        )
+    provided = bool(api_id_text or api_hash)
+    credentials_file = session_dir / "credentials.json"
+    if provided and not (api_id_text and api_hash):
+        raise Exit("Set both TELEGRAM_API_ID and TELEGRAM_API_HASH, or neither.", code=1)
+    if not provided:
+        try:
+            credentials = json.loads(credentials_file.read_text(encoding="utf-8"))
+        except FileNotFoundError as exc:
+            raise Exit(
+                "Set TELEGRAM_API_ID and TELEGRAM_API_HASH to upload to Saved Messages.",
+                code=1,
+            ) from exc
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise Exit("Cannot read saved Telegram credentials.", code=1) from exc
+        if not isinstance(credentials, dict):
+            raise Exit("Saved Telegram credentials are invalid.", code=1)
+        api_id_text = credentials.get("api_id")
+        api_hash = credentials.get("api_hash")
+        if not isinstance(api_id_text, str) or not isinstance(api_hash, str) or not api_hash:
+            raise Exit("Saved Telegram credentials are invalid.", code=1)
     try:
         api_id = int(api_id_text)
     except ValueError as exc:
         raise Exit("TELEGRAM_API_ID must be an integer.", code=1) from exc
     if api_id <= 0:
         raise Exit("TELEGRAM_API_ID must be a positive integer.", code=1)
+    if provided:
+        temporary: Path | None = None
+        try:
+            session_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            session_dir.chmod(0o700)
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=session_dir, prefix=".credentials-", delete=False
+            ) as file:
+                temporary = Path(file.name)
+                json.dump({"api_id": api_id_text, "api_hash": api_hash}, file)
+            os.replace(temporary, credentials_file)
+        except OSError as exc:
+            raise Exit("Cannot save Telegram credentials.", code=1) from exc
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+    return api_id, api_hash
+
+
+def upload_telegram_file(apk: Path) -> None:
+    if not apk.is_file():
+        raise Exit(f"APK not found: {apk}", code=1)
+    session_dir = Path.home() / ".local/share/textmoney/telegram"
+    api_id, api_hash = telegram_credentials(session_dir)
     try:
         from telethon import TelegramClient
         from telethon.errors import RPCError
@@ -1181,7 +1219,6 @@ def upload_telegram_file(apk: Path) -> None:
             "Telethon is unavailable; run uv sync to install development dependencies.", code=1
         ) from exc
 
-    session_dir = Path.home() / ".local/share/textmoney/telegram"
     session_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     session_dir.chmod(0o700)
     session = session_dir / "session"

@@ -25,6 +25,8 @@ uv run inv build-web-client  # Build extension-enabled browser preview client
 uv run inv run-web        # Local browser UI preview
 uv run inv check          # Format check, lint, Pyright, catalogs and tests
 uv run inv build-android-dev  # Standalone TextMoney Dev APK for phone UX testing
+uv run inv build-android-dev --upload-telegram  # Also send the APK to Saved Messages
+uv run inv upload-telegram  # Upload the existing dev APK; --apk=PATH selects another APK
 uv run inv build-android  # Local APK with the production application ID
 uv run inv build-linux    # Linux x86_64 AppImage
 uv run inv build-local    # Build for the current desktop OS
@@ -94,6 +96,13 @@ These are generated, not maintained. See [branding](branding.md) for the
 artwork and framing policy.
 `.env.example` is documentation, not automatically loaded configuration. Set
 variables in your shell/IDE; keep local `.env` files out of version control.
+Telegram uploads use a local Telegram user session to send the APK to Saved
+Messages. Set `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` from
+[my.telegram.org](https://my.telegram.org), then run `upload-telegram` in an
+interactive terminal the first time to authenticate. The session is stored in
+`~/.local/share/textmoney/telegram` with owner-only directory permissions; do
+not share or commit it. The standalone upload task defaults to the current
+versioned dev APK and accepts `--apk=PATH` for another APK.
 
 ## Refresh README screenshots
 

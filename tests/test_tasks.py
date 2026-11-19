@@ -1,3 +1,4 @@
+import asyncio
 import json
 import math
 import shutil
@@ -6,6 +7,7 @@ import sys
 import tomllib
 from base64 import b64encode
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import MagicMock
 from zipfile import ZipFile
 
@@ -634,6 +636,140 @@ def test_standalone_dev_apk_uses_isolated_identity_and_preserves_failures(
         assert not (output / "textmoney-0.4.11.apk").exists()
         assert not (output / "textmoney.apk").exists()
     stage_assets.assert_called_once_with(linux=False, windows=False, android=True)
+
+
+def test_standalone_dev_apk_can_upload_after_build(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "stage_assets", lambda **kwargs: None)
+    monkeypatch.setattr(tasks, "release_identity", lambda: ("0.4.11", 59))
+    output = tmp_path / "build/apk"
+
+    def build(*args: str, **kwargs: object) -> None:
+        output.mkdir(parents=True)
+        (output / "textmoney-0.4.11.apk").write_bytes(b"dev apk")
+
+    monkeypatch.setattr(tasks, "build_target", build)
+    upload = MagicMock()
+    monkeypatch.setattr(tasks, "upload_telegram_file", upload)
+
+    tasks.build_android_dev(Context(), upload_telegram=True)
+
+    upload.assert_called_once_with(output / "textmoney-dev-0.4.11.apk")
+
+
+def test_upload_telegram_sends_to_saved_messages_with_private_session(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[tuple[object, ...]] = []
+
+    class FakeClient:
+        def __init__(self, session: str, api_id: int, api_hash: str) -> None:
+            self.loop = asyncio.new_event_loop()
+            calls.append(("client", session, api_id, api_hash))
+
+        def start(self) -> None:
+            calls.append(("start",))
+
+        async def send_file(self, recipient: str, path: str) -> None:
+            calls.append(("send_file", recipient, path))
+
+        def disconnect(self) -> None:
+            calls.append(("disconnect",))
+            self.loop.close()
+
+    telethon = ModuleType("telethon")
+    telethon.TelegramClient = FakeClient  # type: ignore[attr-defined]
+    errors = ModuleType("telethon.errors")
+    errors.RPCError = RuntimeError  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "telethon", telethon)
+    monkeypatch.setitem(sys.modules, "telethon.errors", errors)
+    monkeypatch.setenv("TELEGRAM_API_ID", "12345")
+    monkeypatch.setenv("TELEGRAM_API_HASH", "test-api-hash")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    apk = tmp_path / "textmoney-dev.apk"
+    apk.write_bytes(b"dev apk")
+
+    tasks.upload_telegram_file(apk)
+
+    session_dir = tmp_path / ".local/share/textmoney/telegram"
+    assert calls == [
+        ("client", str(session_dir / "session"), 12345, "test-api-hash"),
+        ("start",),
+        ("send_file", "me", str(apk)),
+        ("disconnect",),
+    ]
+    assert session_dir.stat().st_mode & 0o777 == 0o700
+
+
+def test_upload_telegram_task_defaults_to_current_dev_apk(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "release_identity", lambda: ("0.4.11", 59))
+    upload = MagicMock()
+    monkeypatch.setattr(tasks, "upload_telegram_file", upload)
+
+    tasks.upload_telegram(Context())
+
+    upload.assert_called_once_with(tmp_path / "build/apk/textmoney-dev-0.4.11.apk")
+
+
+def test_upload_telegram_requires_credentials_and_apk(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("TELEGRAM_API_ID", raising=False)
+    monkeypatch.delenv("TELEGRAM_API_HASH", raising=False)
+    with pytest.raises(Exit, match="APK not found"):
+        tasks.upload_telegram_file(tmp_path / "missing.apk")
+
+    apk = tmp_path / "existing.apk"
+    apk.write_bytes(b"dev apk")
+    with pytest.raises(Exit, match="TELEGRAM_API_ID and TELEGRAM_API_HASH"):
+        tasks.upload_telegram_file(apk)
+
+
+def test_upload_telegram_reports_remote_failure_and_disconnects(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[str] = []
+
+    class FakeRPCError(Exception):
+        pass
+
+    class FakeClient:
+        def __init__(self, session: str, api_id: int, api_hash: str) -> None:
+            self.loop = asyncio.new_event_loop()
+
+        def start(self) -> None:
+            calls.append("start")
+
+        async def send_file(self, recipient: str, path: str) -> None:
+            calls.append("send_file")
+            raise FakeRPCError("private Telegram response")
+
+        def disconnect(self) -> None:
+            calls.append("disconnect")
+            self.loop.close()
+
+    telethon = ModuleType("telethon")
+    telethon.TelegramClient = FakeClient  # type: ignore[attr-defined]
+    errors = ModuleType("telethon.errors")
+    errors.RPCError = FakeRPCError  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "telethon", telethon)
+    monkeypatch.setitem(sys.modules, "telethon.errors", errors)
+    monkeypatch.setenv("TELEGRAM_API_ID", "12345")
+    monkeypatch.setenv("TELEGRAM_API_HASH", "test-api-hash")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    apk = tmp_path / "textmoney-dev.apk"
+    apk.write_bytes(b"dev apk")
+
+    with pytest.raises(Exit, match="Telegram rejected the APK upload") as failure:
+        tasks.upload_telegram_file(apk)
+
+    assert "private Telegram response" not in str(failure.value)
+    assert calls == ["start", "send_file", "disconnect"]
 
 
 def test_release_build_passes_explicit_signing_environment(

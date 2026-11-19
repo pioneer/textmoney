@@ -1145,13 +1145,71 @@ def build_android(context: Context) -> None:
     build_target("apk")
 
 
-@task
-def build_android_dev(context: Context) -> None:
-    """Build a standalone TextMoney Dev APK alongside the production app."""
+@task(help={"upload_telegram": "Upload the completed APK to Telegram Saved Messages."})
+def build_android_dev(context: Context, upload_telegram: bool = False) -> None:
+    """Build a standalone TextMoney Dev APK; optionally upload it to Telegram."""
     build_target("apk", "--bundle-id", "com.pioneer.textmoney.dev", "--product", "TextMoney Dev")
     version, _ = release_identity()
     output = ROOT / "build/apk"
-    (output / f"textmoney-{version}.apk").replace(output / f"textmoney-dev-{version}.apk")
+    apk = output / f"textmoney-dev-{version}.apk"
+    (output / f"textmoney-{version}.apk").replace(apk)
+    if upload_telegram:
+        upload_telegram_file(apk)
+
+
+def upload_telegram_file(apk: Path) -> None:
+    if not apk.is_file():
+        raise Exit(f"APK not found: {apk}", code=1)
+    api_id_text = os.environ.get("TELEGRAM_API_ID", "")
+    api_hash = os.environ.get("TELEGRAM_API_HASH", "")
+    if not api_id_text or not api_hash:
+        raise Exit(
+            "Set TELEGRAM_API_ID and TELEGRAM_API_HASH to upload to Saved Messages.",
+            code=1,
+        )
+    try:
+        api_id = int(api_id_text)
+    except ValueError as exc:
+        raise Exit("TELEGRAM_API_ID must be an integer.", code=1) from exc
+    if api_id <= 0:
+        raise Exit("TELEGRAM_API_ID must be a positive integer.", code=1)
+    try:
+        from telethon import TelegramClient
+        from telethon.errors import RPCError
+    except ImportError as exc:
+        raise Exit(
+            "Telethon is unavailable; run uv sync to install development dependencies.", code=1
+        ) from exc
+
+    session_dir = Path.home() / ".local/share/textmoney/telegram"
+    session_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    session_dir.chmod(0o700)
+    session = session_dir / "session"
+
+    client = TelegramClient(str(session), api_id, api_hash)
+    try:
+        client.start()
+        client.loop.run_until_complete(client.send_file("me", str(apk)))
+    except RPCError as exc:
+        raise Exit("Telegram rejected the APK upload; check Telegram API access.", code=1) from exc
+    except OSError as exc:
+        raise Exit("Telegram upload failed due to a local file or network error.", code=1) from exc
+    finally:
+        client.disconnect()
+    session_file = session.with_suffix(".session")
+    if session_file.exists():
+        session_file.chmod(0o600)
+    print(f"Uploaded {apk.name} to Telegram Saved Messages.")
+
+
+@task
+def upload_telegram(context: Context, apk: str = "") -> None:
+    """Upload a built dev APK, or the specified APK, to Telegram Saved Messages."""
+    version, _ = release_identity()
+    apk_path = (
+        Path(apk).expanduser() if apk else ROOT / "build/apk" / f"textmoney-dev-{version}.apk"
+    )
+    upload_telegram_file(apk_path)
 
 
 @task

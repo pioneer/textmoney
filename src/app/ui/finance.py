@@ -577,6 +577,7 @@ class FinanceView(ft.Row):
         )
         self.bottom_buttons: list[ft.TextButton] = []
         self.bottom_semantics: list[ft.Semantics] = []
+        self.bottom_items: list[tuple[ft.Container, ft.Icon, ft.Text]] = []
         self.navigation_row = ft.Row(spacing=0)
         # A Flet height here also constrains the outer widget, leaving no room
         # for BottomAppBar's system-safe-area padding.
@@ -866,33 +867,46 @@ class FinanceView(ft.Row):
         }
         selected = self._compact_selected_index()
         if tuple(button.data for button in self.bottom_buttons) != bottom:
-            self.bottom_buttons = [
-                ft.TextButton(
-                    data=screen,
-                    height=80,
-                    style=ft.ButtonStyle(
-                        padding=0,
-                        shape=ft.RoundedRectangleBorder(radius=0),
-                    ),
-                    on_click=self._bottom_selected,
+            self.bottom_buttons = []
+            self.bottom_items = []
+            for screen in bottom:
+                label, icon, _selected_icon = destinations[screen]
+                content, indicator, icon_control, label_control = self._bottom_item_content(
+                    self.tr(label), icon
                 )
-                for screen in bottom
-            ]
+                self.bottom_buttons.append(
+                    ft.TextButton(
+                        content=content,
+                        data=screen,
+                        height=80,
+                        style=ft.ButtonStyle(
+                            padding=0,
+                            shape=ft.RoundedRectangleBorder(radius=0),
+                        ),
+                        on_click=self._bottom_selected,
+                    )
+                )
+                self.bottom_items.append((indicator, icon_control, label_control))
             self.bottom_semantics = [ft.Semantics(content=button) for button in self.bottom_buttons]
             # Announce each button and its selection as one accessible action.
             self.navigation_row.controls = [
                 ft.Container(expand=1, content=ft.MergeSemantics(content=semantics))
                 for semantics in (*self.bottom_semantics, self.more_semantics)
             ]
-        for index, (button, semantics, screen) in enumerate(
-            zip(self.bottom_buttons, self.bottom_semantics, bottom, strict=True)
+        for index, (button, semantics, screen, item) in enumerate(
+            zip(self.bottom_buttons, self.bottom_semantics, bottom, self.bottom_items, strict=True)
         ):
             label, icon, selected_icon = destinations[screen]
+            indicator, icon_control, label_control = item
+            is_selected = index == selected
             semantics.selected = index == selected
             button.tooltip = ft.Tooltip(self.tr(label), exclude_from_semantics=True)
-            button.content = self._bottom_content(
-                self.tr(label), selected_icon if index == selected else icon, index == selected
+            indicator.gradient = selection_gradient() if is_selected else None
+            icon_control.icon = selected_icon if is_selected else icon
+            icon_control.color = (
+                ft.Colors.ON_SECONDARY_CONTAINER if is_selected else ft.Colors.ON_SURFACE_VARIANT
             )
+            label_control.value = self.tr(label)
         self.nav_rail.destinations = [
             ft.NavigationRailDestination(
                 label=self.tr(label),
@@ -969,6 +983,38 @@ class FinanceView(ft.Row):
             spacing=4,
             alignment=ft.MainAxisAlignment.CENTER,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
+    @staticmethod
+    def _bottom_item_content(
+        label: str, icon: ft.IconData
+    ) -> tuple[ft.Column, ft.Container, ft.Icon, ft.Text]:
+        icon_control = ft.Icon(icon, size=24)
+        indicator = ft.Container(
+            content=icon_control,
+            width=64,
+            height=32,
+            alignment=ft.Alignment.CENTER,
+            border_radius=16,
+        )
+        label_control = ft.Text(
+            label,
+            size=12,
+            color=ft.Colors.ON_SURFACE,
+            max_lines=1,
+            overflow=ft.TextOverflow.ELLIPSIS,
+        )
+        return (
+            ft.Column(
+                [indicator, label_control],
+                height=80,
+                spacing=4,
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            indicator,
+            icon_control,
+            label_control,
         )
 
     def _build_screens(self) -> None:

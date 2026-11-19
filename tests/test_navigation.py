@@ -697,6 +697,28 @@ def test_bottom_bar_still_navigates_to_each_primary_screen(
     assert not view.more_semantics.selected
 
 
+def test_bottom_selection_updates_existing_indicators(
+    navigation: tuple[FinanceView, MagicMock],
+) -> None:
+    view, _ = navigation
+    contents = tuple(button.content for button in view.bottom_buttons)
+
+    for index in (1, 3, 1, 3):
+        click(view.bottom_buttons[index])
+        selected = [
+            item_index
+            for item_index, button in enumerate(view.bottom_buttons)
+            if isinstance(button.content, ft.Column)
+            and isinstance(button.content.controls[0], ft.Container)
+            and button.content.controls[0].gradient is not None
+        ]
+        assert selected == [index]
+        assert all(
+            button.content is content
+            for button, content in zip(view.bottom_buttons, contents, strict=True)
+        )
+
+
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
 @pytest.mark.parametrize("primary", ["home", "transactions", "budgets", "reports"])
 @pytest.mark.parametrize("tab", [0, 1])

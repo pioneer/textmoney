@@ -733,7 +733,8 @@ def test_upload_telegram_sends_to_saved_messages_with_private_session(
         ("send_file", "me", str(apk)),
         ("disconnect",),
     ]
-    assert session_dir.stat().st_mode & 0o777 == 0o700
+    if sys.platform != "win32":
+        assert session_dir.stat().st_mode & 0o777 == 0o700
     output = capsys.readouterr().out
     assert "Telegram upload: 5.0/10.0 MiB (50%)" in output
     assert "Telegram upload: 10.0/10.0 MiB (100%)" in output

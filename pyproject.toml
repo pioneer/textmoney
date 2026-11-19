@@ -79,7 +79,7 @@ browser-history-bridge = "extensions/browser-history-bridge"
 popup-keyboard = "extensions/popup-keyboard"
 
 [tool.flet.android]
-adaptive_icon_background = "#164675"
+adaptive_icon_background = "#E0F8EF"
 # Parsers and Babel open grammar/locale data using real __file__-relative paths.
 extract_packages = ["autobean_refactor", "beancount_parser", "lark", "babel"]
 

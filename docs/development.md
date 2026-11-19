@@ -74,8 +74,8 @@ On Linux, `run` and `debug` prepare a branded client under
 `build/linux-dev-client` and register a hidden desktop entry under
 `$XDG_DATA_HOME/applications` (default `~/.local/share/applications`).
 Its GTK identity is `dev.textmoney.app`, separate from the packaged app and other
-Flet apps. This gives the development window a generated circular blue badge
-with transparent corners and the canonical artwork without
+Flet apps. This gives the development window a generated circular badge with
+transparent corners and the canonical mint-and-teal ledger artwork without
 modifying the built bundle. The adapter derives this copy from the host build,
 including the popup keyboard extension, rather than Flet's stock client.
 It checks the pinned client's binary

@@ -108,10 +108,37 @@ def test_release_query_failure_is_an_error_and_does_not_capture(
 
 
 def _icon_artwork_mask(image: Image.Image) -> Image.Image:
-    red, green, _blue = image.convert("RGB").split()
-    foreground = ImageChops.lighter(red, green).point([0] * 128 + [255] * 128)
+    background = Image.new("RGB", image.size, tasks.ANDROID_ICON_BACKGROUND)
+    red, green, blue = ImageChops.difference(image.convert("RGB"), background).split()
+    foreground = ImageChops.lighter(ImageChops.lighter(red, green), blue).point(
+        [0] * 9 + [255] * 247
+    )
     opaque = image.convert("RGBA").getchannel("A").point([0] * 128 + [255] * 128)
     return ImageChops.multiply(foreground, opaque)
+
+
+def _icon_pixel(image: Image.Image, point: tuple[int, int]) -> tuple[float, ...]:
+    value = image.getpixel(point)
+    assert isinstance(value, tuple)
+    return value
+
+
+def test_canonical_app_icon_contains_the_mint_ledger_artwork() -> None:
+    with Image.open(tasks.ROOT / "assets/icon.png") as icon:
+        assert icon.size == (1024, 1024)
+        assert icon.mode == "RGBA"
+        assert _icon_pixel(icon, (0, 0))[3] == 0
+        assert _icon_pixel(icon, (512, 512))[3] == 255
+        rim = _icon_pixel(icon, (512, 15))
+        assert rim[1] > 70 and rim[1] > rim[0] * 3 and rim[2] < 120
+        mint = _icon_pixel(icon, (512, 110))
+        assert mint[1] > 230 and mint[2] > 220
+        paper = _icon_pixel(icon, (300, 250))
+        assert min(paper[:3]) > 240
+        currency = _icon_pixel(icon, (512, 480))
+        assert currency[0] < 20 and currency[1] < 100 and currency[2] < 70
+        ledger_stroke = _icon_pixel(icon, (512, 640))
+        assert ledger_stroke[1] > 120 and ledger_stroke[1] > ledger_stroke[0] * 3
 
 
 @pytest.mark.parametrize(
@@ -282,6 +309,7 @@ def test_android_icon_staging_preserves_precomposed_round_framing(
     staged = tmp_path / "src/assets/icon_android.png"
     assert staged.read_bytes() != source.read_bytes()
     with tasks.Image.open(staged) as image:
+        assert image.getpixel((512, 100)) == (224, 248, 239, 255)
         generated = render_icons(image, platform="android", derived=False)
         mask = _icon_artwork_mask(image)
         bounds = mask.getbbox()

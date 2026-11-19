@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icon.png" width="96" height="96" alt="TextMoney logo">
+  <img src="assets/icon.png" width="96" height="96" alt="TextMoney app icon">
 </p>
 
 <h1 align="center">TextMoney</h1>

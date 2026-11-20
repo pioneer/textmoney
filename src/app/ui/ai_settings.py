@@ -56,6 +56,9 @@ class AISettingsPanel:
                 ),
             ],
             visible=False,
+            # ExpansionTile stacks children without spacing; keep the dropdown's
+            # floating label clear of the help text above.
+            margin=ft.Margin.only(top=8),
         )
         self.control = ft.ExpansionTile(
             title=self.title,

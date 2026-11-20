@@ -1090,7 +1090,7 @@ class BudgetView(ft.Column):
             budget = self._active_budget(row.account, row.end, currency)
             if budget is None:
                 continue
-            if self.host._mobile_item_actions:
+            if self.host._mobile_item_actions or include_all_currencies:
                 controls.append(
                     ft.Text(
                         f"{budget.currency} · {format_date(budget.date, self.host.language)}"

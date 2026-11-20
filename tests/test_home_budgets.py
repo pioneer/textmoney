@@ -205,9 +205,12 @@ def test_many_budget_preview_ranks_all_budgets_and_has_noninteractive_omitted_co
             row.account for row in summary.preview[:limit]
         ]
         for row in preview:
-            label = row.controls[0]
-            assert isinstance(label, ft.Row) and label.expand is None
+            heading = row.controls[0]
+            assert isinstance(heading, ft.Row)
+            label, overflow = heading.controls
+            assert isinstance(label, ft.Row) and label.expand
             assert isinstance(label.controls[1], ft.Text) and label.controls[1].expand
+            assert isinstance(overflow, ft.PopupMenuButton)
         bars = [
             control
             for row in preview

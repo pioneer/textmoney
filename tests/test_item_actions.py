@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 from collections.abc import Callable, Iterator
-from dataclasses import fields
+from dataclasses import fields, replace
 from datetime import date
 from pathlib import Path
 from typing import cast
@@ -67,7 +67,7 @@ async def fire(control: ft.Control, name: str) -> None:
         await result
 
 
-async def choose(menu: ft.ContextMenu, label: str) -> None:
+async def choose(menu: ft.ContextMenu | ft.PopupMenuButton, label: str) -> None:
     await fire(menu, "open")
     await fire(next(item for item in menu.items if menu_label(item) == label), "click")
 
@@ -127,7 +127,10 @@ def test_item_actions_follow_platform_not_width(
         card = host._transaction_card(transaction, {}, compact)
         assert bool(menus(card)) is mobile
         buttons = [child for child in walk(card) if isinstance(child, ft.IconButton)]
-        assert len(buttons) == (0 if mobile else 1 if compact else 2)
+        assert len(buttons) == (0 if mobile or compact else 2)
+        assert any(isinstance(child, ft.PopupMenuButton) for child in walk(card)) == (
+            compact and not mobile
+        )
         if mobile:
             assert [menu_label(item) for item in menus(card)[0].items[1:]] == [
                 host.tr("crud_edit"),
@@ -286,6 +289,95 @@ def test_mobile_readonly_preview_and_unsupported_transaction_remain_safe(
     asyncio.run(scenario())
 
 
+def test_desktop_recent_activity_menu_edits_and_confirms_delete(
+    view: tuple[FinanceView, MagicMock],
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        page.platform = ft.PagePlatform.LINUX
+        host.did_mount()
+        host._refresh()
+        assert host.journal is not None
+        journal = host.journal
+        menu = next(
+            child for child in walk(host.home_activity) if isinstance(child, ft.PopupMenuButton)
+        )
+        transaction = journal.transaction_for_edit(menu.items[0].data)
+        assert menu.tooltip == host.tr("item_actions", name=transaction.narration)
+        assert [menu_label(item) for item in menu.items] == [
+            host.tr("crud_edit"),
+            host.tr("crud_delete"),
+        ]
+        editor = MagicMock()
+        host._transaction_dialog = editor
+        await choose(menu, host.tr("crud_edit"))
+        editor.assert_called_once_with(journal, transaction)
+        original = journal.source
+        await choose(menu, host.tr("crud_delete"))
+        confirmation = page.show_dialog.call_args.args[0]
+        assert journal.source == original
+        submit = next(
+            action
+            for action in walk(confirmation)
+            if isinstance(action, ft.TextButton) and action.content == host.tr("crud_delete")
+        )
+        await click_async(submit)
+        assert host.current_screen == "home"
+        assert transaction not in journal.ledger.transactions
+        assert not any(
+            isinstance(child, ft.PopupMenuItem) and child.data == transaction.id
+            for child in walk(host.home_activity)
+        )
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("entry", "label"),
+    [("split", "details"), ("opening", "crud_edit"), ("complex-opening", "details")],
+)
+def test_desktop_recent_activity_protects_special_entries(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path, entry: str, label: str
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        page.platform = ft.PagePlatform.LINUX
+        host.did_mount()
+        assert host.journal is not None
+        source = SOURCE
+        if entry == "split":
+            source += (
+                '2026-01-06 * "External split"\n'
+                "    Expenses:Food 1 USD\n    Expenses:Food:Meals 1 USD\n"
+                "    Expenses:Food 1 USD\n    Assets:Cash -3 USD\n"
+            )
+        else:
+            source += (
+                "2000-01-01 open Equity:Opening-Balances\n"
+                '2026-01-06 * "Opening"\n'
+                "    Assets:Cash 200 USD\n    Equity:Opening-Balances -200 USD\n"
+            )
+            if entry == "complex-opening":
+                source += (
+                    '2026-01-07 * "Another opening"\n'
+                    "    Assets:Cash 5 USD\n    Equity:Opening-Balances -5 USD\n"
+                )
+        (tmp_path / FILENAME).write_text(source, encoding="utf-8")
+        await host.journal.load()
+        host._refresh()
+        menu = next(
+            child for child in walk(host.home_activity) if isinstance(child, ft.PopupMenuButton)
+        )
+        assert [menu_label(item) for item in menu.items] == [host.tr(label)]
+        await choose(menu, host.tr(label))
+        assert page.show_dialog.call_args.args[0].title == host.tr(
+            "kind_opening" if label == "crud_edit" else "details"
+        )
+        assert host.journal.source == source
+
+    asyncio.run(scenario())
+
+
 def test_budget_menus_cover_entire_item_and_keep_currency_targets(
     view: tuple[FinanceView, MagicMock],
 ) -> None:
@@ -363,29 +455,38 @@ def test_budget_history_menu_preserves_popup_handoff(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("mobile", [True, False], ids=["mobile", "desktop"])
 def test_home_budget_menu_includes_all_currency_actions_and_transactions(
     view: tuple[FinanceView, MagicMock],
+    mobile: bool,
 ) -> None:
     async def scenario() -> None:
         host, page = view
         page.platform = ft.PagePlatform.LINUX
-        host._mobile_preview = True
+        host._mobile_preview = mobile
         host.did_mount()
-        assert host._mobile_item_actions
+        assert host._mobile_item_actions == mobile
         host.budgets.currency.value = "EUR"
         await host.home_budgets.refresh()
 
-        menu = menus(host.home_budgets)[0]
-        tappable_row = next(
-            control
-            for control in host.home_budgets.controls
-            if isinstance(control, ft.Row) and menu in menus(control)
-        )
-        assert tappable_row.controls == [menu]
-        assert menu.expand
+        if mobile:
+            menu = menus(host.home_budgets)[0]
+            tappable_row = next(
+                control
+                for control in host.home_budgets.controls
+                if isinstance(control, ft.Row) and menu in menus(control)
+            )
+            assert tappable_row.controls == [menu]
+            assert menu.expand
+        else:
+            assert not menus(host.home_budgets)
+            menu = next(
+                child for child in walk(host.home_budgets) if isinstance(child, ft.PopupMenuButton)
+            )
+            assert menu.tooltip == host.tr("item_actions", name="Food")
         labels = [menu_label(item) for item in menu.items]
         assert labels == [
-            "Food",
+            *(["Food"] if mobile else []),
             host.tr("budget_transactions"),
             f"EUR · {format_date(date(2026, 1, 2), host.language)} · {host.tr('budget_monthly')}",
             host.tr("crud_edit"),
@@ -398,12 +499,92 @@ def test_home_budget_menu_includes_all_currency_actions_and_transactions(
             host.tr("budget_change"),
             host.tr("budget_stop"),
         ]
+        assert host.journal is not None
+        host.budgets._form = MagicMock()
+        for definition in host.journal.ledger.budgets:
+            for key, kwargs in [
+                ("crud_edit", {}),
+                ("budget_change", {"new": True}),
+                ("budget_stop", {"new": True, "stop": True}),
+            ]:
+                await fire(menu, "open")
+                item = next(
+                    item
+                    for item in menu.items
+                    if item.data == definition and menu_label(item) == host.tr(key)
+                )
+                await fire(item, "click")
+                host.budgets._form.assert_called_with(definition, **kwargs)
 
         await choose(menu, host.tr("budget_transactions"))
         dialog = page.show_dialog.call_args.args[0]
         texts = [child.value for child in walk(dialog) if isinstance(child, ft.Text)]
         assert "Synthetic lunch 59" in texts
         assert any(host.tr("budget_all_currencies") in text for text in texts)
+
+    asyncio.run(scenario())
+
+
+def test_desktop_home_budget_delete_confirms_and_refreshes_in_place(
+    view: tuple[FinanceView, MagicMock],
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        page.platform = ft.PagePlatform.LINUX
+        host.did_mount()
+        await host.home_budgets.refresh()
+        menu = next(
+            child for child in walk(host.home_budgets) if isinstance(child, ft.PopupMenuButton)
+        )
+        assert host.journal is not None
+        original = host.journal.ledger.budgets
+        await choose(menu, host.tr("crud_delete"))
+        confirmation = page.show_dialog.call_args.args[0]
+        assert host.journal.ledger.budgets == original
+        page.run_task.reset_mock()
+        submit = next(
+            action
+            for action in walk(confirmation)
+            if isinstance(action, ft.TextButton) and action.content == host.tr("crud_delete")
+        )
+        await click_async(submit)
+        assert host.current_screen == "home"
+        assert [budget.currency for budget in host.journal.ledger.budgets] == ["USD"]
+        assert any(
+            call.args[0] == host.home_budgets.refresh for call in page.run_task.call_args_list
+        )
+        await host.home_budgets.refresh()
+        current = next(
+            child for child in walk(host.home_budgets) if isinstance(child, ft.PopupMenuButton)
+        )
+        assert [item.data.currency for item in current.items if isinstance(item.data, Budget)] == [
+            "USD"
+        ] * 4
+        await choose(menu, host.tr("crud_delete"))
+        assert page.show_dialog.call_args.args[0].title == host.tr("action_failed")
+
+    asyncio.run(scenario())
+
+
+def test_desktop_home_budget_menu_does_not_edit_inherited_limits(
+    view: tuple[FinanceView, MagicMock],
+) -> None:
+    async def scenario() -> None:
+        host, page = view
+        page.platform = ft.PagePlatform.LINUX
+        host.did_mount()
+        await host.home_budgets.refresh()
+        summary = host.home_budgets.summary
+        assert summary is not None
+        # Main normally excludes roll-up-only rows.
+        host.home_budgets.summary = replace(
+            summary, preview=(replace(summary.preview[0], direct_budget={}),)
+        )
+        host.home_budgets.render()
+        menu = next(
+            child for child in walk(host.home_budgets) if isinstance(child, ft.PopupMenuButton)
+        )
+        assert [menu_label(item) for item in menu.items] == [host.tr("budget_transactions")]
 
     asyncio.run(scenario())
 

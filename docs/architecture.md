@@ -164,13 +164,17 @@ selects its own item in both layouts and has no temporary back-to-Reports action
 This follows available width, not the operating system.
 Per-item action presentation is instead platform-based: Android/iOS use native
 single-tap context menus with the item as their trigger; desktop platforms
-retain inline action controls, including at compact widths. Web follows the
+generally retain inline action controls, including at compact widths. Web follows the
 reported operating system. Category expansion arrows remain outside the popup
 target. The whole mobile budget report/history item, including figures,
 progress and padding, opens its menu; budget text stays selectable on desktop.
 The full-width Main mobile budget preview row, including its whitespace, uses
-the same tap menu, with Transactions and all current per-currency definition
-actions (Edit, Delete, Change, Stop).
+the same tap menu. Desktop Main uses one trailing, keyboard-accessible three-dot
+menu per budget and Recent activity row. Budgets offer contributing transactions
+across currencies and actions for each current direct-budget definition (Edit,
+Delete, Change, Stop). Recent activity offers Edit and confirmed Delete where
+allowed, or Details for view-only entries. Editable opening balances offer Edit
+without Delete. The dedicated Operations screen keeps its inline controls.
 Native ink-enabled containers provide bounded touch feedback on item triggers.
 Other tappable controls retain their native Material feedback. Tap-down captures
 position only; the native completed-click callback opens Flet's ContextMenu,

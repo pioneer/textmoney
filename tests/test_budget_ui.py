@@ -517,9 +517,12 @@ def test_editable_rows_highlight_together_with_their_actions_only_on_larger_layo
         ]
         monkeypatch.setattr(HoverRow, "update", MagicMock())
         color = ft.Colors.with_opacity(0.04, ft.Colors.ON_SURFACE) if width > 599 else None
-        for row in hovered:
-            actions = [item for item in walk(row) if isinstance(item, ft.IconButton)]
-            assert any(item.tooltip == host.tr("crud_edit") for item in actions)
+        for group, row in zip(groups, hovered, strict=True):
+            if group is host.home_activity:
+                assert any(isinstance(item, ft.PopupMenuButton) for item in walk(row))
+            else:
+                actions = [item for item in walk(row) if isinstance(item, ft.IconButton)]
+                assert any(item.tooltip == host.tr("crud_edit") for item in actions)
             assert row.on_click is None and row.on_hover is not None
             hover = cast(Callable[[object], object], row.on_hover)
             hover(MagicMock(control=row, data=True))

@@ -699,7 +699,10 @@ def test_exchange_amounts_are_consistent_in_recent_activity_and_full_list(
             await view.icons.assign("Assets:Bank", asset("Source"), ())
             await view.icons.assign("Assets:Euro", asset("Target"), ())
         view._refresh()
-        for context, action_count in ((view.home_activity, 1), (view.history, 2)):
+        for context, action_type, action_count in (
+            (view.home_activity, ft.PopupMenuButton, 1),
+            (view.history, ft.IconButton, 2),
+        ):
             card = next(
                 control
                 for control in context.controls
@@ -714,7 +717,7 @@ def test_exchange_amounts_are_consistent_in_recent_activity_and_full_list(
             assert [image.width for image in artwork] == ([25.92, 16] if with_icons else [])
             assert all(image.height == image.width for image in artwork)
             assert (
-                len([child for child in card.content.controls if isinstance(child, ft.IconButton)])
+                len([child for child in card.content.controls if isinstance(child, action_type)])
                 == action_count
             )
             column = next(child for child in card.content.controls if isinstance(child, ft.Column))

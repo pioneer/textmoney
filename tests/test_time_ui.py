@@ -185,7 +185,8 @@ def test_transaction_row_keeps_details_amount_and_actions_together(compact: bool
     assert len(row.content.controls) == (2 if compact else 3)
     assert isinstance(row.content.controls[0], ft.Column)
     assert row.content.controls[0].expand
-    assert all(isinstance(action, ft.IconButton) for action in row.content.controls[1:])
+    action_type = ft.PopupMenuButton if compact else ft.IconButton
+    assert all(isinstance(action, action_type) for action in row.content.controls[1:])
 
 
 @pytest.mark.parametrize("compact", [False, True])
@@ -208,6 +209,11 @@ def test_transaction_rows_use_tighter_typography_without_smaller_touch_targets(
     assert isinstance(description, ft.Text) and description.size == 14
     actions = row.content.controls[1:]
     assert len(actions) == (1 if compact else 2)
+    if compact:
+        menu = actions[0]
+        assert isinstance(menu, ft.PopupMenuButton)
+        assert [item.data for item in menu.items] == ["stable-id", "stable-id"]
+        return
     for action in actions:
         assert isinstance(action, ft.IconButton) and action.icon_size == 20
         assert action.size_constraints is None
@@ -329,9 +335,15 @@ def test_both_transaction_lists_group_localized_dates_without_changing_order_or_
                 assert control.border == expected_border
                 actions = control.content.controls[1:]
                 assert len(actions) == action_count
-                assert all(isinstance(action, ft.IconButton) for action in actions)
-                edit = actions[0]
-                assert isinstance(edit, ft.IconButton) and isinstance(edit.data, str)
+                action = actions[0]
+                if listing is view.home_activity:
+                    assert isinstance(action, ft.PopupMenuButton)
+                    edit = action.items[0]
+                else:
+                    assert all(isinstance(button, ft.IconButton) for button in actions)
+                    assert isinstance(action, ft.IconButton)
+                    edit = action
+                assert isinstance(edit.data, str)
                 row_ids.append(edit.data)
                 transaction = next(item for item in transactions if item.id == edit.data)
                 assert current_heading == format_date(transaction.date, language)

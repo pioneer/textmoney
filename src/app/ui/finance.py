@@ -2163,9 +2163,7 @@ class FinanceView(ft.Row):
         *,
         bgcolor: ft.ColorValue | None = None,
     ) -> ft.ContextMenu:
-        journal = self.journal
-        source = journal.source if journal else None
-        opened: tuple[object, ...] | None = None
+        mark_open, cancel, claim = self._item_menu_guard()
         tap: ft.TapEvent[ft.Container] | None = None
 
         def pressed(event: ft.TapEvent[ft.Container]) -> None:
@@ -2173,23 +2171,91 @@ class FinanceView(ft.Row):
             tap = event
 
         async def opening(event: ft.Event[ft.Container] | ft.Event[ft.Semantics]) -> None:
-            nonlocal opened, tap
+            nonlocal tap
             position = tap if isinstance(event.control, ft.Container) else None
             tap = None
-            opened = self._item_menu_context()
+            mark_open(event)
             try:
                 await menu.open(
                     local_position=position.local_position if position else None,
                     global_position=position.global_position if position else None,
                 )
             except Exception as exc:
-                opened = None
+                cancel(event)
                 self._error(exc, notify=True)
 
-        def cancel(event: ft.ContextMenuDismissEvent) -> None:
+        menu = ft.ContextMenu(
+            content=ft.MergeSemantics(
+                content=ft.Semantics(
+                    label=self.tr("item_actions", name=name),
+                    button=True,
+                    on_tap=opening,
+                    content=ft.Container(
+                        content,
+                        min_height=48,
+                        bgcolor=bgcolor,
+                        ink=True,
+                        clip_behavior=ft.ClipBehavior.HARD_EDGE,
+                        on_tap_down=pressed,
+                        on_click=opening,
+                    ),
+                ),
+            ),
+            secondary_trigger=None,
+            tertiary_trigger=None,
+            items=[
+                ft.PopupMenuItem(content=name, disabled=True),
+                *self._item_menu_items(actions, claim),
+            ],
+            on_dismiss=cancel,
+        )
+        return menu
+
+    def _item_overflow(self, name: str, actions: list[ft.Control]) -> ft.PopupMenuButton:
+        opening, cancel, claim = self._item_menu_guard()
+        return ft.PopupMenuButton(
+            icon=ft.Icons.MORE_VERT,
+            icon_size=18,
+            padding=4,
+            tooltip=self.tr("item_actions", name=name),
+            items=self._item_menu_items(actions, claim),
+            on_open=opening,
+            on_cancel=cancel,
+        )
+
+    def _item_menu_guard(
+        self,
+    ) -> tuple[Callable[[object], None], Callable[[object], None], Callable[[], bool]]:
+        journal = self.journal
+        source = journal.source if journal else None
+        opened: tuple[object, ...] | None = None
+
+        def opening(event: object) -> None:
+            nonlocal opened
+            opened = self._item_menu_context()
+
+        def cancel(event: object) -> None:
             nonlocal opened
             opened = None
 
+        def claim() -> bool:
+            nonlocal opened
+            current = (
+                self.journal is journal
+                and journal is not None
+                and journal.ready
+                and journal.source == source
+                and opened is not None
+                and opened == self._item_menu_context()
+            )
+            opened = None
+            return current
+
+        return opening, cancel, claim
+
+    def _item_menu_items(
+        self, actions: list[ft.Control], claim: Callable[[], bool]
+    ) -> list[ft.PopupMenuItem]:
         def item(action: ft.Control) -> ft.PopupMenuItem:
             if isinstance(action, ft.Text):
                 return ft.PopupMenuItem(content=action.value, disabled=True)
@@ -2200,19 +2266,8 @@ class FinanceView(ft.Row):
                 raise ValueError("Item menu actions require text labels.")
 
             async def select(event: ft.Event[ft.PopupMenuItem]) -> None:
-                nonlocal opened
                 try:
-                    if (
-                        self.journal is not journal
-                        or journal is None
-                        or not journal.ready
-                        or journal.source != source
-                        or opened is None
-                        or opened != self._item_menu_context()
-                    ):
-                        raise LedgerError("crud_stale")
-                    opened = None
-                    if action.disabled or not action.visible:
+                    if not claim() or action.disabled or not action.visible:
                         raise LedgerError("crud_stale")
                     # Flutter pops the native menu before this event. Reuse the
                     # original button handler and payload without mounting it.
@@ -2236,29 +2291,7 @@ class FinanceView(ft.Row):
                 on_click=select,
             )
 
-        menu = ft.ContextMenu(
-            content=ft.MergeSemantics(
-                content=ft.Semantics(
-                    label=self.tr("item_actions", name=name),
-                    button=True,
-                    on_tap=opening,
-                    content=ft.Container(
-                        content,
-                        min_height=48,
-                        bgcolor=bgcolor,
-                        ink=True,
-                        clip_behavior=ft.ClipBehavior.HARD_EDGE,
-                        on_tap_down=pressed,
-                        on_click=opening,
-                    ),
-                ),
-            ),
-            secondary_trigger=None,
-            tertiary_trigger=None,
-            items=[ft.PopupMenuItem(content=name, disabled=True), *[item(a) for a in actions]],
-            on_dismiss=cancel,
-        )
-        return menu
+        return [item(action) for action in actions]
 
     def _entity_card(self, item: Account | Category, balance: Decimal | None = None) -> ft.Control:
         lines: list[ft.Control] = [
@@ -3109,29 +3142,50 @@ class FinanceView(ft.Row):
                 lines.append(fee_line)
         elif has_summary:
             lines.append(movement_label())
-        actions: list[ft.Control] = (
-            []
-            if read_only
-            else [
-                ft.IconButton(
-                    icon=ft.Icons.EDIT_OUTLINED,
-                    icon_size=20,
-                    tooltip=self.tr("crud_edit"),
-                    data=transaction.id,
-                    on_click=self._edit_transaction,
-                ),
-            ]
-        )
-        if (not compact or self._mobile_item_actions) and not read_only:
-            actions.append(
-                ft.IconButton(
-                    icon=ft.Icons.DELETE_OUTLINE,
-                    icon_size=20,
-                    tooltip=self.tr("crud_delete"),
-                    data=transaction.id,
-                    on_click=self._delete_transaction,
-                )
+        actions: list[ft.Control] = []
+        if not read_only:
+            edit = ft.IconButton(
+                icon=ft.Icons.EDIT_OUTLINED,
+                icon_size=20,
+                tooltip=self.tr("crud_edit"),
+                data=transaction.id,
+                on_click=self._edit_transaction,
             )
+            delete = ft.IconButton(
+                icon=ft.Icons.DELETE_OUTLINE,
+                icon_size=20,
+                tooltip=self.tr("crud_delete"),
+                data=transaction.id,
+                on_click=self._delete_transaction,
+            )
+            actions = [edit, delete]
+            if (
+                compact
+                and not self._mobile_item_actions
+                and self.journal is not None
+                and not self.journal.storage.loaded
+            ):
+                edit.disabled = delete.disabled = True
+            elif (compact or self._mobile_item_actions) and self.journal is not None:
+                try:
+                    self.journal.transaction_for_edit(transaction.id)
+                except LedgerError as exc:
+                    if str(exc) != "crud_transaction_readonly":
+                        raise
+                    if self._mobile_item_actions:
+                        if transaction.kind != "opening":
+                            edit.tooltip = self.tr("details")
+                        delete.disabled = True
+                    else:
+                        actions = [edit]
+                        if transaction.kind != "opening" or not self._can_edit_opening(
+                            self.journal, transaction
+                        ):
+                            edit.tooltip = self.tr("details")
+                            edit.icon = ft.Icons.INFO_OUTLINE
+        inline_actions = [] if self._mobile_item_actions else actions
+        if compact and inline_actions:
+            inline_actions = [self._item_overflow(display, inline_actions)]
         content: ft.Control = ft.Row(
             [
                 *leading_controls,
@@ -3143,7 +3197,7 @@ class FinanceView(ft.Row):
                     if leading_controls
                     else ft.MainAxisAlignment.START,
                 ),
-                *([] if self._mobile_item_actions else actions),
+                *inline_actions,
             ],
             spacing=0,
             intrinsic_height=bool(leading_controls),
@@ -3152,17 +3206,6 @@ class FinanceView(ft.Row):
             else ft.CrossAxisAlignment.CENTER,
         )
         if self._mobile_item_actions and not read_only:
-            if self.journal is not None:
-                try:
-                    self.journal.transaction_for_edit(transaction.id)
-                except LedgerError as exc:
-                    if str(exc) != "crud_transaction_readonly":
-                        raise
-                    edit, delete = actions
-                    assert isinstance(edit, ft.IconButton) and isinstance(delete, ft.IconButton)
-                    if transaction.kind != "opening":
-                        edit.tooltip = self.tr("details")
-                    delete.disabled = True
             content = self._item_menu(content, display, actions)
         container = ft.Container if read_only else self._action_row
         return container(
@@ -3907,7 +3950,10 @@ class FinanceView(ft.Row):
             expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
         )
 
-    def _edit_opening_balance(self, journal: Journal, transaction: Transaction) -> None:
+    @staticmethod
+    def _opening_balance_for_edit(
+        journal: Journal, transaction: Transaction
+    ) -> tuple[Account, Decimal]:
         accounts = [
             account
             for account in journal.ledger.accounts
@@ -3916,9 +3962,22 @@ class FinanceView(ft.Row):
         if len(accounts) != 1:
             raise LedgerError("crud_opening_complex")
         account = accounts[0]
+        return account, journal.opening_balance(account.id)
+
+    def _can_edit_opening(self, journal: Journal, transaction: Transaction) -> bool:
+        try:
+            self._opening_balance_for_edit(journal, transaction)
+        except LedgerError as exc:
+            if str(exc) != "crud_opening_complex":
+                raise
+            return False
+        return True
+
+    def _edit_opening_balance(self, journal: Journal, transaction: Transaction) -> None:
+        account, balance = self._opening_balance_for_edit(journal, transaction)
         amount = ft.TextField(
             label=self.tr("transfer_owed" if account.liability else "amount"),
-            value=str(journal.opening_balance(account.id)),
+            value=str(balance),
         )
         opening_date = DateTimeFields(
             self.language,

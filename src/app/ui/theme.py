@@ -18,8 +18,40 @@ def selection_gradient() -> ft.LinearGradient:
     return ft.LinearGradient(colors=[ft.Colors.PRIMARY_CONTAINER, ft.Colors.SECONDARY_CONTAINER])
 
 
-def light_theme() -> ft.Theme:
-    return ft.Theme(
+def desktop_pointer(page: ft.Page, *, mobile_preview: bool = False) -> bool:
+    return not mobile_preview and page.platform in {
+        ft.PagePlatform.LINUX,
+        ft.PagePlatform.WINDOWS,
+        ft.PagePlatform.MACOS,
+    }
+
+
+def click_cursor() -> dict[ft.ControlState, ft.MouseCursor]:
+    return {
+        ft.ControlState.DISABLED: ft.MouseCursor.BASIC,
+        ft.ControlState.DEFAULT: ft.MouseCursor.CLICK,
+    }
+
+
+def _desktop_actions(theme: ft.Theme) -> ft.Theme:
+    style = ft.ButtonStyle(mouse_cursor=click_cursor())
+    theme.button_theme = ft.ButtonTheme(style=style)
+    theme.text_button_theme = ft.TextButtonTheme(style=style)
+    theme.filled_button_theme = ft.FilledButtonTheme(style=style)
+    theme.outlined_button_theme = ft.OutlinedButtonTheme(style=style)
+    theme.icon_button_theme = ft.IconButtonTheme(style=style)
+    if theme.popup_menu_theme is not None:
+        theme.popup_menu_theme.mouse_cursor = click_cursor()
+    if theme.floating_action_button_theme is not None:
+        theme.floating_action_button_theme.hover_color = ft.Colors.with_opacity(
+            0.7, ft.Colors.ON_PRIMARY
+        )
+        theme.floating_action_button_theme.hover_elevation = 12
+    return theme
+
+
+def light_theme(*, desktop: bool = False) -> ft.Theme:
+    theme = ft.Theme(
         color_scheme_seed=PRIMARY_COLOR,
         scaffold_bgcolor="#ffffff",
         color_scheme=ft.ColorScheme(
@@ -59,11 +91,12 @@ def light_theme() -> ft.Theme:
             size_constraints=ft.BoxConstraints(min_width=56, min_height=56, max_height=56),
         ),
     )
+    return _desktop_actions(theme) if desktop else theme
 
 
-def dark_theme() -> ft.Theme:
+def dark_theme(*, desktop: bool = False) -> ft.Theme:
     popup_surface = "#172a21"
-    return ft.Theme(
+    theme = ft.Theme(
         color_scheme_seed="#81c6b3",
         surfaces=ft.ThemeSurfaces.TONAL,
         scaffold_bgcolor="#101c18",
@@ -104,6 +137,7 @@ def dark_theme() -> ft.Theme:
             size_constraints=ft.BoxConstraints(min_width=56, min_height=56, max_height=56),
         ),
     )
+    return _desktop_actions(theme) if desktop else theme
 
 
 def summary_theme(*, dark: bool = False) -> ft.Theme:

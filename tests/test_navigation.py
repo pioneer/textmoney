@@ -43,6 +43,75 @@ def test_compact_navigation_leaves_room_for_system_insets(
     assert view.overflow_menu.content.height == 80
 
 
+def test_desktop_compact_overflow_keeps_native_menu_and_click_cursor(
+    navigation: tuple[FinanceView, MagicMock],
+) -> None:
+    view, _page = navigation
+    view._desktop_pointer = True
+    view._build_navigation()
+    content = view.overflow_menu.content
+    assert isinstance(content, ft.GestureDetector)
+    assert content.mouse_cursor == ft.MouseCursor.CLICK
+    assert isinstance(content.content, ft.Column)
+
+
+@pytest.mark.parametrize("width", [600, 800, 1366])
+def test_desktop_rail_has_clickable_selected_destinations(
+    navigation: tuple[FinanceView, MagicMock], width: int
+) -> None:
+    view, page = navigation
+    page.width = width
+    view._desktop_pointer = True
+    view._apply_layout(width)
+    surface = cast(ft.Container, cast(ft.Container, view.controls[0]).content)
+    assert surface.content is view.desktop_rail
+    assert view.vertical_alignment == ft.CrossAxisAlignment.STRETCH
+    assert [button.data for button in view.desktop_rail_buttons] == list(finance.RAIL_DESTINATIONS)
+    assert [item.selected for item in view.desktop_rail_semantics] == [
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+    ]
+    buttons = tuple(view.desktop_rail_buttons)
+    for button in buttons:
+        assert button.style is not None
+        assert button.style.mouse_cursor == {
+            ft.ControlState.DISABLED: ft.MouseCursor.BASIC,
+            ft.ControlState.DEFAULT: ft.MouseCursor.CLICK,
+        }
+        assert button.width == (224 if width >= 1024 else 78)
+        assert button.height == (48 if width >= 1024 else 68)
+    click(buttons[2])
+    assert view.current_screen == "budgets"
+    assert view.controls[0] is view.desktop_rail_surface
+    assert view.controls[1] is view.desktop_rail_divider
+    assert view.nav_rail.selected_index == 2
+    assert [item.selected for item in view.desktop_rail_semantics] == [
+        False,
+        False,
+        True,
+        False,
+        False,
+        False,
+        False,
+    ]
+    view._apply_layout(1366 if width < 1024 else 800)
+    assert tuple(view.desktop_rail_buttons) == buttons
+
+
+def test_mobile_rail_remains_native(navigation: tuple[FinanceView, MagicMock]) -> None:
+    view, _page = navigation
+    view._apply_layout(800)
+    surface = cast(ft.Container, cast(ft.Container, view.controls[0]).content)
+    assert surface.content is view.nav_rail
+    assert view.vertical_alignment == ft.CrossAxisAlignment.CENTER
+    assert not view.desktop_rail_buttons
+
+
 def test_mobile_screen_history_back_forward_and_branching(
     navigation: tuple[FinanceView, MagicMock],
 ) -> None:

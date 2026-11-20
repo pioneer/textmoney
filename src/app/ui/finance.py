@@ -105,6 +105,8 @@ from app.ui.theme import (
     DARK_NAVIGATION_SURFACE,
     NAVIGATION_SURFACE,
     action_gradient,
+    click_cursor,
+    desktop_pointer,
     selection_gradient,
     summary_theme,
 )
@@ -218,6 +220,7 @@ class FinanceView(ft.Row):
         self.desktop_navigation = False
         self._mobile_preview = mobile_preview
         self._mobile_item_actions = False
+        self._desktop_pointer = False
         self.browser_routes: list[str] = []
         self._browser_route_prefix = uuid4().hex
         self._browser_route_sequence = 0
@@ -593,6 +596,19 @@ class FinanceView(ft.Row):
             on_change=self._rail_changed,
             destinations=[],
         )
+        self.desktop_rail = ft.Column(spacing=0, tight=True, scroll=ft.ScrollMode.AUTO)
+        self.desktop_rail_surface = ft.Container(
+            theme=ft.Theme(color_scheme=ft.ColorScheme(surface=NAVIGATION_SURFACE)),
+            dark_theme=ft.Theme(color_scheme=ft.ColorScheme(surface=DARK_NAVIGATION_SURFACE)),
+            content=ft.Container(
+                bgcolor=ft.Colors.SURFACE,
+                padding=ft.Padding.symmetric(horizontal=5),
+                content=self.desktop_rail,
+            ),
+        )
+        self.desktop_rail_divider = ft.VerticalDivider(width=1)
+        self.desktop_rail_buttons: list[ft.TextButton] = []
+        self.desktop_rail_semantics: list[ft.Semantics] = []
         self.bottom_buttons: list[ft.TextButton] = []
         self.bottom_semantics: list[ft.Semantics] = []
         self.bottom_items: list[tuple[ft.Container, ft.Icon, ft.Text]] = []
@@ -662,6 +678,8 @@ class FinanceView(ft.Row):
         self._refresh()
 
     def did_mount(self) -> None:
+        self._desktop_pointer = desktop_pointer(self.page, mobile_preview=self._mobile_preview)
+        self._set_fab_ready(not self.fab.disabled)
         self._mobile_item_actions = self._mobile_preview or self.page.platform in {
             ft.PagePlatform.ANDROID,
             ft.PagePlatform.IOS,
@@ -686,6 +704,11 @@ class FinanceView(ft.Row):
         self.worker = self.page.run_task(self._lifecycle)
         self._apply_layout(self.page.width or self.page.window.width)
         self.page.update()
+
+    def _set_fab_ready(self, ready: bool) -> None:
+        self.fab.disabled = not ready
+        self.fab_surface.opacity = 0.9 if ready else 0.38
+        self.fab.mouse_cursor = ft.MouseCursor.CLICK if ready and self._desktop_pointer else None
 
     def will_unmount(self) -> None:
         if self.page.on_keyboard_event == self._navigation_key:
@@ -953,6 +976,84 @@ class FinanceView(ft.Row):
             for label, icon, selected_icon in [destinations[screen]]
         ]
         self.nav_rail.selected_index = RAIL_DESTINATIONS.index(self.current_screen)
+        if self._desktop_pointer:
+            if tuple(button.data for button in self.desktop_rail_buttons) != RAIL_DESTINATIONS:
+                self.desktop_rail_buttons = [
+                    ft.TextButton(
+                        data=screen,
+                        on_click=self._bottom_selected,
+                        style=ft.ButtonStyle(
+                            padding=0,
+                            shape=ft.RoundedRectangleBorder(radius=24),
+                            mouse_cursor=click_cursor(),
+                        ),
+                    )
+                    for screen in RAIL_DESTINATIONS
+                ]
+                self.desktop_rail_semantics = [
+                    ft.Semantics(content=button, container=True)
+                    for button in self.desktop_rail_buttons
+                ]
+                self.desktop_rail.controls = [
+                    ft.MergeSemantics(content=semantics)
+                    for semantics in self.desktop_rail_semantics
+                ]
+            expanded = self.screen_class == ScreenClass.EXPANDED
+            self.desktop_rail.width = 224 if expanded else 78
+            for button, semantics, screen in zip(
+                self.desktop_rail_buttons,
+                self.desktop_rail_semantics,
+                RAIL_DESTINATIONS,
+                strict=True,
+            ):
+                label, icon, selected_icon = destinations[screen]
+                is_selected = screen == self.current_screen
+                indicator = ft.Container(
+                    content=ft.Icon(
+                        selected_icon if is_selected else icon,
+                        size=24,
+                        color=(
+                            ft.Colors.ON_SECONDARY_CONTAINER
+                            if is_selected
+                            else ft.Colors.ON_SURFACE_VARIANT
+                        ),
+                    ),
+                    width=56,
+                    height=32,
+                    alignment=ft.Alignment.CENTER,
+                    border_radius=16,
+                    gradient=selection_gradient() if is_selected else None,
+                )
+                text = ft.Text(
+                    self.tr(label),
+                    size=14 if expanded else 12,
+                    color=ft.Colors.ON_SURFACE,
+                    max_lines=1,
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                    expand=expanded,
+                )
+                button.content = (
+                    ft.Row(
+                        [
+                            ft.Container(
+                                width=78, content=indicator, alignment=ft.Alignment.CENTER
+                            ),
+                            text,
+                        ],
+                        spacing=0,
+                    )
+                    if expanded
+                    else ft.Column(
+                        [indicator, text],
+                        spacing=4,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        alignment=ft.MainAxisAlignment.CENTER,
+                    )
+                )
+                button.width = 224 if expanded else 78
+                button.height = 48 if expanded else 68
+                button.tooltip = ft.Tooltip(self.tr(label), exclude_from_semantics=True)
+                semantics.selected = is_selected
         compact = self.screen_class == ScreenClass.COMPACT
         if tuple(item.data for item in self.overflow_menu.items if item.data) != overflow:
             items: list[ft.PopupMenuItem] = []
@@ -967,8 +1068,13 @@ class FinanceView(ft.Row):
                 item.content = self.tr(label)
                 item.icon = icon
         self.overflow_menu.tooltip = ft.Tooltip(self.tr("nav_more"), exclude_from_semantics=True)
-        self.overflow_menu.content = self._bottom_content(
+        more_content = self._bottom_content(
             self.tr("nav_more"), ft.Icons.MORE_HORIZ, selected == len(bottom)
+        )
+        self.overflow_menu.content = (
+            ft.GestureDetector(content=more_content, mouse_cursor=ft.MouseCursor.CLICK)
+            if self._desktop_pointer
+            else more_content
         )
         self.more_semantics.selected = selected == len(bottom)
         self.overflow_menu.visible = compact and bool(overflow)
@@ -1074,8 +1180,7 @@ class FinanceView(ft.Row):
             self.home_activity,
         ]
         self.fab_label.value = self.tr("add_transaction")
-        self.fab.disabled = not ready
-        self.fab_surface.opacity = 0.38 if self.fab.disabled else 0.9
+        self._set_fab_ready(ready)
         self.transactions_screen.controls = [
             action_toolbar(self.operations.reset, self.operations_filter_toggle),
             self.operations_filters,
@@ -1219,6 +1324,11 @@ class FinanceView(ft.Row):
 
     def _apply_layout(self, width: float | None) -> None:
         self.screen_class = screen_class(width)
+        self.vertical_alignment = (
+            ft.CrossAxisAlignment.STRETCH
+            if self._desktop_pointer and self.screen_class != ScreenClass.COMPACT
+            else ft.CrossAxisAlignment.CENTER
+        )
         self._set_category_menu_row(self.operations_category_row, self.operations_category)
         self._set_category_menu_row(self.default_fee_row, self.default_fee)
         self.budgets.update_category_menu_layout()
@@ -1242,21 +1352,25 @@ class FinanceView(ft.Row):
             self.nav_rail.extended = expanded
             self.nav_rail.label_type = ft.NavigationRailLabelType.ALL if not expanded else None
             self.body.width = min(MAX_CONTENT_WIDTH, max(320, (width or 900) - rail_width))
-            self.controls = [
-                ft.Container(
-                    theme=ft.Theme(color_scheme=ft.ColorScheme(surface=NAVIGATION_SURFACE)),
-                    dark_theme=ft.Theme(
-                        color_scheme=ft.ColorScheme(surface=DARK_NAVIGATION_SURFACE)
+            self.controls = (
+                [self.desktop_rail_surface, self.desktop_rail_divider, self.body]
+                if self._desktop_pointer
+                else [
+                    ft.Container(
+                        theme=ft.Theme(color_scheme=ft.ColorScheme(surface=NAVIGATION_SURFACE)),
+                        dark_theme=ft.Theme(
+                            color_scheme=ft.ColorScheme(surface=DARK_NAVIGATION_SURFACE)
+                        ),
+                        content=ft.Container(
+                            bgcolor=ft.Colors.SURFACE,
+                            padding=ft.Padding.symmetric(horizontal=5),
+                            content=self.nav_rail,
+                        ),
                     ),
-                    content=ft.Container(
-                        bgcolor=ft.Colors.SURFACE,
-                        padding=ft.Padding.symmetric(horizontal=5),
-                        content=self.nav_rail,
-                    ),
-                ),
-                ft.VerticalDivider(width=1),
-                self.body,
-            ]
+                    ft.VerticalDivider(width=1),
+                    self.body,
+                ]
+            )
             if self.page:
                 self.page.bottom_appbar = None
         available = max(0, (self.body.width or 390) - 40)
@@ -1279,8 +1393,7 @@ class FinanceView(ft.Row):
         )
         if self.page:
             self.fab_label.value = self.tr("add_transaction")
-            self.fab.disabled = not (self.journal and self.journal.ready)
-            self.fab_surface.opacity = 0.38 if self.fab.disabled else 0.9
+            self._set_fab_ready(bool(self.journal and self.journal.ready))
             self.page.floating_action_button = (
                 None if self.screen_class == ScreenClass.COMPACT and secondary else self.fab
             )
@@ -1420,7 +1533,7 @@ class FinanceView(ft.Row):
             self.operating_currencies.value = self.operating_original
             self.operating_source = self.journal.source
             self.operating_journal = self.journal
-        self.fab.disabled = False
+        self._set_fab_ready(True)
         balances = ledger.balances(today=self.journal.today())
         grouped: dict[str, list[Account]] = defaultdict(list)
         for account in ledger.accounts:
@@ -2815,6 +2928,7 @@ class FinanceView(ft.Row):
                 side=ft.BorderSide(1, ft.Colors.OUTLINE_VARIANT),
                 shape=ft.RoundedRectangleBorder(radius=8),
                 alignment=ft.Alignment.CENTER_LEFT,
+                mouse_cursor=click_cursor() if self._desktop_pointer else None,
             ),
             on_click=lambda event: self._daily_report(journal, day),
         )

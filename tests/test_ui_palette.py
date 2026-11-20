@@ -99,6 +99,20 @@ def test_gradient_decorations_retain_native_actions_and_theme_roles() -> None:
     assert isinstance(unselected, ft.Container) and unselected.gradient is None
 
 
+@pytest.mark.parametrize("desktop", [True, False])
+def test_fab_cursor_tracks_readiness_without_changing_mobile(desktop: bool) -> None:
+    view = FinanceView()
+    view._desktop_pointer = desktop
+    view._set_fab_ready(True)
+    assert not view.fab.disabled
+    assert view.fab.mouse_cursor == (ft.MouseCursor.CLICK if desktop else None)
+    assert view.fab_surface.opacity == 0.9
+    view._set_fab_ready(False)
+    assert view.fab.disabled
+    assert view.fab.mouse_cursor is None
+    assert view.fab_surface.opacity == 0.38
+
+
 @pytest.mark.parametrize("consumed,expected", [("-5", 0), ("50", 0.5), ("125", 1)])
 def test_budget_gradient_preserves_native_value_and_red_overspending(
     consumed: str, expected: float

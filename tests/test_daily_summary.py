@@ -385,6 +385,25 @@ def test_operations_show_separate_net_expense_and_income_for_each_day_only(
             assert view.tr("daily_summary") in texts(summary)
 
 
+@pytest.mark.parametrize("desktop", [True, False])
+def test_daily_summary_uses_desktop_cursor(view: FinanceView, desktop: bool) -> None:
+    view._desktop_pointer = desktop
+    view._apply_layout(1366)
+    view._refresh()
+    buttons = summaries(view)
+    assert buttons
+    for button in buttons:
+        assert button.style is not None
+        assert button.style.mouse_cursor == (
+            {
+                ft.ControlState.DISABLED: ft.MouseCursor.BASIC,
+                ft.ControlState.DEFAULT: ft.MouseCursor.CLICK,
+            }
+            if desktop
+            else None
+        )
+
+
 @pytest.mark.parametrize("width", [390, 1366])
 def test_day_popup_reuses_report_hierarchy_and_preserves_journal(
     view: FinanceView, tmp_path: Path, width: int

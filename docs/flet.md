@@ -52,6 +52,21 @@ Sources: [Flet documentation](https://flet.dev/docs/),
 [publishing](https://flet.dev/docs/publish/),
 [MCP cookbook](https://flet.dev/docs/cookbook/flet-mcp).
 
+## Desktop pointer feedback
+
+On desktop and desktop web, standard button themes use the click cursor when
+enabled and the basic cursor when disabled. The daily summary supplies the same
+state-aware cursor because its local theme replaces the page's text-button
+theme. The Add transaction button has a stronger native hover overlay and
+elevation, while retaining its gradient and existing touch and focus feedback.
+Mobile and mobile preview keep their previous behavior.
+
+Flet 1.1.2 does not expose a cursor setting for `NavigationRail` destinations.
+Desktop layouts use native text buttons for the rail instead, retaining selection
+semantics, keyboard focus, and clipped button feedback. The rail and its buttons
+remain mounted during navigation to preserve keyboard focus. Mobile retains the
+original navigation controls.
+
 ## Extension-enabled web development
 
 The stock Flet web client does not contain local extensions. Run

@@ -40,6 +40,47 @@ def test_page_startup() -> None:
     assert page.add.call_args.args[0].expand
 
 
+@pytest.mark.parametrize(
+    "platform,mobile_preview,desktop",
+    [
+        (ft.PagePlatform.LINUX, False, True),
+        (ft.PagePlatform.WINDOWS, False, True),
+        (ft.PagePlatform.MACOS, False, True),
+        (ft.PagePlatform.ANDROID, False, False),
+        (ft.PagePlatform.IOS, False, False),
+        (ft.PagePlatform.LINUX, True, False),
+    ],
+)
+def test_pointer_theme_is_scoped_to_desktop(
+    platform: ft.PagePlatform, mobile_preview: bool, desktop: bool
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    page.platform = platform
+    page.window = MagicMock(spec=ft.Window)
+    asyncio.run(main(page, mobile_preview=mobile_preview))
+    for theme in (page.theme, page.dark_theme):
+        if not desktop:
+            assert theme.text_button_theme is None
+            assert theme.icon_button_theme is None
+            assert theme.floating_action_button_theme.hover_color is None
+            continue
+        expected = {
+            ft.ControlState.DISABLED: ft.MouseCursor.BASIC,
+            ft.ControlState.DEFAULT: ft.MouseCursor.CLICK,
+        }
+        for button_theme in (
+            theme.button_theme,
+            theme.text_button_theme,
+            theme.filled_button_theme,
+            theme.outlined_button_theme,
+            theme.icon_button_theme,
+        ):
+            assert button_theme.style.mouse_cursor == expected
+        assert theme.popup_menu_theme.mouse_cursor == expected
+        assert theme.floating_action_button_theme.hover_color is not None
+        assert theme.floating_action_button_theme.hover_elevation == 12
+
+
 def test_mobile_preview_launches_at_phone_width_without_changing_platform(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

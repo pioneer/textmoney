@@ -6,7 +6,7 @@ import flet as ft
 from app.config import APP_NAME
 from app.logging_config import report_async_error
 from app.ui.home import home_view
-from app.ui.theme import dark_theme, light_theme
+from app.ui.theme import dark_theme, desktop_pointer, light_theme
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,9 @@ async def main(page: ft.Page, *, mobile_preview: bool = False) -> None:
     page.on_error = report_page_error
     page.title = APP_NAME
     page.padding = 0
-    page.theme = light_theme()
-    page.dark_theme = dark_theme()
+    desktop = desktop_pointer(page, mobile_preview=mobile_preview)
+    page.theme = light_theme(desktop=desktop)
+    page.dark_theme = dark_theme(desktop=desktop)
     page.theme_mode = ft.ThemeMode.SYSTEM
     page.locale_configuration = ft.LocaleConfiguration(
         supported_locales=[

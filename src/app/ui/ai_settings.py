@@ -3,7 +3,7 @@ from collections.abc import Awaitable, Callable
 import flet as ft
 
 from app.infrastructure.ai import MODELS, PROVIDER_LABELS, AIError, AISettings, Capability, Provider
-from app.ui.layout import action_toolbar
+from app.ui.layout import action_toolbar, settings_field
 
 _FUNCTIONS = {
     Capability.UNDERSTAND: "ai_understand",
@@ -22,37 +22,43 @@ class AISettingsPanel:
         self.notice: str | None = None
         self.presence: dict[Provider, bool] = {}
         self.saved: dict[Capability, str] = {}
-        self.title = ft.Text()
+        self.title = ft.Text(size=18)
         self.help = ft.Text()
         self.status = ft.Text()
         self.key_status = ft.Text()
         self.provider = ft.Dropdown(
+            expand=True,
             value=Provider.OPENAI,
             options=[
                 ft.DropdownOption(key=key, text=name) for key, name in PROVIDER_LABELS.items()
             ],
             on_select=self._provider_changed,
         )
-        self.key = ft.TextField(password=True, max_length=4096, on_submit=self._save_key)
+        self.key = ft.TextField(
+            expand=True, password=True, max_length=4096, on_submit=self._save_key
+        )
         self.save = ft.Button(on_click=self._save_key)
         self.remove = ft.OutlinedButton(on_click=self._remove_key)
         self.retry = ft.TextButton(on_click=self._load)
         self.models = {
-            capability: ft.Dropdown(on_select=self._model_changed, data=capability)
+            capability: ft.Dropdown(expand=True, on_select=self._model_changed, data=capability)
             for capability in Capability
         }
         self.model_status = {capability: ft.Text() for capability in Capability}
         self.form = ft.Column(
             [
-                self.provider,
+                settings_field(ft.Row([self.provider])),
                 self.key_status,
-                self.key,
+                settings_field(ft.Row([self.key])),
                 action_toolbar(self.save, self.remove),
                 ft.Divider(),
                 *(
                     item
                     for cap in Capability
-                    for item in (self.models[cap], self.model_status[cap])
+                    for item in (
+                        settings_field(ft.Row([self.models[cap]])),
+                        self.model_status[cap],
+                    )
                 ),
             ],
             visible=False,
@@ -64,6 +70,7 @@ class AISettingsPanel:
             title=self.title,
             controls=[self.help, self.status, self.retry, self.form],
             controls_padding=ft.Padding.all(16),
+            expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
             on_change=self._expanded,
         )
 

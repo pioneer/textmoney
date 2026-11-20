@@ -269,6 +269,8 @@ See [reporting](reporting.md) for calculations and report scope.
 Settings offers system/light/dark appearance and system or explicit timezones.
 Translations are English, Ukrainian and Russian. Language, theme, clock timezone,
 backup cleanup and the Home-budget toggle remain device-local.
+The Settings page labels device settings separately from journal-shared defaults;
+AI and Advanced settings are expandable sections.
 Timezone selection affects the default clock and current report/budget periods,
 not saved transaction dates or times.
 

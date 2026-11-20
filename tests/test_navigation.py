@@ -546,6 +546,17 @@ def test_settings_keep_group_frames_and_right_aligned_local_actions(
         assert isinstance(section, ft.Container)
         assert section.padding == 16 and section.border_radius == 12
         assert section.border == ft.Border.all(1, ft.Colors.OUTLINE_VARIANT)
+    assert view.settings_screen.horizontal_alignment == ft.CrossAxisAlignment.STRETCH
+    for section, tile in (
+        (view.ai_section, view.ai_panel.control),
+        (view.advanced_section, view.advanced_settings),
+    ):
+        assert section in view.settings_screen.controls
+        assert section.content is tile
+        assert section.border == ft.Border.all(1, ft.Colors.OUTLINE_VARIANT)
+        assert section.border_radius == 12
+        assert section.clip_behavior == ft.ClipBehavior.ANTI_ALIAS
+        assert tile.tile_padding == 16
     assert isinstance(storage, ft.Container) and isinstance(storage.content, ft.Column)
     assert isinstance(preferences, ft.Container) and isinstance(preferences.content, ft.Column)
     for root, groups in (
@@ -568,6 +579,74 @@ def test_settings_keep_group_frames_and_right_aligned_local_actions(
                 and item.content.controls == buttons
             )
             assert row.alignment == ft.MainAxisAlignment.END and row.wrap
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_settings_dropdowns_share_bounded_field_layout(
+    navigation: tuple[FinanceView, MagicMock], language: str
+) -> None:
+    view, _page = navigation
+    view.language = language
+    view._refresh_labels()
+    preferences = view.settings_screen.controls[1]
+    assert isinstance(preferences, ft.Container) and isinstance(preferences.content, ft.Column)
+    items = preferences.content.controls
+    headings = [item.value for item in items if isinstance(item, ft.Text)]
+    assert view.tr("device_settings") in headings
+    assert view.tr("journal_defaults") in headings
+    fields = [
+        item
+        for item in items
+        if isinstance(item, ft.Container) and isinstance(item.content, ft.Row) and item.width == 480
+    ]
+    assert len(fields) == 5
+    rows = [field.content for field in fields]
+    assert all(isinstance(row, ft.Row) for row in rows)
+    assert [row.controls[0] for row in rows if isinstance(row, ft.Row)][:4] == [
+        view.language_choice,
+        view.theme_choice,
+        view.timezone_choice,
+        view.default_account,
+    ]
+    assert fields[4].content is view.default_fee_row
+    ai_fields = [
+        item
+        for item in view.ai_panel.form.controls
+        if isinstance(item, ft.Container) and isinstance(item.content, ft.Row) and item.width == 480
+    ]
+    ai_rows = [field.content for field in ai_fields]
+    assert all(isinstance(row, ft.Row) for row in ai_rows)
+    assert [row.controls[0] for row in ai_rows if isinstance(row, ft.Row)] == [
+        view.ai_panel.provider,
+        view.ai_panel.key,
+        *view.ai_panel.models.values(),
+    ]
+    assert view.ai_panel.key.expand is True
+    assert view.ai_panel.key.password
+    for width in (320, 800, 1366):
+        view._apply_layout(width)
+        assert fields[4].content is view.default_fee_row
+
+
+def test_settings_refresh_preserves_expanded_sections_and_drafts(
+    navigation: tuple[FinanceView, MagicMock],
+) -> None:
+    view, _page = navigation
+    view._navigate("settings")
+    view.advanced_settings.expanded = True
+    view.ai_panel.control.expanded = True
+    view.ai_panel.key.value = "draft"
+    view.timezone_choice.text = "Europe/Kyiv"
+
+    view._refresh_labels()
+    view._apply_layout(320)
+    view._apply_layout(1366)
+
+    assert view.ai_section.content is view.ai_panel.control
+    assert view.advanced_section.content is view.advanced_settings
+    assert view.ai_panel.control.expanded and view.advanced_settings.expanded
+    assert view.ai_panel.key.value == "draft"
+    assert view.timezone_choice.text == "Europe/Kyiv"
     assert view.operating_cancel.on_click == view._reset_operating_currencies
     assert view.operating_save.on_click == view._save_operating_currencies
 

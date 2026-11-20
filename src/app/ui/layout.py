@@ -45,6 +45,27 @@ def action_toolbar(*controls: ft.Control) -> ft.Container:
     )
 
 
+def settings_field(row: ft.Row) -> ft.Container:
+    return ft.Container(content=row, width=480)
+
+
+def settings_section(content: ft.Control, *, expandable: bool = False) -> ft.Container:
+    return ft.Container(
+        content=content,
+        padding=0 if expandable else 16,
+        border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
+        border_radius=12,
+        clip_behavior=ft.ClipBehavior.ANTI_ALIAS if expandable else None,
+    )
+
+
+def settings_expander(tile: ft.ExpansionTile) -> ft.Container:
+    tile.tile_padding = 16
+    tile.shape = ft.RoundedRectangleBorder()
+    tile.collapsed_shape = ft.RoundedRectangleBorder()
+    return settings_section(tile, expandable=True)
+
+
 def month_navigation(
     previous: ft.IconButton, heading: ft.Control, following: ft.IconButton
 ) -> ft.Row:

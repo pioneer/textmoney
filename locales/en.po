@@ -965,6 +965,12 @@ msgstr "Commission categories"
 msgid "ui.fee_categories_help"
 msgstr "Choose branches for commission selectors; their subcategories are included automatically. Uncheck All expense categories to narrow the list. Choose a default below and save. Branches and default synchronize together with this journal folder; open forms and saved transactions are unchanged."
 
+msgid "ui.device_settings"
+msgstr "Device settings"
+
+msgid "ui.journal_defaults"
+msgstr "Journal-shared defaults"
+
 msgid "ui.shared_settings_help"
 msgstr "These defaults belong to this journal folder. Synchronize the complete textmoney-settings/ directory. Existing device choices are drafts only: Save explicitly publishes each setting. No defaults are published on startup. Finish editing and let synchronization complete before using another device."
 

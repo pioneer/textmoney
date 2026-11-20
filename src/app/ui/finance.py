@@ -92,7 +92,14 @@ from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import EditorDialog, deletion_title, show_dialog
 from app.ui.home_budgets import HomeBudgets, home_heading
 from app.ui.icons import IconDraft, IconField, IconPicker, IconRemovalDialog, icon_image
-from app.ui.layout import HoverRow, action_toolbar, month_navigation
+from app.ui.layout import (
+    HoverRow,
+    action_toolbar,
+    month_navigation,
+    settings_expander,
+    settings_field,
+    settings_section,
+)
 from app.ui.operations import OperationsLocation, OperationsView
 from app.ui.theme import (
     DARK_NAVIGATION_SURFACE,
@@ -319,6 +326,8 @@ class FinanceView(ft.Row):
             controls_padding=16,
             expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
         )
+        self.ai_section = settings_expander(self.ai_panel.control)
+        self.advanced_section = settings_expander(self.advanced_settings)
         self.operating_source = ""
         self.operating_original = ""
         self.operating_journal: Journal | None = None
@@ -514,17 +523,19 @@ class FinanceView(ft.Row):
         self.diagnostics_toggle = ft.TextButton(on_click=self._diagnostics)
         self.diagnostics = ft.Column(visible=False, spacing=12)
         self.language_choice = ft.Dropdown(
+            expand=True,
             options=[],
             value="system",
             on_select=self._language_changed,
         )
         self.theme_choice = ft.Dropdown(
+            expand=True,
             options=[],
             value=self.theme_name,
             on_select=self._theme_changed,
         )
         self.timezone_choice = ft.Dropdown(
-            width=320,
+            expand=True,
             value="system",
             editable=True,
             enable_filter=True,
@@ -546,7 +557,9 @@ class FinanceView(ft.Row):
         self.transactions_screen = ft.Column(spacing=12)
         self.accounts_screen = ft.Column(spacing=16)
         self.categories_screen = ft.Column(spacing=16)
-        self.settings_screen = ft.Column(spacing=16)
+        self.settings_screen = ft.Column(
+            spacing=16, horizontal_alignment=ft.CrossAxisAlignment.STRETCH
+        )
         self.screen_host = ft.Container(expand=True, content=self.home_screen)
 
         self.page_title = ft.Text(size=25, weight=ft.FontWeight.W_600)
@@ -803,7 +816,7 @@ class FinanceView(ft.Row):
         self.account_suggestion_regenerate.content = self.tr("code_suggestion_regenerate")
         self.category_suggestion_regenerate.content = self.tr("code_suggestion_regenerate")
         self.operating_currencies.label = self.tr("crud_operating")
-        self.advanced_settings.title = self.tr("advanced")
+        self.advanced_settings.title = ft.Text(self.tr("advanced"), size=18)
         self.advanced_settings.controls = [
             ft.Text(self.tr("crud_operating_help")),
             self.operating_currencies,
@@ -1103,11 +1116,8 @@ class FinanceView(ft.Row):
             self.ai_panel.clear_draft()
         self.ai_panel.render()
         self.settings_screen.controls = [
-            ft.Container(
-                padding=16,
-                border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-                border_radius=12,
-                content=ft.Column(
+            settings_section(
+                ft.Column(
                     [
                         ft.Text(self.tr("storage_section"), size=18),
                         ft.Text(self.tr("storage_explanation")),
@@ -1132,44 +1142,40 @@ class FinanceView(ft.Row):
                     spacing=12,
                 ),
             ),
-            ft.Container(
-                padding=16,
-                border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-                border_radius=12,
-                content=ft.Column(
+            settings_section(
+                ft.Column(
                     [
+                        ft.Text(self.tr("device_settings"), size=18),
                         ft.Text(self.tr("language"), size=18),
-                        self.language_choice,
+                        settings_field(ft.Row([self.language_choice])),
                         ft.Text(self.tr("appearance"), size=18),
-                        self.theme_choice,
+                        settings_field(ft.Row([self.theme_choice])),
                         self.home_budgets_toggle,
                         ft.Text(self.tr("timezone"), size=18),
                         ft.Text(self.tr("timezone_help")),
-                        self.timezone_choice,
+                        settings_field(ft.Row([self.timezone_choice])),
                         action_toolbar(self.timezone_save),
                         ft.Divider(),
+                        ft.Text(self.tr("journal_defaults"), size=18),
                         ft.Text(self.tr("shared_settings_help"), size=12),
                         self.shared_details,
                         self.shared_review,
-                        ft.Row([self.default_account]),
+                        settings_field(ft.Row([self.default_account])),
                         ft.Text(self.tr("default_account_help"), size=12),
                         action_toolbar(self.default_account_save),
                         self.default_account_notice,
                         ft.Divider(),
                         self.fee_category_settings,
                         ft.Text(self.tr("fee_categories_help"), size=12),
-                        self.default_fee_row,
+                        settings_field(self.default_fee_row),
                         action_toolbar(self.default_fee_save),
                         self.default_fee_notice,
                     ],
                     spacing=12,
                 ),
             ),
-            ft.Container(
-                padding=16,
-                border=ft.Border.all(1, ft.Colors.OUTLINE_VARIANT),
-                border_radius=12,
-                content=ft.Column(
+            settings_section(
+                ft.Column(
                     [
                         ft.Text(self.tr("about"), size=18),
                         ft.Text(self.tr("about_body")),
@@ -1178,9 +1184,9 @@ class FinanceView(ft.Row):
                     spacing=12,
                 ),
             ),
-            self.ai_panel.control,
-            self.advanced_settings,
-            self.diagnostics_toggle,
+            self.ai_section,
+            self.advanced_section,
+            ft.Row([self.diagnostics_toggle]),
             self.diagnostics,
         ]
         self.backup_cleanup.label = self.tr("backups_automatic")

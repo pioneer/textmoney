@@ -796,7 +796,8 @@ def test_description_is_prominent_and_currency_settings_are_advanced_in_all_lang
         assert description.text_size == 17
         assert form.payee not in dialog.content.controls
         assert not tile.expanded
-        assert view.advanced_settings in view.settings_screen.controls
+        assert view.advanced_section in view.settings_screen.controls
+        assert view.advanced_section.content is view.advanced_settings
         assert not view.advanced_settings.expanded
         controls = view.advanced_settings.controls or []
         assert controls[1] is view.operating_currencies

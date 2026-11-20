@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TextMoney 0.4.16\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-11-20 03:54+0200\n"
-"PO-Revision-Date: 2026-11-20 03:54+0200\n"
+"POT-Creation-Date: 2026-11-20 22:50+0200\n"
+"PO-Revision-Date: 2026-11-20 22:50+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -918,6 +918,12 @@ msgstr ""
 #. Stable TextMoney key: ui.fee_categories_help; do not translate this
 #. identifier.
 msgid "ui.fee_categories_help"
+msgstr ""
+
+msgid "ui.device_settings"
+msgstr ""
+
+msgid "ui.journal_defaults"
 msgstr ""
 
 msgid "ui.shared_settings_help"

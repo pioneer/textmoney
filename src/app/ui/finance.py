@@ -58,6 +58,7 @@ from app.domain.reporting import (
 )
 from app.domain.storage import ConflictError
 from app.icons import IconAsset, IconError, IconStore
+from app.infrastructure.ai import AIError, AISettings
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.icon_files import AndroidIconFiles, DesktopIconFiles
@@ -85,6 +86,7 @@ from app.shared_defaults import POLICY as DEFAULTS_POLICY
 from app.shared_defaults import DefaultValue, SharedDefaults, SharedDefaultsError
 from app.storage import RecoveryRequired, StorageError
 from app.timekeeping import local_datetime, named_zone
+from app.ui.ai_settings import AISettingsPanel
 from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import EditorDialog, deletion_title, show_dialog
@@ -170,6 +172,8 @@ class FinanceView(ft.Row):
         self._rendered_key: tuple[object, ...] | None = None
         self.icon_notice = ft.Text("", visible=False, color=ft.Colors.ERROR, selectable=True)
         self.preferences: ft.SharedPreferences | DesktopPreferences | None = None
+        self._ai_settings: AISettings | None = None
+        self.ai_panel = AISettingsPanel(self.tr, self.ai_settings)
         self.bridge: FinanceSaf | None = None
         self.worker: Future[None] | None = None
         self.lock = asyncio.Lock()
@@ -687,6 +691,17 @@ class FinanceView(ft.Row):
     def tr(self, key: str, **values: object) -> str:
         return translate(self.language, key, **values)
 
+    def ai_settings(self) -> AISettings:
+        if self.page.web:
+            raise AIError("ai_native_only")
+        if self.preferences is None:
+            raise AIError("ai_settings_error")
+        if self._ai_settings is None:
+            from flet_secure_storage import SecureStorage
+
+            self._ai_settings = AISettings(self.preferences, SecureStorage())
+        return self._ai_settings
+
     def _set_message(self, key: str) -> None:
         self.message_key = key
         self.error_message = None
@@ -1084,6 +1099,9 @@ class FinanceView(ft.Row):
             if self.journal is None
             else self.tr("folder_selected")
         )
+        if self.current_screen != "settings":
+            self.ai_panel.clear_draft()
+        self.ai_panel.render()
         self.settings_screen.controls = [
             ft.Container(
                 padding=16,
@@ -1160,6 +1178,7 @@ class FinanceView(ft.Row):
                     spacing=12,
                 ),
             ),
+            self.ai_panel.control,
             self.advanced_settings,
             self.diagnostics_toggle,
             self.diagnostics,

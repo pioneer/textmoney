@@ -15,6 +15,66 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
+msgid "ui.ai_settings"
+msgstr "AI"
+
+msgid "ui.ai_settings_help"
+msgstr "Choose a provider and model for each function. Keys stay on this device. Future AI actions will send their input to the selected provider and may incur charges."
+
+msgid "ui.ai_provider"
+msgstr "API key provider"
+
+msgid "ui.ai_key"
+msgstr "New API key"
+
+msgid "ui.ai_save_key"
+msgstr "Save API key"
+
+msgid "ui.ai_remove_key"
+msgstr "Remove API key"
+
+msgid "ui.ai_key_saved"
+msgstr "API key saved on this device"
+
+msgid "ui.ai_key_missing"
+msgstr "No API key saved"
+
+msgid "ui.ai_key_removed"
+msgstr "API key removed"
+
+msgid "ui.ai_invalid_key"
+msgstr "Enter an API key without spaces."
+
+msgid "ui.ai_understand"
+msgstr "Image understanding model"
+
+msgid "ui.ai_generate"
+msgstr "Image generation model"
+
+msgid "ui.ai_unconfigured"
+msgstr "Not configured"
+
+msgid "ui.ai_model_unavailable"
+msgstr "Saved model is unavailable"
+
+msgid "ui.ai_model_needs_key"
+msgstr "This model needs an API key for its provider."
+
+msgid "ui.ai_model_saved"
+msgstr "Model selection saved"
+
+msgid "ui.ai_loading"
+msgstr "Working with local AI settings…"
+
+msgid "ui.ai_settings_error"
+msgstr "Could not access local AI settings or secure storage."
+
+msgid "ui.ai_retry_settings"
+msgstr "Retry"
+
+msgid "ui.ai_native_only"
+msgstr "AI settings require the native app."
+
 msgid "ui.icon_choose"
 msgstr "Choose icon"
 

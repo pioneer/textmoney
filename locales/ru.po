@@ -100,6 +100,66 @@ msgstr "Перенос требует атомарной замены файла
 msgid "ui.category_migration_preferences_failed"
 msgstr "Журнал уже перенесён, но локальные настройки комиссий не сохранены. Не повторяйте перенос. До перезапуска проверьте и сохраните категории комиссий и категорию по умолчанию в Настройках."
 
+msgid "ui.ai_settings"
+msgstr "ИИ"
+
+msgid "ui.ai_settings_help"
+msgstr "Выберите поставщика и модель для каждой функции. Ключи остаются на этом устройстве. Будущие функции ИИ будут отправлять данные выбранному поставщику и могут быть платными."
+
+msgid "ui.ai_provider"
+msgstr "Поставщик ключа API"
+
+msgid "ui.ai_key"
+msgstr "Новый ключ API"
+
+msgid "ui.ai_save_key"
+msgstr "Сохранить ключ API"
+
+msgid "ui.ai_remove_key"
+msgstr "Удалить ключ API"
+
+msgid "ui.ai_key_saved"
+msgstr "Ключ API сохранён на этом устройстве"
+
+msgid "ui.ai_key_missing"
+msgstr "Ключ API не сохранён"
+
+msgid "ui.ai_key_removed"
+msgstr "Ключ API удалён"
+
+msgid "ui.ai_invalid_key"
+msgstr "Введите ключ API без пробелов."
+
+msgid "ui.ai_understand"
+msgstr "Модель анализа изображений"
+
+msgid "ui.ai_generate"
+msgstr "Модель генерации изображений"
+
+msgid "ui.ai_unconfigured"
+msgstr "Не настроено"
+
+msgid "ui.ai_model_unavailable"
+msgstr "Сохранённая модель недоступна"
+
+msgid "ui.ai_model_needs_key"
+msgstr "Для этой модели нужен ключ API её поставщика."
+
+msgid "ui.ai_model_saved"
+msgstr "Выбор модели сохранён"
+
+msgid "ui.ai_loading"
+msgstr "Обработка локальных настроек ИИ…"
+
+msgid "ui.ai_settings_error"
+msgstr "Не удалось получить доступ к локальным настройкам ИИ или защищённому хранилищу."
+
+msgid "ui.ai_retry_settings"
+msgstr "Повторить"
+
+msgid "ui.ai_native_only"
+msgstr "Настройки ИИ доступны только в установленном приложении."
+
 msgid "ui.icon_choose"
 msgstr "Выбрать иконку"
 

@@ -100,6 +100,66 @@ msgstr "Перенесення потребує атомарної заміни 
 msgid "ui.category_migration_preferences_failed"
 msgstr "Журнал уже перенесено, але локальні налаштування комісій не збережено. Не повторюйте перенесення. До перезапуску перевірте й збережіть категорії комісій та типову категорію в Налаштуваннях."
 
+msgid "ui.ai_settings"
+msgstr "ШІ"
+
+msgid "ui.ai_settings_help"
+msgstr "Виберіть постачальника й модель для кожної функції. Ключі залишаються на цьому пристрої. Майбутні функції ШІ надсилатимуть дані вибраному постачальнику та можуть бути платними."
+
+msgid "ui.ai_provider"
+msgstr "Постачальник ключа API"
+
+msgid "ui.ai_key"
+msgstr "Новий ключ API"
+
+msgid "ui.ai_save_key"
+msgstr "Зберегти ключ API"
+
+msgid "ui.ai_remove_key"
+msgstr "Видалити ключ API"
+
+msgid "ui.ai_key_saved"
+msgstr "Ключ API збережено на цьому пристрої"
+
+msgid "ui.ai_key_missing"
+msgstr "Ключ API не збережено"
+
+msgid "ui.ai_key_removed"
+msgstr "Ключ API видалено"
+
+msgid "ui.ai_invalid_key"
+msgstr "Введіть ключ API без пробілів."
+
+msgid "ui.ai_understand"
+msgstr "Модель аналізу зображень"
+
+msgid "ui.ai_generate"
+msgstr "Модель генерації зображень"
+
+msgid "ui.ai_unconfigured"
+msgstr "Не налаштовано"
+
+msgid "ui.ai_model_unavailable"
+msgstr "Збережена модель недоступна"
+
+msgid "ui.ai_model_needs_key"
+msgstr "Для цієї моделі потрібен ключ API її постачальника."
+
+msgid "ui.ai_model_saved"
+msgstr "Вибір моделі збережено"
+
+msgid "ui.ai_loading"
+msgstr "Обробка локальних налаштувань ШІ…"
+
+msgid "ui.ai_settings_error"
+msgstr "Не вдалося отримати доступ до локальних налаштувань ШІ або захищеного сховища."
+
+msgid "ui.ai_retry_settings"
+msgstr "Спробувати ще раз"
+
+msgid "ui.ai_native_only"
+msgstr "Налаштування ШІ доступні лише у встановленому застосунку."
+
 msgid "ui.icon_choose"
 msgstr "Вибрати іконку"
 

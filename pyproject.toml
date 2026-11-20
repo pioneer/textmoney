@@ -5,6 +5,8 @@ description = "TextMoney: offline-first personal expense tracking"
 requires-python = ">=3.13"
 dependencies = [
     "flet==1.1.2",
+    "flet-secure-storage==1.1.2",
+    "httpx>=0.28.1,<0.29",
     "finance-saf==0.1.0",
     "browser-history-bridge==0.1.0",
     "popup-keyboard==0.1.1",
@@ -79,9 +81,14 @@ browser-history-bridge = "extensions/browser-history-bridge"
 popup-keyboard = "extensions/popup-keyboard"
 
 [tool.flet.android]
+res_dir = "platform/android/res"
 adaptive_icon_background = "#E0F8EF"
 # Parsers and Babel open grammar/locale data using real __file__-relative paths.
 extract_packages = ["autobean_refactor", "beancount_parser", "lark", "babel"]
+
+[tool.flet.android.manifest_application]
+fullBackupContent = "@xml/textmoney_backup"
+dataExtractionRules = "@xml/textmoney_data_extraction"
 
 [tool.flet.flutter.pubspec.dependency_overrides]
 # JNI 1.2.0 crashes on Android; jni_flutter 1.1.0 requires that broken release.

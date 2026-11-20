@@ -18,6 +18,8 @@ src/app/timekeeping.py     default clock and native date-picker timezone transpo
 src/app/ui/datetime_fields.py shared manual/date-picker/time-picker controls
 src/app/ui/dialogs.py       shared desktop popup Escape/Cancel and Enter/Submit behavior
 src/app/ui/icons.py         optional offline catalogue/import icon picker
+src/app/ui/ai_settings.py   local AI credentials and independent capability selectors
+src/app/infrastructure/ai.py provider configuration and asynchronous AI calls
 src/app/icons.py            validated icon assets and immutable sidecar assignment policy
 src/app/shared_defaults.py  journal-scoped immutable default account/commission revisions
 src/app/budget_order.py     isolated budget-order revision group using shared sidecar mechanics
@@ -85,6 +87,31 @@ append-only sidecar directory, never in Beancount metadata. Icon selection uses
 the bundled offline catalogue or a user-imported image; assigned images and
 attribution render offline.
 Icon failures do not disable otherwise-valid financial journal access.
+
+Optional AI Settings are device-local. API keys use Flet Secure Storage
+(Android Keystore-backed storage, Windows secure storage, and Linux Secret
+Service), never ordinary preferences or journal sidecars. Android backup and
+device-transfer rules exclude the encrypted credential and wrapped-key files.
+A working Secret Service is required to manage keys on Linux. Browser previews cannot manage
+keys. The model selections are ordinary local preferences. Settings never
+make provider requests, so they cannot confirm billing permissions or key
+validity; missing keys and retired entries in the app's catalogue are flagged
+locally. Provider errors are reported when a caller explicitly runs an AI
+operation. The catalogue lists documented compatible models rather than
+treating provider model-list responses as proof of input/output capability.
+
+The [AI service](../src/app/infrastructure/ai.py) uses HTTPX with explicit
+credentials and the providers' HTTPS APIs. PydanticAI was considered, but its
+[xAI image integration](https://pydantic.dev/docs/ai/guides/image-generation/#xai)
+requires gRPC, for which the checked Android wheel indexes had no matching
+wheel. The direct REST paths share a small transport and avoid depending on
+native provider SDKs or a gateway. Image understanding supports OpenAI,
+Gemini, xAI, Claude, Mistral and DeepSeek. Image generation supports OpenAI,
+Gemini and xAI. Structured responses are requested as JSON and verified by a
+caller-supplied validator before being returned. No fallback sends input to a
+different model or provider. Using the backend sends the given input directly
+to the configured provider and may incur charges. Icon generation and receipt
+parsing workflows are not implemented.
 
 [Shared defaults](shared-settings.md) use a separate `textmoney-settings/`
 sidecar through the same bounded record adapters and existing SAF grant.

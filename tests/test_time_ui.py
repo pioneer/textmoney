@@ -798,7 +798,11 @@ def test_description_is_prominent_and_currency_settings_are_advanced_in_all_lang
         assert not tile.expanded
         assert view.advanced_settings in view.settings_screen.controls
         assert not view.advanced_settings.expanded
-        assert view.operating_currencies in (view.advanced_settings.controls or [])
+        controls = view.advanced_settings.controls or []
+        assert controls[1] is view.operating_currencies
+        assert isinstance(controls[0], ft.Text)
+        assert isinstance(view.operating_currencies.margin, ft.Margin)
+        assert view.operating_currencies.margin.top >= 8
         assert view.operating_currencies.label == translate(language, "crud_operating")
         assert isinstance(view.operating_currencies.label, str)
         assert "Fava" not in view.operating_currencies.label

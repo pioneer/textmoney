@@ -304,7 +304,7 @@ class FinanceView(ft.Row):
         self.category_name.on_change = self._category_attributes_changed
         self.category_parent.on_select = self._category_attributes_changed
         self.category_root.on_select = self._category_type_changed
-        self.operating_currencies = ft.TextField(width=320)
+        self.operating_currencies = ft.TextField(width=320, margin=ft.Margin.only(top=8))
         self.operating_save = ft.Button(on_click=self._save_operating_currencies)
         self.operating_cancel = ft.TextButton(on_click=self._reset_operating_currencies)
         self.advanced_settings = ft.ExpansionTile(

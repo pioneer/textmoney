@@ -48,8 +48,10 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
   locally as a PNG for the provider; monochrome vectors are sent in black on a
   transparent background regardless of the theme used for the preview.
   The app instructions favor a simple monochrome Material-like icon with thick
-  strokes for small sizes unless the description explicitly requests a different
-  style. When a reference is included, the instructions ask the model to preserve recognizable
+  strokes for small sizes, preferring fewer, larger elements when in doubt and
+  simplifying secondary details that would be unclear at 16 pixels, unless the
+  description explicitly requests a different style.
+  When a reference is included, the instructions ask the model to preserve recognizable
   features unless requested otherwise. Only the
   user's description is shown in the picker. Review the result before Save;
   cancelling generation or the picker keeps the previous selection. Generated

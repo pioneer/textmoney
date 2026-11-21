@@ -36,6 +36,9 @@ _ICON_PROMPT = (
     "with a transparent background. Make the artwork fill about 80 percent of the square "
     "canvas, with a small even margin like a Material icon. "
     "Prefer thick, bold strokes over fine lines so they remain visible at 16 pixels. "
+    "When in doubt, prefer fewer, larger elements over smaller details. "
+    "Enlarge the main recognizable shapes and simplify or omit secondary details that would "
+    "be hard to distinguish at 16 pixels, while keeping meaningful gaps between elements. "
     "The user's explicit style instructions take precedence over these default style choices.\n"
     "User's icon description:\n"
 )

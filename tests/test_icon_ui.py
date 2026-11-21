@@ -1384,6 +1384,7 @@ def test_ai_generation_uses_selected_model_and_saves_only_after_review(
             "Material Icons" in prompt and "explicit style instructions take precedence" in prompt
         )
         assert "thick, bold strokes over fine lines" in prompt
+        assert "When in doubt, prefer fewer, larger elements over smaller details." in prompt
         assert prompt.endswith(picker.ai_prompt.value)
         assert picker.ai_prompt.value not in (picker.status.value or "")
         assert all(

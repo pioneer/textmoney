@@ -214,6 +214,60 @@ msgstr "Показано до 100 результатів. Додайте сло�
 msgid "ui.icon_import"
 msgstr "Імпортувати зображення"
 
+msgid "ui.icon_ai_title"
+msgstr "Створити за допомогою ШІ"
+
+msgid "ui.icon_ai_prompt"
+msgstr "Опишіть іконку"
+
+msgid "ui.icon_ai_generate"
+msgstr "Створити"
+
+msgid "ui.icon_ai_cancel"
+msgstr "Скасувати створення"
+
+msgid "ui.icon_ai_key_hint"
+msgstr "Додайте ключ API постачальника генерації зображень у налаштуваннях ШІ, щоб створювати іконки."
+
+msgid "ui.icon_ai_model_hint"
+msgstr "Виберіть доступну модель генерації зображень у налаштуваннях ШІ."
+
+msgid "ui.icon_ai_notice"
+msgstr "Ваш опис та інструкції застосунку будуть надіслані вибраному постачальнику ШІ; це може бути платним."
+
+msgid "ui.icon_ai_prompt_required"
+msgstr "Опишіть іконку перед створенням."
+
+msgid "ui.icon_ai_generated"
+msgstr "Зображення, створене ШІ"
+
+msgid "ui.icon_ai_rights"
+msgstr "Створено ШІ; права не перевірено"
+
+msgid "ui.icon_ai_rights_notice"
+msgstr "Перед використанням перевірте умови постачальника та свої права на це зображення."
+
+msgid "ui.icon_ai_cancelled"
+msgstr "Створення скасовано. Вибір не змінено."
+
+msgid "ui.icon_ai_credentials_error"
+msgstr "Постачальник відхилив доступ. Перевірте ключ API та дозволи в налаштуваннях ШІ."
+
+msgid "ui.icon_ai_rate_error"
+msgstr "Досягнуто обмеження запитів постачальника. Спробуйте пізніше."
+
+msgid "ui.icon_ai_refusal"
+msgstr "Постачальник відхилив запит. Спробуйте інший опис."
+
+msgid "ui.icon_ai_network_error"
+msgstr "Не вдалося зв'язатися з постачальником або час запиту вичерпано. Перевірте з'єднання і повторіть."
+
+msgid "ui.icon_ai_response_error"
+msgstr "Постачальник повернув некоректну відповідь із зображенням. Спробуйте ще раз."
+
+msgid "ui.icon_ai_request_error"
+msgstr "Постачальник не зміг виконати запит. Перевірте налаштування ШІ та повторіть."
+
 msgid "ui.icon_remove"
 msgstr "Прибрати іконку"
 

@@ -2522,6 +2522,7 @@ class FinanceView(ft.Row):
                 save,
                 existing_icons=store.assets.values(),
                 conflict=identifier in store.conflicts,
+                ai_settings=self.ai_settings,
             ),
         )
 
@@ -4281,6 +4282,7 @@ class FinanceView(ft.Row):
             self.page,
             self.language,
             icon_store.assets.values() if icon_store is not None else (),
+            ai_settings=self.ai_settings,
         )
         icon_heads = dict(icon_store.heads) if icon_store is not None else {}
         try:
@@ -6127,6 +6129,7 @@ class FinanceView(ft.Row):
             self.page,
             self.language,
             icon_store.assets.values() if icon_store is not None else (),
+            ai_settings=self.ai_settings,
         )
         icon_heads = dict(icon_store.heads) if icon_store is not None else {}
         identifier = ""
@@ -6482,6 +6485,7 @@ class FinanceView(ft.Row):
             self.page,
             self.language,
             icon_store.assets.values() if icon_store is not None else (),
+            ai_settings=self.ai_settings,
         )
         icon_heads = dict(icon_store.heads) if icon_store is not None else {}
         identifier = ""

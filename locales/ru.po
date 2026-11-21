@@ -205,6 +205,60 @@ msgstr "Показано до 100 результатов. Добавьте сл�
 msgid "ui.icon_import"
 msgstr "Импортировать изображение"
 
+msgid "ui.icon_ai_title"
+msgstr "Создать с помощью ИИ"
+
+msgid "ui.icon_ai_prompt"
+msgstr "Опишите иконку"
+
+msgid "ui.icon_ai_generate"
+msgstr "Создать"
+
+msgid "ui.icon_ai_cancel"
+msgstr "Отменить создание"
+
+msgid "ui.icon_ai_key_hint"
+msgstr "Добавьте ключ API поставщика генерации изображений в настройках ИИ, чтобы создавать иконки."
+
+msgid "ui.icon_ai_model_hint"
+msgstr "Выберите доступную модель генерации изображений в настройках ИИ."
+
+msgid "ui.icon_ai_notice"
+msgstr "Ваше описание и инструкции приложения будут отправлены выбранному поставщику ИИ; это может быть платно."
+
+msgid "ui.icon_ai_prompt_required"
+msgstr "Опишите иконку перед созданием."
+
+msgid "ui.icon_ai_generated"
+msgstr "Изображение, созданное ИИ"
+
+msgid "ui.icon_ai_rights"
+msgstr "Создано ИИ; права не проверены"
+
+msgid "ui.icon_ai_rights_notice"
+msgstr "Перед использованием проверьте условия поставщика и свои права на это изображение."
+
+msgid "ui.icon_ai_cancelled"
+msgstr "Создание отменено. Выбор не изменён."
+
+msgid "ui.icon_ai_credentials_error"
+msgstr "Поставщик отклонил доступ. Проверьте ключ API и разрешения в настройках ИИ."
+
+msgid "ui.icon_ai_rate_error"
+msgstr "Достигнут лимит запросов поставщика. Попробуйте позже."
+
+msgid "ui.icon_ai_refusal"
+msgstr "Поставщик отклонил запрос. Попробуйте другое описание."
+
+msgid "ui.icon_ai_network_error"
+msgstr "Не удалось связаться с поставщиком или время запроса истекло. Проверьте соединение и повторите."
+
+msgid "ui.icon_ai_response_error"
+msgstr "Поставщик вернул некорректный ответ с изображением. Попробуйте ещё раз."
+
+msgid "ui.icon_ai_request_error"
+msgstr "Поставщик не смог выполнить запрос. Проверьте настройки ИИ и повторите."
+
 msgid "ui.icon_remove"
 msgstr "Убрать иконку"
 

@@ -484,6 +484,7 @@ async def finance_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[Session, FinanceView, Journal]:
     session = keyboard_session()
+    session.connection.loop = asyncio.get_running_loop()
     monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
     view = FinanceView()
     journal = Journal(DesktopFolder(str(tmp_path), FILENAME))

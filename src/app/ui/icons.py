@@ -1,13 +1,16 @@
-"""Offline icon catalogue and image picker."""
+"""Icon catalogue, import and optional AI generation picker."""
 
 import asyncio
 import logging
+import traceback
 from collections.abc import Awaitable, Callable, Iterable
+from concurrent.futures import Future
 
 import flet as ft
 
 from app.domain.storage import ConflictError
 from app.icons import DISPLAY_SIZE, MAX_INPUT, IconAsset, IconError, normalize_image
+from app.infrastructure.ai import MODELS, AIError, AIService, AISettings, Capability
 from app.infrastructure.icon_sources import search_icons
 from app.localization import translate
 from app.storage import StorageError
@@ -15,9 +18,44 @@ from app.ui.dialogs import deletion_title, show_dialog
 
 logger = logging.getLogger(__name__)
 
+_ICON_PROMPT = (
+    "Create a single icon suitable for an account or category in a finance app. "
+    "Aim for an icon that is recognizable at 16 pixels. "
+    "Unless the user explicitly requests a different style, use a simple uncluttered composition "
+    "in the monochrome style of Material Icons and Material Symbols, without text, "
+    "with a transparent background. "
+    "The user's explicit style instructions take precedence over these default style choices.\n"
+    "User's icon description:\n"
+)
+
+_AI_ERRORS = {
+    "ai_unconfigured": "icon_ai_model_hint",
+    "ai_model_unavailable": "icon_ai_model_hint",
+    "ai_key_missing": "icon_ai_key_hint",
+    "invalid_prompt": "icon_ai_prompt_required",
+    "invalid_credentials": "icon_ai_credentials_error",
+    "provider_access_denied": "icon_ai_credentials_error",
+    "provider_rate_limit": "icon_ai_rate_error",
+    "provider_refusal": "icon_ai_refusal",
+    "provider_timeout": "icon_ai_network_error",
+    "provider_network_error": "icon_ai_network_error",
+    "invalid_provider_response": "icon_ai_response_error",
+    "provider_request_failed": "icon_ai_request_error",
+}
+
+
+def _log_private_failure(message: str, exc: Exception) -> None:
+    frames = traceback.extract_tb(exc.__traceback__)
+    locations = "\n".join(f"  {frame.filename}:{frame.lineno} in {frame.name}" for frame in frames)
+    logger.error("%s (%s)\n%s", message, type(exc).__name__, locations)
+
 
 async def _run_icon_action(
-    action: Callable[[], Awaitable[None]], status: ft.Text, language: str
+    action: Callable[[], Awaitable[None]],
+    status: ft.Text,
+    language: str,
+    *,
+    private: bool = False,
 ) -> None:
     try:
         await action()
@@ -27,8 +65,14 @@ async def _run_icon_action(
     except (StorageError, TimeoutError) as exc:
         logger.warning("Icon storage operation failed (%s)", type(exc).__name__)
         status.value = translate(language, "icon_storage")
-    except Exception:
-        logger.exception("Unexpected icon operation failure")
+    except AIError as exc:
+        logger.warning("AI icon operation failed (code=%s, provider=%s)", exc.code, exc.provider)
+        status.value = translate(language, _AI_ERRORS.get(exc.code, exc.code))
+    except Exception as exc:
+        if private:
+            _log_private_failure("Unexpected AI icon operation failure", exc)
+        else:
+            logger.exception("Unexpected icon operation failure")
         status.value = translate(language, "icon_failed")
 
 
@@ -83,11 +127,17 @@ class IconField(ft.Column):
 
 class IconDraft(IconField):
     def __init__(
-        self, page: ft.Page, language: str, existing_icons: Iterable[IconAsset] = ()
+        self,
+        page: ft.Page,
+        language: str,
+        existing_icons: Iterable[IconAsset] = (),
+        *,
+        ai_settings: Callable[[], AISettings] | None = None,
     ) -> None:
         self.owner = page
         self.language = language
         self.existing_icons = tuple(existing_icons)
+        self.ai_settings = ai_settings
         self.selected: IconAsset | None = None
         super().__init__(
             language,
@@ -105,7 +155,12 @@ class IconDraft(IconField):
             IconRemovalDialog(self.owner, self.language, select)
             if remove
             else IconPicker(
-                self.owner, self.language, self.selected, select, existing_icons=self.existing_icons
+                self.owner,
+                self.language,
+                self.selected,
+                select,
+                existing_icons=self.existing_icons,
+                ai_settings=self.ai_settings,
             ),
         )
 
@@ -168,6 +223,7 @@ class IconPicker(ft.AlertDialog):
         *,
         existing_icons: Iterable[IconAsset] = (),
         conflict: bool = False,
+        ai_settings: Callable[[], AISettings] | None = None,
     ) -> None:
         self.owner = page
         self.language = language
@@ -175,8 +231,28 @@ class IconPicker(ft.AlertDialog):
         self.selected = current
         self.existing_icons = tuple(existing_icons)
         self.busy = False
+        self.ai_settings = ai_settings
+        self.ai_load_task: Future[None] | None = None
+        self.generation_task: asyncio.Task[object] | None = None
         self.search = ft.TextField(label=self.tr("icon_search"), on_change=self._local)
         self.import_button = ft.TextButton(self.tr("icon_import"), on_click=self._import)
+        self.ai_hint = ft.Text("", size=12, visible=False)
+        self.ai_prompt = ft.TextField(label=self.tr("icon_ai_prompt"), max_length=2000)
+        self.ai_generate = ft.TextButton(self.tr("icon_ai_generate"), on_click=self._generate)
+        self.ai_cancel = ft.TextButton(
+            self.tr("icon_ai_cancel"), on_click=self._cancel_generation, visible=False
+        )
+        self.ai_section = ft.ExpansionTile(
+            title=self.tr("icon_ai_title"),
+            controls=[
+                ft.Text(self.tr("icon_ai_notice"), size=12),
+                self.ai_prompt,
+                ft.Row([self.ai_generate, self.ai_cancel]),
+            ],
+            expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
+            maintain_state=True,
+            visible=False,
+        )
         self.remove = ft.TextButton(self.tr("icon_remove"), on_click=self._remove)
         self.results = ft.Column(spacing=4)
         self.results_limit = ft.Text(self.tr("icon_results_limit"), size=12)
@@ -196,6 +272,8 @@ class IconPicker(ft.AlertDialog):
                     self.search,
                     ft.Text(self.tr("icon_privacy"), size=12),
                     self.import_button,
+                    self.ai_hint,
+                    self.ai_section,
                     ft.Text(self.tr("icon_conflicts"), visible=conflict, color=ft.Colors.ERROR),
                     self.progress,
                     self.status,
@@ -217,6 +295,45 @@ class IconPicker(ft.AlertDialog):
         )
         self._selection()
         self._show(search_icons("", self.existing_icons))
+
+    def did_mount(self) -> None:
+        if self.ai_settings is not None:
+            self.ai_load_task = self.owner.run_task(self._load_ai)
+
+    def will_unmount(self) -> None:
+        if self.ai_load_task is not None:
+            self.ai_load_task.cancel()
+        if self.generation_task is not None:
+            self.generation_task.cancel()
+
+    async def _load_ai(self) -> None:
+        if self.ai_settings is None:
+            return
+        try:
+            settings = self.ai_settings()
+            selection = await settings.selection(Capability.GENERATE)
+            models = MODELS[Capability.GENERATE]
+            model = next((item for item in models if item.id == selection), None)
+            if model is not None:
+                has_key = await settings.has_key(model.provider)
+                hint = "" if has_key else "icon_ai_key_hint"
+            else:
+                has_key = any(
+                    [await settings.has_key(provider) for provider in {m.provider for m in models}]
+                )
+                hint = "icon_ai_model_hint" if has_key else "icon_ai_key_hint"
+            self.ai_section.visible = model is not None and has_key
+            self.ai_hint.value = self.tr(hint) if hint else ""
+            self.ai_hint.visible = bool(hint)
+        except AIError as exc:
+            logger.warning("Could not load AI icon settings (code=%s)", exc.code)
+            self.ai_hint.value = self.tr(exc.code)
+            self.ai_hint.visible = True
+        except Exception as exc:
+            _log_private_failure("Could not load AI icon settings", exc)
+            self.ai_hint.value = self.tr("ai_settings_error")
+            self.ai_hint.visible = True
+        self.owner.update()
 
     def tr(self, key: str) -> str:
         return translate(self.language, key)
@@ -270,7 +387,7 @@ class IconPicker(ft.AlertDialog):
             self._show(search_icons(self.search.value or "", self.existing_icons))
             self.owner.update()
 
-    async def _run(self, action: Callable[[], Awaitable[None]]) -> None:
+    async def _run(self, action: Callable[[], Awaitable[None]], *, private: bool = False) -> None:
         if self.busy:
             return
         self.busy = True
@@ -283,11 +400,13 @@ class IconPicker(ft.AlertDialog):
             self.submit,
             self.results,
             self.remove,
+            self.ai_prompt,
+            self.ai_generate,
         ):
             control.disabled = True
         self.owner.update()
         try:
-            await _run_icon_action(action, self.status, self.language)
+            await _run_icon_action(action, self.status, self.language, private=private)
         finally:
             self.busy = False
             self.progress.visible = False
@@ -297,6 +416,8 @@ class IconPicker(ft.AlertDialog):
                 self.cancel,
                 self.submit,
                 self.results,
+                self.ai_prompt,
+                self.ai_generate,
             ):
                 control.disabled = False
             self._selection()
@@ -332,6 +453,48 @@ class IconPicker(ft.AlertDialog):
             self.status.value = self.tr("icon_import_notice")
 
         await self._run(pick)
+
+    async def _generate(self, event: ft.Event[ft.TextButton]) -> None:
+        settings_factory = self.ai_settings
+        if self.busy or settings_factory is None or not self.ai_section.visible:
+            return
+        description = self.ai_prompt.value.strip()
+        if not description:
+            self.status.value = self.tr("icon_ai_prompt_required")
+            self.owner.update()
+            return
+
+        async def generate() -> None:
+            image = await AIService(settings_factory()).generate_image(_ICON_PROMPT + description)
+            data, _ = await asyncio.to_thread(normalize_image, image.data)
+            asset = IconAsset(
+                self.tr("icon_ai_generated"),
+                data,
+                False,
+                self.tr("icon_ai_generated"),
+                self.tr("icon_ai_rights"),
+                self.tr("icon_ai_rights_notice"),
+            )
+            self._show([asset])
+            self.selected = asset
+            self._selection()
+            self.status.value = self.tr("icon_ai_rights_notice")
+
+        self.generation_task = asyncio.current_task()
+        self.ai_cancel.visible = True
+        try:
+            await self._run(generate, private=True)
+        except asyncio.CancelledError:
+            self.status.value = self.tr("icon_ai_cancelled")
+            self.owner.update()
+        finally:
+            self.generation_task = None
+            self.ai_cancel.visible = False
+            self.owner.update()
+
+    def _cancel_generation(self, event: ft.Event[ft.TextButton]) -> None:
+        if self.generation_task is not None:
+            self.generation_task.cancel()
 
     async def _save(self, event: ft.Event[ft.TextButton]) -> None:
         async def save() -> None:

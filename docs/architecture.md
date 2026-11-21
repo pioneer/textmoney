@@ -17,7 +17,7 @@ src/app/localization.py    gettext catalog loading, runtime language discovery a
 src/app/timekeeping.py     default clock and native date-picker timezone transport
 src/app/ui/datetime_fields.py shared manual/date-picker/time-picker controls
 src/app/ui/dialogs.py       shared desktop popup Escape/Cancel and Enter/Submit behavior
-src/app/ui/icons.py         optional offline catalogue/import icon picker
+src/app/ui/icons.py         icon catalogue, import and optional AI generation picker
 src/app/ui/ai_settings.py   local AI credentials and independent capability selectors
 src/app/infrastructure/ai.py provider configuration and asynchronous AI calls
 src/app/icons.py            validated icon assets and immutable sidecar assignment policy
@@ -84,8 +84,8 @@ nested category/icon/date pickers and deletion confirmations are unchanged.
 
 Optional [entity icons](entity-icons.md) are stored beside the journal in an
 append-only sidecar directory, never in Beancount metadata. Icon selection uses
-the bundled offline catalogue or a user-imported image; assigned images and
-attribution render offline.
+the bundled offline catalogue, a user-imported image or optional AI generation;
+assigned images and attribution render offline.
 Icon failures do not disable otherwise-valid financial journal access.
 
 Optional AI Settings are device-local. API keys use Flet Secure Storage
@@ -110,8 +110,8 @@ Gemini, xAI, Claude, Mistral and DeepSeek. Image generation supports OpenAI,
 Gemini and xAI. Structured responses are requested as JSON and verified by a
 caller-supplied validator before being returned. No fallback sends input to a
 different model or provider. Using the backend sends the given input directly
-to the configured provider and may incur charges. Icon generation and receipt
-parsing workflows are not implemented.
+to the configured provider and may incur charges. Icon generation uses the
+configured image model; receipt parsing is not implemented.
 
 [Shared defaults](shared-settings.md) use a separate `textmoney-settings/`
 sidecar through the same bounded record adapters and existing SAF grant.

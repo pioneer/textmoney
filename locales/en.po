@@ -119,6 +119,60 @@ msgstr "Up to 100 matches are shown. Add search terms to narrow results."
 msgid "ui.icon_import"
 msgstr "Import image"
 
+msgid "ui.icon_ai_title"
+msgstr "Generate with AI"
+
+msgid "ui.icon_ai_prompt"
+msgstr "Describe your icon"
+
+msgid "ui.icon_ai_generate"
+msgstr "Generate"
+
+msgid "ui.icon_ai_cancel"
+msgstr "Cancel generation"
+
+msgid "ui.icon_ai_key_hint"
+msgstr "Set an image-generation provider API key in AI Settings to generate icons."
+
+msgid "ui.icon_ai_model_hint"
+msgstr "Choose an available image-generation model in AI Settings."
+
+msgid "ui.icon_ai_notice"
+msgstr "Generation sends your description and app instructions to your configured AI provider and may incur charges."
+
+msgid "ui.icon_ai_prompt_required"
+msgstr "Describe the icon before generating it."
+
+msgid "ui.icon_ai_generated"
+msgstr "AI-generated image"
+
+msgid "ui.icon_ai_rights"
+msgstr "AI-generated; rights not verified"
+
+msgid "ui.icon_ai_rights_notice"
+msgstr "Check the provider's terms and your rights before using this image."
+
+msgid "ui.icon_ai_cancelled"
+msgstr "Generation cancelled. Your selection is unchanged."
+
+msgid "ui.icon_ai_credentials_error"
+msgstr "The provider rejected access. Check your API key and provider permissions in AI Settings."
+
+msgid "ui.icon_ai_rate_error"
+msgstr "The provider's rate limit was reached. Try again later."
+
+msgid "ui.icon_ai_refusal"
+msgstr "The provider declined this request. Try a different description."
+
+msgid "ui.icon_ai_network_error"
+msgstr "Could not reach the provider or the request timed out. Check your connection and retry."
+
+msgid "ui.icon_ai_response_error"
+msgstr "The provider returned an invalid image response. Try again."
+
+msgid "ui.icon_ai_request_error"
+msgstr "The provider could not complete the request. Check your AI configuration and try again."
+
 msgid "ui.icon_remove"
 msgstr "Remove icon"
 

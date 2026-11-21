@@ -24,6 +24,16 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
 - **Import image** uses Flet's file picker with `with_data=True`, including on
   Android; imported bytes are not treated as filesystem paths. Users must have
   the rights to use their images. Importing/resizing does not change those rights.
+- **Generate with AI** is optional and appears when the selected image-generation
+  model has a saved API key. Otherwise the picker explains how to configure AI
+  Settings. Enter a description and explicitly start generation; the description
+  and app instructions are sent to the configured provider and may incur charges.
+  The app instructions favor a simple monochrome Material-like icon at small
+  sizes unless the description explicitly requests a different style. Only the
+  user's description is shown in the picker. Review the result before Save;
+  cancelling generation or the picker keeps the previous selection. Generated
+  images are marked as AI-generated with unverified rights; check the provider's
+  terms and your rights before using them.
 
 Material Icons and Material Symbols are preferred for their consistent
 monochrome style at small display sizes. Simple Icons and SVG Logos are also
@@ -33,7 +43,7 @@ includes previously assigned icons and their original attribution.
 
 ## Validation and display
 
-Every bundled/imported candidate is validated before appearing. Inline images display
+Every bundled/imported/generated candidate is validated before appearing. Inline images display
 at **16 logical pixels** with proportions preserved, including picker previews.
 Transaction rows use a **25.92-pixel** leading image in a 40-pixel-wide rounded,
 theme-aware secondary-container background spanning the title and details.

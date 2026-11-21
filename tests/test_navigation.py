@@ -6,7 +6,11 @@ from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
+import msgpack
 import pytest
+from flet.controls.object_patch import ObjectPatch
+from flet.messaging.protocol import configure_encode_object_for_msgpack
+from flet.messaging.session import Session
 from form_controls import click
 
 from app.domain.ledger import Account, Ledger
@@ -865,6 +869,97 @@ def test_bottom_selection_updates_existing_indicators(
             button.content is content
             for button, content in zip(view.bottom_buttons, contents, strict=True)
         )
+
+
+@pytest.mark.parametrize(("before", "after"), [(5, 1), (1, 5)])
+@pytest.mark.parametrize("return_with_back", [False, True])
+def test_remounted_home_and_navigation_patches_match_client(
+    navigation: tuple[FinanceView, MagicMock],
+    before: int,
+    after: int,
+    return_with_back: bool,
+) -> None:
+    view, _ = navigation
+    view.home_activity.controls = [ft.Text(f"old {i}") for i in range(before)]
+    wrapper = ft.Column([view.body, view.navigation_bar])
+    encode = configure_encode_object_for_msgpack(ft.BaseControl)
+    client = msgpack.unpackb(msgpack.packb(wrapper, default=encode), strict_map_key=False)
+
+    def update() -> None:
+        patch, _, _ = ObjectPatch.from_diff(wrapper, wrapper, ft.BaseControl)
+        operations = msgpack.unpackb(
+            msgpack.packb(patch.patch, default=encode), strict_map_key=False
+        )
+        for operation in operations:
+            target = client
+            for part in operation["path"][:-1]:
+                target = target[part]
+            key = operation["path"][-1]
+            if operation["op"] == "add":
+                if isinstance(target, list):
+                    target.insert(key, operation["value"])
+                else:
+                    target[key] = operation["value"]
+            elif operation["op"] == "remove":
+                del target[key]
+            elif operation["op"] == "replace":
+                target[key] = operation["value"]
+            else:
+                pytest.fail(f"Unexpected navigation patch operation: {operation['op']}")
+
+    click(view.bottom_buttons[1])
+    update()
+    view.home_activity.controls = [ft.Text(f"new {i}") for i in range(after)]
+    if return_with_back:
+        assert view._back()
+    else:
+        click(view.bottom_buttons[0])
+    update()
+
+    home = client["controls"][0]["controls"][-1]["content"]["content"]
+    assert [row["value"] for row in home["controls"][4]["controls"]] == [
+        f"new {i}" for i in range(after)
+    ]
+    buttons = client["controls"][1]["content"]["controls"]
+    assert [item["content"]["content"]["selected"] for item in buttons] == [
+        True,
+        False,
+        False,
+        False,
+        False,
+    ]
+    assert [
+        item["content"]["content"]["content"]["content"]["controls"][0].get("gradient") is not None
+        for item in buttons[:4]
+    ] == [True, False, False, False]
+
+
+def test_remounted_navigation_controls_dispatch_in_a_flet_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        connection = MagicMock()
+        encode = configure_encode_object_for_msgpack(ft.BaseControl)
+        connection.send_message.side_effect = lambda message: msgpack.packb(message, default=encode)
+        session = Session(connection)
+        session.page.width = 390
+        session.page.platform = ft.PagePlatform.ANDROID
+        msgpack.packb(session.get_page_patch(), default=encode)
+        monkeypatch.setattr(FinanceView, "did_mount", lambda _: None)
+        view = FinanceView()
+        view.startup_complete = True
+        session.page.add(view)
+        view._apply_layout(390)
+        session.page.update()
+
+        for index in (1, 0, 1, 0):
+            await session.dispatch_event(view.bottom_buttons[index]._i, "click", None)
+            assert view.current_screen == ("transactions" if index == 1 else "home")
+            assert view.bottom_semantics[index].selected
+        await session.dispatch_event(view.home_transactions_open._i, "click", None)
+        assert view.current_screen == "transactions"
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])

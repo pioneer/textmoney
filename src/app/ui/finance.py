@@ -650,11 +650,7 @@ class FinanceView(ft.Row):
                 ft.Container(
                     padding=ft.Padding.symmetric(horizontal=20), content=self.conflict_copy_notice
                 ),
-                ft.Container(
-                    expand=True,
-                    padding=ft.Padding.symmetric(horizontal=20, vertical=12),
-                    content=self.screen_host,
-                ),
+                self._screen_frame(),
             ],
         )
         self.controls.append(self.startup_spinner)
@@ -6562,12 +6558,24 @@ class FinanceView(ft.Row):
         assert isinstance(screen, str)
         self._navigate(screen)
 
+    def _screen_frame(self) -> ft.Container:
+        return ft.Container(
+            expand=True,
+            padding=ft.Padding.symmetric(horizontal=20, vertical=12),
+            content=self.screen_host,
+        )
+
     def _show_screen(self, screen: str) -> None:
+        changed = screen != self.current_screen
         self.current_screen = screen
         self._refresh_labels()
         if screen == "reports":
             self._render_reports()
         self._apply_layout((self.page.width or self.page.window.width) if self.page else 390)
+        if changed:
+            # A fresh boundary prevents Flet from applying stale offscreen child diffs
+            # after it has already serialized the remounted screen.
+            self.body.controls[-1] = self._screen_frame()
         if self.page:
             self.page.update()
 

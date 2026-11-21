@@ -137,6 +137,9 @@ The bar has no explicit Flet height: Flet applies it outside Flutter's safe area
 which would compress the 80-pixel buttons when system navigation is present.
 Unlike NavigationBar destinations, the popup is itself the entire fifth tap
 target; merged semantics expose each button and its selection as one action.
+On screen changes the content frame is recreated around the retained screen host.
+This prevents Flet 1.1.2 from applying stale offscreen list diffs after serializing
+a remounted screen, which could abort the patch before the navigation bar updates.
 There are no duplicate header navigation menus. Compact overflow screens,
 including Settings, keep the bar visible with More selected, but hide the
 transaction action. Opening or dismissing More does not change the screen,

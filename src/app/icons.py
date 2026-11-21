@@ -136,7 +136,7 @@ def normalize_image(data: bytes) -> tuple[bytes, bool]:
 
 
 def normalize_generated_image(data: bytes) -> tuple[bytes, bool]:
-    """Fit transparent generated artwork and mark single-tone grayscale for theming."""
+    """Fit transparent generated artwork and mark single-tone neutral art for theming."""
     data, vector = normalize_image(data)
     if vector:
         raise IconError("icon_format")
@@ -150,9 +150,9 @@ def normalize_generated_image(data: bytes) -> tuple[bytes, bool]:
         return data, False
 
     pixels = [rgba[index : index + 3] for index in range(0, len(rgba), 4) if rgba[index + 3] >= 64]
-    grayscale = all(max(pixel) - min(pixel) <= 10 for pixel in pixels)
+    neutral = all(max(pixel) - min(pixel) <= 24 for pixel in pixels)
     luminance = [pixel[0] for pixel in pixels]
-    monochrome = grayscale and max(luminance) - min(luminance) <= 35
+    monochrome = neutral and max(luminance) - min(luminance) <= 35
 
     artwork = image.crop(bounds)
     artwork.thumbnail((80, 80), Image.Resampling.LANCZOS)

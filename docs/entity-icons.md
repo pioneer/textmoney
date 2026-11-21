@@ -91,9 +91,11 @@ assignments are unchanged by display sizing:
 - Monochrome catalogue icons follow the current theme color. Imported images and
   colored logos retain their colors. Newly generated transparent artwork is
   fitted into the same visual footprint as a Material icon; single-tone
-  grayscale artwork follows the current theme. Colored and multitone generated
-  artwork retains its colors. Opaque generated images retain their appearance,
-  so an opaque background or custom colors may not contrast with both themes.
+  neutral artwork (including slightly warm or cool grays) follows the current
+  theme, keeping it visible on light and dark surfaces. Saturated colored and
+  multitone generated artwork retains its colors. Opaque generated images retain
+  their appearance, so an opaque background or custom colors may not contrast
+  with both themes.
   Previously saved icons are unchanged. Search results display at 16px.
   Transaction-form dropdowns center the same artwork in a fixed 24px icon slot.
 

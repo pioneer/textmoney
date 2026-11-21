@@ -53,9 +53,16 @@ def images(control: ft.Control) -> list[ft.Image]:
     return [child for child in walk(control) if isinstance(child, ft.Image)]
 
 
-def test_new_generated_icon_scales_and_themes_without_changing_existing() -> None:
+@pytest.mark.parametrize(
+    "color",
+    [(20, 20, 20, 255), (45, 47, 59, 255), (59, 47, 45, 255), (220, 224, 238, 255)],
+    ids=["gray", "cool-neutral", "warm-neutral", "light-neutral"],
+)
+def test_new_generated_icon_scales_and_themes_without_changing_existing(
+    color: tuple[int, int, int, int],
+) -> None:
     image = Image.new("RGBA", (96, 96))
-    ImageDraw.Draw(image).rectangle((37, 34, 58, 61), fill=(20, 20, 20, 255))
+    ImageDraw.Draw(image).rectangle((37, 34, 58, 61), fill=color)
     output = BytesIO()
     image.save(output, format="PNG")
     original = IconAsset("old", output.getvalue(), False, "AI", "rights", "credit")
@@ -96,9 +103,12 @@ def test_builtin_reference_preview_matches_selected_theme_treatment(
     assert picker.reference_preview.content.color == icon_image(current).color
 
 
-def test_generated_colored_art_and_imports_keep_their_colors() -> None:
+@pytest.mark.parametrize("color", [(255, 0, 0, 255), (0, 0, 60, 255)], ids=["red", "dark-blue"])
+def test_generated_colored_art_and_imports_keep_their_colors(
+    color: tuple[int, int, int, int],
+) -> None:
     image = Image.new("RGBA", (96, 96))
-    ImageDraw.Draw(image).rectangle((37, 34, 58, 61), fill=(255, 0, 0, 255))
+    ImageDraw.Draw(image).rectangle((37, 34, 58, 61), fill=color)
     output = BytesIO()
     image.save(output, format="PNG")
     generated = IconAsset(
@@ -1400,8 +1410,11 @@ def test_ai_generation_uses_selected_model_and_saves_only_after_review(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize(
+    "color", [(20, 20, 20, 255), (45, 47, 59, 255)], ids=["gray", "cool-neutral"]
+)
 def test_ai_generation_persists_theme_adaptive_fitted_icon(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, color: tuple[int, int, int, int]
 ) -> None:
     async def scenario() -> None:
         session, _view, _journal = await finance_session(tmp_path, monkeypatch)
@@ -1409,7 +1422,7 @@ def test_ai_generation_persists_theme_adaptive_fitted_icon(
         await settings.save_key(Provider.OPENAI, "test-key")
         await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
         image = Image.new("RGBA", (256, 256))
-        ImageDraw.Draw(image).rectangle((104, 100, 151, 155), fill=(20, 20, 20, 255))
+        ImageDraw.Draw(image).rectangle((104, 100, 151, 155), fill=color)
         output = BytesIO()
         image.save(output, format="PNG")
         service = MagicMock()

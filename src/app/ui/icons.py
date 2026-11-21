@@ -106,14 +106,21 @@ def icon_image(asset: IconAsset, *, size: int = DISPLAY_SIZE) -> ft.Image:
     )
 
 
-def _validate_reference(data: bytes) -> bytes:
+def _validate_reference(data: bytes, *, monochrome: bool = False) -> bytes:
     try:
         data, vector = normalize_image(data)
         if vector:
             raise IconError("icon_ai_reference_error")
         with Image.open(BytesIO(data)) as image:
-            if image.convert("RGBA").getchannel("A").getbbox() is None:
+            alpha = image.convert("RGBA").getchannel("A")
+            if alpha.getbbox() is None:
                 raise IconError("icon_ai_reference_error")
+            if monochrome:
+                mask = Image.new("RGBA", image.size, (0, 0, 0, 0))
+                mask.putalpha(alpha)
+                output = BytesIO()
+                mask.save(output, format="PNG")
+                data = output.getvalue()
     except IconError as exc:
         raise IconError("icon_ai_reference_error") from exc
     return data
@@ -309,7 +316,7 @@ class IconPicker(ft.AlertDialog):
                     width=48,
                     height=48,
                     fit=ft.BoxFit.CONTAIN,
-                    color=ft.Colors.BLACK if current.monochrome else None,
+                    color=ft.Colors.ON_SURFACE if current.monochrome else None,
                     semantics_label=current.label,
                 )
             )
@@ -582,14 +589,17 @@ class IconPicker(ft.AlertDialog):
                 if self.reference_preview is None:
                     raise IconError("icon_ai_reference_error")
                 reference_data = reference.data
-                if reference_data.lstrip().startswith((b"<svg", b"<?xml")):
+                vector = reference_data.lstrip().startswith((b"<svg", b"<?xml"))
+                if vector:
                     try:
                         reference_data = await asyncio.wait_for(
                             self.reference_preview.capture(pixel_ratio=2), timeout=_CAPTURE_TIMEOUT
                         )
                     except TimeoutError as exc:
                         raise IconError("icon_ai_reference_error") from exc
-                reference_data = await asyncio.to_thread(_validate_reference, reference_data)
+                reference_data = await asyncio.to_thread(
+                    _validate_reference, reference_data, monochrome=vector and reference.monochrome
+                )
                 image = await AIService(settings_factory()).generate_image(
                     _REFERENCE_PROMPT + _ICON_PROMPT + description,
                     reference_image=reference_data,

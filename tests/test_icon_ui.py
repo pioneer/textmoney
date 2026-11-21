@@ -72,9 +72,28 @@ def test_new_generated_icon_scales_and_themes_without_changing_existing() -> Non
     assert picker.reference_preview is not None
     assert isinstance(picker.reference_preview.content, ft.Image)
     assert picker.reference_preview.content.src == displayed.src
-    assert picker.reference_preview.content.color == ft.Colors.BLACK
+    assert picker.reference_preview.content.color == ft.Colors.ON_SURFACE
     assert icon_image(original).src == original.data
     assert icon_image(original).color is None
+
+
+@pytest.mark.parametrize(
+    ("query", "collection"),
+    [
+        ("outline woman", "ic"),
+        ("home sharp", "material-symbols"),
+        ("github", "simple-icons"),
+        ("github", "logos"),
+    ],
+)
+def test_builtin_reference_preview_matches_selected_theme_treatment(
+    query: str, collection: str
+) -> None:
+    current = next(icon for icon in bundled_icons(query) if f" · {collection}:" in icon.source)
+    picker = IconPicker(MagicMock(spec=ft.Page), "en", current, AsyncMock())
+    assert picker.reference_preview is not None
+    assert isinstance(picker.reference_preview.content, ft.Image)
+    assert picker.reference_preview.content.color == icon_image(current).color
 
 
 def test_generated_colored_art_and_imports_keep_their_colors() -> None:
@@ -1293,7 +1312,11 @@ def test_ai_reference_is_opt_in_and_preserves_original_provenance(
             license_url="https://example.test/license",
             license_text="Original license text",
         )
-        capture = AsyncMock(return_value=raster(96, 96))
+        captured = Image.new("RGBA", (96, 96))
+        ImageDraw.Draw(captured).rectangle((30, 30, 65, 65), fill=(240, 240, 240, 128))
+        capture_data = BytesIO()
+        captured.save(capture_data, format="PNG")
+        capture = AsyncMock(return_value=capture_data.getvalue())
         monkeypatch.setattr(ft.Screenshot, "capture", capture)
         service = MagicMock()
         service.generate_image = AsyncMock(
@@ -1317,10 +1340,12 @@ def test_ai_reference_is_opt_in_and_preserves_original_provenance(
         assert "reference icon" in args[0]
         assert "requested changes take precedence" in args[0]
         assert "thick, bold strokes over fine lines" in args[0]
-        assert (
-            kwargs["reference_image"]
-            == normalize_image(raster(96, 96) if vector else original.data)[0]
-        )
+        if vector:
+            with Image.open(BytesIO(kwargs["reference_image"])) as sent:
+                assert sent.getpixel((40, 40)) == (0, 0, 0, 128)
+                assert sent.getchannel("A").getpixel((0, 0)) == 0
+        else:
+            assert kwargs["reference_image"] == normalize_image(original.data)[0]
         assert capture.await_count == int(vector)
         result = picker.selected
         assert result is not None and result.license == picker.tr("icon_ai_rights")

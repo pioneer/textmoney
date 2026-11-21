@@ -35,7 +35,8 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
   previews the specific icon that will be sent; merely selecting another result
   in the open picker does not change the reference. The icon is sent only when
   the checkbox is selected and generation starts. Vector icons are rendered
-  locally as a PNG for the provider.
+  locally as a PNG for the provider; monochrome vectors are sent in black on a
+  transparent background regardless of the theme used for the preview.
   The app instructions favor a simple monochrome Material-like icon with thick
   strokes for small sizes unless the description explicitly requests a different
   style. When a reference is included, the instructions ask the model to preserve recognizable

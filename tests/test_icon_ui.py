@@ -19,7 +19,7 @@ from form_controls import (
     click_async,
     transaction_form,
 )
-from PIL import Image
+from PIL import Image, ImageDraw
 from test_ai import FakeCredentials
 from test_daily_summary import walk
 from test_dialog_keyboard import finance_session, press
@@ -29,7 +29,7 @@ import app.ui.icons as icon_ui
 from app.domain.budgets import Budget
 from app.domain.ledger import EQUITY, Posting, Transaction
 from app.domain.reporting import period_report
-from app.icons import IconAsset, IconError, normalize_image
+from app.icons import IconAsset, IconError, normalize_generated_image, normalize_image
 from app.infrastructure.ai import (
     AIError,
     AIService,
@@ -51,6 +51,80 @@ from app.ui.tree_picker import TreePicker
 
 def images(control: ft.Control) -> list[ft.Image]:
     return [child for child in walk(control) if isinstance(child, ft.Image)]
+
+
+def test_new_generated_icon_scales_and_themes_without_changing_existing() -> None:
+    image = Image.new("RGBA", (96, 96))
+    ImageDraw.Draw(image).rectangle((37, 34, 58, 61), fill=(20, 20, 20, 255))
+    output = BytesIO()
+    image.save(output, format="PNG")
+    original = IconAsset("old", output.getvalue(), False, "AI", "rights", "credit")
+    data, monochrome = normalize_generated_image(original.data)
+    saved = IconAsset.parse(replace(original, data=data, monochrome=monochrome).serialize())
+    displayed = icon_image(saved)
+    assert displayed.color == ft.Colors.ON_SURFACE
+    assert isinstance(displayed.src, bytes)
+    with Image.open(BytesIO(displayed.src)) as rendered:
+        bounds = rendered.getchannel("A").getbbox()
+        assert bounds is not None
+        assert 78 <= max(bounds[2] - bounds[0], bounds[3] - bounds[1]) <= 82
+    picker = IconPicker(MagicMock(spec=ft.Page), "en", saved, AsyncMock())
+    assert picker.reference_preview is not None
+    assert isinstance(picker.reference_preview.content, ft.Image)
+    assert picker.reference_preview.content.src == displayed.src
+    assert picker.reference_preview.content.color == ft.Colors.BLACK
+    assert icon_image(original).src == original.data
+    assert icon_image(original).color is None
+
+
+def test_generated_colored_art_and_imports_keep_their_colors() -> None:
+    image = Image.new("RGBA", (96, 96))
+    ImageDraw.Draw(image).rectangle((37, 34, 58, 61), fill=(255, 0, 0, 255))
+    output = BytesIO()
+    image.save(output, format="PNG")
+    generated = IconAsset(
+        "AI-generated image",
+        output.getvalue(),
+        False,
+        "AI-generated image",
+        "AI-generated; rights not verified",
+        "credit",
+    )
+    imported = replace(generated, source="User import", license="User-provided")
+
+    data, monochrome = normalize_generated_image(generated.data)
+    colored = icon_image(replace(generated, data=data, monochrome=monochrome))
+    untouched = icon_image(imported)
+    assert colored.color is None
+    assert isinstance(colored.src, bytes)
+    with Image.open(BytesIO(colored.src)) as rendered:
+        bounds = rendered.getchannel("A").getbbox()
+        assert bounds is not None and bounds[3] - bounds[1] >= 78
+    assert untouched.color is None and untouched.src == imported.data
+
+
+@pytest.mark.parametrize("kind", ["two-tone", "opaque", "transparent"])
+def test_generated_icon_preserves_complex_or_empty_art(kind: str) -> None:
+    image = Image.new("RGBA", (96, 96), "white" if kind == "opaque" else (0, 0, 0, 0))
+    if kind == "two-tone":
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((30, 30, 47, 65), fill="black")
+        draw.rectangle((48, 30, 65, 65), fill="white")
+    output = BytesIO()
+    image.save(output, format="PNG")
+    generated = IconAsset(
+        "AI-generated image",
+        output.getvalue(),
+        False,
+        "AI-generated image",
+        "AI-generated; rights not verified",
+        "credit",
+    )
+    data, monochrome = normalize_generated_image(generated.data)
+    displayed = icon_image(replace(generated, data=data, monochrome=monochrome))
+    assert displayed.color is None
+    if kind != "two-tone":
+        assert displayed.src == generated.data
 
 
 @pytest.mark.parametrize("width", [390, 1366])
@@ -1140,6 +1214,7 @@ def test_ai_generation_uses_selected_model_and_saves_only_after_review(
         assert (
             "Material Icons" in prompt and "explicit style instructions take precedence" in prompt
         )
+        assert "thick, bold strokes over fine lines" in prompt
         assert prompt.endswith(picker.ai_prompt.value)
         assert picker.ai_prompt.value not in (picker.status.value or "")
         assert all(
@@ -1155,6 +1230,49 @@ def test_ai_generation_uses_selected_model_and_saves_only_after_review(
         generated = picker.selected
         await click_async(picker.submit)
         persist.assert_awaited_once_with(generated)
+
+    asyncio.run(scenario())
+
+
+def test_ai_generation_persists_theme_adaptive_fitted_icon(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        settings = AISettings(DesktopPreferences(tmp_path / "ai.json"), FakeCredentials())
+        await settings.save_key(Provider.OPENAI, "test-key")
+        await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
+        image = Image.new("RGBA", (256, 256))
+        ImageDraw.Draw(image).rectangle((104, 100, 151, 155), fill=(20, 20, 20, 255))
+        output = BytesIO()
+        image.save(output, format="PNG")
+        service = MagicMock()
+        service.generate_image = AsyncMock(
+            return_value=GeneratedImage(output.getvalue(), "image/png")
+        )
+        monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
+        store = store_at(tmp_path)
+
+        async def save(selected: IconAsset | None) -> None:
+            await store.assign("Expenses:Food", selected, ())
+
+        picker = IconPicker(session.page, "en", None, save, ai_settings=lambda: settings)
+        show_dialog(session.page, picker)
+        assert picker.ai_load_task is not None
+        await asyncio.wrap_future(picker.ai_load_task)
+        picker.ai_prompt.value = "Food"
+        await click_async(picker.ai_generate)
+        assert picker.selected is not None and picker.selected.monochrome
+        assert images(picker.preview)[0].color == ft.Colors.ON_SURFACE
+        await click_async(picker.submit)
+        reloaded = store_at(tmp_path)
+        await reloaded.load()
+        saved = reloaded.assets["Expenses:Food"]
+        assert saved.monochrome and icon_image(saved).color == ft.Colors.ON_SURFACE
+        with Image.open(BytesIO(saved.data)) as rendered:
+            bounds = rendered.getchannel("A").getbbox()
+            assert bounds is not None
+            assert 78 <= max(bounds[2] - bounds[0], bounds[3] - bounds[1]) <= 82
 
     asyncio.run(scenario())
 
@@ -1198,6 +1316,7 @@ def test_ai_reference_is_opt_in_and_preserves_original_provenance(
         assert args[0].endswith("Add an X")
         assert "reference icon" in args[0]
         assert "requested changes take precedence" in args[0]
+        assert "thick, bold strokes over fine lines" in args[0]
         assert (
             kwargs["reference_image"]
             == normalize_image(raster(96, 96) if vector else original.data)[0]

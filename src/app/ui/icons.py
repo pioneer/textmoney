@@ -11,7 +11,14 @@ import flet as ft
 from PIL import Image
 
 from app.domain.storage import ConflictError
-from app.icons import DISPLAY_SIZE, MAX_INPUT, IconAsset, IconError, normalize_image
+from app.icons import (
+    DISPLAY_SIZE,
+    MAX_INPUT,
+    IconAsset,
+    IconError,
+    normalize_generated_image,
+    normalize_image,
+)
 from app.infrastructure.ai import MODELS, AIError, AIService, AISettings, Capability
 from app.infrastructure.icon_sources import search_icons
 from app.localization import translate
@@ -25,7 +32,9 @@ _ICON_PROMPT = (
     "Aim for an icon that is recognizable at 16 pixels. "
     "Unless the user explicitly requests a different style, use a simple uncluttered composition "
     "in the monochrome style of Material Icons and Material Symbols, without text, "
-    "with a transparent background. "
+    "with a transparent background. Make the artwork fill about 80 percent of the square "
+    "canvas, with a small even margin like a Material icon. "
+    "Prefer thick, bold strokes over fine lines so they remain visible at 16 pixels. "
     "The user's explicit style instructions take precedence over these default style choices.\n"
     "User's icon description:\n"
 )
@@ -589,11 +598,11 @@ class IconPicker(ft.AlertDialog):
                 image = await AIService(settings_factory()).generate_image(
                     _ICON_PROMPT + description
                 )
-            data, _ = await asyncio.to_thread(normalize_image, image.data)
+            data, monochrome = await asyncio.to_thread(normalize_generated_image, image.data)
             asset = IconAsset(
                 self.tr("icon_ai_generated"),
                 data,
-                False,
+                monochrome,
                 self.tr("icon_ai_generated"),
                 self.tr("icon_ai_rights"),
                 attribution,

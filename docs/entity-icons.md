@@ -36,9 +36,9 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
   in the open picker does not change the reference. The icon is sent only when
   the checkbox is selected and generation starts. Vector icons are rendered
   locally as a PNG for the provider.
-  The app instructions favor a simple monochrome Material-like icon at small
-  sizes unless the description explicitly requests a different style. When a
-  reference is included, the instructions ask the model to preserve recognizable
+  The app instructions favor a simple monochrome Material-like icon with thick
+  strokes for small sizes unless the description explicitly requests a different
+  style. When a reference is included, the instructions ask the model to preserve recognizable
   features unless requested otherwise. Only the
   user's description is shown in the picker. Review the result before Save;
   cancelling generation or the picker keeps the previous selection. Generated
@@ -78,7 +78,12 @@ assignments are unchanged by display sizing:
   unsupported constructs are rejected. Some otherwise legitimate complex SVGs
   therefore require conversion to PNG outside the app.
 - Monochrome catalogue icons follow the current theme color. Imported images and
-  colored logos retain their colors. Search results display at 16px.
+  colored logos retain their colors. Newly generated transparent artwork is
+  fitted into the same visual footprint as a Material icon; single-tone
+  grayscale artwork follows the current theme. Colored and multitone generated
+  artwork retains its colors. Opaque generated images retain their appearance,
+  so an opaque background or custom colors may not contrast with both themes.
+  Previously saved icons are unchanged. Search results display at 16px.
   Transaction-form dropdowns center the same artwork in a fixed 24px icon slot.
 
 Assigned icons appear in lists, balances, transaction movements/details,

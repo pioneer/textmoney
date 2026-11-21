@@ -135,6 +135,40 @@ def normalize_image(data: bytes) -> tuple[bytes, bool]:
         raise IconError("icon_format") from exc
 
 
+def normalize_generated_image(data: bytes) -> tuple[bytes, bool]:
+    """Fit transparent generated artwork and mark single-tone grayscale for theming."""
+    data, vector = normalize_image(data)
+    if vector:
+        raise IconError("icon_format")
+    with Image.open(io.BytesIO(data)) as original:
+        image = original.convert("RGBA")
+    rgba = image.tobytes()
+    if min(rgba[3::4]) > 16:
+        return data, False
+    bounds = image.getchannel("A").point([0] * 64 + [255] * 192).getbbox()
+    if bounds is None:
+        return data, False
+
+    pixels = [rgba[index : index + 3] for index in range(0, len(rgba), 4) if rgba[index + 3] >= 64]
+    grayscale = all(max(pixel) - min(pixel) <= 10 for pixel in pixels)
+    luminance = [pixel[0] for pixel in pixels]
+    monochrome = grayscale and max(luminance) - min(luminance) <= 35
+
+    artwork = image.crop(bounds)
+    artwork.thumbnail((80, 80), Image.Resampling.LANCZOS)
+    if max(artwork.size) < 80:
+        scale = 80 / max(artwork.size)
+        artwork = artwork.resize(
+            (max(1, round(artwork.width * scale)), max(1, round(artwork.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    canvas = Image.new("RGBA", (RASTER_SIZE, RASTER_SIZE))
+    canvas.paste(artwork, ((RASTER_SIZE - artwork.width) // 2, (RASTER_SIZE - artwork.height) // 2))
+    output = io.BytesIO()
+    canvas.save(output, format="PNG")
+    return output.getvalue(), monochrome
+
+
 @dataclass(frozen=True)
 class IconAsset:
     label: str
@@ -191,11 +225,11 @@ class IconAsset:
             data = base64.b64decode(value["data"], validate=True)
         except ValueError as exc:
             raise IconError("icon_records_invalid") from exc
-        normalized, vector = normalize_image(data)
+        normalized, _ = normalize_image(data)
         return cls(
             value["label"],
             normalized,
-            value["monochrome"] and vector,
+            value["monochrome"],
             value["source"],
             value["license"],
             value["attribution"],

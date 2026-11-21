@@ -362,7 +362,7 @@ def test_desktop_recent_activity_protects_special_entries(
                     '2026-01-07 * "Another opening"\n'
                     "    Assets:Cash 5 USD\n    Equity:Opening-Balances -5 USD\n"
                 )
-        (tmp_path / FILENAME).write_text(source, encoding="utf-8")
+        (tmp_path / FILENAME).write_text(source, encoding="utf-8", newline="")
         await host.journal.load()
         host._refresh()
         menu = next(

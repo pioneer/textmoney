@@ -3,10 +3,15 @@
 Use **Choose icon** while creating an account/category, including quick category
 creation from a transaction, or in an existing entity's Edit dialog. Accounting
 lists do not have separate icon-changing buttons.
+The picker identifies the account or category by name and code. For a new entry
+these are the current form values, labeled as an unsaved draft; fields not yet
+entered are identified as such.
 Icons are optional. In a creation form, the picker saves only a draft and shows
 a preview; the assignment is written only after creating the account/category.
 Canceling the picker keeps the previous draft; canceling creation discards it.
-Select a candidate, then Save; Remove icon also requires Save.
+The picker groups the current draft under **Selected icon — will be saved**,
+including its source/license and Remove icon. Select a candidate, then Save;
+Remove icon also requires Save.
 An Edit dialog shows the current icon and updates its preview when the picker
 saves a replacement or removal; icon changes are saved independently of edits
 to the entity's other fields. Both forms show a **Choose icon** heading above
@@ -29,7 +34,12 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
   Settings. Enter a description and explicitly start generation; the description
   and app instructions are sent to the configured provider and may incur charges.
   Press Enter on a physical keyboard in the description field or choose
-  Generate to start generation.
+  Generate immediately below it to start generation. Progress, cancellation
+  and errors appear beside this action; a successful result replaces the draft
+  in the selected-icon panel and is not saved until Save. Generate again replaces
+  that draft only after another successful request.
+  The original-reference option appears before the description so the prompt,
+  Generate and selected result remain together.
   If the account/category already has an icon (or the creation form has a draft
   icon), you can opt in to include that existing icon as a reference. The picker
   previews the specific icon that will be sent; merely selecting another result

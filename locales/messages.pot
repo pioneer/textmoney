@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: TextMoney 0.4.18\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-11-21 05:30+0200\n"
-"PO-Revision-Date: 2026-11-21 05:30+0200\n"
+"POT-Creation-Date: 2026-11-21 23:32+0200\n"
+"PO-Revision-Date: 2026-11-21 23:32+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -76,6 +76,12 @@ msgstr ""
 msgid "ui.icon_choose"
 msgstr ""
 
+msgid "ui.icon_target_draft"
+msgstr ""
+
+msgid "ui.icon_target_empty"
+msgstr ""
+
 msgid "ui.home_view_budgets"
 msgstr ""
 
@@ -126,6 +132,15 @@ msgstr ""
 msgid "ui.icon_ai_generate"
 msgstr ""
 
+msgid "ui.icon_ai_generate_again"
+msgstr ""
+
+msgid "ui.icon_ai_generating"
+msgstr ""
+
+msgid "ui.icon_ai_ready"
+msgstr ""
+
 msgid "ui.icon_ai_cancel"
 msgstr ""
 
@@ -139,6 +154,9 @@ msgid "ui.icon_ai_notice"
 msgstr ""
 
 msgid "ui.icon_ai_reference"
+msgstr ""
+
+msgid "ui.icon_ai_reference_hint"
 msgstr ""
 
 msgid "ui.icon_ai_reference_source"
@@ -187,6 +205,9 @@ msgid "ui.icon_remove_confirm"
 msgstr ""
 
 msgid "ui.icon_none"
+msgstr ""
+
+msgid "ui.icon_selected"
 msgstr ""
 
 msgid "ui.icon_attribution"

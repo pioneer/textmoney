@@ -78,6 +78,12 @@ msgstr "AI settings require the native app."
 msgid "ui.icon_choose"
 msgstr "Choose icon"
 
+msgid "ui.icon_target_draft"
+msgstr "New entry (not yet saved)"
+
+msgid "ui.icon_target_empty"
+msgstr "Not entered"
+
 msgid "ui.home_view_budgets"
 msgstr "View budgets"
 
@@ -128,6 +134,15 @@ msgstr "Describe your icon"
 msgid "ui.icon_ai_generate"
 msgstr "Generate"
 
+msgid "ui.icon_ai_generate_again"
+msgstr "Generate again"
+
+msgid "ui.icon_ai_generating"
+msgstr "Generating icon"
+
+msgid "ui.icon_ai_ready"
+msgstr "Generated. Review the selected icon before saving."
+
 msgid "ui.icon_ai_cancel"
 msgstr "Cancel generation"
 
@@ -138,10 +153,13 @@ msgid "ui.icon_ai_model_hint"
 msgstr "Choose an available image-generation model in AI Settings."
 
 msgid "ui.icon_ai_notice"
-msgstr "Generation sends your description and app instructions to your configured AI provider and may incur charges. If selected, the existing icon is also sent."
+msgstr "Your description and app instructions are sent to your AI provider and may incur charges."
 
 msgid "ui.icon_ai_reference"
-msgstr "Include the existing icon in the prompt"
+msgstr "Use the icon from when this picker opened as a reference"
+
+msgid "ui.icon_ai_reference_hint"
+msgstr "Sent to the provider only if checked."
 
 msgid "ui.icon_ai_reference_source"
 msgstr "Reference icon source and license"
@@ -190,6 +208,9 @@ msgstr "Remove this icon?"
 
 msgid "ui.icon_none"
 msgstr "No icon selected"
+
+msgid "ui.icon_selected"
+msgstr "Selected icon — will be saved"
 
 msgid "ui.icon_attribution"
 msgstr "Source and license"

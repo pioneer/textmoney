@@ -91,7 +91,7 @@ from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import EditorDialog, deletion_title, show_dialog
 from app.ui.home_budgets import HomeBudgets, home_heading
-from app.ui.icons import IconDraft, IconField, IconPicker, IconRemovalDialog, icon_image
+from app.ui.icons import IconDraft, IconField, IconPicker, IconRemovalDialog, IconTarget, icon_image
 from app.ui.layout import (
     HoverRow,
     action_toolbar,
@@ -2490,6 +2490,14 @@ class FinanceView(ft.Row):
         if store is None or not store.loaded or not journal.ready:
             raise StorageError("icon_storage")
         expected = store.heads.get(identifier, ())
+        item = next(
+            (
+                item
+                for item in (*journal.ledger.accounts, *journal.ledger.categories)
+                if item.id == identifier
+            ),
+            None,
+        )
 
         async def save(asset: IconAsset | None) -> None:
             async with self.lock:
@@ -2523,6 +2531,13 @@ class FinanceView(ft.Row):
                 existing_icons=store.assets.values(),
                 conflict=identifier in store.conflicts,
                 ai_settings=self.ai_settings,
+                target=IconTarget(
+                    item.name if item is not None else "",
+                    identifier,
+                    isinstance(item, Category)
+                    if item is not None
+                    else identifier.startswith(("Expenses:", "Income:")),
+                ),
             ),
         )
 
@@ -4283,6 +4298,9 @@ class FinanceView(ft.Row):
             self.language,
             icon_store.assets.values() if icon_store is not None else (),
             ai_settings=self.ai_settings,
+            target=lambda: IconTarget(
+                category_name.value or "", category_path.value or "", category=True, draft=True
+            ),
         )
         icon_heads = dict(icon_store.heads) if icon_store is not None else {}
         try:
@@ -6130,6 +6148,12 @@ class FinanceView(ft.Row):
             self.language,
             icon_store.assets.values() if icon_store is not None else (),
             ai_settings=self.ai_settings,
+            target=lambda: IconTarget(
+                self.account_name.value or "",
+                self.account_id.value or "",
+                category=False,
+                draft=True,
+            ),
         )
         icon_heads = dict(icon_store.heads) if icon_store is not None else {}
         identifier = ""
@@ -6486,6 +6510,12 @@ class FinanceView(ft.Row):
             self.language,
             icon_store.assets.values() if icon_store is not None else (),
             ai_settings=self.ai_settings,
+            target=lambda: IconTarget(
+                self.category_name.value or "",
+                self.category_id.value or "",
+                category=True,
+                draft=True,
+            ),
         )
         icon_heads = dict(icon_store.heads) if icon_store is not None else {}
         identifier = ""

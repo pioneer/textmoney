@@ -5,6 +5,7 @@ import logging
 import traceback
 from collections.abc import Awaitable, Callable, Iterable
 from concurrent.futures import Future
+from dataclasses import dataclass
 from io import BytesIO
 
 import flet as ft
@@ -126,6 +127,14 @@ def _validate_reference(data: bytes, *, monochrome: bool = False) -> bytes:
     return data
 
 
+@dataclass(frozen=True)
+class IconTarget:
+    name: str
+    code: str
+    category: bool
+    draft: bool = False
+
+
 class IconField(ft.Column):
     def __init__(
         self, language: str, choose: Callable[[], None], remove: Callable[[], None]
@@ -171,11 +180,13 @@ class IconDraft(IconField):
         existing_icons: Iterable[IconAsset] = (),
         *,
         ai_settings: Callable[[], AISettings] | None = None,
+        target: Callable[[], IconTarget] | None = None,
     ) -> None:
         self.owner = page
         self.language = language
         self.existing_icons = tuple(existing_icons)
         self.ai_settings = ai_settings
+        self.target = target
         self.selected: IconAsset | None = None
         super().__init__(
             language,
@@ -199,6 +210,7 @@ class IconDraft(IconField):
                 select,
                 existing_icons=self.existing_icons,
                 ai_settings=self.ai_settings,
+                target=self.target() if self.target is not None else None,
             ),
         )
 
@@ -263,12 +275,14 @@ class IconPicker(ft.AlertDialog):
         existing_icons: Iterable[IconAsset] = (),
         conflict: bool = False,
         ai_settings: Callable[[], AISettings] | None = None,
+        target: IconTarget | None = None,
     ) -> None:
         self.owner = page
         self.language = language
         self.persist = save
         self.selected = current
         self.reference = current
+        self.generated: IconAsset | None = None
         self.existing_icons = tuple(existing_icons)
         self.busy = False
         self.ai_settings = ai_settings
@@ -297,13 +311,21 @@ class IconPicker(ft.AlertDialog):
             shift_enter=True,
             on_submit=self._generate,
         )
-        self.ai_generate = ft.TextButton(self.tr("icon_ai_generate"), on_click=self._generate)
+        self.ai_generate = ft.FilledButton(self.tr("icon_ai_generate"), on_click=self._generate)
         self.ai_cancel = ft.TextButton(
             self.tr("icon_ai_cancel"), on_click=self._cancel_generation, visible=False
+        )
+        self.ai_progress = ft.ProgressRing(
+            visible=False, width=20, height=20, semantics_label=self.tr("icon_ai_generating")
+        )
+        self.ai_status = ft.Text(size=12)
+        self.ai_feedback = ft.Semantics(
+            content=self.ai_status, live_region=True, exclude_semantics=True
         )
         self.ai_reference = ft.Checkbox(value=False, semantics_label=self.tr("icon_ai_reference"))
         self.ai_reference_tile = ft.ListTile(
             title=self.tr("icon_ai_reference"),
+            subtitle=self.tr("icon_ai_reference_hint"),
             leading=self.ai_reference,
             toggle_inputs=True,
             content_padding=0,
@@ -336,9 +358,10 @@ class IconPicker(ft.AlertDialog):
                     ft.Text(self.tr("icon_ai_notice"), size=12),
                     padding=ft.Padding.only(bottom=8),
                 ),
-                self.ai_prompt,
                 self.ai_reference_row,
-                ft.Row([self.ai_generate, self.ai_cancel]),
+                self.ai_prompt,
+                ft.Row([self.ai_generate, self.ai_progress, self.ai_cancel], wrap=True),
+                self.ai_feedback,
             ],
             expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
             maintain_state=True,
@@ -348,27 +371,22 @@ class IconPicker(ft.AlertDialog):
             self.tr("icon_remove"), icon=ft.Icons.DELETE_OUTLINE, on_click=self._remove
         )
         self.preview = ft.Row(spacing=8)
+        self.selection_license = ft.Text(size=12)
+        self.selection_rights = ft.Text(self.tr("icon_ai_rights_notice"), size=12, visible=False)
         self.credit = ft.Text(size=12, selectable=True)
         self.license_text = ft.Text(size=12, selectable=True)
-        self.status = ft.Text(size=12, selectable=True)
+        self.status = ft.Text(size=12)
+        self.feedback = ft.Semantics(content=self.status, live_region=True, exclude_semantics=True)
         self.progress = ft.ProgressRing(visible=False, width=20, height=20)
         self.cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._cancel)
         self.submit = ft.TextButton(self.tr("crud_save"), on_click=self._save)
-        super().__init__(
-            modal=True,
-            scrollable=True,
-            title=self.tr("icon_choose"),
+        self.selection_panel = ft.Container(
             content=ft.Column(
                 [
-                    self.search,
-                    ft.Text(self.tr("icon_privacy"), size=12),
-                    self.import_button,
-                    self.ai_hint,
-                    self.ai_section,
-                    ft.Text(self.tr("icon_conflicts"), visible=conflict, color=ft.Colors.ERROR),
-                    self.progress,
-                    self.status,
+                    ft.Text(self.tr("icon_selected"), weight=ft.FontWeight.W_600),
                     self.preview,
+                    self.selection_license,
+                    self.selection_rights,
                     self.remove,
                     ft.ExpansionTile(
                         title=self.tr("icon_attribution"),
@@ -376,10 +394,54 @@ class IconPicker(ft.AlertDialog):
                         maintain_state=True,
                     ),
                 ],
-                width=420,
                 tight=True,
                 spacing=8,
             ),
+            bgcolor=ft.Colors.SURFACE_CONTAINER,
+            border_radius=12,
+            padding=12,
+            key=ft.ScrollKey("icon-selection"),
+        )
+        target_controls: list[ft.Control] = []
+        if target is not None:
+            name_label = self.tr("category_name" if target.category else "account_name")
+            code_label = self.tr("category_path" if target.category else "account_code")
+            details: list[ft.Control] = []
+            if target.draft:
+                details.append(ft.Text(self.tr("icon_target_draft"), size=12))
+            details.extend(
+                [
+                    ft.Text(f"{name_label}: {target.name.strip() or self.tr('icon_target_empty')}"),
+                    ft.Text(
+                        f"{code_label}: {target.code.strip() or self.tr('icon_target_empty')}",
+                        size=12,
+                    ),
+                ]
+            )
+            target_controls.append(ft.Column(details, tight=True, spacing=2))
+        self.body = ft.Column(
+            [
+                *target_controls,
+                self.search,
+                ft.Text(self.tr("icon_privacy"), size=12),
+                self.import_button,
+                self.ai_hint,
+                self.ai_section,
+                ft.Text(self.tr("icon_conflicts"), visible=conflict, color=ft.Colors.ERROR),
+                self.progress,
+                self.feedback,
+                self.selection_panel,
+            ],
+            width=420,
+            max_height=560,
+            scroll=ft.ScrollMode.AUTO,
+            tight=True,
+            spacing=8,
+        )
+        super().__init__(
+            modal=True,
+            title=self.tr("icon_choose"),
+            content=self.body,
             actions=[self.cancel, self.submit],
         )
         self._selection()
@@ -427,6 +489,10 @@ class IconPicker(ft.AlertDialog):
     def tr(self, key: str) -> str:
         return translate(self.language, key)
 
+    def _feedback(self) -> None:
+        self.ai_feedback.label = self.ai_status.value
+        self.feedback.label = self.status.value
+
     def _selection(self) -> None:
         asset = self.selected
         self.preview.controls = (
@@ -440,6 +506,8 @@ class IconPicker(ft.AlertDialog):
             else ""
         )
         self.license_text.value = asset.license_text if asset else ""
+        self.selection_license.value = asset.license if asset else ""
+        self.selection_rights.visible = asset is not None and asset is self.generated
         self.remove.disabled = asset is None
 
     def _show(self, assets: list[IconAsset]) -> None:
@@ -469,6 +537,8 @@ class IconPicker(ft.AlertDialog):
         if self.busy:
             return
         self.selected = asset
+        self.ai_status.value = ""
+        self._feedback()
         self._selection()
         self.owner.update()
 
@@ -476,12 +546,15 @@ class IconPicker(ft.AlertDialog):
         if self.busy:
             return
         self.selected = None
+        self.ai_status.value = ""
+        self._feedback()
         self._selection()
         self.owner.update()
 
     def _local(self, event: ft.Event[ft.SearchBar]) -> None:
         if not self.busy:
             self.status.value = ""
+            self._feedback()
             self._show(search_icons(self.search.value or "", self.existing_icons))
             self.owner.update()
 
@@ -489,10 +562,14 @@ class IconPicker(ft.AlertDialog):
         if self.busy:
             return
         self.busy = True
+        status = self.ai_status if private else self.status
+        progress = self.ai_progress if private else self.progress
         try:
             # Reset busy even if the disabling update fails, or every action stays ignored.
             self.status.value = ""
-            self.progress.visible = True
+            self.ai_status.value = ""
+            self._feedback()
+            progress.visible = True
             for control in (
                 self.search,
                 self.import_button,
@@ -507,10 +584,10 @@ class IconPicker(ft.AlertDialog):
             ):
                 control.disabled = True
             self.owner.update()
-            await _run_icon_action(action, self.status, self.language, private=private)
+            await _run_icon_action(action, status, self.language, private=private)
         finally:
             self.busy = False
-            self.progress.visible = False
+            progress.visible = False
             for control in (
                 self.search,
                 self.import_button,
@@ -524,6 +601,7 @@ class IconPicker(ft.AlertDialog):
             ):
                 control.disabled = False
             self._selection()
+            self._feedback()
             self.owner.update()
 
     async def _import(self, event: ft.Event[ft.TextButton]) -> None:
@@ -573,11 +651,15 @@ class IconPicker(ft.AlertDialog):
             return
         description = self.ai_prompt.value.strip()
         if not description:
-            self.status.value = self.tr("icon_ai_prompt_required")
+            self.ai_status.value = self.tr("icon_ai_prompt_required")
+            self._feedback()
             self.owner.update()
             return
 
+        generated = False
+
         async def generate() -> None:
+            nonlocal generated
             reference = self.reference if self.ai_reference.value else None
             attribution = self.tr("icon_ai_rights_notice")
             if reference is not None:
@@ -621,21 +703,32 @@ class IconPicker(ft.AlertDialog):
                 reference.license_url if reference else "",
                 reference.license_text if reference else "",
             )
+            self.generated = asset
             self.selected = asset
             self._selection()
-            self.status.value = self.tr("icon_ai_rights_notice")
+            self.ai_generate.content = self.tr("icon_ai_generate_again")
+            self.ai_status.value = self.tr("icon_ai_ready")
+            generated = True
 
         self.generation_task = asyncio.current_task()
         self.ai_cancel.visible = True
         try:
             await self._run(generate, private=True)
         except asyncio.CancelledError:
-            self.status.value = self.tr("icon_ai_cancelled")
+            self.ai_status.value = self.tr("icon_ai_cancelled")
+            self._feedback()
             self.owner.update()
         finally:
             self.generation_task = None
             self.ai_cancel.visible = False
             self.owner.update()
+        if (
+            generated
+            and self.open
+            and self.owner._dialogs.controls
+            and self.owner._dialogs.controls[-1] is self
+        ):
+            await self.body.scroll_to(scroll_key=self.selection_panel.key, duration=350)
 
     def _cancel_generation(self, event: ft.Event[ft.TextButton]) -> None:
         if self.generation_task is not None:

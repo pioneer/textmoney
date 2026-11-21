@@ -163,6 +163,12 @@ msgstr "Настройки ИИ доступны только в установ�
 msgid "ui.icon_choose"
 msgstr "Выбрать иконку"
 
+msgid "ui.icon_target_draft"
+msgstr "Новая запись (ещё не сохранена)"
+
+msgid "ui.icon_target_empty"
+msgstr "Не указано"
+
 msgid "ui.home_view_budgets"
 msgstr "Посмотреть бюджеты"
 
@@ -214,6 +220,15 @@ msgstr "Опишите иконку"
 msgid "ui.icon_ai_generate"
 msgstr "Создать"
 
+msgid "ui.icon_ai_generate_again"
+msgstr "Создать снова"
+
+msgid "ui.icon_ai_generating"
+msgstr "Создание иконки"
+
+msgid "ui.icon_ai_ready"
+msgstr "Создано. Проверьте выбранную иконку перед сохранением."
+
 msgid "ui.icon_ai_cancel"
 msgstr "Отменить создание"
 
@@ -224,10 +239,13 @@ msgid "ui.icon_ai_model_hint"
 msgstr "Выберите доступную модель генерации изображений в настройках ИИ."
 
 msgid "ui.icon_ai_notice"
-msgstr "Ваше описание и инструкции приложения будут отправлены выбранному поставщику ИИ; это может быть платно. Если выбрано, существующий значок также будет отправлен."
+msgstr "Ваше описание и инструкции приложения будут отправлены поставщику ИИ; это может быть платно."
 
 msgid "ui.icon_ai_reference"
-msgstr "Добавить существующий значок в запрос"
+msgstr "Использовать иконку при открытии окна как образец"
+
+msgid "ui.icon_ai_reference_hint"
+msgstr "Будет отправлена поставщику только при выборе."
 
 msgid "ui.icon_ai_reference_source"
 msgstr "Источник и лицензия исходного значка"
@@ -276,6 +294,9 @@ msgstr "Убрать эту иконку?"
 
 msgid "ui.icon_none"
 msgstr "Иконка не выбрана"
+
+msgid "ui.icon_selected"
+msgstr "Выбранная иконка — будет сохранена"
 
 msgid "ui.icon_attribution"
 msgstr "Источник и лицензия"

@@ -267,6 +267,21 @@ def test_edit_entity_shows_current_icon_and_tracks_picker_changes(
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
         assert picker.ai_settings == view.ai_settings
+        item = next(
+            item
+            for item in (*journal.ledger.accounts, *journal.ledger.categories)
+            if item.id == identifier
+        )
+        labels = [control.value for control in walk(picker) if isinstance(control, ft.Text)]
+        assert (
+            f"{view.tr('category_name' if kind == 'category' else 'account_name')}: {item.name}"
+            in labels
+        )
+        assert (
+            f"{view.tr('category_path' if kind == 'category' else 'account_code')}: {identifier}"
+            in labels
+        )
+        assert not any(isinstance(label, str) and "Unsaved name" in label for label in labels)
         picker._select(replacement)
         click(picker.cancel)
         assert [image.src for image in images(parent)] == ([original.data] if assigned else [])
@@ -491,6 +506,13 @@ def test_creation_icon_is_a_draft_until_entity_is_saved_and_survives_reload(
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
         assert picker.ai_settings == view.ai_settings
+        labels = [control.value for control in walk(picker) if isinstance(control, ft.Text)]
+        category = kind not in {"asset", "liability"}
+        assert view.tr("icon_target_draft") in labels
+        name_label = view.tr("category_name" if category else "account_name")
+        name = "New category" if category else "New account"
+        assert f"{name_label}: {name}" in labels
+        assert f"{view.tr('category_path' if category else 'account_code')}: {identifier}" in labels
         selected = bundled_icons("bank")[0]
         picker._select(selected)
         await session.dispatch_event(picker.search._i, "focus", {})
@@ -527,6 +549,49 @@ def test_creation_icon_is_a_draft_until_entity_is_saved_and_survives_reload(
         await journal.load()
         assert journal.source == saved == (tmp_path / FILENAME).read_text()
         assert selected.label not in saved
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("kind", ["asset", "expense", "quick-expense"])
+def test_creation_picker_shows_current_values_and_empty_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    async def scenario() -> None:
+        session, view, _journal, parent, draft, _identifier = await creation_form(
+            tmp_path, monkeypatch, kind
+        )
+        category = kind != "asset"
+        if kind == "quick-expense":
+            fields = {
+                control.data: control
+                for control in walk(parent)
+                if isinstance(control, ft.TextField)
+            }
+            name, code = fields["quick_category_name"], fields["quick_category_path"]
+        else:
+            name = view.category_name if category else view.account_name
+            code = view.category_id if category else view.account_id
+        name.value = code.value = ""
+        click(draft.choose_button)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        labels = [control.value for control in walk(picker) if isinstance(control, ft.Text)]
+        name_label = view.tr("category_name" if category else "account_name")
+        code_label = view.tr("category_path" if category else "account_code")
+        assert f"{name_label}: {view.tr('icon_target_empty')}" in labels
+        assert f"{code_label}: {view.tr('icon_target_empty')}" in labels
+        click(picker.cancel)
+
+        name.value = "Updated draft"
+        code.value = "Parent:Child"
+        click(draft.choose_button)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        labels = [control.value for control in walk(picker) if isinstance(control, ft.Text)]
+        assert f"{name_label}: Updated draft" in labels
+        assert f"{code_label}: Parent:Child" in labels
+        click(picker.cancel)
 
     asyncio.run(scenario())
 
@@ -1145,6 +1210,47 @@ def test_picker_search_opens_and_selects_without_saving(
     asyncio.run(scenario())
 
 
+def test_picker_selection_panel_tracks_draft_and_keeps_original_reference(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        original, candidate = asset("Original"), asset("Candidate")
+        persist = AsyncMock()
+        picker = IconPicker(session.page, "en", original, persist)
+        show_dialog(session.page, picker)
+        assert isinstance(picker.ai_generate, ft.FilledButton)
+        assert picker.ai_section.controls is not None
+        assert picker.ai_section.controls[1] is picker.ai_reference_row
+        assert picker.ai_section.controls[2] is picker.ai_prompt
+        action_row = picker.ai_section.controls[3]
+        assert isinstance(action_row, ft.Row) and action_row.controls[0] is picker.ai_generate
+        assert any(
+            isinstance(control, ft.Text) and control.value == picker.tr("icon_selected")
+            for control in walk(picker)
+        )
+        assert picker.ai_reference_tile.title == picker.tr("icon_ai_reference")
+        assert picker.ai_reference_tile.subtitle == picker.tr("icon_ai_reference_hint")
+        assert picker.reference_preview is not None
+        assert isinstance(picker.reference_preview.content, ft.Image)
+        picker._select(candidate)
+        assert picker.selected == candidate
+        assert images(picker.preview)[0].src == candidate.data
+        assert picker.selection_license.value == candidate.license
+        assert picker.reference_preview.content.src == original.data
+        assert picker.reference == original
+        picker._remove(MagicMock())
+        assert picker.selected is None and picker.remove.disabled
+        assert isinstance(picker.preview.controls[0], ft.Text)
+        assert picker.preview.controls[0].value == picker.tr("icon_none")
+        assert not picker.selection_license.value and not picker.selection_rights.visible
+        persist.assert_not_awaited()
+        click(picker.cancel)
+        assert not picker.open
+
+    asyncio.run(scenario())
+
+
 def test_import_resizes_previews_and_requires_explicit_save(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1251,6 +1357,8 @@ def test_ai_generation_uses_selected_model_and_saves_only_after_review(
         )
         persist = AsyncMock()
         picker = IconPicker(session.page, "en", asset(), persist, ai_settings=lambda: settings)
+        scroll = AsyncMock()
+        monkeypatch.setattr(picker.body, "scroll_to", scroll)
         show_dialog(session.page, picker)
         assert picker.ai_load_task is not None
         await asyncio.wrap_future(picker.ai_load_task)
@@ -1275,6 +1383,13 @@ def test_ai_generation_uses_selected_model_and_saves_only_after_review(
         )
         assert picker.selected is not None and picker.selected.source == "AI-generated image"
         assert picker.selected.license == "AI-generated; rights not verified"
+        assert picker.selection_license.value == picker.selected.license
+        assert picker.selection_rights.visible
+        assert picker.ai_generate.content == picker.tr("icon_ai_generate_again")
+        assert picker.ai_status.value == picker.tr("icon_ai_ready")
+        assert picker.ai_feedback.label == picker.ai_status.value
+        assert picker.ai_feedback.live_region and picker.ai_feedback.exclude_semantics
+        scroll.assert_awaited_once_with(scroll_key=picker.selection_panel.key, duration=350)
         assert len(images(picker.preview)) == 1
         assert images(picker.preview)[0].width == images(picker.preview)[0].height == 48
         persist.assert_not_awaited()
@@ -1308,6 +1423,7 @@ def test_ai_generation_persists_theme_adaptive_fitted_icon(
             await store.assign("Expenses:Food", selected, ())
 
         picker = IconPicker(session.page, "en", None, save, ai_settings=lambda: settings)
+        monkeypatch.setattr(picker.body, "scroll_to", AsyncMock())
         show_dialog(session.page, picker)
         assert picker.ai_load_task is not None
         await asyncio.wrap_future(picker.ai_load_task)
@@ -1356,6 +1472,7 @@ def test_ai_reference_is_opt_in_and_preserves_original_provenance(
         )
         monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
         picker = IconPicker(session.page, "en", original, AsyncMock(), ai_settings=lambda: settings)
+        monkeypatch.setattr(picker.body, "scroll_to", AsyncMock())
         show_dialog(session.page, picker)
         assert picker.ai_load_task is not None
         await asyncio.wrap_future(picker.ai_load_task)
@@ -1435,7 +1552,8 @@ def test_ai_reference_preparation_failure_never_sends_or_replaces(
         await click_async(picker.ai_generate)
         service.generate_image.assert_not_called()
         assert picker.selected == original
-        assert picker.status.value
+        assert picker.ai_status.value
+        assert picker.ai_feedback.label == picker.ai_status.value
         assert not picker.busy and not picker.ai_reference_tile.disabled
         session.page.pop_dialog()
 
@@ -1474,7 +1592,7 @@ def test_ai_reference_capture_can_be_cancelled(
         await task
         service.generate_image.assert_not_called()
         assert picker.selected == original and not picker.ai_reference.disabled
-        assert picker.status.value == picker.tr("icon_ai_cancelled")
+        assert picker.ai_status.value == picker.tr("icon_ai_cancelled")
         session.page.pop_dialog()
 
     asyncio.run(scenario())
@@ -1507,7 +1625,7 @@ def test_ai_reference_capture_timeout_reports_error(
         await click_async(picker.ai_generate)
         service.generate_image.assert_not_called()
         assert picker.selected == original
-        assert picker.status.value == picker.tr("icon_ai_reference_error")
+        assert picker.ai_status.value == picker.tr("icon_ai_reference_error")
         assert not picker.busy
         session.page.pop_dialog()
 
@@ -1532,6 +1650,7 @@ def test_ai_prompt_enter_generates_without_saving_picker(
         monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
         persist = AsyncMock()
         picker = IconPicker(session.page, "en", asset(), persist, ai_settings=lambda: settings)
+        monkeypatch.setattr(picker.body, "scroll_to", AsyncMock())
         show_dialog(session.page, picker)
         assert picker.ai_load_task is not None
         await asyncio.wrap_future(picker.ai_load_task)
@@ -1552,7 +1671,7 @@ def test_ai_prompt_enter_generates_without_saving_picker(
         else:
             service.generate_image.assert_not_awaited()
             assert picker.selected == asset()
-            assert picker.status.value == picker.tr("icon_ai_prompt_required")
+            assert picker.ai_status.value == picker.tr("icon_ai_prompt_required")
 
     asyncio.run(scenario())
 
@@ -1609,6 +1728,7 @@ def test_ai_icon_creation_persists_after_entity_save(
         click(draft.choose_button)
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker) and picker.ai_load_task is not None
+        monkeypatch.setattr(picker.body, "scroll_to", AsyncMock())
         await asyncio.wrap_future(picker.ai_load_task)
         assert picker.ai_section.visible
         picker.ai_prompt.value = "A fox"
@@ -1660,11 +1780,11 @@ def test_ai_generation_failure_or_cancel_keeps_previous_selection(
         task = asyncio.create_task(click_async(picker.ai_generate))
         await started.wait()
         if failure == "cancel":
-            assert picker.ai_cancel.visible and picker.progress.visible
+            assert picker.ai_cancel.visible and picker.ai_progress.visible
             click(picker.ai_cancel)
         await task
         assert picker.selected == previous
-        assert picker.status.value
+        assert picker.ai_status.value
         assert not picker.busy and not picker.ai_cancel.visible
         persist.assert_not_awaited()
         assert "private description and secret" not in caplog.text

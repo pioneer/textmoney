@@ -163,6 +163,12 @@ msgstr "Налаштування ШІ доступні лише у встано�
 msgid "ui.icon_choose"
 msgstr "Вибрати іконку"
 
+msgid "ui.icon_target_draft"
+msgstr "Новий запис (ще не збережено)"
+
+msgid "ui.icon_target_empty"
+msgstr "Не вказано"
+
 msgid "ui.home_view_budgets"
 msgstr "Переглянути бюджети"
 
@@ -223,6 +229,15 @@ msgstr "Опишіть іконку"
 msgid "ui.icon_ai_generate"
 msgstr "Створити"
 
+msgid "ui.icon_ai_generate_again"
+msgstr "Створити знову"
+
+msgid "ui.icon_ai_generating"
+msgstr "Створення іконки"
+
+msgid "ui.icon_ai_ready"
+msgstr "Створено. Перевірте вибрану іконку перед збереженням."
+
 msgid "ui.icon_ai_cancel"
 msgstr "Скасувати створення"
 
@@ -233,10 +248,13 @@ msgid "ui.icon_ai_model_hint"
 msgstr "Виберіть доступну модель генерації зображень у налаштуваннях ШІ."
 
 msgid "ui.icon_ai_notice"
-msgstr "Ваш опис та інструкції застосунку будуть надіслані вибраному постачальнику ШІ; це може бути платним. Якщо вибрано, наявну піктограму також буде надіслано."
+msgstr "Ваш опис та інструкції застосунку буде надіслано постачальнику ШІ; це може бути платним."
 
 msgid "ui.icon_ai_reference"
-msgstr "Додати наявну піктограму до запиту"
+msgstr "Використати іконку, яка була під час відкриття, як зразок"
+
+msgid "ui.icon_ai_reference_hint"
+msgstr "Буде надіслано постачальнику лише за позначенням."
 
 msgid "ui.icon_ai_reference_source"
 msgstr "Джерело та ліцензія вихідної піктограми"
@@ -285,6 +303,9 @@ msgstr "Прибрати цю іконку?"
 
 msgid "ui.icon_none"
 msgstr "Іконку не вибрано"
+
+msgid "ui.icon_selected"
+msgstr "Вибрана іконка — буде збережена"
 
 msgid "ui.icon_attribution"
 msgstr "Джерело та ліцензія"

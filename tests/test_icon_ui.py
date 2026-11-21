@@ -1035,6 +1035,38 @@ def test_failed_save_retains_selection_and_does_not_close_picker(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("kind", ["picker", "removal"])
+def test_failed_busy_update_does_not_leave_icon_dialog_unresponsive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        persist = AsyncMock()
+        dialog = (
+            IconPicker(session.page, "en", asset(), persist)
+            if kind == "picker"
+            else IconRemovalDialog(session.page, "en", persist)
+        )
+        show_dialog(session.page, dialog)
+        update = session.page.update
+        failures = [RuntimeError("update failed")]
+
+        def flaky_update(*controls: ft.Control) -> None:
+            if failures:
+                raise failures.pop()
+            update(*controls)
+
+        monkeypatch.setattr(session.page, "update", flaky_update)
+        with pytest.raises(RuntimeError, match="update failed"):
+            await click_async(dialog.submit)
+        persist.assert_not_awaited()
+        assert not dialog.busy and not dialog.cancel.disabled and not dialog.submit.disabled
+        click(dialog.cancel)
+        assert not dialog.open
+
+    asyncio.run(scenario())
+
+
 def test_picker_search_uses_bundled_catalogue_without_online_action(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

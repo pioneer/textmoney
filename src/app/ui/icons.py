@@ -230,16 +230,17 @@ class IconRemovalDialog(ft.AlertDialog):
     async def _save(self, event: ft.Event[ft.TextButton]) -> None:
         if self.busy:
             return
-        self.busy = True
-        self.status.value = ""
-        self.cancel.disabled = self.submit.disabled = True
-        self.owner.update()
 
         async def remove() -> None:
             await self.persist(None)
             self.owner.pop_dialog()
 
+        self.busy = True
         try:
+            # Reset busy even if the disabling update fails, or every action stays ignored.
+            self.status.value = ""
+            self.cancel.disabled = self.submit.disabled = True
+            self.owner.update()
             await _run_icon_action(remove, self.status, self.language)
         finally:
             self.busy = False
@@ -488,23 +489,24 @@ class IconPicker(ft.AlertDialog):
         if self.busy:
             return
         self.busy = True
-        self.status.value = ""
-        self.progress.visible = True
-        for control in (
-            self.search,
-            self.import_button,
-            self.cancel,
-            self.submit,
-            self.results,
-            self.remove,
-            self.ai_prompt,
-            self.ai_generate,
-            self.ai_reference,
-            self.ai_reference_tile,
-        ):
-            control.disabled = True
-        self.owner.update()
         try:
+            # Reset busy even if the disabling update fails, or every action stays ignored.
+            self.status.value = ""
+            self.progress.visible = True
+            for control in (
+                self.search,
+                self.import_button,
+                self.cancel,
+                self.submit,
+                self.results,
+                self.remove,
+                self.ai_prompt,
+                self.ai_generate,
+                self.ai_reference,
+                self.ai_reference_tile,
+            ):
+                control.disabled = True
+            self.owner.update()
             await _run_icon_action(action, self.status, self.language, private=private)
         finally:
             self.busy = False

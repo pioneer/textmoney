@@ -189,6 +189,63 @@ def test_generation_adapters_return_image_bytes(tmp_path, photo, provider):
     asyncio.run(exercise())
 
 
+@pytest.mark.parametrize("provider", [Provider.OPENAI, Provider.GEMINI, Provider.XAI])
+def test_generation_adapters_send_reference_image_for_editing(tmp_path, photo, provider):
+    settings = AISettings(DesktopPreferences(tmp_path / "settings.json"), FakeCredentials())
+    model = next(model for model in MODELS[Capability.GENERATE] if model.provider == provider)
+    encoded = base64.b64encode(photo).decode()
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if provider == Provider.GEMINI:
+            assert request.url.path.endswith(f"/{model.name}:generateContent")
+            assert body["contents"][0]["parts"] == [
+                {"text": "Add a mark"},
+                {"inlineData": {"mimeType": "image/png", "data": encoded}},
+            ]
+            return httpx.Response(
+                200,
+                json={"candidates": [{"content": {"parts": [{"inlineData": {"data": encoded}}]}}]},
+            )
+        assert request.url.path == "/v1/images/edits"
+        assert body["model"] == model.name and body["prompt"] == "Add a mark"
+        url = f"data:image/png;base64,{encoded}"
+        if provider == Provider.OPENAI:
+            assert body["images"] == [{"image_url": url}]
+        else:
+            assert body["image"] == {"url": url, "type": "image_url"}
+            assert body["response_format"] == "b64_json"
+        return httpx.Response(200, json={"data": [{"b64_json": encoded}]})
+
+    async def exercise():
+        await settings.select(Capability.GENERATE, model.id)
+        await settings.save_key(provider, "test-key")
+        service = AIService(settings, transport=httpx.MockTransport(handle))
+        image = await service.generate_image("Add a mark", reference_image=photo)
+        assert image.data == photo
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [b"", b"not an image", b"x" * (5 * 1024 * 1024 + 1)],
+    ids=["empty", "invalid", "oversized"],
+)
+def test_generation_rejects_invalid_reference_before_network(tmp_path, reference):
+    settings = AISettings(DesktopPreferences(tmp_path / "settings.json"), FakeCredentials())
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        pytest.fail("invalid reference reached the provider")
+
+    async def exercise():
+        service = AIService(settings, transport=httpx.MockTransport(handle))
+        with pytest.raises(AIError, match="invalid_image"):
+            await service.generate_image("Edit", reference_image=reference)
+
+    asyncio.run(exercise())
+
+
 @pytest.mark.parametrize(
     ("status", "code"),
     [

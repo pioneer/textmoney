@@ -138,7 +138,16 @@ msgid "ui.icon_ai_model_hint"
 msgstr "Choose an available image-generation model in AI Settings."
 
 msgid "ui.icon_ai_notice"
-msgstr "Generation sends your description and app instructions to your configured AI provider and may incur charges."
+msgstr "Generation sends your description and app instructions to your configured AI provider and may incur charges. If selected, the existing icon is also sent."
+
+msgid "ui.icon_ai_reference"
+msgstr "Include the existing icon in the prompt"
+
+msgid "ui.icon_ai_reference_source"
+msgstr "Reference icon source and license"
+
+msgid "ui.icon_ai_reference_error"
+msgstr "The existing icon could not be prepared for AI generation, or its attribution is too large to preserve."
 
 msgid "ui.icon_ai_prompt_required"
 msgstr "Describe the icon before generating it."

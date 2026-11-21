@@ -19,7 +19,7 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
   The snapshots contain over 31,000 icons that pass the existing safety and
   proportion checks. Search recognizes icon names, collection aliases, categories,
   and common English, Ukrainian and Russian category terms; up to 100 matches are
-  shown. Icons already assigned to accounts or categories are included too.
+  shown in the search dropdown. Icons already assigned to accounts or categories are included too.
   Search stays on the device.
 - **Import image** uses Flet's file picker with `with_data=True`, including on
   Android; imported bytes are not treated as filesystem paths. Users must have
@@ -28,12 +28,24 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
   model has a saved API key. Otherwise the picker explains how to configure AI
   Settings. Enter a description and explicitly start generation; the description
   and app instructions are sent to the configured provider and may incur charges.
+  Press Enter on a physical keyboard in the description field or choose
+  Generate to start generation.
+  If the account/category already has an icon (or the creation form has a draft
+  icon), you can opt in to include that existing icon as a reference. The picker
+  previews the specific icon that will be sent; merely selecting another result
+  in the open picker does not change the reference. The icon is sent only when
+  the checkbox is selected and generation starts. Vector icons are rendered
+  locally as a PNG for the provider.
   The app instructions favor a simple monochrome Material-like icon at small
-  sizes unless the description explicitly requests a different style. Only the
+  sizes unless the description explicitly requests a different style. When a
+  reference is included, the instructions ask the model to preserve recognizable
+  features unless requested otherwise. Only the
   user's description is shown in the picker. Review the result before Save;
   cancelling generation or the picker keeps the previous selection. Generated
   images are marked as AI-generated with unverified rights; check the provider's
-  terms and your rights before using them.
+  terms and your rights before using them. Reference-based results also retain
+  the reference icon's source, attribution and license information for review;
+  that information does not establish the generated image's license.
 
 Material Icons and Material Symbols are preferred for their consistent
 monochrome style at small display sizes. Simple Icons and SVG Logos are also
@@ -44,7 +56,8 @@ includes previously assigned icons and their original attribution.
 ## Validation and display
 
 Every bundled/imported/generated candidate is validated before appearing. Inline images display
-at **16 logical pixels** with proportions preserved, including picker previews.
+at **16 logical pixels** with proportions preserved; the selected picker preview
+uses **48 pixels**, matching the optional existing-icon reference preview.
 Transaction rows use a **25.92-pixel** leading image in a 40-pixel-wide rounded,
 theme-aware secondary-container background spanning the title and details.
 Selected budget categories and default-account/commission settings use the same
@@ -65,7 +78,7 @@ assignments are unchanged by display sizing:
   unsupported constructs are rejected. Some otherwise legitimate complex SVGs
   therefore require conversion to PNG outside the app.
 - Monochrome catalogue icons follow the current theme color. Imported images and
-  colored logos retain their colors. The picker previews the actual 16px size.
+  colored logos retain their colors. Search results display at 16px.
   Transaction-form dropdowns center the same artwork in a fixed 24px icon slot.
 
 Assigned icons appear in lists, balances, transaction movements/details,
@@ -149,7 +162,7 @@ and native Pillow libraries are packaged. Synthetic browser checks covered
 offline catalogue selection, attribution, image import, saving,
 restart persistence, nested categories and daily reports at narrow widths.
 The 16px display size was measured in browser-rendered Home balances/transaction
-rows at narrow and desktop widths, and in picker candidates and previews.
+rows at narrow and desktop widths and in picker candidates.
 
 Physical Android SAF icon operations, native image import/decoding and Windows
 runtime behavior remain unverified. Before release, test each source on a phone,

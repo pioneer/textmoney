@@ -16,6 +16,13 @@ and limitations; the guides are the source of truth when details change.
   Accounts and categories with history can be deactivated and reactivated.
   See [the user guide](user-guide.md#add-accounts-categories-and-opening-balances),
   [icons](entity-icons.md) and [journal format](journal-format.md).
+- **Optional AI icons:** With a configured image-generation model and provider
+  API key, generate account/category icons from a description and optionally
+  include the existing icon as a reference. Review the result before saving.
+  Generation requires internet, sends the input to the selected provider and
+  may incur charges; the bundled icon catalogue remains offline.
+  See [AI setup](user-guide.md#configure-optional-ai-features) and
+  [icons and AI](entity-icons.md).
 - **Transactions:** Record expenses, income, reimbursements, balance
   adjustments and transfers, including transfers between currencies. Add fixed
   fees or commissions where supported, and track and repay debt. Edit or remove
@@ -52,7 +59,7 @@ and limitations; the guides are the source of truth when details change.
   Mobile retains Back navigation without a Forward button; its bottom bar
   groups Accounts, Categories and Settings under a labeled More menu.
   See [navigation](user-guide.md#find-your-way-around).
-- **Offline, local records:** No sign-up or backend is needed. The journal is a
+- **Offline, local records:** Core tracking needs no sign-up or backend. The journal is a
   plain-text Beancount file in a folder you choose. TextMoney validates edits,
   preserves unrelated journal content and uses backups and recovery safeguards.
   See [data safety](data-safety.md) and

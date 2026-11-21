@@ -3,7 +3,9 @@
 Default transaction account and commission settings now belong to the selected
 journal folder, not to a device. Commission branches and their default are one
 setting; the account is independent. Language, theme, clock timezone, folder
-grant, backup cleanup and other preferences remain local.
+grant, backup cleanup, AI model selections and other preferences remain local.
+AI provider keys are held separately in device secure storage; they are not
+shared with the journal.
 
 ## First use and synchronization
 

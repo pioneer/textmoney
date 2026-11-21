@@ -5,13 +5,16 @@
 <h1 align="center">TextMoney</h1>
 
 <p align="center">
-Track everyday spending, see what’s left in your accounts, and set monthly
-budgets for things like groceries and eating out.
+An offline-first personal finance app with optional AI features. Track everyday
+spending, see what’s left in your accounts, and set monthly budgets for things
+like groceries and eating out.
 </p>
 
 <p align="center"><strong>Android · Windows · Linux</strong></p>
 
-Works offline with no sign-up. Your records are stored in a plain-text
+Core tracking works offline with no app sign-up. Optional AI features require
+internet access and your own provider API key and may incur charges.
+Your records are stored in a plain-text
 [Beancount](https://beancount.github.io/) file in a folder you choose.
 You can [sync the whole folder between Android, Windows and Linux](docs/synchronization.md)
 using an external synchronization tool. TextMoney has no built-in sync;
@@ -53,6 +56,9 @@ editing on another device.
   transfers between accounts, including exchanges between currencies.
 - **Stay within your budget.** Set spending limits by category and see how much
   of each monthly budget you’ve used, right from the home screen.
+- **Personalize icons with AI.** Generate an account or category icon from your
+  description, optionally using its existing icon as a reference. AI is
+  optional; the bundled icon library works offline. See [icons and AI](docs/entity-icons.md).
 
 Available in English, Ukrainian, and Russian.
 Developers are welcome to submit a pull request with translation corrections
@@ -80,6 +86,7 @@ the file; some supported transactions are view-only.
 | Get an overview of current features and limits | [Feature overview](docs/features.md) |
 | Record expenses, income, refunds, transfers or debt repayments | [User guide](docs/user-guide.md) |
 | Set spending limits and review monthly budgets | [Budgeting](docs/budgets.md) |
+| Configure AI and generate account/category icons | [User guide](docs/user-guide.md#configure-optional-ai-features) · [Icons and AI](docs/entity-icons.md) |
 | Understand spending reports and currency-separated totals | [Reporting](docs/reporting.md) |
 | Use the same records on several devices | [Synchronization](docs/synchronization.md) |
 | Keep backups or recover from an interrupted save | [Backups and recovery](docs/data-safety.md) |

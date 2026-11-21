@@ -3,7 +3,8 @@
 TextMoney records everyday finances in a single local `textmoney.beancount`
 journal. Core tracking works offline, without sign-up, a backend service or
 app-managed cloud storage. Icon search uses the bundled catalogue and does not
-make network requests. Before opening an existing Beancount book, check the
+make network requests. Optional AI icon generation requires internet access
+and your own provider API key. Before opening an existing Beancount book, check the
 [supported journal format](journal-format.md); not every valid book is supported.
 
 TextMoney is in beta. Keep an independent backup and follow
@@ -79,7 +80,8 @@ Those targets are not released or device-validated.
 Account/category creation offers **Choose icon** with a preview. The same picker
 is available in an existing item's Edit dialog and when creating a category
 inside a transaction. Canceling creation does not save the icon or lose the
-unsaved transaction. See [icons and imports](entity-icons.md)
+unsaved transaction. The picker also offers optional AI icon generation after
+[AI setup](#configure-optional-ai-features). See [icons and imports](entity-icons.md)
 for validation, offline attribution and storage.
 
 Opening balances are not current income or expenses. Their transaction rows use
@@ -207,7 +209,8 @@ is a separate operation.
 
 On wider layouts, a subtle row-wide hover highlight connects actions to the
 account, category, transaction or budget. **Escape** cancels the active desktop
-popup; **Enter** submits through its normal checks. **Shift+Enter** adds a line
+popup; **Enter** submits through its normal checks, except in the AI icon prompt,
+where it starts generation rather than saving the picker. **Shift+Enter** adds a line
 in multiline descriptions. Focused buttons/dropdowns keep their normal keyboard
 actions and disabled actions cannot be submitted. Validation errors in account,
 category and transaction edit dialogs appear in an error popup; dismiss it to
@@ -281,6 +284,29 @@ empty sections. Save to apply it. This does not exchange currencies or combine
 balances. See [journal display settings](journal-format.md#journal-display-settings-and-preserved-directives).
 The app version/build appear in screen headers and Settings.
 Translation maintenance is documented in [localization](localization.md).
+
+## Configure optional AI features
+
+Open **Settings → AI**. Choose a provider, enter and save its API key, then
+choose an image-generation model from that provider. Open an account or category's
+**Choose icon** picker and expand **Generate with AI**. Describe the icon and
+choose **Generate**; review the result and choose **Save changes** to apply it.
+If an existing icon is shown, you can optionally check **Include the existing
+icon in the prompt** to request a modification of that icon. The reference is
+off by default. You can also use the offline catalogue without configuring AI.
+
+Generation sends your description and the app's hidden instructions to the
+selected provider; it sends the existing icon too only when you opt in. Provider
+terms and charges apply. Generated-image rights are not verified; check your
+rights, including those concerning any reference icon, before use. OpenAI,
+Google Gemini and xAI image-generation models are available. The separate
+image-understanding model setting does not currently provide receipt parsing.
+
+API keys and model choices stay on the device, not in the journal or shared
+settings. Key management requires the platform's secure storage; on Linux this
+means a working Secret Service. Browser previews cannot manage keys. Saving a
+key does not verify it with the provider. See [icons and AI](entity-icons.md)
+for details.
 
 ## Backups and next steps
 

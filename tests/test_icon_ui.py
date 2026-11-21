@@ -4,6 +4,7 @@ import json
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -18,6 +19,7 @@ from form_controls import (
     click_async,
     transaction_form,
 )
+from PIL import Image
 from test_ai import FakeCredentials
 from test_daily_summary import walk
 from test_dialog_keyboard import finance_session, press
@@ -165,21 +167,21 @@ def test_edit_entity_shows_current_icon_and_tracks_picker_changes(
         assert isinstance(row.controls[1], ft.Row)
         assert row.controls[1].controls == [choose, remove]
         assert not any(isinstance(control, ft.Text) for control in walk(row))
-        assert choose.icon == ft.Icons.IMAGE_SEARCH and remove.icon == ft.Icons.DELETE_OUTLINE
+        assert choose.icon == ft.Icons.IMAGE_OUTLINED and remove.icon == ft.Icons.DELETE_OUTLINE
         assert remove.visible == assigned
 
         await session.dispatch_event(choose._i, "click", None)
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
         assert picker.ai_settings == view.ai_settings
-        picker._choose(MagicMock(control=ft.TextButton(data=replacement)))
+        picker._select(replacement)
         click(picker.cancel)
         assert [image.src for image in images(parent)] == ([original.data] if assigned else [])
 
         click(choose)
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
-        picker._choose(MagicMock(control=ft.TextButton(data=replacement)))
+        picker._select(replacement)
         assign = view.icons.assign
         monkeypatch.setattr(view.icons, "assign", AsyncMock(side_effect=IconError("icon_storage")))
         await click_async(picker.submit)
@@ -280,7 +282,7 @@ def test_edit_icon_buttons_have_localized_tooltips(
             control
             for control in walk(parent)
             if isinstance(control, ft.IconButton)
-            and control.icon in {ft.Icons.IMAGE_SEARCH, ft.Icons.DELETE_OUTLINE}
+            and control.icon in {ft.Icons.IMAGE_OUTLINED, ft.Icons.DELETE_OUTLINE}
         ]
         assert [control.tooltip for control in actions] == [
             view.tr("icon_choose"),
@@ -397,7 +399,7 @@ def test_creation_icon_is_a_draft_until_entity_is_saved_and_survives_reload(
         assert isinstance(picker, IconPicker)
         assert picker.ai_settings == view.ai_settings
         selected = bundled_icons("bank")[0]
-        picker._choose(MagicMock(control=ft.TextButton(data=selected)))
+        picker._select(selected)
         await session.dispatch_event(picker.search._i, "focus", {})
         await press(session, "Enter")
         assert not picker.open and parent.open
@@ -449,13 +451,13 @@ def test_creation_icon_cancellation_and_removal_do_not_write_sidecars(
         click(draft.choose_button)
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
-        picker._choose(MagicMock(control=ft.TextButton(data=asset())))
+        picker._select(asset())
         await click_async(picker.submit)
         assert draft.selected == asset()
         click(draft.choose_button)
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker) and picker.selected == asset()
-        picker._choose(MagicMock(control=ft.TextButton(data=asset("Another"))))
+        picker._select(asset("Another"))
         if cancel == "remove":
             click(picker.remove)
             await click_async(picker.submit)
@@ -494,7 +496,7 @@ def test_creation_remove_icon_shortcut_keeps_draft_until_confirmed(
         click(draft.choose_button)
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
-        picker._choose(MagicMock(control=ft.TextButton(data=asset())))
+        picker._select(asset())
         await click_async(picker.submit)
         assert draft.selected == asset() and draft.remove_button.visible
 
@@ -910,7 +912,7 @@ def test_picker_keys_cancel_or_save_and_leave_parent_draft_intact(
         view._open_icon_picker(journal, "Assets:Bank")
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
-        picker._choose(MagicMock(control=ft.TextButton(data=bundled_icons("bank")[0])))
+        picker._select(bundled_icons("bank")[0])
         await session.dispatch_event(picker.search._i, "focus", {})
         await press(session, key)
         assert not picker.open and parent.open
@@ -947,6 +949,9 @@ def test_picker_search_uses_bundled_catalogue_without_online_action(
         session, _view, _journal = await finance_session(tmp_path, monkeypatch)
         picker = IconPicker(session.page, "en", None, AsyncMock())
         assert len(picker.results.controls) == 100
+        assert picker.results in picker.search.controls
+        assert picker.results_limit in picker.search.controls
+        assert picker.search.view_size_constraints == ft.BoxConstraints(max_height=320)
         assert not any(
             "online" in (control.value or "").casefold()
             for control in walk(picker)
@@ -955,6 +960,11 @@ def test_picker_search_uses_bundled_catalogue_without_online_action(
         picker.search.value = "банк"
         picker._local(MagicMock(control=picker.search))
         assert picker.results.controls[0].data == bundled_icons("банк")[0]
+        picker.search.value = "nothing-matches-this-icon-query"
+        picker._local(MagicMock(control=picker.search))
+        assert len(picker.results.controls) == 1
+        assert isinstance(picker.results.controls[0], ft.Text)
+        assert picker.results.controls[0].value == picker.tr("icon_no_results")
 
     asyncio.run(scenario())
 
@@ -982,6 +992,34 @@ def test_picker_search_finds_previously_assigned_icons(
     asyncio.run(scenario())
 
 
+def test_picker_search_opens_and_selects_without_saving(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        persist = AsyncMock()
+        picker = IconPicker(session.page, "en", asset("Previous"), persist)
+        show_dialog(session.page, picker)
+        open_view = AsyncMock()
+        close_view = AsyncMock()
+        monkeypatch.setattr(picker.search, "open_view", open_view)
+        monkeypatch.setattr(picker.search, "close_view", close_view)
+        assert picker.import_button.icon == ft.Icons.UPLOAD_FILE
+        assert picker.remove.icon == ft.Icons.DELETE_OUTLINE
+        assert images(picker.preview)[0].width == images(picker.preview)[0].height == 48
+        await picker._open_search(ft.Event(name="tap", control=picker.search))
+        open_view.assert_awaited_once()
+        selected = bundled_icons("bank")[0]
+        await picker._choose(ft.Event(name="click", control=ft.TextButton(data=selected)))
+        close_view.assert_awaited_once()
+        assert picker.selected == selected and picker.open
+        assert images(picker.preview)[0].width == images(picker.preview)[0].height == 48
+        persist.assert_not_awaited()
+        session.page.pop_dialog()
+
+    asyncio.run(scenario())
+
+
 def test_import_resizes_previews_and_requires_explicit_save(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1004,10 +1042,9 @@ def test_import_resizes_previews_and_requires_explicit_save(
         assert picker.selected is not None
         assert not picker.selected.monochrome
         assert "permission" in (picker.status.value or "")
-        assert len(images(picker.results)) == 1
-        image = images(picker.results)[0]
-        assert image.width == image.height == 16
-        assert all(image.width == image.height == 16 for image in images(picker.preview))
+        assert len(images(picker.preview)) == 1
+        image = images(picker.preview)[0]
+        assert image.width == image.height == 48
         persist.assert_not_awaited()
         await press(session)
         persist.assert_not_awaited()
@@ -1098,6 +1135,8 @@ def test_ai_generation_uses_selected_model_and_saves_only_after_review(
         assert len(requests) == 1
         prompt = requests[0]["prompt"]
         assert requests[0]["model"] == "gpt-image-2.5-flare"
+        assert "images" not in requests[0]
+        assert picker.ai_reference_row.visible and not picker.ai_reference.value
         assert (
             "Material Icons" in prompt and "explicit style instructions take precedence" in prompt
         )
@@ -1111,10 +1150,263 @@ def test_ai_generation_uses_selected_model_and_saves_only_after_review(
         assert picker.selected is not None and picker.selected.source == "AI-generated image"
         assert picker.selected.license == "AI-generated; rights not verified"
         assert len(images(picker.preview)) == 1
+        assert images(picker.preview)[0].width == images(picker.preview)[0].height == 48
         persist.assert_not_awaited()
         generated = picker.selected
         await click_async(picker.submit)
         persist.assert_awaited_once_with(generated)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("vector", [False, True])
+def test_ai_reference_is_opt_in_and_preserves_original_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, vector: bool
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        settings = AISettings(DesktopPreferences(tmp_path / "ai.json"), FakeCredentials())
+        await settings.save_key(Provider.OPENAI, "test-key")
+        await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
+        original = replace(
+            asset("Original"),
+            data=asset().data if vector else normalize_image(raster())[0],
+            monochrome=vector,
+            license_url="https://example.test/license",
+            license_text="Original license text",
+        )
+        capture = AsyncMock(return_value=raster(96, 96))
+        monkeypatch.setattr(ft.Screenshot, "capture", capture)
+        service = MagicMock()
+        service.generate_image = AsyncMock(
+            return_value=GeneratedImage(raster(512, 512), "image/png")
+        )
+        monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
+        picker = IconPicker(session.page, "en", original, AsyncMock(), ai_settings=lambda: settings)
+        show_dialog(session.page, picker)
+        assert picker.ai_load_task is not None
+        await asyncio.wrap_future(picker.ai_load_task)
+        assert picker.reference_preview is not None
+        assert isinstance(picker.reference_preview.content, ft.Image)
+        assert picker.reference_preview.content.src == original.data
+        assert not picker.ai_reference.value
+        picker.selected = asset("Another candidate")
+        picker.ai_reference.value = True
+        picker.ai_prompt.value = "Add an X"
+        await click_async(picker.ai_generate)
+        args, kwargs = service.generate_image.await_args
+        assert args[0].endswith("Add an X")
+        assert "reference icon" in args[0]
+        assert "requested changes take precedence" in args[0]
+        assert (
+            kwargs["reference_image"]
+            == normalize_image(raster(96, 96) if vector else original.data)[0]
+        )
+        assert capture.await_count == int(vector)
+        result = picker.selected
+        assert result is not None and result.license == picker.tr("icon_ai_rights")
+        assert all(
+            text in result.attribution
+            for text in (original.label, original.source, original.attribution, original.license)
+        )
+        assert result.license_url == original.license_url
+        assert result.license_text == original.license_text
+        assert IconAsset.parse(result.serialize()) == result
+        session.page.pop_dialog()
+
+    asyncio.run(scenario())
+
+
+def test_ai_reference_option_absent_without_existing_icon(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        picker = IconPicker(session.page, "en", None, AsyncMock())
+        assert not picker.ai_reference_row.visible
+        assert picker.reference_preview is None
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failure", ["empty", "transparent", "capture", "oversized-credit"])
+def test_ai_reference_preparation_failure_never_sends_or_replaces(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        settings = AISettings(DesktopPreferences(tmp_path / "ai.json"), FakeCredentials())
+        await settings.save_key(Provider.OPENAI, "test-key")
+        await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
+        original = asset()
+        if failure == "oversized-credit":
+            original = replace(original, attribution="a" * 32768)
+        stream = BytesIO()
+        Image.new("RGBA", (96, 96)).save(stream, format="PNG")
+        capture = AsyncMock(
+            return_value=stream.getvalue() if failure == "transparent" else b"",
+            side_effect=RuntimeError("private capture detail") if failure == "capture" else None,
+        )
+        monkeypatch.setattr(ft.Screenshot, "capture", capture)
+        service = MagicMock()
+        monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
+        picker = IconPicker(session.page, "en", original, AsyncMock(), ai_settings=lambda: settings)
+        show_dialog(session.page, picker)
+        assert picker.ai_load_task is not None
+        await asyncio.wrap_future(picker.ai_load_task)
+        picker.ai_reference.value = True
+        picker.ai_prompt.value = "Redraw"
+        await click_async(picker.ai_generate)
+        service.generate_image.assert_not_called()
+        assert picker.selected == original
+        assert picker.status.value
+        assert not picker.busy and not picker.ai_reference_tile.disabled
+        session.page.pop_dialog()
+
+    asyncio.run(scenario())
+
+
+def test_ai_reference_capture_can_be_cancelled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        settings = AISettings(DesktopPreferences(tmp_path / "ai.json"), FakeCredentials())
+        await settings.save_key(Provider.OPENAI, "test-key")
+        await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
+        started = asyncio.Event()
+
+        async def capture(self: ft.Screenshot, **kwargs: object) -> bytes:
+            started.set()
+            await asyncio.Event().wait()
+            return b""
+
+        monkeypatch.setattr(ft.Screenshot, "capture", capture)
+        service = MagicMock()
+        monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
+        original = asset()
+        picker = IconPicker(session.page, "en", original, AsyncMock(), ai_settings=lambda: settings)
+        show_dialog(session.page, picker)
+        assert picker.ai_load_task is not None
+        await asyncio.wrap_future(picker.ai_load_task)
+        picker.ai_reference.value = True
+        picker.ai_prompt.value = "Redraw"
+        task = asyncio.create_task(click_async(picker.ai_generate))
+        await started.wait()
+        assert picker.ai_reference.disabled and picker.ai_reference_tile.disabled
+        click(picker.ai_cancel)
+        await task
+        service.generate_image.assert_not_called()
+        assert picker.selected == original and not picker.ai_reference.disabled
+        assert picker.status.value == picker.tr("icon_ai_cancelled")
+        session.page.pop_dialog()
+
+    asyncio.run(scenario())
+
+
+def test_ai_reference_capture_timeout_reports_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        settings = AISettings(DesktopPreferences(tmp_path / "ai.json"), FakeCredentials())
+        await settings.save_key(Provider.OPENAI, "test-key")
+        await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
+
+        async def capture(self: ft.Screenshot, **kwargs: object) -> bytes:
+            await asyncio.Event().wait()
+            return b""
+
+        monkeypatch.setattr(ft.Screenshot, "capture", capture)
+        monkeypatch.setattr(icon_ui, "_CAPTURE_TIMEOUT", 0.01)
+        service = MagicMock()
+        monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
+        original = asset()
+        picker = IconPicker(session.page, "en", original, AsyncMock(), ai_settings=lambda: settings)
+        show_dialog(session.page, picker)
+        assert picker.ai_load_task is not None
+        await asyncio.wrap_future(picker.ai_load_task)
+        picker.ai_reference.value = True
+        picker.ai_prompt.value = "Redraw"
+        await click_async(picker.ai_generate)
+        service.generate_image.assert_not_called()
+        assert picker.selected == original
+        assert picker.status.value == picker.tr("icon_ai_reference_error")
+        assert not picker.busy
+        session.page.pop_dialog()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("platform", [ft.PagePlatform.LINUX, ft.PagePlatform.ANDROID])
+@pytest.mark.parametrize("description", ["A fox", ""])
+def test_ai_prompt_enter_generates_without_saving_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: ft.PagePlatform, description: str
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        session.page.platform = platform
+        settings = AISettings(DesktopPreferences(tmp_path / "ai.json"), FakeCredentials())
+        await settings.save_key(Provider.OPENAI, "test-key")
+        await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
+        service = MagicMock()
+        service.generate_image = AsyncMock(
+            return_value=GeneratedImage(raster(512, 512), "image/png")
+        )
+        monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
+        persist = AsyncMock()
+        picker = IconPicker(session.page, "en", asset(), persist, ai_settings=lambda: settings)
+        show_dialog(session.page, picker)
+        assert picker.ai_load_task is not None
+        await asyncio.wrap_future(picker.ai_load_task)
+        picker.ai_section.expanded = True
+        picker.ai_prompt.value = description
+        session.page.update()
+        await session.dispatch_event(picker.ai_prompt._i, "focus", None)
+        if platform == ft.PagePlatform.LINUX:
+            await press(session, "Enter")
+        persist.assert_not_awaited()
+        assert picker.open
+        await session.dispatch_event(picker.ai_prompt._i, "submit", None)
+        assert picker.open
+        persist.assert_not_awaited()
+        if description:
+            service.generate_image.assert_awaited_once()
+            assert picker.selected is not None and picker.selected.source == "AI-generated image"
+        else:
+            service.generate_image.assert_not_awaited()
+            assert picker.selected == asset()
+            assert picker.status.value == picker.tr("icon_ai_prompt_required")
+
+    asyncio.run(scenario())
+
+
+def test_ai_prompt_submit_ignores_disabled_or_inactive_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        settings = AISettings(DesktopPreferences(tmp_path / "ai.json"), FakeCredentials())
+        await settings.save_key(Provider.OPENAI, "test-key")
+        await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
+        service = MagicMock()
+        service.generate_image = AsyncMock()
+        monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
+        picker = IconPicker(session.page, "en", asset(), AsyncMock(), ai_settings=lambda: settings)
+        show_dialog(session.page, picker)
+        assert picker.ai_load_task is not None
+        await asyncio.wrap_future(picker.ai_load_task)
+        picker.ai_section.expanded = True
+        picker.ai_prompt.value = "A fox"
+        picker.ai_prompt.disabled = True
+        session.page.update()
+        await session.dispatch_event(picker.ai_prompt._i, "submit", None)
+        picker.ai_prompt.disabled = False
+        child = ft.AlertDialog(actions=[ft.TextButton("Close", on_click=lambda _: None)])
+        show_dialog(session.page, child)
+        await session.dispatch_event(picker.ai_prompt._i, "submit", None)
+        service.generate_image.assert_not_awaited()
+        assert picker.open
 
     asyncio.run(scenario())
 

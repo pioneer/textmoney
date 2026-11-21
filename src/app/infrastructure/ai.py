@@ -395,28 +395,58 @@ class AIService:
         except (AttributeError, IndexError, KeyError, TypeError, ValueError):
             raise AIError("invalid_provider_response", provider=provider) from None
 
-    async def generate_image(self, prompt: str) -> GeneratedImage:
+    async def generate_image(
+        self, prompt: str, *, reference_image: bytes | None = None
+    ) -> GeneratedImage:
         _valid_prompt(prompt)
+        media_type = ""
+        if reference_image is not None:
+            if not reference_image or len(reference_image) > MAX_IMAGE_BYTES:
+                raise AIError("invalid_image")
+            try:
+                media_type = await asyncio.to_thread(_image_type, reference_image)
+            except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
+                raise AIError("invalid_image") from None
         model, key = await self.settings.resolve(Capability.GENERATE)
         provider = model.provider
         if provider == Provider.GEMINI:
+            request_parts: list[dict[str, object]] = [{"text": prompt}]
+            if reference_image is not None:
+                request_parts.append(
+                    {
+                        "inlineData": {
+                            "mimeType": media_type,
+                            "data": base64.b64encode(reference_image).decode("ascii"),
+                        }
+                    }
+                )
             data = await self._post(
                 model,
                 key,
                 f"{_GEMINI}/{model.name}:generateContent",
                 {
-                    "contents": [{"parts": [{"text": prompt}]}],
+                    "contents": [{"parts": request_parts}],
                     "generationConfig": {"responseModalities": ["IMAGE"]},
                 },
             )
         else:
             endpoint = _OPENAI if provider == Provider.OPENAI else _XAI
             options = {"response_format": "b64_json"} if provider == Provider.XAI else {}
+            body: dict = {"model": model.name, "prompt": prompt, **options}
+            operation = "generations"
+            if reference_image is not None:
+                encoded_image = base64.b64encode(reference_image).decode("ascii")
+                data_url = f"data:{media_type};base64,{encoded_image}"
+                operation = "edits"
+                if provider == Provider.OPENAI:
+                    body["images"] = [{"image_url": data_url}]
+                else:
+                    body["image"] = {"url": data_url, "type": "image_url"}
             data = await self._post(
                 model,
                 key,
-                f"{endpoint}/images/generations",
-                {"model": model.name, "prompt": prompt, **options},
+                f"{endpoint}/images/{operation}",
+                body,
             )
         try:
             if provider == Provider.GEMINI:

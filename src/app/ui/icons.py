@@ -5,8 +5,10 @@ import logging
 import traceback
 from collections.abc import Awaitable, Callable, Iterable
 from concurrent.futures import Future
+from io import BytesIO
 
 import flet as ft
+from PIL import Image
 
 from app.domain.storage import ConflictError
 from app.icons import DISPLAY_SIZE, MAX_INPUT, IconAsset, IconError, normalize_image
@@ -27,12 +29,19 @@ _ICON_PROMPT = (
     "The user's explicit style instructions take precedence over these default style choices.\n"
     "User's icon description:\n"
 )
+_REFERENCE_PROMPT = (
+    "Use the supplied image as the reference icon. Apply the user's requested changes to it, "
+    "preserving its recognizable features unless the user asks otherwise. "
+    "The user's requested changes take precedence over the default style instructions.\n"
+)
+_CAPTURE_TIMEOUT = 10
 
 _AI_ERRORS = {
     "ai_unconfigured": "icon_ai_model_hint",
     "ai_model_unavailable": "icon_ai_model_hint",
     "ai_key_missing": "icon_ai_key_hint",
     "invalid_prompt": "icon_ai_prompt_required",
+    "invalid_image": "icon_ai_reference_error",
     "invalid_credentials": "icon_ai_credentials_error",
     "provider_access_denied": "icon_ai_credentials_error",
     "provider_rate_limit": "icon_ai_rate_error",
@@ -76,16 +85,29 @@ async def _run_icon_action(
         status.value = translate(language, "icon_failed")
 
 
-def icon_image(asset: IconAsset) -> ft.Image:
+def icon_image(asset: IconAsset, *, size: int = DISPLAY_SIZE) -> ft.Image:
     return ft.Image(
         src=asset.data,
-        width=DISPLAY_SIZE,
-        height=DISPLAY_SIZE,
+        width=size,
+        height=size,
         fit=ft.BoxFit.CONTAIN,
         color=ft.Colors.ON_SURFACE if asset.monochrome else None,
         semantics_label=asset.label,
         tooltip=f"{asset.label} · {asset.license}",
     )
+
+
+def _validate_reference(data: bytes) -> bytes:
+    try:
+        data, vector = normalize_image(data)
+        if vector:
+            raise IconError("icon_ai_reference_error")
+        with Image.open(BytesIO(data)) as image:
+            if image.convert("RGBA").getchannel("A").getbbox() is None:
+                raise IconError("icon_ai_reference_error")
+    except IconError as exc:
+        raise IconError("icon_ai_reference_error") from exc
+    return data
 
 
 class IconField(ft.Column):
@@ -94,7 +116,7 @@ class IconField(ft.Column):
     ) -> None:
         self.preview = ft.Container(width=40, height=40, alignment=ft.Alignment.CENTER)
         self.choose_button = ft.IconButton(
-            icon=ft.Icons.IMAGE_SEARCH,
+            icon=ft.Icons.IMAGE_OUTLINED,
             tooltip=translate(language, "icon_choose"),
             on_click=lambda _: choose(),
         )
@@ -229,33 +251,85 @@ class IconPicker(ft.AlertDialog):
         self.language = language
         self.persist = save
         self.selected = current
+        self.reference = current
         self.existing_icons = tuple(existing_icons)
         self.busy = False
         self.ai_settings = ai_settings
         self.ai_load_task: Future[None] | None = None
         self.generation_task: asyncio.Task[object] | None = None
-        self.search = ft.TextField(label=self.tr("icon_search"), on_change=self._local)
-        self.import_button = ft.TextButton(self.tr("icon_import"), on_click=self._import)
+        self.results = ft.Column(spacing=4)
+        self.results_limit = ft.Text(self.tr("icon_results_limit"), size=12)
+        self.search = ft.SearchBar(
+            bar_hint_text=self.tr("icon_search"),
+            view_hint_text=self.tr("icon_search"),
+            bar_leading=ft.Icon(ft.Icons.SEARCH),
+            controls=[self.results_limit, self.results],
+            view_size_constraints=ft.BoxConstraints(max_height=320),
+            autofocus=True,
+            on_tap=self._open_search,
+            on_change=self._local,
+        )
+        self.import_button = ft.TextButton(
+            self.tr("icon_import"), icon=ft.Icons.UPLOAD_FILE, on_click=self._import
+        )
         self.ai_hint = ft.Text("", size=12, visible=False)
-        self.ai_prompt = ft.TextField(label=self.tr("icon_ai_prompt"), max_length=2000)
+        self.ai_prompt = ft.TextField(
+            label=self.tr("icon_ai_prompt"),
+            max_length=2000,
+            max_lines=1,
+            shift_enter=True,
+            on_submit=self._generate,
+        )
         self.ai_generate = ft.TextButton(self.tr("icon_ai_generate"), on_click=self._generate)
         self.ai_cancel = ft.TextButton(
             self.tr("icon_ai_cancel"), on_click=self._cancel_generation, visible=False
         )
+        self.ai_reference = ft.Checkbox(value=False, semantics_label=self.tr("icon_ai_reference"))
+        self.ai_reference_tile = ft.ListTile(
+            title=self.tr("icon_ai_reference"),
+            leading=self.ai_reference,
+            toggle_inputs=True,
+            content_padding=0,
+            dense=True,
+            expand=True,
+        )
+        self.reference_preview = (
+            ft.Screenshot(
+                ft.Image(
+                    src=current.data,
+                    width=48,
+                    height=48,
+                    fit=ft.BoxFit.CONTAIN,
+                    color=ft.Colors.BLACK if current.monochrome else None,
+                    semantics_label=current.label,
+                )
+            )
+            if current
+            else None
+        )
+        self.ai_reference_row = ft.Row(
+            [self.reference_preview, self.ai_reference_tile] if self.reference_preview else [],
+            visible=current is not None,
+            spacing=8,
+        )
         self.ai_section = ft.ExpansionTile(
             title=self.tr("icon_ai_title"),
             controls=[
-                ft.Text(self.tr("icon_ai_notice"), size=12),
+                ft.Container(
+                    ft.Text(self.tr("icon_ai_notice"), size=12),
+                    padding=ft.Padding.only(bottom=8),
+                ),
                 self.ai_prompt,
+                self.ai_reference_row,
                 ft.Row([self.ai_generate, self.ai_cancel]),
             ],
             expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
             maintain_state=True,
             visible=False,
         )
-        self.remove = ft.TextButton(self.tr("icon_remove"), on_click=self._remove)
-        self.results = ft.Column(spacing=4)
-        self.results_limit = ft.Text(self.tr("icon_results_limit"), size=12)
+        self.remove = ft.TextButton(
+            self.tr("icon_remove"), icon=ft.Icons.DELETE_OUTLINE, on_click=self._remove
+        )
         self.preview = ft.Row(spacing=8)
         self.credit = ft.Text(size=12, selectable=True)
         self.license_text = ft.Text(size=12, selectable=True)
@@ -284,8 +358,6 @@ class IconPicker(ft.AlertDialog):
                         controls=[self.credit, self.license_text],
                         maintain_state=True,
                     ),
-                    self.results_limit,
-                    self.results,
                 ],
                 width=420,
                 tight=True,
@@ -341,7 +413,7 @@ class IconPicker(ft.AlertDialog):
     def _selection(self) -> None:
         asset = self.selected
         self.preview.controls = (
-            [icon_image(asset), ft.Text(asset.label, expand=True)]
+            [icon_image(asset, size=48), ft.Text(asset.label, expand=True)]
             if asset
             else [ft.Text(self.tr("icon_none"))]
         )
@@ -367,10 +439,19 @@ class IconPicker(ft.AlertDialog):
             for asset in assets
         ] or [ft.Text(self.tr("icon_no_results"))]
 
-    def _choose(self, event: ft.Event[ft.TextButton]) -> None:
+    async def _open_search(self, event: ft.Event[ft.SearchBar]) -> None:
+        if not self.busy:
+            await self.search.open_view()
+
+    async def _choose(self, event: ft.Event[ft.TextButton]) -> None:
+        if not self.busy:
+            await self.search.close_view()
+            self._select(event.control.data)
+
+    def _select(self, asset: IconAsset) -> None:
         if self.busy:
             return
-        self.selected = event.control.data
+        self.selected = asset
         self._selection()
         self.owner.update()
 
@@ -381,7 +462,7 @@ class IconPicker(ft.AlertDialog):
         self._selection()
         self.owner.update()
 
-    def _local(self, event: ft.Event[ft.TextField]) -> None:
+    def _local(self, event: ft.Event[ft.SearchBar]) -> None:
         if not self.busy:
             self.status.value = ""
             self._show(search_icons(self.search.value or "", self.existing_icons))
@@ -402,6 +483,8 @@ class IconPicker(ft.AlertDialog):
             self.remove,
             self.ai_prompt,
             self.ai_generate,
+            self.ai_reference,
+            self.ai_reference_tile,
         ):
             control.disabled = True
         self.owner.update()
@@ -418,6 +501,8 @@ class IconPicker(ft.AlertDialog):
                 self.results,
                 self.ai_prompt,
                 self.ai_generate,
+                self.ai_reference,
+                self.ai_reference_tile,
             ):
                 control.disabled = False
             self._selection()
@@ -447,16 +532,26 @@ class IconPicker(ft.AlertDialog):
                 self.tr("icon_user_license"),
                 self.tr("icon_import_notice"),
             )
-            self._show([asset])
             self.selected = asset
             self._selection()
             self.status.value = self.tr("icon_import_notice")
 
         await self._run(pick)
 
-    async def _generate(self, event: ft.Event[ft.TextButton]) -> None:
+    async def _generate(self, event: ft.Event) -> None:
         settings_factory = self.ai_settings
-        if self.busy or settings_factory is None or not self.ai_section.visible:
+        if (
+            self.busy
+            or settings_factory is None
+            or not self.open
+            or not self.owner._dialogs.controls
+            or self.owner._dialogs.controls[-1] is not self
+            or self.disabled
+            or self.ai_section.disabled
+            or not self.ai_section.visible
+            or self.ai_prompt.disabled
+            or self.ai_generate.disabled
+        ):
             return
         description = self.ai_prompt.value.strip()
         if not description:
@@ -465,7 +560,35 @@ class IconPicker(ft.AlertDialog):
             return
 
         async def generate() -> None:
-            image = await AIService(settings_factory()).generate_image(_ICON_PROMPT + description)
+            reference = self.reference if self.ai_reference.value else None
+            attribution = self.tr("icon_ai_rights_notice")
+            if reference is not None:
+                attribution += (
+                    f"\n{self.tr('icon_ai_reference_source')}: {reference.label}\n"
+                    f"{reference.source}\n{reference.attribution}\n"
+                    f"{reference.license}\n{reference.license_url}"
+                )
+                if len(attribution) > 32768:
+                    raise IconError("icon_ai_reference_error")
+                if self.reference_preview is None:
+                    raise IconError("icon_ai_reference_error")
+                reference_data = reference.data
+                if reference_data.lstrip().startswith((b"<svg", b"<?xml")):
+                    try:
+                        reference_data = await asyncio.wait_for(
+                            self.reference_preview.capture(pixel_ratio=2), timeout=_CAPTURE_TIMEOUT
+                        )
+                    except TimeoutError as exc:
+                        raise IconError("icon_ai_reference_error") from exc
+                reference_data = await asyncio.to_thread(_validate_reference, reference_data)
+                image = await AIService(settings_factory()).generate_image(
+                    _REFERENCE_PROMPT + _ICON_PROMPT + description,
+                    reference_image=reference_data,
+                )
+            else:
+                image = await AIService(settings_factory()).generate_image(
+                    _ICON_PROMPT + description
+                )
             data, _ = await asyncio.to_thread(normalize_image, image.data)
             asset = IconAsset(
                 self.tr("icon_ai_generated"),
@@ -473,9 +596,10 @@ class IconPicker(ft.AlertDialog):
                 False,
                 self.tr("icon_ai_generated"),
                 self.tr("icon_ai_rights"),
-                self.tr("icon_ai_rights_notice"),
+                attribution,
+                reference.license_url if reference else "",
+                reference.license_text if reference else "",
             )
-            self._show([asset])
             self.selected = asset
             self._selection()
             self.status.value = self.tr("icon_ai_rights_notice")

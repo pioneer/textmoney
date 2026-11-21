@@ -125,8 +125,12 @@ def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
         if submit.on_click is None:
             raise ValueError("Modal dialog submission requires a click handler.")
         content = dialog.content if dialog.content is not None else ft.Container()
-        inputs = [control for control in _controls(content) if isinstance(control, ft.TextField)]
-        focused: ft.TextField | None = None
+        inputs = [
+            control
+            for control in _controls(content)
+            if isinstance(control, (ft.TextField, ft.SearchBar))
+        ]
+        focused: ft.TextField | ft.SearchBar | None = None
         dispatching = False
 
         async def click(button: ft.TextButton) -> None:
@@ -145,10 +149,10 @@ def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
                 finally:
                     dispatching = False
 
-        def bind(field: ft.TextField) -> None:
+        def bind(field: ft.TextField | ft.SearchBar) -> None:
             original_focus, original_blur = field.on_focus, field.on_blur
 
-            async def track(event: ft.Event[ft.TextField]) -> None:
+            async def track(event: ft.Event) -> None:
                 nonlocal focused
                 if event.name == "focus":
                     focused = field
@@ -164,7 +168,7 @@ def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
                         await result
 
             field.on_focus = field.on_blur = track
-            if field.multiline:
+            if isinstance(field, ft.TextField) and field.multiline:
                 if field.on_submit is not None:
                     raise ValueError("Modal multiline inputs must use the dialog submit action.")
                 field.shift_enter = True
@@ -187,7 +191,15 @@ def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
         async def content_key(event: ft.KeyDownEvent) -> None:
             await cancel_key(event)
             if event.key.casefold() in {"enter", "numpad enter"} and (
-                not inputs or (focused is not None and not focused.multiline and _enabled(focused))
+                not inputs
+                or (
+                    focused is not None
+                    and (
+                        isinstance(focused, ft.SearchBar)
+                        or (not focused.multiline and not focused.shift_enter)
+                    )
+                    and _enabled(focused)
+                )
             ):
                 # Flet only emits TextField.submit with shift_enter=True.
                 # Multiline inputs use that event; other focused widgets keep

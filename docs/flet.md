@@ -218,6 +218,9 @@ the current transaction forms:
 - The helper focuses the first input unless an input already requests autofocus.
   In multiline inputs, Enter submits and **Shift+Enter inserts a newline**.
   Reserve their `on_submit` handler for the shared helper.
+- A single-line input can explicitly set `shift_enter=True` and its own
+  `on_submit` when Enter must invoke an action other than the popup's primary
+  action. The AI icon prompt uses this to generate without saving the picker.
 - Disabled or hidden actions and disabled inputs must not be submitted. If an
   operation disables cancellation, disable that button so Escape is disabled
   too. Preserve validation, busy-state guards, conflicts and unsaved drafts;
@@ -237,8 +240,9 @@ The shared helper adds `PopupKeyboardListener` controls (subclasses of Flet's
 Listeners follow the dialog's focus tree, so dropdown menus and nested pickers
 can consume keys without also closing/submitting the parent. Action-button Enter
 uses native activation, not a second synthetic click. The pinned Material
-TextField client emits `submit` only with `shift_enter=True`: multiline fields
-use that event; single-line fields use the focus-scoped listener. Input discovery
+TextField client emits `submit` only with `shift_enter=True`: multiline and
+explicitly configured single-line fields use that event; other single-line fields
+use the focus-scoped listener. Input discovery
 follows Flet's dataclass control fields, excluding Python-only state.
 Flet 1.1.2 has no public programmatic button-click dispatch; the helper uses
 `button._trigger_event` and checks the active dialog stack. Regression tests

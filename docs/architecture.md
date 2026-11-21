@@ -112,6 +112,10 @@ caller-supplied validator before being returned. No fallback sends input to a
 different model or provider. Using the backend sends the given input directly
 to the configured provider and may incur charges. Icon generation uses the
 configured image model; receipt parsing is not implemented.
+An optional picker checkbox sends the existing icon as a reference for image
+editing. SVG references are rendered locally to PNG, and reference provenance
+is retained with the generated asset without asserting its resulting license.
+The image is sent only after explicit selection and generation.
 
 [Shared defaults](shared-settings.md) use a separate `textmoney-settings/`
 sidecar through the same bounded record adapters and existing SAF grant.

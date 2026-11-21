@@ -1,6 +1,6 @@
 [project]
 name = "textmoney"
-version = "0.4.17"
+version = "0.4.18"
 description = "TextMoney: offline-first personal expense tracking"
 requires-python = ">=3.13"
 dependencies = [
@@ -68,7 +68,7 @@ product = "TextMoney"
 org = "com.pioneer"
 bundle_id = "com.pioneer.textmoney"
 company = "Pioneer"
-build_number = 65
+build_number = 66
 icon_background = "#ffffff"
 
 [tool.textmoney.android_release]

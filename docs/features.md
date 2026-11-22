@@ -16,13 +16,6 @@ and limitations; the guides are the source of truth when details change.
   Accounts and categories with history can be deactivated and reactivated.
   See [the user guide](user-guide.md#add-accounts-categories-and-opening-balances),
   [icons](entity-icons.md) and [journal format](journal-format.md).
-- **Optional AI icons:** With a configured image-generation model and provider
-  API key, generate account/category icons from a description and optionally
-  include the existing icon as a reference. Review the result before saving.
-  Generation requires internet, sends the input to the selected provider and
-  may incur charges; the bundled icon catalogue remains offline.
-  See [AI setup](user-guide.md#configure-optional-ai-features) and
-  [icons and AI](entity-icons.md).
 - **Transactions:** Record expenses, income, reimbursements, balance
   adjustments and transfers, including transfers between currencies. Add fixed
   fees or commissions where supported, and track and repay debt. Edit or remove
@@ -42,6 +35,42 @@ and limitations; the guides are the source of truth when details change.
   balances for supported periods, with category and account breakdowns.
   Amounts remain separate by currency; reports do not convert them.
   See [reporting](reporting.md).
+
+## Optional AI features
+
+AI is optional: tracking, reports, budgets, the bundled icon catalogue and image
+imports work without a provider or API key. The currently available AI workflow
+is **account/category icon generation**, not financial advice or automated
+bookkeeping.
+
+- **Describe an icon:** Configure a provider API key and image-generation model
+  in **Settings → AI**, then use **Choose icon → Generate with AI**. OpenAI,
+  Google Gemini and xAI models are supported. Generate a candidate from your
+  description, review it and choose **Save changes** to apply it.
+- **Choose a reference:** The optional reference selector defaults to
+  **No reference**. Choose the icon present when the picker opened or an icon
+  assigned to another category/account in the same journal. Its thumbnail,
+  name and code identify the source. Reference selection does not change the
+  icon selected for saving.
+- **Theme adaptation:** **Adapt generated icons to the theme** is on by default.
+  Neutral artwork follows the light/dark theme while colored accents keep their
+  colors. This is heuristic and applies only to future generations; turn it off
+  to preserve the generated image's original colors.
+- **Network, privacy and cost:** Explicitly starting generation sends your
+  description, app instructions and any chosen reference image to the selected
+  provider. Reference account/category names and codes are not included, and
+  the journal is not uploaded. Internet access and your own API key are required;
+  provider terms and charges apply. Keys and model choices are device-local,
+  not journal-shared; keys require the platform's secure storage. Saving a key
+  does not test it with the provider.
+- **Review and limits:** Generated-image rights are not verified. Check provider
+  terms and your rights to both the result and any reference image. Results remain
+  drafts until saved; failures or cancellation keep the previous selection.
+  The separate image-understanding model setting is available, but does not
+  currently provide receipt parsing or transaction entry.
+
+See [AI setup](user-guide.md#configure-optional-ai-features) and
+[icons and AI](entity-icons.md) for the workflow, validation and limitations.
 
 ## Storage and settings
 

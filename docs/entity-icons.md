@@ -92,7 +92,8 @@ includes previously assigned icons and their original attribution.
 
 Every bundled/imported/generated candidate is validated before appearing. Inline images display
 at **16 logical pixels** with proportions preserved; the selected picker preview
-uses **48 pixels**, matching the optional existing-icon reference preview.
+uses **48 pixels**. The optional reference preview uses **32 pixels** and
+captures vectors at **96 pixels** for generation.
 Transaction rows use a **25.92-pixel** leading image in a 40-pixel-wide rounded,
 theme-aware secondary-container background spanning the title and details.
 Selected budget categories and default-account/commission settings use the same

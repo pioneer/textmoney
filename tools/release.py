@@ -371,7 +371,7 @@ def start_release(
     print(
         f"Preparing {tag}, Android build {next_build}."
         + (
-            " Refreshing README screenshots."
+            " Refreshing documentation screenshots."
             if capture_screenshots is not None
             else " No platform SDK is needed locally."
         ),

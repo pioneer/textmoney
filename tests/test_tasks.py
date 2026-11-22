@@ -193,6 +193,10 @@ def test_release_screenshots_rebuilds_client_and_uses_resolved_version(
         "docs/screenshots/home-desktop.png",
         "docs/screenshots/expense-mobile.png",
         "docs/screenshots/navigation-mobile.png",
+        "docs/screenshots/home-mobile.png",
+        "docs/screenshots/budgets-desktop.png",
+        "docs/screenshots/reports-desktop.png",
+        "docs/user-guide.md",
     )
     assert steps == ["build", "capture"]
 

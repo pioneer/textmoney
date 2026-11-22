@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -26,7 +27,26 @@ def test_readme_selects_html_and_markdown_screenshots_once(tmp_path: Path) -> No
         '<img src="docs/screenshots/home-desktop.png">\n'
         "![External](https://example.com/image.png)\n"
     )
-    assert screenshots.readme_scenes(tmp_path) == list(screenshots.SCENES)
+    assert screenshots.readme_scenes(tmp_path) == list(screenshots.SCENES[:3])
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/user-guide.md").write_text(
+        '<img src="screenshots/navigation-mobile.png">\n'
+        "![Home](screenshots/home-mobile.png)\n"
+        "![Budgets][budgets]\n"
+        "[budgets]: screenshots/budgets-desktop.png\n"
+        "![Reports](screenshots/reports-desktop.png)\n"
+    )
+    assert set(screenshots.documentation_scenes(tmp_path)) == set(screenshots.SCENES)
+    assert len(screenshots.documentation_scenes(tmp_path)) == len(screenshots.SCENES)
+
+
+@pytest.mark.parametrize("source", ["screenshots/unknown.png", "screenshots/%2e%2e/private.png"])
+def test_unmapped_user_guide_screenshot_is_rejected(tmp_path: Path, source: str) -> None:
+    (tmp_path / "README.md").write_text('<img src="docs/screenshots/home-desktop.png">')
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/user-guide.md").write_text(f"![Guide]({source})")
+    with pytest.raises(RuntimeError, match="Unmapped user-guide screenshot"):
+        screenshots.documentation_scenes(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -94,6 +114,46 @@ def test_home_capture_waits_for_merged_balances_button() -> None:
     page.get_by_role.return_value.wait_for.assert_called_once()
 
 
+@pytest.mark.parametrize("filename", ["budgets-desktop.png", "reports-desktop.png"])
+def test_guide_capture_waits_for_its_report_instead_of_home(filename: str) -> None:
+    page = MagicMock(spec=Page)
+    page.title.return_value = screenshots.READY
+
+    def role_locator(role: str, **kwargs: object) -> MagicMock:
+        name = kwargs.get("name")
+        if isinstance(name, re.Pattern) and name.search("Your balances"):
+            raise AssertionError("A report capture must not wait for Home.")
+        return MagicMock()
+
+    page.get_by_role.side_effect = role_locator
+    scene = next(scene for scene in screenshots.SCENES if scene.filename == filename)
+    screenshots.prepare_page(page, scene, "0.4.18")
+    if filename == "budgets-desktop.png":
+        page.get_by_role.assert_any_call("button", name="Create budget", exact=True)
+        role = page.get_by_role.call_args
+        assert role.args == ("group",)
+        assert role.kwargs["name"].search("outline-shopping-cart Groceries Consumed: 32.13%")
+    else:
+        page.get_by_text.assert_any_call("Expenses by category", exact=True)
+        page.get_by_text.assert_any_call("Account balances at period end", exact=True)
+
+
+@pytest.mark.parametrize("count", [0, 2])
+def test_invalid_guide_caption_fails_before_capture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, count: int
+) -> None:
+    (tmp_path / "README.md").write_text('<img src="docs/screenshots/home-desktop.png">')
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/user-guide.md").write_text(
+        "Screenshots use synthetic data from TextMoney v0.4.9 (build 57).\n" * count
+    )
+    seed = AsyncMock()
+    monkeypatch.setattr(screenshots, "seed_demo", seed)
+    with pytest.raises(RuntimeError, match="exactly one screenshot version caption"):
+        screenshots.regenerate(tmp_path, tmp_path / "client", "0.4.18")
+    seed.assert_not_called()
+
+
 def test_demo_journal_and_settings_are_isolated_and_show_budget_activity(tmp_path: Path) -> None:
     async def scenario() -> None:
         today = date(2027, 2, 1)
@@ -148,8 +208,10 @@ def test_capture_failure_reports_context_and_stops_owned_server(
     process.kill.assert_not_called()
 
 
-@pytest.mark.parametrize("failure", ["capture", "blank", "wrong-size", "corrupt", "missing", None])
-def test_all_captures_validate_before_replacing_readme_images(
+@pytest.mark.parametrize(
+    "failure", ["capture", "blank", "wrong-size", "corrupt", "missing", "changed-guide", None]
+)
+def test_all_captures_validate_before_replacing_documentation_images_and_caption(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str | None
 ) -> None:
     readme = '<img src="assets/icon.png">\n' + "\n".join(
@@ -158,12 +220,19 @@ def test_all_captures_validate_before_replacing_readme_images(
     (tmp_path / "README.md").write_text(readme)
     destination = tmp_path / "docs/screenshots"
     destination.mkdir(parents=True)
+    guide = tmp_path / "docs/user-guide.md"
+    guide_text = (
+        "# User guide\n\nScreenshots use synthetic data from TextMoney v0.4.9 (build 57), "
+        "not a personal journal.\n"
+    )
+    guide.write_text(guide_text)
     for scene in screenshots.SCENES:
         (destination / scene.filename).write_bytes(b"original")
     unrelated = destination / "unreferenced.png"
     unrelated.write_bytes(b"unrelated")
     monkeypatch.setattr(screenshots, "seed_demo", AsyncMock())
     monkeypatch.setattr(screenshots, "sync_playwright", MagicMock())
+    monkeypatch.setattr("app.version.release_identity", lambda: ("0.4.9", 71))
     states: list[Path] = []
 
     def capture(
@@ -180,6 +249,8 @@ def test_all_captures_validate_before_replacing_readme_images(
         assert release == "0.5.0"
         path = state / scene.filename
         if scene == screenshots.SCENES[1]:
+            if failure == "changed-guide":
+                guide.write_text(guide_text + "Concurrent edit\n")
             if failure == "capture":
                 raise RuntimeError("Capture failed")
             if failure == "missing":
@@ -201,10 +272,14 @@ def test_all_captures_validate_before_replacing_readme_images(
             screenshots.regenerate(tmp_path, tmp_path / "client", "0.5.0")
         for scene in screenshots.SCENES:
             assert (destination / scene.filename).read_bytes() == b"original"
+        assert guide.read_text() == guide_text + (
+            "Concurrent edit\n" if failure == "changed-guide" else ""
+        )
     else:
         screenshots.regenerate(tmp_path, tmp_path / "client", "0.5.0")
         for scene in screenshots.SCENES:
             screenshots.validate_png(destination / scene.filename, scene)
+        assert guide.read_text() == guide_text.replace("v0.4.9 (build 57)", "v0.5.0 (build 71)")
     assert unrelated.read_bytes() == b"unrelated"
     assert (tmp_path / "README.md").read_text() == readme
     assert states and all(not state.exists() for state in states)

@@ -5,15 +5,16 @@
 <h1 align="center">TextMoney</h1>
 
 <p align="center">
-An offline-first personal finance app with optional AI features. Track everyday
+An offline-first personal finance app. Track everyday
 spending, see what’s left in your accounts, and set monthly budgets for things
 like groceries and eating out.
 </p>
 
 <p align="center"><strong>Android · Windows · Linux</strong></p>
 
-Core tracking works offline with no app sign-up. Optional AI features require
-internet access and your own provider API key and may incur charges.
+Core tracking works offline with no app sign-up. Optional
+[AI icon generation](docs/features.md#optional-ai-features) requires internet
+access and your own provider API key and may incur charges.
 Your records are stored in a plain-text
 [Beancount](https://beancount.github.io/) file in a folder you choose.
 You can [sync the whole folder between Android, Windows and Linux](docs/synchronization.md)
@@ -56,9 +57,9 @@ editing on another device.
   transfers between accounts, including exchanges between currencies.
 - **Stay within your budget.** Set spending limits by category and see how much
   of each monthly budget you’ve used, right from the home screen.
-- **Personalize icons with AI.** Generate an account or category icon from your
-  description, optionally using its existing icon as a reference. AI is
-  optional; the bundled icon library works offline. See [icons and AI](docs/entity-icons.md).
+- **Personalize icons.** Choose from the offline icon library or import an image.
+  Optional AI generation can use your description and a chosen reference icon.
+  See [icons and AI](docs/entity-icons.md).
 
 Available in English, Ukrainian, and Russian.
 Developers are welcome to submit a pull request with translation corrections
@@ -71,7 +72,8 @@ Weblate integration may be added in the future; it is not configured yet.
 2. Add an account, such as Cash or your bank account.
 3. Record your first expense and choose or create a category for it.
 
-*TextMoney is in beta. Keep a separate backup of your financial records.*
+*TextMoney is in beta and developed with substantial AI assistance.
+Keep a separate backup of your financial records.*
 
 ## Guides and technical details
 

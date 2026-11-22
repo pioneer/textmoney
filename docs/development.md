@@ -110,9 +110,9 @@ the credentials file does not log out. Do not share or commit either. The standa
 versioned dev APK and accepts `--apk=PATH` for another APK.
 The terminal reports transfer progress in 5% increments.
 
-## Refresh README screenshots
+## Refresh documentation screenshots
 
-The README's app images can be regenerated from the current source app:
+App images in the README and user guide can be regenerated from the current source:
 
 ```sh
 uv run inv build-web-client  # Once, and after client/extension/dependency changes
@@ -129,11 +129,16 @@ The web client may require network access to public Flutter/font CDN assets.
 Capture runs headlessly without an Android device or desktop display. Linux is
 validated; Windows and macOS browser capture are not yet validated.
 
-The command reads HTML and Markdown image references in `README.md`, selecting
-only images under `docs/screenshots/`. Every selected image must have a known
+The command reads HTML and Markdown image references in `README.md` and
+`docs/user-guide.md`, resolving paths relative to each document and capturing
+shared images only once. It selects only images under `docs/screenshots/`,
+including Home, expense entry, navigation, Budgets and Reports.
+Every selected image must have a known
 capture scenario in `tools/screenshots.py`; unknown paths fail rather than
 silently leaving a screenshot stale. The logo, unrelated images, unreferenced
-screenshots and README text are left alone.
+screenshots and README text are left alone. After every capture validates, the
+user guide's screenshot version/build caption is updated to match the images;
+other guide text is preserved. A concurrent guide edit aborts replacement.
 
 Captures use the real dynamic app and its extension-enabled web client, with
 fixed English/light appearance, UTC, viewport sizes and pixel ratio. Each run
@@ -156,7 +161,7 @@ the query fails or no stable release exists. Neither option publishes a release
 or changes version metadata.
 Desktop and mobile images capture responsive **layouts**, not native-device
 screenshots. The driver waits for the intended UI states and validates PNG
-dimensions and nonblank output before replacing any README screenshots.
+dimensions and nonblank output before replacing any documentation screenshots.
 Review the resulting images before committing them.
 
 ## Packaging
@@ -398,7 +403,8 @@ These are alternative examples, not consecutive steps. `--version X.Y.Z` overrid
 automatic selection. In either mode this is an explicit publication command:
 it updates `[project].version` and the Android
 build number in `pyproject.toml`, refreshes `uv.lock` offline, runs
-`uv run inv check`, commits those two files (plus screenshots when requested),
+`uv run inv check`, commits those two files (plus screenshots and the guide's
+screenshot version caption when requested),
 and pushes `main` to `origin`.
 It dispatches the release workflow with the full candidate commit SHA and version,
 waits for that exact candidate's run, and reports its result. There is **no final
@@ -409,8 +415,8 @@ current project version when retrying an unpublished candidate. A new version
 increases the Android build number beyond both the current and prior stable
 release's code; corrected candidates retain the same version and build number.
 
-To regenerate README screenshots for the version being released and include
-them in the release commit:
+To regenerate README/user-guide screenshots for the version being released and
+include them in the release commit:
 
 ```sh
 uv run inv release --with-screenshots
@@ -422,12 +428,13 @@ the same automatic/explicit rules above. After preparing version and build
 metadata, this option rebuilds the extension-enabled web client, then calls the
 existing screenshot task with that exact version (not a separate
 `--next-release` lookup). This also handles a reused unpublished version correctly.
-Checks run after capture; only the README-referenced screenshot files are
-allowed alongside the version files in the release commit. Screenshot-only
+Checks run after capture; only screenshots referenced by the README/user guide
+and the guide's updated version caption are allowed alongside the version files
+in the release commit. Screenshot-only
 changes for a reused version are committed and pushed before CI dispatch too.
 Unchanged screenshots do not require a separate commit.
 
-The option requires the [screenshot prerequisites](#refresh-readme-screenshots),
+The option requires the [screenshot prerequisites](#refresh-documentation-screenshots),
 including Flutter/web build tools and Playwright's installed Chromium
 (`uv run inv screenshots-setup`), locally. No native platform binaries are built
 locally. A build/capture/check failure prevents commit, push and dispatch; any

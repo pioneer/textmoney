@@ -1,4 +1,4 @@
-"""README screenshot capture against the real, isolated dynamic web app."""
+"""Documentation screenshot capture against the real, isolated dynamic web app."""
 
 import argparse
 import asyncio
@@ -37,10 +37,13 @@ SCENES = (
     Scene("home-desktop.png", 1580, 1050),
     Scene("expense-mobile.png", 415, 900),
     Scene("navigation-mobile.png", 415, 900),
+    Scene("home-mobile.png", 415, 1400),
+    Scene("budgets-desktop.png", 1580, 1500),
+    Scene("reports-desktop.png", 1366, 1380),
 )
 
 
-class ReadmeImages(HTMLParser):
+class DocumentImages(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.sources: list[str] = []
@@ -50,36 +53,50 @@ class ReadmeImages(HTMLParser):
             self.sources.extend(value for key, value in attrs if key == "src" and value)
 
 
-def readme_scenes(root: Path) -> list[Scene]:
-    text = (root / "README.md").read_text(encoding="utf-8")
-    parser = ReadmeImages()
+def _document_scenes(root: Path, document: Path) -> list[Scene]:
+    text = (root / document).read_text(encoding="utf-8")
+    parser = DocumentImages()
     parser.feed(text)
     sources = parser.sources + re.findall(r"!\[[^\]]*\]\(\s*<?([^\s)>]+)>?", text)
     references = dict(re.findall(r"(?m)^\s*\[([^\]]+)\]:\s*<?([^\s>]+)>?", text))
     for alt, key in re.findall(r"!\[([^\]]*)\]\[([^\]]*)\]", text):
         if (key or alt) not in references:
-            raise RuntimeError(f"Unresolved README image reference: {key or alt}")
+            raise RuntimeError(f"Unresolved {document.stem} image reference: {key or alt}")
         sources.append(references[key or alt])
     selected: list[Scene] = []
     known = {scene.filename: scene for scene in SCENES}
+    prefix = (
+        Path(os.path.relpath(root / "docs/screenshots", (root / document).parent)).as_posix() + "/"
+    )
     for source in sources:
         url = urlsplit(source)
         if url.scheme or url.netloc:
             continue
         path = unquote(url.path).removeprefix("./")
-        if not path.startswith("docs/screenshots/"):
+        if not path.startswith(prefix):
             continue
-        filename = path.removeprefix("docs/screenshots/")
+        filename = path.removeprefix(prefix)
         if filename not in known or url.query or url.fragment:
-            raise RuntimeError(f"Unmapped README screenshot: {source}")
-        destination = root / path
-        if destination.resolve() != root.resolve() / path:
-            raise RuntimeError(f"README screenshot must not use symlinks: {source}")
+            raise RuntimeError(f"Unmapped {document.stem} screenshot: {source}")
+        destination = root / document.parent / path
+        if destination.resolve() != root.resolve() / "docs/screenshots" / filename:
+            raise RuntimeError(f"{document.stem} screenshot must not use symlinks: {source}")
         if known[filename] not in selected:
             selected.append(known[filename])
-    if not selected:
-        raise RuntimeError("README contains no mapped app screenshots in docs/screenshots/.")
     return selected
+
+
+def readme_scenes(root: Path) -> list[Scene]:
+    scenes = _document_scenes(root, Path("README.md"))
+    if not scenes:
+        raise RuntimeError("README contains no mapped app screenshots in docs/screenshots/.")
+    return scenes
+
+
+def documentation_scenes(root: Path) -> list[Scene]:
+    return list(
+        dict.fromkeys([*readme_scenes(root), *_document_scenes(root, Path("docs/user-guide.md"))])
+    )
 
 
 def capture_release(current: str, override: str) -> str:
@@ -232,7 +249,6 @@ def serve(scene: Scene, release: str, port: int) -> None:
                     if view.home_budgets.failed:
                         raise RuntimeError("Demo budget summary failed.")
                     await asyncio.sleep(0.05)
-            view.release_label.value = f"v{release} ({release_identity()[1]})"
             if scene.filename == "expense-mobile.png":
                 view._navigate("transactions")
                 transaction = next(
@@ -241,6 +257,17 @@ def serve(scene: Scene, release: str, port: int) -> None:
                     if item.narration == "Weekly groceries"
                 )
                 view._transaction_dialog(view.journal, transaction)
+            elif scene.filename == "budgets-desktop.png":
+                view._navigate("budgets")
+                if view.budgets.worker is None:
+                    raise RuntimeError("Demo budget refresh did not start.")
+                async with asyncio.timeout(45):
+                    await asyncio.wrap_future(view.budgets.worker)
+                if view.budgets.error.visible or len(view.budgets.report_rows) != 6:
+                    raise RuntimeError("Demo budget report failed.")
+            elif scene.filename == "reports-desktop.png":
+                view._navigate("reports")
+            view.release_label.value = f"v{release} ({release_identity()[1]})"
             page.title = READY
             page.update()
         except Exception:
@@ -273,13 +300,20 @@ def prepare_page(page: Page, scene: Scene, release: str) -> None:
         page.get_by_role("textbox", name="Description").wait_for()
     else:
         page.get_by_text(re.compile(rf"^v{re.escape(release)} \(\d+\)$")).wait_for()
-        page.get_by_role("button", name=re.compile(r"^Your balances\b")).wait_for()
-        if scene.filename == "navigation-mobile.png":
+        if scene.filename == "budgets-desktop.png":
+            page.get_by_role("button", name="Create budget", exact=True).wait_for()
+            page.get_by_role("group", name=re.compile(r"\bGroceries\b.*Consumed:")).wait_for()
+        elif scene.filename == "reports-desktop.png":
+            page.get_by_text("Expenses by category", exact=True).wait_for()
+            page.get_by_text("Account balances at period end", exact=True).wait_for()
+        elif scene.filename == "navigation-mobile.png":
+            page.get_by_role("button", name=re.compile(r"^Your balances\b")).wait_for()
             page.get_by_role("button", name="More", exact=True).click()
             page.get_by_role("menuitem", name="Accounts", exact=True).wait_for()
             page.get_by_role("menuitem", name="Categories", exact=True).wait_for()
             page.get_by_role("menuitem", name="Settings", exact=True).wait_for()
         else:
+            page.get_by_role("button", name=re.compile(r"^Your balances\b")).wait_for()
             page.get_by_text("Overspent: 1 of 6 budgets this month", exact=True).wait_for()
     page.mouse.move(0, 0)
     # Flutter's semantics can precede the final painted frame and menu animation.
@@ -341,7 +375,7 @@ def capture_scene(
                 page.screenshot(path=str(state / scene.filename))
         except Exception as exc:
             raise RuntimeError(
-                f"Capture failed for {scene.filename}. No README screenshots replaced.\n"
+                f"Capture failed for {scene.filename}. No documentation screenshots replaced.\n"
                 f"{log.read_text(encoding='utf-8')}"
             ) from exc
         finally:
@@ -354,7 +388,20 @@ def capture_scene(
 
 
 def regenerate(root: Path, client: Path, release: str) -> None:
-    scenes = readme_scenes(root)
+    from app.version import release_identity
+
+    scenes = documentation_scenes(root)
+    guide = root / "docs/user-guide.md"
+    if guide.resolve() != root.resolve() / "docs/user-guide.md":
+        raise RuntimeError("The user guide must not use symlinks.")
+    guide_text = guide.read_text(encoding="utf-8")
+    updated_guide, count = re.subn(
+        r"(?<=Screenshots use synthetic data from TextMoney )v\d+\.\d+\.\d+ \(build \d+\)",
+        f"v{release} (build {release_identity()[1]})",
+        guide_text,
+    )
+    if count != 1:
+        raise RuntimeError("The user guide must contain exactly one screenshot version caption.")
     with TemporaryDirectory(prefix="textmoney-screenshots-") as directory:
         state = Path(directory)
         asyncio.run(seed_demo(state, datetime.now(UTC).date()))
@@ -372,10 +419,15 @@ def regenerate(root: Path, client: Path, release: str) -> None:
             for scene in scenes:
                 capture_scene(browser, root, state, environment, scene, release)
                 validate_png(state / scene.filename, scene)
+        if guide.read_text(encoding="utf-8") != guide_text:
+            raise RuntimeError("The user guide changed during capture; no screenshots replaced.")
         for scene in scenes:
             destination = root / "docs/screenshots" / scene.filename
             destination.write_bytes((state / scene.filename).read_bytes())
             print(f"Updated {destination.relative_to(root)} (v{release})")
+        if updated_guide != guide_text:
+            guide.write_text(updated_guide, encoding="utf-8")
+            print(f"Updated docs/user-guide.md screenshot version (v{release})")
 
 
 if __name__ == "__main__":

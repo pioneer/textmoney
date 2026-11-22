@@ -831,7 +831,7 @@ def run_web(context: Context, port: int = 8550) -> None:
 
 @task
 def screenshots_setup(context: Context) -> None:
-    """Install Playwright's Chromium for README screenshots."""
+    """Install Playwright's Chromium for documentation screenshots."""
     execute(sys.executable, "-m", "playwright", "install", "chromium")
 
 
@@ -846,8 +846,8 @@ def version(context: Context) -> None:
 
 @task
 def screenshots(context: Context, release: str = "", next_release: bool = False) -> None:
-    """Regenerate README screenshots; --release or --next-release sets their version label."""
-    from tools.screenshots import capture_release, readme_scenes
+    """Regenerate README/user-guide screenshots and version caption."""
+    from tools.screenshots import capture_release, documentation_scenes
 
     if release and next_release:
         raise Exit("Use either --release or --next-release, not both.", code=1)
@@ -857,7 +857,7 @@ def screenshots(context: Context, release: str = "", next_release: bool = False)
             if next_release
             else capture_release(release_identity()[0], release)
         )
-        readme_scenes(ROOT)
+        documentation_scenes(ROOT)
     except RuntimeError as exc:
         raise Exit(str(exc), code=1) from exc
     client = require_web_dev_client()
@@ -1034,15 +1034,17 @@ def check(context: Context) -> None:
 def release(
     context: Context, version: str = "", resume: bool = False, with_screenshots: bool = False
 ) -> None:
-    """Release the next patch or --version, optionally with fresh README screenshots."""
+    """Release the next patch or --version, optionally with fresh documentation screenshots."""
 
     def capture(selected_version: str) -> tuple[str, ...]:
-        from tools.screenshots import readme_scenes
+        from tools.screenshots import documentation_scenes
 
-        scenes = readme_scenes(ROOT)
+        scenes = documentation_scenes(ROOT)
         build_web_client(context)
         screenshots(context, release=selected_version)
-        return tuple(f"docs/screenshots/{scene.filename}" for scene in scenes)
+        return tuple(f"docs/screenshots/{scene.filename}" for scene in scenes) + (
+            "docs/user-guide.md",
+        )
 
     try:
         release_tools.start_release(

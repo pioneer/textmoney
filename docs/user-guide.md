@@ -34,7 +34,7 @@ control. Resizing preserves the current screen and form state.
 
 <img src="screenshots/navigation-mobile.png" alt="Bottom More menu with Accounts, Categories and Settings" width="360">
 
-Screenshots use synthetic data from TextMoney v0.4.10 (build 58), not a personal
+Screenshots use synthetic data from TextMoney v0.4.18 (build 66), not a personal
 journal. Compact screenshots are browser-rendered mobile-layout previews, not
 physical Android captures.
 
@@ -291,14 +291,23 @@ Open **Settings → AI**. Choose a provider, enter and save its API key, then
 choose an image-generation model from that provider. Open an account or category's
 **Choose icon** picker and expand **Generate with AI**. Describe the icon and
 choose **Generate**; review the result and choose **Save changes** to apply it.
-If an existing icon is shown, you can optionally check **Include the existing
-icon in the prompt** to request a modification of that icon. The reference is
-off by default. You can also use the offline catalogue without configuring AI.
+The **Reference icon (optional)** selector defaults to **No reference**. Choose
+the icon present when this dialog opened, or an icon from another category/account
+in the same journal, to request a modification based on it. Choices show an icon,
+name and code; choosing a reference does not change the icon selected for saving.
+Choose No reference again to disable it. You can also use the offline catalogue
+without configuring AI.
+
+**Adapt generated icons to the theme** is on by default in Settings → AI.
+Neutral parts follow the theme while colored accents keep their colors.
+Adaptation is heuristic; turn it off to preserve the generated image's original
+colors. This setting affects future generations, not existing icons or imports.
 
 Generation sends your description and the app's hidden instructions to the
-selected provider; it sends the existing icon too only when you opt in. Provider
-terms and charges apply. Generated-image rights are not verified; check your
-rights, including those concerning any reference icon, before use. OpenAI,
+selected provider; it sends a reference image too only when one is selected.
+Reference category/account names and codes are not sent, and the journal is not
+uploaded. Provider terms and charges apply. Generated-image rights are not
+verified; check your rights, including those concerning any reference icon, before use. OpenAI,
 Google Gemini and xAI image-generation models are available. The separate
 image-understanding model setting does not currently provide receipt parsing.
 

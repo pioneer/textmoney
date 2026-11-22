@@ -54,13 +54,19 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
   Adaptation is heuristic: neutral shading can lose detail and muted colors may
   be treated as neutral. Opaque or empty results are rejected with an explanation
   while retaining the previous selection; no automatic paid retry is made.
-  The original-reference option appears before the description so the prompt,
-  Generate and selected result remain together.
-  If the account/category already has an icon (or the creation form has a draft
-  icon), you can opt in to include that existing icon as a reference. The picker
-  previews the specific icon that will be sent; merely selecting another result
-  in the open picker does not change the reference. The icon is sent only when
-  the checkbox is selected and generation starts. Vector icons are rendered
+  A compact **Reference icon (optional)** selector appears before the description,
+  keeping the prompt, Generate and selected result together. It defaults to
+  **No reference**. Choose the icon present when the dialog opened, or an icon
+  assigned to another category/account in the same journal; choices show their
+  names, codes and icons. This is also available in creation forms without an
+  opening icon. Choose No reference again to disable reference use.
+  The selector previews the specific icon that will be sent. Choosing a reference
+  does not change the selected-icon draft or save anything; selecting another
+  catalogue result does not change the reference. Only the chosen image, not its
+  category/account name or code, is sent when generation starts. The selector
+  handles both opting in and choosing the source, without a separate checkbox or
+  chooser button.
+  Vector icons are rendered
   locally as a PNG for the provider; monochrome vectors are sent in black on a
   transparent background regardless of the theme used for the preview.
   The app instructions favor a simple monochrome Material-like icon with thick

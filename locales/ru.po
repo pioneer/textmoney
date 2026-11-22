@@ -254,10 +254,16 @@ msgid "ui.icon_ai_notice"
 msgstr "Ваше описание и инструкции приложения будут отправлены поставщику ИИ; это может быть платно."
 
 msgid "ui.icon_ai_reference"
-msgstr "Использовать иконку при открытии окна как образец"
+msgstr "Иконка-образец (необязательно)"
 
 msgid "ui.icon_ai_reference_hint"
-msgstr "Будет отправлена поставщику только при выборе."
+msgstr "Отправляется поставщику только когда выбрана иконка."
+
+msgid "ui.icon_ai_reference_none"
+msgstr "Без образца"
+
+msgid "ui.icon_ai_reference_opening"
+msgstr "Иконка при открытии диалога"
 
 msgid "ui.icon_ai_reference_source"
 msgstr "Источник и лицензия исходного значка"

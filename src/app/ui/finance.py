@@ -91,7 +91,15 @@ from app.ui.budgets import BudgetView
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import EditorDialog, deletion_title, show_dialog
 from app.ui.home_budgets import HomeBudgets, home_heading
-from app.ui.icons import IconDraft, IconField, IconPicker, IconRemovalDialog, IconTarget, icon_image
+from app.ui.icons import (
+    IconDraft,
+    IconField,
+    IconPicker,
+    IconReference,
+    IconRemovalDialog,
+    IconTarget,
+    icon_image,
+)
 from app.ui.layout import (
     HoverRow,
     action_toolbar,
@@ -2480,6 +2488,19 @@ class FinanceView(ft.Row):
         except Exception as exc:
             self._error(exc, notify=True)
 
+    def _reference_icons(self, journal: Journal) -> tuple[IconReference, ...]:
+        store = self.icons
+        if store is None or not store.loaded:
+            return ()
+        return tuple(
+            IconReference(item.name, item.id, store.assets[item.id])
+            for item in sorted(
+                (*journal.ledger.categories, *journal.ledger.accounts),
+                key=lambda item: (item.name.casefold(), item.id),
+            )
+            if item.id in store.assets
+        )
+
     def _open_icon_picker(
         self,
         journal: Journal,
@@ -2533,6 +2554,7 @@ class FinanceView(ft.Row):
                 existing_icons=store.assets.values(),
                 conflict=identifier in store.conflicts,
                 ai_settings=self.ai_settings,
+                reference_icons=self._reference_icons(journal),
                 target=IconTarget(
                     item.name if item is not None else "",
                     identifier,
@@ -4299,6 +4321,7 @@ class FinanceView(ft.Row):
             self.language,
             icon_store.assets.values() if icon_store is not None else (),
             ai_settings=self.ai_settings,
+            reference_icons=self._reference_icons(journal),
             target=lambda: IconTarget(
                 category_name.value or "", category_path.value or "", category=True, draft=True
             ),
@@ -6149,6 +6172,7 @@ class FinanceView(ft.Row):
             self.language,
             icon_store.assets.values() if icon_store is not None else (),
             ai_settings=self.ai_settings,
+            reference_icons=self._reference_icons(journal),
             target=lambda: IconTarget(
                 self.account_name.value or "",
                 self.account_id.value or "",
@@ -6511,6 +6535,7 @@ class FinanceView(ft.Row):
             self.language,
             icon_store.assets.values() if icon_store is not None else (),
             ai_settings=self.ai_settings,
+            reference_icons=self._reference_icons(journal),
             target=lambda: IconTarget(
                 self.category_name.value or "",
                 self.category_id.value or "",

@@ -170,6 +170,13 @@ class IconTarget:
     draft: bool = False
 
 
+@dataclass(frozen=True)
+class IconReference:
+    name: str
+    code: str
+    asset: IconAsset
+
+
 class IconField(ft.Column):
     def __init__(
         self, language: str, choose: Callable[[], None], remove: Callable[[], None]
@@ -216,12 +223,14 @@ class IconDraft(IconField):
         *,
         ai_settings: Callable[[], AISettings] | None = None,
         target: Callable[[], IconTarget] | None = None,
+        reference_icons: Iterable[IconReference] = (),
     ) -> None:
         self.owner = page
         self.language = language
         self.existing_icons = tuple(existing_icons)
         self.ai_settings = ai_settings
         self.target = target
+        self.reference_icons = tuple(reference_icons)
         self.selected: IconAsset | None = None
         super().__init__(
             language,
@@ -246,6 +255,7 @@ class IconDraft(IconField):
                 existing_icons=self.existing_icons,
                 ai_settings=self.ai_settings,
                 target=self.target() if self.target is not None else None,
+                reference_icons=self.reference_icons,
             ),
         )
 
@@ -311,12 +321,13 @@ class IconPicker(ft.AlertDialog):
         conflict: bool = False,
         ai_settings: Callable[[], AISettings] | None = None,
         target: IconTarget | None = None,
+        reference_icons: Iterable[IconReference] = (),
     ) -> None:
         self.owner = page
         self.language = language
         self.persist = save
         self.selected = current
-        self.reference = current
+        self.reference: IconAsset | None = None
         self.generated: IconAsset | None = None
         self.existing_icons = tuple(existing_icons)
         self.busy = False
@@ -357,22 +368,58 @@ class IconPicker(ft.AlertDialog):
         self.ai_feedback = ft.Semantics(
             content=self.ai_status, live_region=True, exclude_semantics=True
         )
-        self.ai_reference = ft.Checkbox(value=False, semantics_label=self.tr("icon_ai_reference"))
-        self.ai_reference_tile = ft.ListTile(
-            title=self.tr("icon_ai_reference"),
-            subtitle=self.tr("icon_ai_reference_hint"),
-            leading=self.ai_reference,
-            toggle_inputs=True,
-            content_padding=0,
-            dense=True,
+        self.references: dict[str, IconAsset | None] = {"none": None}
+        reference_options = [ft.DropdownOption(key="none", text=self.tr("icon_ai_reference_none"))]
+        if current is not None:
+            self.references["opening"] = current
+            reference_options.append(
+                ft.DropdownOption(
+                    key="opening",
+                    text=self.tr("icon_ai_reference_opening"),
+                    leading_icon=icon_image(current, size=24),
+                )
+            )
+        for item in reference_icons:
+            if current is not None and target is not None and item.code == target.code:
+                continue
+            key = f"assigned:{item.code}"
+            self.references[key] = item.asset
+            reference_options.append(
+                ft.DropdownOption(
+                    key=key,
+                    text=f"{item.name or item.code} · {item.code}",
+                    content=ft.Column(
+                        [
+                            ft.Text(
+                                item.name or item.code,
+                                max_lines=2,
+                                overflow=ft.TextOverflow.ELLIPSIS,
+                            ),
+                            ft.Text(
+                                item.code, size=12, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS
+                            ),
+                        ],
+                        spacing=0,
+                        tight=True,
+                    ),
+                    leading_icon=icon_image(item.asset, size=24),
+                )
+            )
+        self.reference_preview: ft.Screenshot | None = None
+        self.ai_reference = ft.Dropdown(
+            label=self.tr("icon_ai_reference"),
+            helper_text=self.tr("icon_ai_reference_hint"),
+            value="none",
+            options=reference_options,
+            on_select=self._reference_changed,
+            on_size_change=self._reference_resized,
             expand=True,
+            expanded_insets=0,
+            menu_height=320,
+            dense=True,
+            visible=len(reference_options) > 1,
         )
-        self.reference_preview = ft.Screenshot(icon_image(current, size=48)) if current else None
-        self.ai_reference_row = ft.Row(
-            [self.reference_preview, self.ai_reference_tile] if self.reference_preview else [],
-            visible=current is not None,
-            spacing=8,
-        )
+        self.ai_reference_row = ft.Row([self.ai_reference], visible=self.ai_reference.visible)
         self.ai_section = ft.ExpansionTile(
             title=self.tr("icon_ai_title"),
             controls=[
@@ -578,6 +625,25 @@ class IconPicker(ft.AlertDialog):
         if not self.busy:
             await self.search.open_view()
 
+    def _reference_changed(self, event: ft.Event[ft.Dropdown]) -> None:
+        if self.busy:
+            return
+        key = self.ai_reference.value
+        if key is None or key not in self.references:
+            raise IconError("icon_ai_reference_error")
+        self.reference = self.references[key]
+        self.reference_preview = (
+            ft.Screenshot(icon_image(self.reference, size=32)) if self.reference else None
+        )
+        self.ai_reference.leading_icon = self.reference_preview
+        self.owner.update()
+
+    def _reference_resized(self, event: ft.LayoutSizeChangeEvent[ft.LayoutControl]) -> None:
+        # Native menu labels wrap only when the dropdown has an explicit width.
+        if event.width > 0 and event.width != self.ai_reference.width:
+            self.ai_reference.width = event.width
+            self.ai_reference.update()
+
     async def _choose(self, event: ft.Event[ft.TextButton]) -> None:
         if not self.busy:
             await self.search.close_view()
@@ -631,7 +697,6 @@ class IconPicker(ft.AlertDialog):
                 self.ai_prompt,
                 self.ai_generate,
                 self.ai_reference,
-                self.ai_reference_tile,
             ):
                 control.disabled = True
             self.owner.update()
@@ -648,7 +713,6 @@ class IconPicker(ft.AlertDialog):
                 self.ai_prompt,
                 self.ai_generate,
                 self.ai_reference,
-                self.ai_reference_tile,
             ):
                 control.disabled = False
             self._selection()
@@ -714,7 +778,7 @@ class IconPicker(ft.AlertDialog):
             settings = settings_factory()
             adapt = await settings.adapt_generated_icons()
             prompt = (_ADAPTIVE_PROMPT if adapt else "") + _ICON_PROMPT + description
-            reference = self.reference if self.ai_reference.value else None
+            reference = self.reference
             attribution = self.tr("icon_ai_rights_notice")
             if reference is not None:
                 attribution += (
@@ -731,7 +795,8 @@ class IconPicker(ft.AlertDialog):
                 if vector:
                     try:
                         reference_data = await asyncio.wait_for(
-                            self.reference_preview.capture(pixel_ratio=2), timeout=_CAPTURE_TIMEOUT
+                            self.reference_preview.capture(pixel_ratio=3.0),
+                            timeout=_CAPTURE_TIMEOUT,
                         )
                     except TimeoutError as exc:
                         raise IconError("icon_ai_reference_error") from exc

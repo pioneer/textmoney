@@ -263,10 +263,16 @@ msgid "ui.icon_ai_notice"
 msgstr "Ваш опис та інструкції застосунку буде надіслано постачальнику ШІ; це може бути платним."
 
 msgid "ui.icon_ai_reference"
-msgstr "Використати іконку, яка була під час відкриття, як зразок"
+msgstr "Іконка-зразок (необов'язково)"
 
 msgid "ui.icon_ai_reference_hint"
-msgstr "Буде надіслано постачальнику лише за позначенням."
+msgstr "Надсилається постачальнику лише коли вибрано іконку."
+
+msgid "ui.icon_ai_reference_none"
+msgstr "Без зразка"
+
+msgid "ui.icon_ai_reference_opening"
+msgstr "Іконка під час відкриття діалогу"
 
 msgid "ui.icon_ai_reference_source"
 msgstr "Джерело та ліцензія вихідної піктограми"

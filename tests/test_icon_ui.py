@@ -46,7 +46,14 @@ from app.localization import format_amount
 from app.storage import StorageError
 from app.ui.dialogs import show_dialog
 from app.ui.finance import FinanceView
-from app.ui.icons import IconDraft, IconField, IconPicker, IconRemovalDialog, icon_image
+from app.ui.icons import (
+    IconDraft,
+    IconField,
+    IconPicker,
+    IconReference,
+    IconRemovalDialog,
+    icon_image,
+)
 from app.ui.tree_picker import TreePicker
 
 
@@ -56,6 +63,11 @@ def text_labels(root: ft.Control) -> list[str]:
         for control in walk(root)
         if isinstance(control, ft.Text)
     ]
+
+
+def select_reference(picker: IconPicker, key: str = "opening") -> None:
+    picker.ai_reference.value = key
+    picker._reference_changed(ft.Event(name="select", control=picker.ai_reference))
 
 
 def images(control: ft.Control) -> list[ft.Image]:
@@ -94,6 +106,7 @@ def test_new_generated_icon_scales_and_themes_without_changing_existing(
         assert bounds is not None
         assert 78 <= max(bounds[2] - bounds[0], bounds[3] - bounds[1]) <= 82
     picker = IconPicker(MagicMock(spec=ft.Page), "en", saved, AsyncMock())
+    select_reference(picker)
     assert picker.reference_preview is not None
     assert isinstance(picker.reference_preview.content, ft.Image)
     assert picker.reference_preview.content.src == displayed.src
@@ -118,6 +131,7 @@ def test_builtin_reference_preview_matches_selected_theme_treatment(
 ) -> None:
     current = next(icon for icon in bundled_icons(query) if f" · {collection}:" in icon.source)
     picker = IconPicker(MagicMock(spec=ft.Page), "en", current, AsyncMock())
+    select_reference(picker)
     assert picker.reference_preview is not None
     assert isinstance(picker.reference_preview.content, ft.Image)
     displayed = icon_image(current)
@@ -1347,8 +1361,9 @@ def test_picker_selection_panel_tracks_draft_and_keeps_original_reference(
             isinstance(control, ft.Text) and control.value == picker.tr("icon_selected")
             for control in walk(picker)
         )
-        assert picker.ai_reference_tile.title == picker.tr("icon_ai_reference")
-        assert picker.ai_reference_tile.subtitle == picker.tr("icon_ai_reference_hint")
+        assert picker.ai_reference.label == picker.tr("icon_ai_reference")
+        assert picker.ai_reference.helper_text == picker.tr("icon_ai_reference_hint")
+        select_reference(picker)
         assert picker.reference_preview is not None
         assert isinstance(picker.reference_preview.content, ft.Image)
         picker._select(candidate)
@@ -1488,7 +1503,7 @@ def test_ai_generation_uses_selected_model_and_saves_only_after_review(
         prompt = requests[0]["prompt"]
         assert requests[0]["model"] == "gpt-image-2.5-flare"
         assert "images" not in requests[0]
-        assert picker.ai_reference_row.visible and not picker.ai_reference.value
+        assert picker.ai_reference.visible and picker.ai_reference.value == "none"
         assert (
             "Material Icons" in prompt and "explicit style instructions take precedence" in prompt
         )
@@ -1623,6 +1638,7 @@ def test_mixed_generated_icon_setting_persists_across_picker_and_finance(
             assert displayed[1].color == ft.Colors.ON_SURFACE
             assert displayed[1].exclude_from_semantics
         reference = IconPicker(session.page, "en", saved, AsyncMock())
+        select_reference(reference)
         assert reference.reference_preview is not None
         assert [image.src for image in images(reference.reference_preview)] == [
             image.src for image in displayed
@@ -1665,8 +1681,9 @@ def test_adaptation_failure_keeps_previous_icon(
 
 
 @pytest.mark.parametrize("vector", [False, True])
+@pytest.mark.parametrize("other_category", [False, True], ids=["opening", "other-category"])
 def test_ai_reference_is_opt_in_and_preserves_original_provenance(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, vector: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, vector: bool, other_category: bool
 ) -> None:
     async def scenario() -> None:
         session, _view, _journal = await finance_session(tmp_path, monkeypatch)
@@ -1691,17 +1708,25 @@ def test_ai_reference_is_opt_in_and_preserves_original_provenance(
             return_value=GeneratedImage(generated_raster(), "image/png")
         )
         monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
-        picker = IconPicker(session.page, "en", original, AsyncMock(), ai_settings=lambda: settings)
+        picker = IconPicker(
+            session.page,
+            "en",
+            None if other_category else original,
+            AsyncMock(),
+            ai_settings=lambda: settings,
+            reference_icons=[IconReference("Other category", "Expenses:Other", original)],
+        )
         monkeypatch.setattr(picker.body, "scroll_to", AsyncMock())
         show_dialog(session.page, picker)
         assert picker.ai_load_task is not None
         await asyncio.wrap_future(picker.ai_load_task)
+        assert picker.reference_preview is None and picker.reference is None
+        assert picker.ai_reference.value == "none"
+        picker.selected = asset("Another candidate")
+        select_reference(picker, "assigned:Expenses:Other" if other_category else "opening")
         assert picker.reference_preview is not None
         assert isinstance(picker.reference_preview.content, ft.Image)
         assert picker.reference_preview.content.src == original.data
-        assert not picker.ai_reference.value
-        picker.selected = asset("Another candidate")
-        picker.ai_reference.value = True
         picker.ai_prompt.value = "Add an X"
         await click_async(picker.ai_generate)
         args, kwargs = service.generate_image.await_args
@@ -1709,7 +1734,11 @@ def test_ai_reference_is_opt_in_and_preserves_original_provenance(
         assert "reference icon" in args[0]
         assert "requested changes take precedence" in args[0]
         assert "thick, bold strokes over fine lines" in args[0]
+        assert "Other category" not in args[0] and "Expenses:Other" not in args[0]
         if vector:
+            capture.assert_awaited_once_with(pixel_ratio=3.0)
+            assert capture.await_args is not None
+            assert isinstance(capture.await_args.kwargs["pixel_ratio"], float)
             with Image.open(BytesIO(kwargs["reference_image"])) as sent:
                 assert sent.getpixel((40, 40)) == (0, 0, 0, 128)
                 assert sent.getchannel("A").getpixel((0, 0)) == 0
@@ -1736,8 +1765,59 @@ def test_ai_reference_option_absent_without_existing_icon(
     async def scenario() -> None:
         session, _view, _journal = await finance_session(tmp_path, monkeypatch)
         picker = IconPicker(session.page, "en", None, AsyncMock())
-        assert not picker.ai_reference_row.visible
+        assert not picker.ai_reference.visible
         assert picker.reference_preview is None
+
+    asyncio.run(scenario())
+
+
+def test_reference_choices_use_assigned_entity_names_and_leave_the_draft_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        view.icons = store_at(tmp_path)
+        await view.icons.load()
+        category, account = journal.ledger.categories[0], journal.ledger.accounts[0]
+        original, other = asset("Opening"), asset("Other")
+        await view.icons.assign(category.id, original, ())
+        await view.icons.assign(account.id, other, ())
+        records = dict(view.icons.records)
+        source = journal.source
+        view._open_icon_picker(journal, category.id)
+        picker = session.page._dialogs.controls[-1]
+        assert isinstance(picker, IconPicker)
+        key = f"assigned:{account.id}"
+        option = next(option for option in picker.ai_reference.options if option.key == key)
+        assert option.text == f"{account.name} · {account.id}"
+        assert f"assigned:{category.id}" not in picker.references
+        assert picker.reference is None and picker.ai_reference.value == "none"
+        picker.ai_reference.value = key
+        await session.dispatch_event(picker.ai_reference._i, "select", key)
+        assert picker.reference == other and picker.selected == original
+        assert picker.reference_preview is not None
+        assert images(picker.reference_preview)[0].src == other.data
+        select_reference(picker, "none")
+        assert picker.reference is None and picker.reference_preview is None
+        assert picker.ai_reference.leading_icon is None
+        assert picker.selected == original and view.icons.records == records
+        assert journal.source == source
+        click(picker.cancel)
+
+        view._create_category(MagicMock())
+        parent = session.page._dialogs.controls[-1]
+        assert isinstance(parent, ft.AlertDialog)
+        draft = next(control for control in walk(parent) if isinstance(control, IconDraft))
+        click(draft.choose_button)
+        creation = session.page._dialogs.controls[-1]
+        assert isinstance(creation, IconPicker)
+        assert creation.selected is None and creation.ai_reference.visible
+        assert f"assigned:{category.id}" in creation.references
+        select_reference(creation, f"assigned:{category.id}")
+        assert creation.reference == original and creation.selected is None
+        click(creation.cancel)
+        click(action(parent, 0))
+        assert view.icons.records == records and journal.source == source
 
     asyncio.run(scenario())
 
@@ -1767,14 +1847,14 @@ def test_ai_reference_preparation_failure_never_sends_or_replaces(
         show_dialog(session.page, picker)
         assert picker.ai_load_task is not None
         await asyncio.wrap_future(picker.ai_load_task)
-        picker.ai_reference.value = True
+        select_reference(picker)
         picker.ai_prompt.value = "Redraw"
         await click_async(picker.ai_generate)
         service.generate_image.assert_not_called()
         assert picker.selected == original
         assert picker.ai_status.value
         assert picker.ai_feedback.label == picker.ai_status.value
-        assert not picker.busy and not picker.ai_reference_tile.disabled
+        assert not picker.busy and not picker.ai_reference.disabled
         session.page.pop_dialog()
 
     asyncio.run(scenario())
@@ -1803,11 +1883,11 @@ def test_ai_reference_capture_can_be_cancelled(
         show_dialog(session.page, picker)
         assert picker.ai_load_task is not None
         await asyncio.wrap_future(picker.ai_load_task)
-        picker.ai_reference.value = True
+        select_reference(picker)
         picker.ai_prompt.value = "Redraw"
         task = asyncio.create_task(click_async(picker.ai_generate))
         await started.wait()
-        assert picker.ai_reference.disabled and picker.ai_reference_tile.disabled
+        assert picker.ai_reference.disabled
         click(picker.ai_cancel)
         await task
         service.generate_image.assert_not_called()
@@ -1840,7 +1920,7 @@ def test_ai_reference_capture_timeout_reports_error(
         show_dialog(session.page, picker)
         assert picker.ai_load_task is not None
         await asyncio.wrap_future(picker.ai_load_task)
-        picker.ai_reference.value = True
+        select_reference(picker)
         picker.ai_prompt.value = "Redraw"
         await click_async(picker.ai_generate)
         service.generate_image.assert_not_called()

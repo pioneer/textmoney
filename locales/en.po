@@ -168,10 +168,16 @@ msgid "ui.icon_ai_notice"
 msgstr "Your description and app instructions are sent to your AI provider and may incur charges."
 
 msgid "ui.icon_ai_reference"
-msgstr "Use the icon from when this picker opened as a reference"
+msgstr "Reference icon (optional)"
 
 msgid "ui.icon_ai_reference_hint"
-msgstr "Sent to the provider only if checked."
+msgstr "Sent to the provider only when an icon is selected."
+
+msgid "ui.icon_ai_reference_none"
+msgstr "No reference"
+
+msgid "ui.icon_ai_reference_opening"
+msgstr "Icon when this dialog opened"
 
 msgid "ui.icon_ai_reference_source"
 msgstr "Reference icon source and license"

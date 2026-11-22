@@ -107,8 +107,9 @@ For example, January's monthly `100 USD` allocates
 value. Budget, spent and remaining amounts do not expose the unrounded calculation
 values as hover/long-press hints; the underlying arithmetic is unchanged.
 
-The monthly overview shows **Budget**, **Spent**, **Remaining**, percentage used
-and expense overspending, separately for each currency. Budget rows do not expand
+The monthly overview shows **Budget**, **Spent**, either **Remaining** or
+**Overspent**, percentage used and expense overspending, separately for each
+currency. Budget rows do not expand
 or collapse. The transactions icon in the card's action row opens contributing
 transactions; nested budgeted categories remain visible with indentation. Figures include
 subcategories; there is no separate **Excluding subcategories** subitem.

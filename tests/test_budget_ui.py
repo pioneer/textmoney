@@ -901,6 +901,37 @@ def test_budget_report_non_expanding_rows_have_transaction_actions(
     asyncio.run(scenario())
 
 
+def test_budget_overspending_replaces_remaining_label(
+    view: tuple[FinanceView, MagicMock], tmp_path: Path
+) -> None:
+    async def scenario() -> None:
+        host, _ = view
+        host.language = "uk"
+        journal = await load(host, tmp_path)
+
+        def values() -> list[str]:
+            return [
+                item.value
+                for item in walk(host.budgets.results)
+                if isinstance(item, ft.Text) and isinstance(item.value, str)
+            ]
+
+        texts = values()
+        assert f"{host.tr('budget_overspent')}: {host.budgets._number(Decimal(2), 'USD')}" in texts
+        assert not any(text.startswith(f"{host.tr('budget_remaining')}:") for text in texts)
+
+        journal.ledger = replace(
+            journal.ledger,
+            budgets=(replace(journal.ledger.budgets[0], amount=Decimal(20)),),
+        )
+        await host.budgets.refresh()
+        texts = values()
+        assert f"{host.tr('budget_remaining')}: {host.budgets._number(Decimal(8), 'USD')}" in texts
+        assert not any(text.startswith(f"{host.tr('budget_overspent')}:") for text in texts)
+
+    asyncio.run(scenario())
+
+
 def test_reports_hide_automatic_parent_totals_and_unbudgeted_categories(
     view: tuple[FinanceView, MagicMock], tmp_path: Path
 ) -> None:

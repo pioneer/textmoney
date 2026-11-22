@@ -808,15 +808,11 @@ class BudgetView(ft.Column):
             )
             actual_text = self._number(actual.get(currency, Decimal(0)), currency)
             remaining_text = (
-                self._number(
-                    Decimal.from_float(
-                        float(budget[currency]) - float(actual.get(currency, Decimal(0)))
-                    ),
-                    currency,
-                )
+                self._number(remaining.copy_abs() if overspent else remaining, currency)
                 if remaining is not None
                 else tr("budget_missing")
             )
+            remaining_label = tr("budget_overspent" if overspent else "budget_remaining")
             lines: list[ft.Control] = [
                 ft.Text(
                     f"{tr('budget_planned')}: {planned_text}",
@@ -827,7 +823,7 @@ class BudgetView(ft.Column):
                     selectable=not self.host._mobile_item_actions,
                 ),
                 ft.Text(
-                    f"{tr('budget_remaining')}: {remaining_text}",
+                    f"{remaining_label}: {remaining_text}",
                     color=ft.Colors.ERROR if overspent else None,
                     selectable=not self.host._mobile_item_actions,
                 ),
@@ -851,15 +847,6 @@ class BudgetView(ft.Column):
                 )
             elif currency in budget:
                 lines.append(ft.Text(tr("budget_zero_progress"), size=12))
-            if overspent:
-                assert remaining is not None
-                lines.append(
-                    ft.Text(
-                        f"{tr('budget_overspent')}: {self._number(remaining.copy_abs(), currency)}",
-                        color=ft.Colors.ERROR,
-                        selectable=not self.host._mobile_item_actions,
-                    )
-                )
             controls.append(
                 ft.Column(
                     [

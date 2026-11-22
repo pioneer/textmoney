@@ -638,7 +638,7 @@ msgid "ui.budget_zero_progress"
 msgstr "Нульовий бюджет: відсоток не визначено."
 
 msgid "ui.budget_overspent"
-msgstr "Перевитрата"
+msgstr "Перевищено"
 
 msgid "ui.budget_missing"
 msgstr "Бюджету немає"

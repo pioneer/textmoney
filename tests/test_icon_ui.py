@@ -20,6 +20,7 @@ from form_controls import (
     transaction_form,
 )
 from PIL import Image, ImageDraw
+from popup_keyboard import SearchSuggestionsKeyboard
 from test_ai import FakeCredentials
 from test_daily_summary import walk
 from test_dialog_keyboard import finance_session, press
@@ -47,6 +48,14 @@ from app.ui.dialogs import show_dialog
 from app.ui.finance import FinanceView
 from app.ui.icons import IconDraft, IconField, IconPicker, IconRemovalDialog, icon_image
 from app.ui.tree_picker import TreePicker
+
+
+def text_labels(root: ft.Control) -> list[str]:
+    return [
+        (control.value or "") + "".join(span.text or "" for span in control.spans or [])
+        for control in walk(root)
+        if isinstance(control, ft.Text)
+    ]
 
 
 def images(control: ft.Control) -> list[ft.Image]:
@@ -297,7 +306,7 @@ def test_edit_entity_shows_current_icon_and_tracks_picker_changes(
             for item in (*journal.ledger.accounts, *journal.ledger.categories)
             if item.id == identifier
         )
-        labels = [control.value for control in walk(picker) if isinstance(control, ft.Text)]
+        labels = text_labels(picker)
         assert (
             f"{view.tr('category_name' if kind == 'category' else 'account_name')}: {item.name}"
             in labels
@@ -531,13 +540,24 @@ def test_creation_icon_is_a_draft_until_entity_is_saved_and_survives_reload(
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
         assert picker.ai_settings == view.ai_settings
-        labels = [control.value for control in walk(picker) if isinstance(control, ft.Text)]
+        labels = text_labels(picker)
         category = kind not in {"asset", "liability"}
         assert view.tr("icon_target_draft") in labels
         name_label = view.tr("category_name" if category else "account_name")
         name = "New category" if category else "New account"
         assert f"{name_label}: {name}" in labels
         assert f"{view.tr('category_path' if category else 'account_code')}: {identifier}" in labels
+        target_values = [
+            span
+            for control in walk(picker)
+            if isinstance(control, ft.Text)
+            for span in control.spans or []
+        ]
+        assert [span.text for span in target_values] == [name, identifier]
+        assert all(
+            span.style is not None and span.style.weight == ft.FontWeight.BOLD
+            for span in target_values
+        )
         selected = bundled_icons("bank")[0]
         picker._select(selected)
         await session.dispatch_event(picker.search._i, "focus", {})
@@ -601,7 +621,7 @@ def test_creation_picker_shows_current_values_and_empty_fields(
         click(draft.choose_button)
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
-        labels = [control.value for control in walk(picker) if isinstance(control, ft.Text)]
+        labels = text_labels(picker)
         name_label = view.tr("category_name" if category else "account_name")
         code_label = view.tr("category_path" if category else "account_code")
         assert f"{name_label}: {view.tr('icon_target_empty')}" in labels
@@ -613,7 +633,7 @@ def test_creation_picker_shows_current_values_and_empty_fields(
         click(draft.choose_button)
         picker = session.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
-        labels = [control.value for control in walk(picker) if isinstance(control, ft.Text)]
+        labels = text_labels(picker)
         assert f"{name_label}: Updated draft" in labels
         assert f"{code_label}: Parent:Child" in labels
         click(picker.cancel)
@@ -1163,9 +1183,12 @@ def test_picker_search_uses_bundled_catalogue_without_online_action(
     async def scenario() -> None:
         session, _view, _journal = await finance_session(tmp_path, monkeypatch)
         picker = IconPicker(session.page, "en", None, AsyncMock())
+        monkeypatch.setattr(picker.search, "open_view", AsyncMock())
         assert len(picker.results.controls) == 100
-        assert picker.results in picker.search.controls
-        assert picker.results_limit in picker.search.controls
+        assert isinstance(picker.search.controls[-1], SearchSuggestionsKeyboard)
+        assert picker.search.controls[-1].content is picker.results
+        assert isinstance(picker.search.controls[0], ft.Container)
+        assert picker.search.controls[0].content is picker.results_limit
         assert picker.search.view_size_constraints == ft.BoxConstraints(max_height=320)
         assert not any(
             "online" in (control.value or "").casefold()
@@ -1173,13 +1196,14 @@ def test_picker_search_uses_bundled_catalogue_without_online_action(
             if isinstance(control, ft.Text)
         )
         picker.search.value = "банк"
-        picker._local(MagicMock(control=picker.search))
+        await picker._local(MagicMock(control=picker.search))
         assert picker.results.controls[0].data == bundled_icons("банк")[0]
         picker.search.value = "nothing-matches-this-icon-query"
-        picker._local(MagicMock(control=picker.search))
+        await picker._local(MagicMock(control=picker.search))
         assert len(picker.results.controls) == 1
-        assert isinstance(picker.results.controls[0], ft.Text)
-        assert picker.results.controls[0].value == picker.tr("icon_no_results")
+        message = picker.results.controls[0]
+        assert isinstance(message, ft.Container) and isinstance(message.content, ft.Text)
+        assert message.content.value == picker.tr("icon_no_results")
 
     asyncio.run(scenario())
 
@@ -1197,12 +1221,81 @@ def test_picker_search_finds_previously_assigned_icons(
         view._open_icon_picker(journal, "Assets:Bank")
         picker = view.page._dialogs.controls[-1]
         assert isinstance(picker, IconPicker)
+        monkeypatch.setattr(picker.search, "open_view", AsyncMock())
         picker.search.value = "monobank"
-        picker._local(MagicMock(control=picker.search))
+        await picker._local(MagicMock(control=picker.search))
         assert any(
             isinstance(control, ft.TextButton) and control.data == legacy
             for control in picker.results.controls
         )
+
+    asyncio.run(scenario())
+
+
+def test_search_typing_republishes_live_suggestions_without_changing_selection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        selected = asset()
+        persist = AsyncMock()
+        picker = IconPicker(session.page, "en", selected, persist)
+        show_dialog(session.page, picker)
+        open_view = AsyncMock()
+        monkeypatch.setattr(picker.search, "open_view", open_view)
+        for query in ("h", "ho", "hom", "home", "globe", "nothing-matches-this-icon-query", ""):
+            previous_suggestions = picker.results
+            picker.search.value = query
+            await session.dispatch_event(picker.search._i, "change", query)
+            open_view.assert_awaited_once()
+            open_view.reset_mock()
+            assert picker.results is not previous_suggestions
+            assert isinstance(picker.search.controls[-1], SearchSuggestionsKeyboard)
+            assert picker.search.controls[-1].content is picker.results
+            expected = bundled_icons(query)
+            candidates = [
+                control.data
+                for control in picker.results.controls
+                if isinstance(control, ft.TextButton)
+            ]
+            assert candidates == expected
+            if query == "home":
+                assert candidates[0].label == "outline-home"
+            if not expected:
+                message = picker.results.controls[0]
+                assert isinstance(message, ft.Container) and isinstance(message.content, ft.Text)
+                assert message.content.value == picker.tr("icon_no_results")
+            assert picker.selected == selected
+            assert picker.open
+            persist.assert_not_awaited()
+        picker.busy = True
+        previous_suggestions = picker.results
+        picker.search.value = "bank"
+        await session.dispatch_event(picker.search._i, "change", "bank")
+        assert picker.results is previous_suggestions
+        open_view.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+
+def test_search_view_open_failure_preserves_selection_and_propagates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        selected = asset()
+        persist = AsyncMock()
+        picker = IconPicker(session.page, "en", selected, persist)
+        show_dialog(session.page, picker)
+        monkeypatch.setattr(
+            picker.search, "open_view", AsyncMock(side_effect=RuntimeError("view open failed"))
+        )
+        picker.search.value = "home"
+        with pytest.raises(RuntimeError, match="view open failed"):
+            await picker._local(ft.Event(name="change", control=picker.search))
+        assert picker.results.controls[0].data.label == "outline-home"
+        assert picker.selected == selected and picker.open and not picker.busy
+        persist.assert_not_awaited()
 
     asyncio.run(scenario())
 

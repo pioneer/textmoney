@@ -10,6 +10,7 @@ from io import BytesIO
 
 import flet as ft
 from PIL import Image
+from popup_keyboard import SearchSuggestionsKeyboard
 
 from app.domain.storage import ConflictError
 from app.icons import (
@@ -328,7 +329,7 @@ class IconPicker(ft.AlertDialog):
             bar_hint_text=self.tr("icon_search"),
             view_hint_text=self.tr("icon_search"),
             bar_leading=ft.Icon(ft.Icons.SEARCH),
-            controls=[self.results_limit, self.results],
+            controls=[],
             view_size_constraints=ft.BoxConstraints(max_height=320),
             autofocus=True,
             on_tap=self._open_search,
@@ -432,9 +433,23 @@ class IconPicker(ft.AlertDialog):
                 details.append(ft.Text(self.tr("icon_target_draft"), size=12))
             details.extend(
                 [
-                    ft.Text(f"{name_label}: {target.name.strip() or self.tr('icon_target_empty')}"),
                     ft.Text(
-                        f"{code_label}: {target.code.strip() or self.tr('icon_target_empty')}",
+                        f"{name_label}: ",
+                        spans=[
+                            ft.TextSpan(
+                                target.name.strip() or self.tr("icon_target_empty"),
+                                style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+                            )
+                        ],
+                    ),
+                    ft.Text(
+                        f"{code_label}: ",
+                        spans=[
+                            ft.TextSpan(
+                                target.code.strip() or self.tr("icon_target_empty"),
+                                style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+                            )
+                        ],
                         size=12,
                     ),
                 ]
@@ -532,7 +547,7 @@ class IconPicker(ft.AlertDialog):
         self.remove.disabled = asset is None
 
     def _show(self, assets: list[IconAsset]) -> None:
-        self.results.controls = [
+        controls: list[ft.Control] = [
             ft.TextButton(
                 content=ft.Row(
                     [icon_image(asset), ft.Text(asset.label, expand=True)],
@@ -543,7 +558,21 @@ class IconPicker(ft.AlertDialog):
                 on_click=self._choose,
             )
             for asset in assets
-        ] or [ft.Text(self.tr("icon_no_results"))]
+        ] or [
+            ft.Container(
+                ft.Text(self.tr("icon_no_results")),
+                padding=ft.Padding.only(left=12, right=12, bottom=12),
+            )
+        ]
+        # The open search route refreshes when the SearchBar's suggestions change.
+        self.results = ft.Column(controls, spacing=4)
+        self.search.controls = [
+            ft.Container(
+                self.results_limit,
+                padding=ft.Padding.only(left=12, top=8, right=12, bottom=4),
+            ),
+            SearchSuggestionsKeyboard(self.results),
+        ]
 
     async def _open_search(self, event: ft.Event[ft.SearchBar]) -> None:
         if not self.busy:
@@ -572,12 +601,13 @@ class IconPicker(ft.AlertDialog):
         self._selection()
         self.owner.update()
 
-    def _local(self, event: ft.Event[ft.SearchBar]) -> None:
+    async def _local(self, event: ft.Event[ft.SearchBar]) -> None:
         if not self.busy:
             self.status.value = ""
             self._feedback()
             self._show(search_icons(self.search.value or "", self.existing_icons))
             self.owner.update()
+            await self.search.open_view()
 
     async def _run(self, action: Callable[[], Awaitable[None]], *, private: bool = False) -> None:
         if self.busy:

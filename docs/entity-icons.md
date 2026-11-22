@@ -25,6 +25,12 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
   proportion checks. Search recognizes icon names, collection aliases, categories,
   and common English, Ukrainian and Russian category terms; up to 100 matches are
   shown in the search dropdown. Icons already assigned to accounts or categories are included too.
+  Typing in the focused search bar opens the suggestions without an extra tap.
+  Suggestions refresh as you type, including when deleting or clearing the query;
+  no Enter press is needed. Searching does not change the selected icon.
+  Up/Down moves native keyboard focus through the suggestions (scrolling the
+  focused item into view); Enter chooses that icon without saving the dialog.
+  The target name/code values are bold, and dropdown messages have inset padding.
   Search stays on the device.
 - **Import image** uses Flet's file picker with `with_data=True`, including on
   Android; imported bytes are not treated as filesystem paths. Users must have

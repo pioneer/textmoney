@@ -27,3 +27,8 @@ class CategoryMenuConnector(ft.Container):
 @ft.control("PopupMenuBackScope")
 class PopupMenuBackScope(ft.Container):
     """Dismiss an open dropdown before its Android dialog."""
+
+
+@ft.control("SearchSuggestionsKeyboard")
+class SearchSuggestionsKeyboard(ft.Container):
+    """Navigate search suggestions with native focus, scoped to their route."""

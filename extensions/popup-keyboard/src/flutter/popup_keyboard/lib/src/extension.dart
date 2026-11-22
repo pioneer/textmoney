@@ -7,10 +7,17 @@ import 'category_menu_bounds.dart';
 import 'category_menu_connector.dart';
 import 'popup_keyboard_scope.dart';
 import 'popup_menu_back_scope.dart';
+import 'search_suggestions_keyboard.dart';
 
 class Extension extends FletExtension {
   @override
   Widget? createWidget(Key? key, Control control) {
+    if (control.type == 'SearchSuggestionsKeyboard') {
+      return SearchSuggestionsKeyboard(
+        key: key,
+        child: ContainerControl(control: control),
+      );
+    }
     if (control.type == 'CategoryMenuConnector') {
       return LayoutControl(
         key: key,

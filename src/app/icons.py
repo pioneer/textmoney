@@ -7,7 +7,7 @@ import json
 import math
 import re
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Protocol
 from xml.etree import ElementTree as ET
@@ -135,11 +135,19 @@ def normalize_image(data: bytes) -> tuple[bytes, bool]:
         raise IconError("icon_format") from exc
 
 
-def normalize_generated_image(data: bytes) -> tuple[bytes, bool]:
+def normalize_generated_image(
+    data: bytes, *, require_transparency: bool = False
+) -> tuple[bytes, bool]:
     """Fit transparent generated artwork and mark single-tone neutral art for theming."""
+    original_data = data
     data, vector = normalize_image(data)
     if vector:
         raise IconError("icon_format")
+    if require_transparency:
+        with Image.open(io.BytesIO(original_data)) as original:
+            opacity = original.convert("RGBA").tobytes()[3::4]
+        if min(opacity) > 16 or max(opacity) < 64:
+            raise IconError("icon_ai_adaptation_error")
     with Image.open(io.BytesIO(data)) as original:
         image = original.convert("RGBA")
     rgba = image.tobytes()
@@ -169,6 +177,39 @@ def normalize_generated_image(data: bytes) -> tuple[bytes, bool]:
     return output.getvalue(), monochrome
 
 
+def _adaptive_layers(data: bytes) -> tuple[bytes, bytes] | None:
+    normalized, vector = normalize_image(data)
+    if vector:
+        raise IconError("icon_ai_adaptation_error")
+    with Image.open(io.BytesIO(normalized)) as original:
+        image = original.convert("RGBA")
+    alpha = image.getchannel("A")
+    if min(image.tobytes()[3::4]) > 16 or alpha.getbbox() is None:
+        raise IconError("icon_ai_adaptation_error")
+    fixed = bytearray(image.tobytes())
+    neutral = bytearray(len(fixed))
+    has_neutral = False
+    for index in range(0, len(fixed), 4):
+        red, green, blue, opacity = fixed[index : index + 4]
+        chroma = max(red, green, blue) - min(red, green, blue)
+        weight = max(0.0, min(1.0, (48 - chroma) / 24))
+        mask_alpha = round(opacity * weight)
+        neutral[index + 3] = mask_alpha
+        has_neutral |= mask_alpha > 0
+        # The two overlaid layers must retain the original combined opacity.
+        fixed[index + 3] = (
+            round(255 * (opacity - mask_alpha) / (255 - mask_alpha)) if mask_alpha < 255 else 0
+        )
+    if not has_neutral:
+        return None
+    layers = []
+    for pixels in (fixed, neutral):
+        output = io.BytesIO()
+        Image.frombytes("RGBA", image.size, bytes(pixels)).save(output, format="PNG")
+        layers.append(output.getvalue())
+    return layers[0], layers[1]
+
+
 @dataclass(frozen=True)
 class IconAsset:
     label: str
@@ -179,6 +220,16 @@ class IconAsset:
     attribution: str
     license_url: str = ""
     license_text: str = ""
+    adaptive_neutrals: bool = False
+    adaptive_layers: tuple[bytes, bytes] | None = field(
+        init=False, default=None, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        if self.adaptive_neutrals:
+            if self.monochrome:
+                raise IconError("icon_records_invalid")
+            object.__setattr__(self, "adaptive_layers", _adaptive_layers(self.data))
 
     def serialize(self) -> dict[str, object]:
         return {
@@ -190,11 +241,12 @@ class IconAsset:
             "attribution": self.attribution,
             "license_url": self.license_url,
             "license_text": self.license_text,
+            **({"adaptive_neutrals": True} if self.adaptive_neutrals else {}),
         }
 
     @classmethod
     def parse(cls, value: object) -> "IconAsset":
-        if not isinstance(value, dict) or set(value) != {
+        if not isinstance(value, dict) or set(value) - {"adaptive_neutrals"} != {
             "label",
             "data",
             "monochrome",
@@ -207,6 +259,7 @@ class IconAsset:
             raise IconError("icon_records_invalid")
         if (
             type(value["monochrome"]) is not bool
+            or type(value.get("adaptive_neutrals", False)) is not bool
             or any(
                 not isinstance(value[key], str) or len(value[key]) > 32768
                 for key in (
@@ -226,16 +279,20 @@ class IconAsset:
         except ValueError as exc:
             raise IconError("icon_records_invalid") from exc
         normalized, _ = normalize_image(data)
-        return cls(
-            value["label"],
-            normalized,
-            value["monochrome"],
-            value["source"],
-            value["license"],
-            value["attribution"],
-            value["license_url"],
-            value["license_text"],
-        )
+        try:
+            return cls(
+                value["label"],
+                normalized,
+                value["monochrome"],
+                value["source"],
+                value["license"],
+                value["attribution"],
+                value["license_url"],
+                value["license_text"],
+                value.get("adaptive_neutrals", False),
+            )
+        except IconError as exc:
+            raise IconError("icon_records_invalid") from exc
 
 
 class IconFiles(Protocol):

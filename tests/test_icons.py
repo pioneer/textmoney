@@ -7,10 +7,17 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from app.domain.storage import ConflictError
-from app.icons import MAX_INPUT, IconAsset, IconError, IconStore, normalize_image
+from app.icons import (
+    MAX_INPUT,
+    IconAsset,
+    IconError,
+    IconStore,
+    normalize_generated_image,
+    normalize_image,
+)
 from app.infrastructure.android_storage import AndroidFolder
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.icon_files import AndroidIconFiles, DesktopIconFiles
@@ -112,6 +119,51 @@ def test_svg_scalability_and_asset_license_roundtrip() -> None:
     assert IconAsset.parse(original.serialize()) == original
     with pytest.raises(IconError):
         IconAsset.parse({"data": "invalid"})
+
+
+def test_adaptive_layers_preserve_accents_opacity_and_legacy_assets() -> None:
+    image = Image.new("RGBA", (96, 96))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((20, 20, 40, 40), fill=(230, 10, 20, 255))
+    draw.rectangle((20, 50, 70, 70), fill=(35, 35, 35, 255))
+    image.putpixel((19, 60), (35, 35, 35, 128))
+    image.putpixel((19, 20), (60, 30, 30, 128))
+    output = io.BytesIO()
+    image.save(output, format="PNG")
+    original = IconAsset("Mixed", output.getvalue(), False, "AI", "Unverified", "Credit")
+    adapted = IconAsset(
+        "Mixed", original.data, False, "AI", "Unverified", "Credit", adaptive_neutrals=True
+    )
+    reloaded = IconAsset.parse(adapted.serialize())
+    assert reloaded == adapted and reloaded.data == original.data
+    assert reloaded.adaptive_layers is not None
+    fixed_data, mask_data = reloaded.adaptive_layers
+    with Image.open(io.BytesIO(fixed_data)) as fixed, Image.open(io.BytesIO(mask_data)) as mask:
+        assert fixed.getpixel((30, 30)) == (230, 10, 20, 255)
+        assert mask.getpixel((30, 30)) == (0, 0, 0, 0)
+        for foreground in ((230, 230, 230), (30, 30, 30)):
+            tinted = Image.new("RGBA", mask.size, foreground + (0,))
+            tinted.putalpha(mask.getchannel("A"))
+            combined = Image.alpha_composite(fixed, tinted)
+            assert combined.getpixel((30, 60)) == foreground + (255,)
+            assert combined.getpixel((30, 30)) == (230, 10, 20, 255)
+            assert combined.getchannel("A").tobytes() == image.getchannel("A").tobytes()
+    assert IconAsset.parse(original.serialize()).adaptive_layers is None
+    assert "adaptive_neutrals" not in original.serialize()
+
+
+@pytest.mark.parametrize("dimensions", [(96, 96), (48, 96)])
+def test_adaptation_rejects_opaque_art_before_padding(dimensions: tuple[int, int]) -> None:
+    with pytest.raises(IconError, match="icon_ai_adaptation_error"):
+        normalize_generated_image(raster(*dimensions), require_transparency=True)
+
+
+@pytest.mark.parametrize("value", ["true", None, 1])
+def test_invalid_adaptive_asset_flags_are_rejected(value: object) -> None:
+    record = asset().serialize()
+    record["adaptive_neutrals"] = value
+    with pytest.raises(IconError, match="icon_records_invalid"):
+        IconAsset.parse(record)
 
 
 def test_bundled_catalogue_is_licensed_offline_searchable_and_valid() -> None:

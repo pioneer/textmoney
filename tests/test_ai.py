@@ -50,6 +50,15 @@ def test_ai_settings_panel_persists_independent_selections_and_removes_keys(tmp_
         await panel.control.on_change(event)  # type: ignore[misc]
         assert panel.form.visible
         assert panel.key.password and not panel.key.value
+        assert panel.adapt_icons.value is True
+        assert panel.adapt_tile.toggle_inputs
+        assert panel.adapt_icons.semantics_label == translate("en", "ai_adapt_icons")
+        assert panel.adapt_icons.on_change is not None
+        panel.adapt_icons.value = False
+        changed = ft.Event(name="change", control=panel.adapt_icons, data=False)
+        await panel.adapt_icons.on_change(changed)  # type: ignore[misc]
+        assert not await settings.adapt_generated_icons()
+        assert panel.adapt_icons.value is False
 
         assert panel.save.on_click is not None and panel.remove.on_click is not None
         for key in ("test-first-key", "test-replacement-key"):
@@ -72,6 +81,7 @@ def test_ai_settings_panel_persists_independent_selections_and_removes_keys(tmp_
             await dropdown.on_select(ft.Event(name="select", control=dropdown))  # type: ignore[misc]
 
         reopened = AISettings(DesktopPreferences(preferences.path), credentials)
+        assert not await reopened.adapt_generated_icons()
         assert (await reopened.resolve(Capability.GENERATE))[1] == "test-replacement-key"
         assert await reopened.selection(Capability.UNDERSTAND) == selections[Capability.UNDERSTAND]
         await panel.remove.on_click(ft.Event(name="click", control=panel.remove))  # type: ignore[misc]
@@ -80,6 +90,36 @@ def test_ai_settings_panel_persists_independent_selections_and_removes_keys(tmp_
         with pytest.raises(AIError, match="ai_key_missing"):
             await reopened.resolve(Capability.GENERATE)
         assert "test-" not in preferences.path.read_text()
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("value", ["invalid", "", True])
+def test_invalid_adaptation_preference_is_not_silently_defaulted(tmp_path, value):
+    from unittest.mock import AsyncMock
+
+    preferences = AsyncMock()
+    preferences.get.return_value = value
+    settings = AISettings(preferences, FakeCredentials())
+    with pytest.raises(AIError, match="ai_settings_error"):
+        asyncio.run(settings.adapt_generated_icons())
+
+
+def test_adaptation_setting_save_failure_restores_previous_value(tmp_path, caplog):
+    from unittest.mock import AsyncMock
+
+    settings = AISettings(DesktopPreferences(tmp_path / "settings.json"), FakeCredentials())
+    panel = AISettingsPanel(lambda key: translate("en", key), lambda: settings)
+
+    async def exercise():
+        await panel._load(ft.Event(name="change", control=panel.control))
+        assert panel.adapt_icons.value is True
+        settings.preferences.set = AsyncMock(return_value=False)
+        panel.adapt_icons.value = False
+        await panel._adaptation_changed(ft.Event(name="change", control=panel.adapt_icons))
+        assert panel.adapt_icons.value is True
+        assert panel.status.value == translate("en", "ai_settings_error")
+        assert "code=ai_settings_error" in caplog.text
 
     asyncio.run(exercise())
 

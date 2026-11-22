@@ -187,7 +187,9 @@ def test_many_budget_preview_ranks_all_budgets_and_has_noninteractive_omitted_co
     async def scenario() -> None:
         host, page = view
         page.width = width
-        monkeypatch.setattr(host, "_entity_icon", lambda _: ft.Container(width=24, height=24))
+        monkeypatch.setattr(
+            host, "_entity_icon", lambda _, size=24: ft.Container(width=size, height=size)
+        )
         await load(host, tmp_path, many_budgets_source(overspent))
         host._apply_layout(width)
         summary = host.home_budgets.summary

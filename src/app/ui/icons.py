@@ -47,6 +47,13 @@ _REFERENCE_PROMPT = (
     "preserving its recognizable features unless the user asks otherwise. "
     "The user's requested changes take precedence over the default style instructions.\n"
 )
+_ADAPTIVE_PROMPT = (
+    "The app adapts neutral black, white and gray shapes to its light or dark theme, "
+    "while keeping colored accents fixed. Use simple solid shapes on a genuinely transparent "
+    "background, without a background plate, shadows, gradients or neutral shading needed "
+    "to distinguish details. Keep requested colored accents vivid and distinct from neutral "
+    "structural shapes.\n"
+)
 _CAPTURE_TIMEOUT = 10
 
 _AI_ERRORS = {
@@ -98,7 +105,31 @@ async def _run_icon_action(
         status.value = translate(language, "icon_failed")
 
 
-def icon_image(asset: IconAsset, *, size: int = DISPLAY_SIZE) -> ft.Image:
+def icon_image(asset: IconAsset, *, size: float = DISPLAY_SIZE) -> ft.Image | ft.Stack:
+    if asset.adaptive_layers is not None:
+        fixed, neutral = asset.adaptive_layers
+        return ft.Stack(
+            [
+                ft.Image(
+                    src=fixed,
+                    width=size,
+                    height=size,
+                    fit=ft.BoxFit.CONTAIN,
+                    semantics_label=asset.label,
+                ),
+                ft.Image(
+                    src=neutral,
+                    width=size,
+                    height=size,
+                    fit=ft.BoxFit.CONTAIN,
+                    color=ft.Colors.ON_SURFACE,
+                    exclude_from_semantics=True,
+                ),
+            ],
+            width=size,
+            height=size,
+            tooltip=f"{asset.label} · {asset.license}",
+        )
     return ft.Image(
         src=asset.data,
         width=size,
@@ -335,20 +366,7 @@ class IconPicker(ft.AlertDialog):
             dense=True,
             expand=True,
         )
-        self.reference_preview = (
-            ft.Screenshot(
-                ft.Image(
-                    src=current.data,
-                    width=48,
-                    height=48,
-                    fit=ft.BoxFit.CONTAIN,
-                    color=ft.Colors.ON_SURFACE if current.monochrome else None,
-                    semantics_label=current.label,
-                )
-            )
-            if current
-            else None
-        )
+        self.reference_preview = ft.Screenshot(icon_image(current, size=48)) if current else None
         self.ai_reference_row = ft.Row(
             [self.reference_preview, self.ai_reference_tile] if self.reference_preview else [],
             visible=current is not None,
@@ -663,6 +681,9 @@ class IconPicker(ft.AlertDialog):
 
         async def generate() -> None:
             nonlocal generated
+            settings = settings_factory()
+            adapt = await settings.adapt_generated_icons()
+            prompt = (_ADAPTIVE_PROMPT if adapt else "") + _ICON_PROMPT + description
             reference = self.reference if self.ai_reference.value else None
             attribution = self.tr("icon_ai_rights_notice")
             if reference is not None:
@@ -687,24 +708,26 @@ class IconPicker(ft.AlertDialog):
                 reference_data = await asyncio.to_thread(
                     _validate_reference, reference_data, monochrome=vector and reference.monochrome
                 )
-                image = await AIService(settings_factory()).generate_image(
-                    _REFERENCE_PROMPT + _ICON_PROMPT + description,
+                image = await AIService(settings).generate_image(
+                    _REFERENCE_PROMPT + prompt,
                     reference_image=reference_data,
                 )
             else:
-                image = await AIService(settings_factory()).generate_image(
-                    _ICON_PROMPT + description
-                )
-            data, monochrome = await asyncio.to_thread(normalize_generated_image, image.data)
-            asset = IconAsset(
+                image = await AIService(settings).generate_image(prompt)
+            data, _ = await asyncio.to_thread(
+                normalize_generated_image, image.data, require_transparency=adapt
+            )
+            asset = await asyncio.to_thread(
+                IconAsset,
                 self.tr("icon_ai_generated"),
                 data,
-                monochrome,
+                False,
                 self.tr("icon_ai_generated"),
                 self.tr("icon_ai_rights"),
                 attribution,
                 reference.license_url if reference else "",
                 reference.license_text if reference else "",
+                adaptive_neutrals=adapt,
             )
             self.generated = asset
             self.selected = asset

@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Awaitable, Callable
 
 import flet as ft
@@ -10,6 +11,7 @@ _FUNCTIONS = {
     Capability.GENERATE: "ai_generate",
 }
 _UNSET = "unset"
+logger = logging.getLogger(__name__)
 
 
 class AISettingsPanel:
@@ -22,6 +24,16 @@ class AISettingsPanel:
         self.notice: str | None = None
         self.presence: dict[Provider, bool] = {}
         self.saved: dict[Capability, str] = {}
+        self.adaptation = True
+        self.adapt_icons = ft.Checkbox(value=True, on_change=self._adaptation_changed)
+        self.adapt_title = ft.Text()
+        self.adapt_help = ft.Text()
+        self.adapt_tile = ft.ListTile(
+            title=self.adapt_title,
+            subtitle=self.adapt_help,
+            leading=self.adapt_icons,
+            toggle_inputs=True,
+        )
         self.title = ft.Text(size=18)
         self.help = ft.Text()
         self.status = ft.Text()
@@ -60,6 +72,8 @@ class AISettingsPanel:
                         self.model_status[cap],
                     )
                 ),
+                ft.Divider(),
+                self.adapt_tile,
             ],
             visible=False,
             # ExpansionTile stacks children without spacing; keep the dropdown's
@@ -100,6 +114,12 @@ class AISettingsPanel:
         self.key.disabled = self.busy
         self.save.disabled = self.busy
         self.remove.disabled = self.busy or not has_key
+        self.adapt_title.value = self.tr("ai_adapt_icons")
+        self.adapt_help.value = self.tr("ai_adapt_icons_help")
+        self.adapt_icons.value = self.adaptation
+        self.adapt_icons.semantics_label = self.tr("ai_adapt_icons")
+        self.adapt_icons.disabled = self.busy
+        self.adapt_tile.disabled = self.busy
         for capability, dropdown in self.models.items():
             saved = self.saved.get(capability, "")
             options = [ft.DropdownOption(key=_UNSET, text=self.tr("ai_unconfigured"))]
@@ -132,6 +152,7 @@ class AISettingsPanel:
         try:
             await action(self.settings())
         except AIError as exc:
+            logger.warning("AI settings operation failed (code=%s)", exc.code)
             self.notice = exc.code
         finally:
             self.busy = False
@@ -144,6 +165,8 @@ class AISettingsPanel:
         async def load(settings: AISettings) -> None:
             saved = {capability: await settings.selection(capability) for capability in Capability}
             presence = {provider: await settings.has_key(provider) for provider in Provider}
+            adaptation = await settings.adapt_generated_icons()
+            self.adaptation = adaptation
             self.saved, self.presence, self.available = saved, presence, True
 
         await self._run(load)
@@ -200,3 +223,15 @@ class AISettingsPanel:
             self.notice = "ai_model_saved"
 
         await self._run(select)
+
+    async def _adaptation_changed(self, event: ft.Event[ft.Checkbox]) -> None:
+        if self.busy or not self.available:
+            return
+        enabled = self.adapt_icons.value is True
+
+        async def save(settings: AISettings) -> None:
+            await settings.set_adapt_generated_icons(enabled)
+            self.adaptation = enabled
+            self.notice = "ai_adapt_icons_saved"
+
+        await self._run(save)

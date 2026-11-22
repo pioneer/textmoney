@@ -38,6 +38,13 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
   and errors appear beside this action; a successful result replaces the draft
   in the selected-icon panel and is not saved until Save. Generate again replaces
   that draft only after another successful request.
+  **Settings → AI → Adapt generated icons to the theme** is on by default.
+  It applies to future generations, not imports or existing assignments. Neutral
+  shapes follow the theme foreground while colored accents remain fixed.
+  Turn it off to preserve all original colors, including neutral artwork.
+  Adaptation is heuristic: neutral shading can lose detail and muted colors may
+  be treated as neutral. Opaque or empty results are rejected with an explanation
+  while retaining the previous selection; no automatic paid retry is made.
   The original-reference option appears before the description so the prompt,
   Generate and selected result remain together.
   If the account/category already has an icon (or the creation form has a draft
@@ -94,9 +101,11 @@ assignments are unchanged by display sizing:
   colored logos retain their colors. Newly generated transparent artwork is
   fitted into the same visual footprint as a Material icon; single-tone
   neutral artwork (including slightly warm or cool grays) follows the current
-  theme, keeping it visible on light and dark surfaces. Saturated colored and
-  multitone generated artwork retains its colors. Opaque generated images retain
-  their appearance, so an opaque background or custom colors may not contrast
+  theme when adaptation is enabled. Mixed-color generated icons use separate
+  fixed-color and theme-tinted neutral layers, so a red heart can stay red while
+  its neutral hand stays visible in both themes. Layers retain combined opacity
+  and are derived locally from the retained artwork. With adaptation disabled,
+  all generated colors and opaque backgrounds are preserved and may not contrast
   with both themes.
   Previously saved icons are unchanged. Search results display at 16px.
   Transaction-form dropdowns center the same artwork in a fixed 24px icon slot.
@@ -123,6 +132,11 @@ ordinary desktop files or the existing Android SAF grant. No icon metadata is
 written into Beancount. Synchronize this entire directory with the journal.
 Assignments include normalized image bytes, source, attribution, license ID/URL
 and full catalogue license text, so both rendering and attribution work offline.
+New adaptive assignments also include an `adaptive_neutrals` flag; the original
+normalized artwork is retained and the display layers are reconstructed on load.
+Older records without the flag retain their original rendering. Devices reading
+new adaptive records must run a version supporting this flag; older clients
+reject unfamiliar fields rather than silently displaying them incorrectly.
 
 Sidecars are immutable content-addressed JSON revision records. They include
 previous assignment heads; removals are explicit tombstones. Desktop publishes

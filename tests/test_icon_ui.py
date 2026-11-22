@@ -53,6 +53,14 @@ def images(control: ft.Control) -> list[ft.Image]:
     return [child for child in walk(control) if isinstance(child, ft.Image)]
 
 
+def generated_raster() -> bytes:
+    image = Image.new("RGBA", (96, 96))
+    ImageDraw.Draw(image).rectangle((20, 20, 75, 75), fill=(230, 10, 20, 255))
+    output = BytesIO()
+    image.save(output, format="PNG")
+    return output.getvalue()
+
+
 @pytest.mark.parametrize(
     "color",
     [(20, 20, 20, 255), (45, 47, 59, 255), (59, 47, 45, 255), (220, 224, 238, 255)],
@@ -69,6 +77,7 @@ def test_new_generated_icon_scales_and_themes_without_changing_existing(
     data, monochrome = normalize_generated_image(original.data)
     saved = IconAsset.parse(replace(original, data=data, monochrome=monochrome).serialize())
     displayed = icon_image(saved)
+    assert isinstance(displayed, ft.Image)
     assert displayed.color == ft.Colors.ON_SURFACE
     assert isinstance(displayed.src, bytes)
     with Image.open(BytesIO(displayed.src)) as rendered:
@@ -80,8 +89,10 @@ def test_new_generated_icon_scales_and_themes_without_changing_existing(
     assert isinstance(picker.reference_preview.content, ft.Image)
     assert picker.reference_preview.content.src == displayed.src
     assert picker.reference_preview.content.color == ft.Colors.ON_SURFACE
-    assert icon_image(original).src == original.data
-    assert icon_image(original).color is None
+    original_display = icon_image(original)
+    assert isinstance(original_display, ft.Image)
+    assert original_display.src == original.data
+    assert original_display.color is None
 
 
 @pytest.mark.parametrize(
@@ -100,7 +111,9 @@ def test_builtin_reference_preview_matches_selected_theme_treatment(
     picker = IconPicker(MagicMock(spec=ft.Page), "en", current, AsyncMock())
     assert picker.reference_preview is not None
     assert isinstance(picker.reference_preview.content, ft.Image)
-    assert picker.reference_preview.content.color == icon_image(current).color
+    displayed = icon_image(current)
+    assert isinstance(displayed, ft.Image)
+    assert picker.reference_preview.content.color == displayed.color
 
 
 @pytest.mark.parametrize("color", [(255, 0, 0, 255), (0, 0, 60, 255)], ids=["red", "dark-blue"])
@@ -124,6 +137,7 @@ def test_generated_colored_art_and_imports_keep_their_colors(
     data, monochrome = normalize_generated_image(generated.data)
     colored = icon_image(replace(generated, data=data, monochrome=monochrome))
     untouched = icon_image(imported)
+    assert isinstance(colored, ft.Image) and isinstance(untouched, ft.Image)
     assert colored.color is None
     assert isinstance(colored.src, bytes)
     with Image.open(BytesIO(colored.src)) as rendered:
@@ -151,6 +165,7 @@ def test_generated_icon_preserves_complex_or_empty_art(kind: str) -> None:
     )
     data, monochrome = normalize_generated_image(generated.data)
     displayed = icon_image(replace(generated, data=data, monochrome=monochrome))
+    assert isinstance(displayed, ft.Image)
     assert displayed.color is None
     if kind != "two-tone":
         assert displayed.src == generated.data
@@ -1353,6 +1368,7 @@ def test_ai_generation_uses_selected_model_and_saves_only_after_review(
         await settings.save_key(Provider.OPENAI, "test-key")
         await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
         requests: list[dict] = []
+        await settings.set_adapt_generated_icons(False)
 
         def handle(request: httpx.Request) -> httpx.Response:
             requests.append(json.loads(request.content))
@@ -1443,17 +1459,114 @@ def test_ai_generation_persists_theme_adaptive_fitted_icon(
         await asyncio.wrap_future(picker.ai_load_task)
         picker.ai_prompt.value = "Food"
         await click_async(picker.ai_generate)
-        assert picker.selected is not None and picker.selected.monochrome
-        assert images(picker.preview)[0].color == ft.Colors.ON_SURFACE
+        assert picker.selected is not None and picker.selected.adaptive_neutrals
+        assert images(picker.preview)[-1].color == ft.Colors.ON_SURFACE
         await click_async(picker.submit)
         reloaded = store_at(tmp_path)
         await reloaded.load()
         saved = reloaded.assets["Expenses:Food"]
-        assert saved.monochrome and icon_image(saved).color == ft.Colors.ON_SURFACE
+        assert saved.adaptive_neutrals
+        assert images(icon_image(saved))[-1].color == ft.Colors.ON_SURFACE
         with Image.open(BytesIO(saved.data)) as rendered:
             bounds = rendered.getchannel("A").getbbox()
             assert bounds is not None
             assert 78 <= max(bounds[2] - bounds[0], bounds[3] - bounds[1]) <= 82
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("adapt", [True, False])
+def test_mixed_generated_icon_setting_persists_across_picker_and_finance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, adapt: bool
+) -> None:
+    async def scenario() -> None:
+        session, view, _journal = await finance_session(tmp_path, monkeypatch)
+        settings = AISettings(DesktopPreferences(tmp_path / "ai.json"), FakeCredentials())
+        await settings.save_key(Provider.OPENAI, "test-key")
+        await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
+        if not adapt:
+            await settings.set_adapt_generated_icons(False)
+        image = Image.new("RGBA", (96, 96))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((30, 20, 60, 40), fill=(230, 10, 20, 255))
+        draw.rectangle((20, 50, 70, 70), fill=(35, 35, 35, 255))
+        output = BytesIO()
+        image.save(output, format="PNG")
+        service = MagicMock()
+        service.generate_image = AsyncMock(
+            return_value=GeneratedImage(output.getvalue(), "image/png")
+        )
+        monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
+        store = store_at(tmp_path)
+
+        async def save(selected: IconAsset | None) -> None:
+            await store.assign("Expenses:Food", selected, ())
+
+        picker = IconPicker(session.page, "en", None, save, ai_settings=lambda: settings)
+        monkeypatch.setattr(picker.body, "scroll_to", AsyncMock())
+        show_dialog(session.page, picker)
+        assert picker.ai_load_task is not None
+        await asyncio.wrap_future(picker.ai_load_task)
+        picker.ai_prompt.value = "Donation with red heart"
+        await click_async(picker.ai_generate)
+        selected = picker.selected
+        assert selected is not None and selected.adaptive_neutrals == adapt
+        prompt = service.generate_image.call_args.args[0]
+        assert ("keeping colored accents fixed" in prompt) == adapt
+        await click_async(picker.submit)
+        reloaded = store_at(tmp_path)
+        await reloaded.load()
+        saved = reloaded.assets["Expenses:Food"]
+        assert saved == selected
+        view.icons = reloaded
+        inline = view._entity_icon("Expenses:Food", size=25.92)
+        assert isinstance(inline, (ft.Stack, ft.Image))
+        assert isinstance(inline, ft.Stack) == adapt
+        assert all(image.width == image.height == 25.92 for image in images(inline))
+        displayed = images(inline)
+        assert len(displayed) == (2 if adapt else 1)
+        assert displayed[0].color is None
+        if adapt:
+            assert displayed[1].color == ft.Colors.ON_SURFACE
+            assert displayed[1].exclude_from_semantics
+        reference = IconPicker(session.page, "en", saved, AsyncMock())
+        assert reference.reference_preview is not None
+        assert [image.src for image in images(reference.reference_preview)] == [
+            image.src for image in displayed
+        ]
+        if not adapt:
+            assert displayed[0].src == saved.data
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failure", ["opaque-image", "invalid-preference"])
+def test_adaptation_failure_keeps_previous_icon(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    async def scenario() -> None:
+        session, _view, _journal = await finance_session(tmp_path, monkeypatch)
+        settings = AISettings(DesktopPreferences(tmp_path / "ai.json"), FakeCredentials())
+        await settings.save_key(Provider.OPENAI, "test-key")
+        await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
+        if failure == "invalid-preference":
+            await settings.preferences.set("textmoney.ai.adapt_generated_icons", "invalid")
+        service = MagicMock()
+        service.generate_image = AsyncMock(return_value=GeneratedImage(raster(), "image/png"))
+        monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
+        original = asset()
+        persist = AsyncMock()
+        picker = IconPicker(session.page, "en", original, persist, ai_settings=lambda: settings)
+        show_dialog(session.page, picker)
+        assert picker.ai_load_task is not None
+        await asyncio.wrap_future(picker.ai_load_task)
+        picker.ai_prompt.value = "Donation"
+        await click_async(picker.ai_generate)
+        assert picker.selected == original
+        key = "icon_ai_adaptation_error" if failure == "opaque-image" else "ai_settings_error"
+        assert picker.ai_status.value == picker.tr(key)
+        assert service.generate_image.await_count == (1 if failure == "opaque-image" else 0)
+        persist.assert_not_awaited()
 
     asyncio.run(scenario())
 
@@ -1482,7 +1595,7 @@ def test_ai_reference_is_opt_in_and_preserves_original_provenance(
         monkeypatch.setattr(ft.Screenshot, "capture", capture)
         service = MagicMock()
         service.generate_image = AsyncMock(
-            return_value=GeneratedImage(raster(512, 512), "image/png")
+            return_value=GeneratedImage(generated_raster(), "image/png")
         )
         monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
         picker = IconPicker(session.page, "en", original, AsyncMock(), ai_settings=lambda: settings)
@@ -1659,7 +1772,7 @@ def test_ai_prompt_enter_generates_without_saving_picker(
         await settings.select(Capability.GENERATE, "openai:gpt-image-2.5-flare")
         service = MagicMock()
         service.generate_image = AsyncMock(
-            return_value=GeneratedImage(raster(512, 512), "image/png")
+            return_value=GeneratedImage(generated_raster(), "image/png")
         )
         monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
         persist = AsyncMock()
@@ -1736,7 +1849,7 @@ def test_ai_icon_creation_persists_after_entity_save(
         view._ai_settings = settings
         service = MagicMock()
         service.generate_image = AsyncMock(
-            return_value=GeneratedImage(raster(512, 512), "image/png")
+            return_value=GeneratedImage(generated_raster(), "image/png")
         )
         monkeypatch.setattr(icon_ui, "AIService", lambda _: service)
         click(draft.choose_button)
@@ -2056,6 +2169,7 @@ def test_icons_render_at_16_pixels_without_changing_stored_artwork(vector: bool)
     )
     serialized = original.serialize()
     image = icon_image(original)
+    assert isinstance(image, ft.Image)
     assert image.width == image.height == 16
     assert image.src == original.data
     assert image.fit == ft.BoxFit.CONTAIN

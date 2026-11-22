@@ -109,6 +109,27 @@ class AISettings:
         self.preferences = preferences
         self.credentials = credentials
 
+    async def adapt_generated_icons(self) -> bool:
+        try:
+            value = await self.preferences.get("textmoney.ai.adapt_generated_icons")
+        except (OSError, RuntimeError, PreferencesError) as exc:
+            raise AIError("ai_settings_error") from exc
+        if value is None:
+            return True
+        if value not in ("true", "false"):
+            raise AIError("ai_settings_error")
+        return value == "true"
+
+    async def set_adapt_generated_icons(self, enabled: bool) -> None:
+        try:
+            saved = await self.preferences.set(
+                "textmoney.ai.adapt_generated_icons", "true" if enabled else "false"
+            )
+        except (OSError, RuntimeError, PreferencesError) as exc:
+            raise AIError("ai_settings_error") from exc
+        if not saved:
+            raise AIError("ai_settings_error")
+
     async def selection(self, capability: Capability) -> str:
         try:
             value = await self.preferences.get(f"textmoney.ai.model.{capability}")

@@ -57,7 +57,7 @@ from app.domain.reporting import (
     shift_month,
 )
 from app.domain.storage import ConflictError
-from app.icons import IconAsset, IconError, IconStore
+from app.icons import DISPLAY_SIZE, IconAsset, IconError, IconStore
 from app.infrastructure.ai import AIError, AISettings
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
@@ -2434,9 +2434,11 @@ class FinanceView(ft.Row):
             else content,
         )
 
-    def _entity_icon(self, identifier: str) -> ft.Image | None:
+    def _entity_icon(
+        self, identifier: str, *, size: float = DISPLAY_SIZE
+    ) -> ft.Image | ft.Stack | None:
         asset = self.icons.assets.get(identifier) if self.icons is not None else None
-        return icon_image(asset) if asset is not None else None
+        return icon_image(asset, size=size) if asset is not None else None
 
     def _entity_dropdown_icon(self, identifier: str) -> ft.Container | None:
         image = self._entity_icon(identifier)
@@ -3155,10 +3157,9 @@ class FinanceView(ft.Row):
                     ),
                     "",
                 )
-        leading_image = self._entity_icon(leading_identifier)
+        leading_image = self._entity_icon(leading_identifier, size=25.92)
         leading_controls: list[ft.Control] = []
         if leading_image is not None:
-            leading_image.width = leading_image.height = 25.92
             leading_controls.append(
                 ft.Container(
                     content=leading_image,

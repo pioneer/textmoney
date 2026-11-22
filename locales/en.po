@@ -63,6 +63,18 @@ msgstr "This model needs an API key for its provider."
 msgid "ui.ai_model_saved"
 msgstr "Model selection saved"
 
+msgid "ui.ai_adapt_icons"
+msgstr "Adapt generated icons to the theme"
+
+msgid "ui.ai_adapt_icons_help"
+msgstr "For new AI icons, adapt neutral parts to light and dark themes while keeping colored accents. Neutral shading may be simplified. Turn off to preserve original colors; existing icons and imports are unchanged."
+
+msgid "ui.ai_adapt_icons_saved"
+msgstr "Icon adaptation setting saved"
+
+msgid "ui.icon_ai_adaptation_error"
+msgstr "The generated image needs a transparent background and visible artwork for theme adaptation. The previous icon is unchanged. Generate again, or turn off icon adaptation in Settings → AI to preserve original colors."
+
 msgid "ui.ai_loading"
 msgstr "Working with local AI settings…"
 

@@ -636,15 +636,55 @@ def require_web_dev_client() -> Path:
 
 
 def require_desktop_client() -> None:
-    target = {"Linux": "linux", "Windows": "windows", "Darwin": "macos"}[platform.system()]
+    host = platform.system()
+    target = next((name for name, system in HOSTS.items() if system == host), None)
+    if target is None:
+        raise Exit(f"Unsupported host: {host}", code=1)
     directory = ROOT / "build" / target
     marker = directory / ".textmoney-client"
-    if not marker.is_file() or marker.read_text(encoding="ascii") != web_client_fingerprint():
-        raise Exit(
-            f"Desktop client missing or stale. Run uv run inv build-{target} "
-            "to include the popup keyboard extension.",
-            code=1,
+
+    def ready() -> bool:
+        executable = (
+            (directory / "textmoney").is_file()
+            if target == "linux"
+            else (directory / "textmoney.exe").is_file()
+            if target == "windows"
+            else any(
+                binary.is_file()
+                for bundle in directory.glob("*.app")
+                for binary in bundle.glob("Contents/MacOS/*")
+            )
         )
+        if not executable or not marker.is_file():
+            return False
+        try:
+            fingerprint = marker.read_text(encoding="ascii")
+        except UnicodeError:
+            return False
+        return fingerprint == web_client_fingerprint()
+
+    if ready():
+        return
+    print(f"Desktop client missing or stale; building {target} client...", flush=True)
+    marker.unlink(missing_ok=True)
+    fingerprint = web_client_fingerprint()
+    verified = False
+    try:
+        build_target(target)
+        if web_client_fingerprint() != fingerprint:
+            raise Exit(
+                "Desktop client inputs changed during the build. Run the task again.", code=1
+            )
+        if not ready():
+            raise Exit(
+                f"The {target} build did not produce a current desktop client. "
+                "Check the build output.",
+                code=1,
+            )
+        verified = True
+    finally:
+        if not verified:
+            marker.unlink(missing_ok=True)
 
 
 @task

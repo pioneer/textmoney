@@ -18,7 +18,8 @@ and limitations; the guides are the source of truth when details change.
   [icons](entity-icons.md) and [journal format](journal-format.md).
 - **Transactions:** Record expenses, income, reimbursements, balance
   adjustments and transfers, including transfers between currencies. Add fixed
-  fees or commissions where supported, and track and repay debt. Edit or remove
+  fees or commissions where supported, enter similar ordinary expenses or
+  income together, and track and repay debt. Edit or remove
   supported transactions; some externally authored or split transactions are
   read-only. Operations offers paginated browsing with account, category, date,
   currency and payee/description filters, including scoped report drill-downs.

@@ -9,7 +9,6 @@ Clone the repository, then use Invoke for project operations:
 git clone https://github.com/pioneer/textmoney.git
 cd textmoney
 uv sync
-uv run inv build-local
 uv run inv run
 ```
 
@@ -57,10 +56,12 @@ resolve another `python` from the system installation or `PATH`.
 Use `uv run inv run` for desktop or `uv run inv run-web` for browser UI previews.
 Build the web client first and rebuild after extension or dependency changes;
 see [Flet web development](flet.md#extension-enabled-web-development).
-Desktop source runs also require an extension-enabled host build:
-`uv run inv build-local`. Rebuild after extension or dependency changes; the
-runner explicitly rejects missing/stale clients. Ordinary Python edits do not
-need a rebuild.
+Desktop source runs automatically build the extension-enabled host client when
+it is missing or stale. The first run and extension or dependency changes can
+take several minutes and require the host build toolchain; build errors stop the
+run. Flet's unattended build may install missing SDKs. `uv run inv build-local`
+remains available for an explicit build.
+Ordinary Python edits do not need a rebuild.
 `uv run inv run --mobile` starts at 390 logical pixels and enables mobile UI
 behavior, including full-width Main balance cards at compact widths and
 mobile item menus. The window remains resizable. This is a UI preview:

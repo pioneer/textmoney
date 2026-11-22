@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -90,6 +91,55 @@ async def press(session: Session, key: str = "Escape") -> None:
     assert isinstance(dialog, ft.AlertDialog)
     assert isinstance(dialog.content, ft.KeyboardListener)
     await session.dispatch_event(dialog.content._i, "key_down", {"key": key})
+
+
+def test_dynamic_dialog_input_uses_submit_keyboard_handler() -> None:
+    async def scenario() -> None:
+        session = keyboard_session()
+        form = ft.Column([ft.TextField()])
+        submit = AsyncMock()
+        registrations: list[Callable[[ft.Control], None]] = []
+        dialog = ft.AlertDialog(
+            content=form,
+            actions=[
+                ft.TextButton("Cancel", on_click=lambda _: None),
+                ft.TextButton("Save", on_click=submit),
+            ],
+        )
+        show_dialog(session.page, dialog, register_dynamic_inputs=registrations.append)
+        field = ft.TextField(multiline=True)
+        form.controls.append(field)
+        registrations[0](field)
+        session.page.update()
+        await session.dispatch_event(field._i, "focus", None)
+        await session.dispatch_event(field._i, "submit", None)
+        submit.assert_awaited_once()
+
+    asyncio.run(scenario())
+
+
+def test_system_back_delegates_to_editor_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def scenario() -> None:
+        session = keyboard_session(ft.PagePlatform.ANDROID)
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
+        view = FinanceView()
+        cancel = MagicMock()
+        dialog = EditorDialog(
+            "Editor",
+            ft.Column(),
+            [ft.TextButton("Cancel", on_click=lambda _: None)],
+            compact=lambda: True,
+            cancel_on_back=cancel,
+        )
+        show_dialog(session.page, dialog)
+        event = MagicMock()
+        event.control.confirm_pop = AsyncMock()
+        await view._system_back(event)
+        cancel.assert_called_once_with()
+        event.control.confirm_pop.assert_awaited_once_with(False)
+        assert dialog.open
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("platform", [ft.PagePlatform.LINUX, ft.PagePlatform.WINDOWS])

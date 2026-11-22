@@ -90,11 +90,14 @@ the browser may have no previous entry or may leave the app. Calling it on a
 non-web client raises an error. It does not manage application screen history.
 
 Desktop popup keyboard handling also needs the local `popup-keyboard` extension.
-Before `uv run inv run` or `uv run inv debug`, build the host client once with
-`uv run inv build-linux`, `uv run inv build-windows` or `uv run inv build-macos`.
-Rebuild after changing an extension or its dependencies. The run tasks reject
-missing/stale clients instead of launching the stock client without the fix;
-ordinary Python edits still hot reload. Linux retains its isolated branded
+`uv run inv run` and `uv run inv debug` automatically build the host client when
+it is missing or stale after extension or dependency changes. This requires the
+host build toolchain and may take several minutes; a failed build stops the run
+instead of launching the stock client without the fix. Flet's unattended build
+may install missing SDKs. Ordinary Python edits still hot reload. An explicit
+`uv run inv build-local` builds just the host bundle; `uv run inv build-linux`
+also packages the Linux AppImage.
+Linux retains its isolated branded
 development client and icon, now derived from the extension-enabled build.
 The icon search suggestions use this extension for route-scoped Up/Down focus
 navigation. Enter retains native button activation; nested popups keep their own keys.

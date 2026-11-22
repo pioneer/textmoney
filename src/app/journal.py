@@ -1,7 +1,7 @@
 """Single-file journal operations through the tested backup/conflict policy."""
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import date, datetime
 from decimal import Decimal
@@ -22,6 +22,9 @@ from app.domain.ledger import (
     Category,
     Ledger,
     LedgerError,
+    OrdinaryBatchRowError,
+    OrdinaryBatchValidationError,
+    OrdinaryTransactionDraft,
     Posting,
     Transaction,
     TransferDetails,
@@ -1267,3 +1270,87 @@ class Journal:
             (addition + "\n" if addition else "")
             + transaction_text(replace(transaction, narration=description))
         )
+
+    async def save_ordinary_batch(
+        self,
+        rows: Sequence[OrdinaryTransactionDraft],
+        expected_source: str,
+    ) -> str | None:
+        """Validate and save ordinary expense/income rows with one journal write.
+
+        Validation failures carry 1-based row indexes. A failed or uncertain write
+        invalidates the journal until it is reloaded; the captured source baseline
+        then prevents retrying a batch that was already committed.
+        """
+        self._require_ready()
+        if expected_source != self.source:
+            raise ConflictError("crud_stale")
+        transactions = self._prepare_ordinary_batch(rows)
+        addition = "\n".join(transaction_text(transaction) for transaction in transactions)
+        return await self._commit(append(self.source, addition))
+
+    def validate_ordinary_batch(self, rows: Sequence[OrdinaryTransactionDraft]) -> None:
+        """Validate rows against the loaded ledger without writing or mutating journal state.
+
+        Failures carry 1-based indexes into the supplied sequence. Saving must
+        still validate again and check its captured source against storage.
+        """
+        self._require_ready()
+        self._prepare_ordinary_batch(rows)
+
+    def _prepare_ordinary_batch(
+        self, rows: Sequence[OrdinaryTransactionDraft]
+    ) -> list[Transaction]:
+        if not rows:
+            raise LedgerError("Add at least one transaction.")
+
+        ledger = self.ledger
+        transactions: list[Transaction] = []
+        errors: list[OrdinaryBatchRowError] = []
+        for index, row in enumerate(rows, start=1):
+            try:
+                if row.kind not in {"expense", "income"}:
+                    raise LedgerError("Only ordinary expenses and income are supported.")
+                try:
+                    occurred = date.fromisoformat(row.occurred)
+                except ValueError as exc:
+                    raise LedgerError("Date must be YYYY-MM-DD.") from exc
+                try:
+                    timestamp = datetime.fromisoformat(row.timestamp)
+                except ValueError as exc:
+                    raise LedgerError("crud_datetime") from exc
+                amount = money(row.amount)
+                if row.kind == "expense":
+                    transaction = ledger.expense(
+                        row.account,
+                        row.category,
+                        amount,
+                        row.payee,
+                        occurred,
+                        timestamp,
+                        str(uuid4()),
+                        today=self.today(),
+                    )
+                else:
+                    transaction = ledger.incoming(
+                        row.account,
+                        row.category,
+                        amount,
+                        row.payee,
+                        occurred,
+                        timestamp,
+                        str(uuid4()),
+                        "income",
+                        today=self.today(),
+                    )
+                transaction = replace(transaction, narration=description_text(row.description))
+            except LedgerError as exc:
+                errors.append(OrdinaryBatchRowError(index, str(exc)))
+                continue
+
+            transactions.append(transaction)
+            ledger = replace(ledger, transactions=(*ledger.transactions, transaction))
+
+        if errors:
+            raise OrdinaryBatchValidationError(tuple(errors))
+        return transactions

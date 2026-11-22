@@ -56,6 +56,8 @@ def test_all_locales_have_a_nonempty_translation_for_each_ui_key() -> None:
                 principal="100 USD",
                 gross="4200 UAH",
                 total="105 USD",
+                totals="105 USD",
+                number=1,
                 rate="1 USD = 42 UAH",
                 start="10 UAH",
                 change="+5 UAH",

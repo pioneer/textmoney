@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, localcontext
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from app.domain.budgets import Budget, Price
@@ -264,6 +264,30 @@ class Transaction:
     fee_mode: str = "added"
     links: tuple[str, ...] = ()
     tags: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class OrdinaryTransactionDraft:
+    kind: Literal["expense", "income"]
+    account: str
+    category: str
+    amount: str
+    occurred: str
+    timestamp: str
+    payee: str = ""
+    description: str = ""
+
+
+@dataclass(frozen=True)
+class OrdinaryBatchRowError:
+    row: int
+    message: str
+
+
+class OrdinaryBatchValidationError(LedgerError):
+    def __init__(self, errors: tuple[OrdinaryBatchRowError, ...]) -> None:
+        self.errors = errors
+        super().__init__("; ".join(f"Row {error.row}: {error.message}" for error in errors))
 
 
 @dataclass(frozen=True)

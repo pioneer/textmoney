@@ -518,7 +518,7 @@ def test_run_sets_mobile_preview_only_when_requested(
     assert execute.call_args.kwargs["env"]["APP_MOBILE_PREVIEW"] == ("1" if mobile else "0")
 
 
-def test_linux_run_selects_extension_client_and_rejects_stale_build(
+def test_linux_run_selects_extension_client_and_rebuilds_stale_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (tmp_path / "src").mkdir()
@@ -535,10 +535,9 @@ def test_linux_run_selects_extension_client_and_rejects_stale_build(
     monkeypatch.setattr(tasks, "web_client_fingerprint", lambda: "current")
     monkeypatch.setattr(tasks, "prepare_linux_dev_client", lambda bundle: client)
     monkeypatch.setattr(tasks, "compile_translations", lambda: None)
-    with pytest.raises(Exit, match="Desktop client missing or stale"):
-        tasks.run_app()
     marker = packaged.parent / ".textmoney-client"
-    marker.write_text("current", encoding="ascii")
+    build = MagicMock(side_effect=lambda target: marker.write_text("current", encoding="ascii"))
+    monkeypatch.setattr(tasks, "build_target", build)
 
     def launch(*args: str, env: dict[str, str], cwd: Path) -> None:
         monkeypatch.chdir(cwd)
@@ -551,9 +550,106 @@ def test_linux_run_selects_extension_client_and_rejects_stale_build(
 
     monkeypatch.setattr(tasks, "execute", launch)
     tasks.run_app()
+    build.assert_called_once_with("linux")
+    tasks.run_app()
+    build.assert_called_once_with("linux")
     marker.write_text("old", encoding="ascii")
-    with pytest.raises(Exit, match="Desktop client missing or stale"):
+    tasks.run_app()
+    assert build.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("host", "target", "executable"),
+    [
+        ("Linux", "linux", "textmoney"),
+        ("Windows", "windows", "textmoney.exe"),
+        ("Darwin", "macos", "TextMoney.app/Contents/MacOS/textmoney"),
+    ],
+)
+@pytest.mark.parametrize("state", ["missing", "stale", "incomplete", "current"])
+def test_desktop_client_builds_only_when_needed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    host: str,
+    target: str,
+    executable: str,
+    state: str,
+) -> None:
+    directory = tmp_path / "build" / target
+    binary = directory / executable
+    marker = directory / ".textmoney-client"
+    if state != "missing":
+        directory.mkdir(parents=True)
+        marker.write_text("old" if state == "stale" else "current", encoding="ascii")
+        if state != "incomplete":
+            binary.parent.mkdir(parents=True, exist_ok=True)
+            binary.write_bytes(b"synthetic client")
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks.platform, "system", lambda: host)
+    monkeypatch.setattr(tasks, "web_client_fingerprint", lambda: "current")
+
+    def produce(selected: str) -> None:
+        assert selected == target
+        assert not marker.exists()
+        binary.parent.mkdir(parents=True, exist_ok=True)
+        binary.write_bytes(b"synthetic client")
+        marker.write_text("current", encoding="ascii")
+
+    build = MagicMock(side_effect=produce)
+    monkeypatch.setattr(tasks, "build_target", build)
+    tasks.require_desktop_client()
+    if state == "current":
+        build.assert_not_called()
+    else:
+        build.assert_called_once_with(target)
+
+
+def test_desktop_client_build_failure_never_launches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    directory = tmp_path / "build/linux"
+    directory.mkdir(parents=True)
+    (directory / "textmoney").write_bytes(b"old client")
+    marker = directory / ".textmoney-client"
+    marker.write_text("old", encoding="ascii")
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(tasks, "web_client_fingerprint", lambda: "current")
+    monkeypatch.setattr(tasks, "compile_translations", MagicMock())
+    monkeypatch.setattr(tasks, "stage_release", MagicMock())
+
+    def fail_build(target: str) -> None:
+        marker.write_text("current", encoding="ascii")
+        raise Exit("build failed", code=1)
+
+    monkeypatch.setattr(tasks, "build_target", fail_build)
+    launch = MagicMock()
+    monkeypatch.setattr(tasks, "execute", launch)
+    with pytest.raises(Exit, match="build failed"):
         tasks.run_app()
+    assert not marker.exists()
+    launch.assert_not_called()
+
+
+@pytest.mark.parametrize("changed", [False, True])
+def test_desktop_client_rejects_unverified_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, changed: bool
+) -> None:
+    directory = tmp_path / "build/linux"
+    marker = directory / ".textmoney-client"
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks.platform, "system", lambda: "Linux")
+    fingerprint = MagicMock(side_effect=["before", "after" if changed else "before"])
+    monkeypatch.setattr(tasks, "web_client_fingerprint", fingerprint)
+
+    def produce(target: str) -> None:
+        directory.mkdir(parents=True)
+        marker.write_text("after" if changed else "before", encoding="ascii")
+
+    monkeypatch.setattr(tasks, "build_target", produce)
+    with pytest.raises(Exit, match="inputs changed" if changed else "did not produce"):
+        tasks.require_desktop_client()
+    assert not marker.exists()
 
 
 def test_release_staging_and_versioned_apk_output(

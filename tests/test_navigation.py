@@ -27,6 +27,7 @@ from app.ui.theme import DARK_NAVIGATION_SURFACE
 def navigation(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]:
     page = MagicMock(spec=ft.Page)
     page.width = 390
+    page._dialogs = MagicMock(controls=[])
     page.pop_dialog.return_value = None
     monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
     view = FinanceView()

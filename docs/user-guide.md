@@ -105,6 +105,26 @@ or accounting still block saving.
 
 <img src="screenshots/expense-mobile.png" alt="Editing an expense with account and category icons" width="360">
 
+## Add several similar transactions
+
+In **Add transaction**, choose an ordinary expense or income without a fee,
+then select **Add multiple…**. Entered details become the first row, and its
+original description also prefills each new row. Clear any drafts in other
+transaction modes before switching. Set the shared account and category once;
+the optional payee is under **Advanced**. Enter a date, amount and optional
+description for each transaction. **Add row** carries forward the previous
+date. Under **Row details**, override shared values for a particular row or
+switch back to the shared value.
+
+Review the rows and currency totals, then choose **Save N transactions**.
+Each row becomes a separate transaction in Operations. Correct any errors
+shown on the rows before saving; your draft remains available if a save fails.
+If the save outcome is uncertain, choose **Reload and check**. Retry only when
+the journal is unchanged; otherwise check Operations before starting another
+batch.
+Transfers, exchanges, reimbursements, adjustments and fees still use the
+single-transaction form.
+
 ## Add income, a refund or an adjustment
 
 - Switch to **+** for ordinary income. The amount stays positive and unchanged;

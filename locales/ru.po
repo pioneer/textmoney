@@ -2273,6 +2273,72 @@ msgstr "Сохранить изменения"
 msgid "ui.crud_cancel"
 msgstr "Отмена"
 
+msgid "ui.batch_add"
+msgstr "Добавить несколько…"
+
+msgid "ui.batch_unavailable"
+msgstr "Массовое добавление поддерживает обычные расходы и доходы без комиссий и черновиков других режимов."
+
+msgid "ui.batch_title"
+msgstr "Добавить несколько операций"
+
+msgid "ui.batch_shared"
+msgstr "Общие данные"
+
+msgid "ui.batch_row"
+msgstr "Операция {number}"
+
+msgid "ui.batch_add_row"
+msgstr "Добавить строку"
+
+msgid "ui.batch_row_details"
+msgstr "Детали строки"
+
+msgid "ui.batch_overridden"
+msgstr "Изменённые значения"
+
+msgid "ui.batch_use_shared"
+msgstr "Использовать общее значение"
+
+msgid "ui.batch_override_payee"
+msgstr "Другой получатель для этой строки"
+
+msgid "ui.batch_remove_row"
+msgstr "Удалить операцию"
+
+msgid "ui.batch_save"
+msgstr "Сохранить операции: {count}"
+
+msgid "ui.batch_totals"
+msgstr "Операций: {count} · {totals}"
+
+msgid "ui.batch_added"
+msgstr "Добавлено операций: {count}"
+
+msgid "ui.batch_view"
+msgstr "Посмотреть в Операциях"
+
+msgid "ui.batch_discard_title"
+msgstr "Отменить пакет?"
+
+msgid "ui.batch_discard_body"
+msgstr "Несохраненные операции будут потеряны."
+
+msgid "ui.batch_discard"
+msgstr "Отменить"
+
+msgid "ui.batch_reload"
+msgstr "Перезагрузить и проверить"
+
+msgid "ui.batch_reload_required"
+msgstr "Сохранение остановлено. Перезагрузите и проверьте журнал перед повтором."
+
+msgid "ui.batch_reload_unchanged"
+msgstr "Журнал не изменился. Можно повторить сохранение."
+
+msgid "ui.batch_reload_changed"
+msgstr "Журнал изменился. Проверьте Операции перед созданием нового пакета."
+
 #. Stable TextMoney key: ui.crud_active; do not translate this identifier.
 msgid "ui.crud_active"
 msgstr "Активный (для новых расходов)"

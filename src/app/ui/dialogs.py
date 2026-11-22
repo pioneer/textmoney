@@ -19,10 +19,12 @@ class EditorDialog(ft.AlertDialog):
         actions: list[ft.Control],
         *,
         compact: Callable[[], bool],
+        cancel_on_back: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(modal=True, title=title, content=form, actions=actions)
         self.form = form
         self._compact = compact
+        self.cancel_on_back = cancel_on_back
         self._top_level: bool | None = None
         self._apply_layout()
 
@@ -101,7 +103,12 @@ def _enabled(control: ft.BaseControl) -> bool:
     return True
 
 
-def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
+def show_dialog(
+    page: ft.Page,
+    dialog: ft.AlertDialog,
+    *,
+    register_dynamic_inputs: Callable[[Callable[[ft.Control], None]], None] | None = None,
+) -> None:
     if (
         page.platform == ft.PagePlatform.ANDROID
         and not page.web
@@ -125,11 +132,7 @@ def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
         if submit.on_click is None:
             raise ValueError("Modal dialog submission requires a click handler.")
         content = dialog.content if dialog.content is not None else ft.Container()
-        inputs = [
-            control
-            for control in _controls(content)
-            if isinstance(control, (ft.TextField, ft.SearchBar))
-        ]
+        inputs: list[ft.TextField | ft.SearchBar] = []
         focused: ft.TextField | ft.SearchBar | None = None
         dispatching = False
 
@@ -179,8 +182,17 @@ def show_dialog(page: ft.Page, dialog: ft.AlertDialog) -> None:
 
                 field.on_submit = submit_field
 
-        for field in inputs:
-            bind(field)
+        def register(root: ft.Control) -> None:
+            for field in _controls(root):
+                if isinstance(field, (ft.TextField, ft.SearchBar)) and all(
+                    field is not existing for existing in inputs
+                ):
+                    inputs.append(field)
+                    bind(field)
+
+        register(content)
+        if register_dynamic_inputs is not None:
+            register_dynamic_inputs(register)
         if inputs and not any(field.autofocus for field in inputs):
             inputs[0].autofocus = True
 

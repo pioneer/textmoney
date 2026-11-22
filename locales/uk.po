@@ -2272,6 +2272,72 @@ msgstr "Зберегти зміни"
 msgid "ui.crud_cancel"
 msgstr "Скасувати"
 
+msgid "ui.batch_add"
+msgstr "Додати декілька…"
+
+msgid "ui.batch_unavailable"
+msgstr "Масове додавання підтримує звичайні витрати та доходи без комісій і чернеток інших режимів."
+
+msgid "ui.batch_title"
+msgstr "Додати декілька операцій"
+
+msgid "ui.batch_shared"
+msgstr "Спільні дані"
+
+msgid "ui.batch_row"
+msgstr "Операція {number}"
+
+msgid "ui.batch_add_row"
+msgstr "Додати рядок"
+
+msgid "ui.batch_row_details"
+msgstr "Деталі рядка"
+
+msgid "ui.batch_overridden"
+msgstr "Змінені значення"
+
+msgid "ui.batch_use_shared"
+msgstr "Використати спільне значення"
+
+msgid "ui.batch_override_payee"
+msgstr "Інший отримувач для цього рядка"
+
+msgid "ui.batch_remove_row"
+msgstr "Видалити операцію"
+
+msgid "ui.batch_save"
+msgstr "Зберегти операції: {count}"
+
+msgid "ui.batch_totals"
+msgstr "Операцій: {count} · {totals}"
+
+msgid "ui.batch_added"
+msgstr "Додано операцій: {count}"
+
+msgid "ui.batch_view"
+msgstr "Переглянути в Операціях"
+
+msgid "ui.batch_discard_title"
+msgstr "Відкинути пакет?"
+
+msgid "ui.batch_discard_body"
+msgstr "Незбережені операції буде втрачено."
+
+msgid "ui.batch_discard"
+msgstr "Відкинути"
+
+msgid "ui.batch_reload"
+msgstr "Перезавантажити й перевірити"
+
+msgid "ui.batch_reload_required"
+msgstr "Збереження зупинено. Перезавантажте й перевірте журнал перед повтором."
+
+msgid "ui.batch_reload_unchanged"
+msgstr "Журнал не змінився. Можна повторити збереження."
+
+msgid "ui.batch_reload_changed"
+msgstr "Журнал змінився. Перевірте Операції перед створенням нового пакета."
+
 #. Stable TextMoney key: ui.crud_active; do not translate this identifier.
 msgid "ui.crud_active"
 msgstr "Активний (для нових витрат)"

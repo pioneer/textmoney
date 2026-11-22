@@ -113,6 +113,9 @@ and cannot predate their declarations. Posting amounts use Decimal, with at most
 positive amounts and dates from `1970-01-01` through today, using the selected
 default clock timezone.
 
+Bulk entry writes each ordinary expense or income as a separate standard
+transaction in one conflict-checked journal save; it adds no batch metadata.
+
 Supported operations include expenses, income, reimbursements, opening balances,
 balance adjustments and transfers, including bounded currency exchanges.
 Settings offers an optional **Default transaction account**, shared through the

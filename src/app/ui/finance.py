@@ -12,7 +12,7 @@ from decimal import Decimal, localcontext
 from enum import StrEnum
 from heapq import nlargest
 from itertools import groupby
-from typing import cast
+from typing import Literal, cast
 from uuid import uuid4
 from zoneinfo import available_timezones
 
@@ -37,6 +37,8 @@ from app.domain.ledger import (
     Category,
     Ledger,
     LedgerError,
+    OrdinaryBatchValidationError,
+    OrdinaryTransactionDraft,
     Posting,
     Transaction,
     cashflow_amounts,
@@ -177,6 +179,23 @@ def screen_class(width: float | None) -> ScreenClass:
 class NavigationVisit:
     screen: str
     operations: OperationsLocation | None = None
+
+
+@dataclass
+class BatchRow:
+    when: DateTimeFields
+    amount: ft.TextField
+    description: ft.TextField
+    account: ft.Dropdown
+    category: ft.Dropdown
+    override_payee: ft.Checkbox
+    payee: ft.TextField
+    title: ft.Text
+    details_button: ft.TextButton
+    remove_button: ft.IconButton
+    details: ft.Column
+    error: ft.Text
+    container: ft.Column
 
 
 class FinanceView(ft.Row):
@@ -4564,6 +4583,522 @@ class FinanceView(ft.Row):
             ),
         )
 
+    def _batch_dialog(
+        self,
+        journal: Journal,
+        source: str,
+        kind: Literal["expense", "income"],
+        account_id: str | None,
+        category_id: str | None,
+        amount_value: str,
+        description_value: str,
+        payee_value: str,
+        original_when: DateTimeFields,
+    ) -> None:
+        accounts = [item for item in journal.ledger.accounts if item.active]
+        currencies = {item.id: item.currency for item in accounts}
+        categories = [
+            (item.id, item.name)
+            for item in sorted(journal.ledger.categories, key=lambda item: item.id.split(":"))
+            if journal.ledger.category_active(item.id)
+            and item.id.startswith(("Expenses:", "Income:"))
+        ]
+        shared_kind = ft.Dropdown(
+            data="batch_kind",
+            expand=True,
+            label=self.tr("incoming_type"),
+            value=kind,
+            options=[
+                ft.DropdownOption(key=value, text=self.tr(f"kind_{value}"))
+                for value in ("expense", "income")
+            ],
+        )
+        shared_account = ft.Dropdown(
+            data="batch_account",
+            expand=True,
+            label=self.tr("primary_account"),
+            value=account_id,
+            options=self._account_options(accounts),
+        )
+
+        def category_options(selected: str | None) -> list[ft.DropdownOption]:
+            root = "Income:" if shared_kind.value == "income" else "Expenses:"
+            available = [
+                (identifier, name)
+                for identifier, name in categories
+                if identifier.startswith(root) or identifier == selected
+            ]
+            return self._category_option_lines(self._category_form_options(available))
+
+        shared_category = ft.Dropdown(
+            data="batch_category",
+            expand=True,
+            label=self.tr("expense_category"),
+            value=category_id,
+            options=category_options(category_id),
+        )
+        shared_payee = ft.TextField(
+            data="batch_payee",
+            label=self.tr("payee"),
+            value=payee_value,
+            keyboard_type=ft.KeyboardType.NAME,
+        )
+        row_column = ft.Column(spacing=16, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
+        summary = ft.Text(data="batch_summary")
+        submit_label = ft.Text()
+        reconciliation = ft.Text(data="batch_reconciliation", visible=False)
+        rows: list[BatchRow] = []
+        register_inputs: Callable[[ft.Control], None] | None = None
+        saving = False
+
+        def remember_registration(register: Callable[[ft.Control], None]) -> None:
+            nonlocal register_inputs
+            register_inputs = register
+
+        def update_summary() -> None:
+            submit_label.value = self.tr("batch_save", count=len(rows))
+            totals: dict[str, Decimal] = {}
+            for row in rows:
+                currency = currencies.get(row.account.value or shared_account.value or "")
+                try:
+                    value = money(row.amount.value or "")
+                    if not currency or value <= 0:
+                        raise LedgerError("crud_amount_invalid")
+                except LedgerError:
+                    summary.value = self.tr("batch_totals", count=len(rows), totals="—")
+                    return
+                with localcontext() as context:
+                    context.prec = 50
+                    totals[currency] = totals.get(currency, Decimal(0)) + value
+            text = " · ".join(
+                format_amount(value, self.language, currency)
+                for currency, value in sorted(totals.items())
+            )
+            summary.value = self.tr("batch_totals", count=len(rows), totals=text or "—")
+
+        def update_labels() -> None:
+            category_label = self.tr(
+                "income_category" if shared_kind.value == "income" else "expense_category"
+            )
+            shared_category.label = category_label
+            shared_payee.label = self.tr(
+                "incoming_sender" if shared_kind.value == "income" else "payee"
+            )
+            for row in rows:
+                row.category.label = category_label
+                overridden = bool(
+                    row.account.value or row.category.value or row.override_payee.value
+                )
+                row.details_button.content = self.tr("batch_row_details") + (
+                    f" · {self.tr('batch_overridden')}" if overridden else ""
+                )
+
+        def changed(event: ft.Event) -> None:
+            update_labels()
+            update_summary()
+            self.page.update()
+
+        def kind_changed(event: ft.Event[ft.Dropdown]) -> None:
+            shared_category.options = category_options(shared_category.value)
+            for row in rows:
+                row.category.options = [
+                    ft.DropdownOption(key="", text=self.tr("batch_use_shared")),
+                    *category_options(row.category.value),
+                ]
+            changed(event)
+
+        shared_kind.on_select = kind_changed
+        shared_account.on_select = shared_category.on_select = changed
+        shared_payee.on_change = changed
+
+        def make_row(
+            *,
+            previous_date: str | None = None,
+            first: bool = False,
+        ) -> BatchRow:
+            when = DateTimeFields(
+                self.language,
+                self._effective_zone(),
+                device_zone=self._picker_zone(),
+                compact=True,
+            )
+            if first:
+                when.occurred.value = original_when.occurred.value
+                when.clock.value = original_when.clock.value
+                when.original_occurred = original_when.original_occurred
+                when.original_timestamp = original_when.original_timestamp
+                when.original_fields = original_when.original_fields
+            elif previous_date is not None:
+                when.occurred.value = previous_date
+            row_amount = ft.TextField(
+                data="batch_row_amount",
+                label=self.tr("amount"),
+                value=amount_value if first else "",
+                autofocus=first,
+                on_change=changed,
+            )
+            description = ft.TextField(
+                data="batch_row_description",
+                label=self.tr("crud_description_label"),
+                value=description_value,
+                on_change=changed,
+            )
+            account = ft.Dropdown(
+                data="batch_row_account",
+                expand=True,
+                label=self.tr("primary_account"),
+                value="",
+                options=[
+                    ft.DropdownOption(key="", text=self.tr("batch_use_shared")),
+                    *self._account_options(accounts),
+                ],
+                on_select=changed,
+            )
+            category = ft.Dropdown(
+                data="batch_row_category",
+                expand=True,
+                label=self.tr("expense_category"),
+                value="",
+                options=[
+                    ft.DropdownOption(key="", text=self.tr("batch_use_shared")),
+                    *category_options(None),
+                ],
+                on_select=changed,
+            )
+            payee = ft.TextField(data="batch_row_payee", label=self.tr("payee"), visible=False)
+            override_payee = ft.Checkbox(
+                data="batch_override_payee", label=self.tr("batch_override_payee")
+            )
+
+            def payee_changed(event: ft.Event[ft.Checkbox]) -> None:
+                payee.visible = bool(override_payee.value)
+                changed(event)
+
+            override_payee.on_change = payee_changed
+            payee.on_change = changed
+            details = ft.Column(
+                [
+                    ft.Row([account]),
+                    ft.Row([self._category_menu_anchor(category)]),
+                    override_payee,
+                    payee,
+                    when.time_controls,
+                ],
+                visible=False,
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+            )
+            title = ft.Text(weight=ft.FontWeight.BOLD, expand=True)
+            error = ft.Text(data="batch_row_error", color=ft.Colors.ERROR, visible=False)
+            container = ft.Column(
+                data="batch_row",
+                horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                spacing=8,
+            )
+            details_button = ft.TextButton(
+                self.tr("batch_row_details"),
+                icon=ft.Icons.TUNE,
+                data="batch_row_details",
+            )
+            remove_button = ft.IconButton(
+                icon=ft.Icons.DELETE_OUTLINE,
+                tooltip=self.tr("batch_remove_row"),
+            )
+            row = BatchRow(
+                when,
+                row_amount,
+                description,
+                account,
+                category,
+                override_payee,
+                payee,
+                title,
+                details_button,
+                remove_button,
+                details,
+                error,
+                container,
+            )
+
+            def toggle_details(event: ft.Event[ft.TextButton]) -> None:
+                details.visible = not details.visible
+                self.page.update()
+
+            details_button.on_click = toggle_details
+
+            def remove(event: ft.Event[ft.IconButton]) -> None:
+                if len(rows) == 1:
+                    return
+                rows.remove(row)
+                row_column.controls.remove(container)
+                refresh_rows()
+                self.page.update()
+
+            remove_button.on_click = remove
+            container.controls = [
+                ft.Row([title, remove_button]),
+                when,
+                row_amount,
+                description,
+                details_button,
+                details,
+                error,
+            ]
+            return row
+
+        def refresh_rows() -> None:
+            for index, row in enumerate(rows, start=1):
+                row.title.value = self.tr("batch_row", number=index)
+                row.remove_button.disabled = len(rows) == 1
+            update_labels()
+            update_summary()
+
+        async def add_row(event: ft.Event[ft.TextButton]) -> None:
+            row = make_row(previous_date=rows[-1].when.occurred.value)
+            rows.append(row)
+            row_column.controls.append(row.container)
+            if register_inputs is not None:
+                register_inputs(row.container)
+            refresh_rows()
+            self.page.update()
+            await row.amount.focus()
+
+        add = ft.TextButton(
+            self.tr("batch_add_row"),
+            icon=ft.Icons.ADD,
+            data="batch_add_row",
+            on_click=add_row,
+        )
+        cancel = ft.TextButton(self.tr("crud_cancel"))
+        submit = ft.TextButton(
+            content=ft.Column(
+                [submit_label, ft.Container(summary, width=200)],
+                spacing=0,
+                tight=True,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            )
+        )
+        reload_batch = ft.TextButton(self.tr("batch_reload"), data="batch_reload", visible=False)
+        first_row = make_row(first=True)
+        rows.append(first_row)
+        row_column.controls.append(first_row.container)
+        form = ft.Column(
+            [
+                ft.Text(self.tr("batch_shared"), weight=ft.FontWeight.BOLD),
+                ft.Row([shared_kind]),
+                ft.Row([shared_account]),
+                ft.Row([self._category_menu_anchor(shared_category)]),
+                ft.ExpansionTile(
+                    data="batch_advanced",
+                    title=self.tr("transaction_advanced"),
+                    controls=[shared_payee],
+                    controls_padding=ft.Padding.only(top=8),
+                    maintain_state=True,
+                    expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
+                ),
+                row_column,
+                add,
+                reconciliation,
+                reload_batch,
+            ],
+            spacing=12,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+        )
+
+        def snapshot() -> tuple[object, ...]:
+            return (
+                shared_kind.value,
+                shared_account.value,
+                shared_category.value,
+                shared_payee.value,
+                *(
+                    (
+                        row.when.occurred.value,
+                        row.when.clock.value,
+                        row.amount.value,
+                        row.description.value,
+                        row.account.value,
+                        row.category.value,
+                        row.override_payee.value,
+                        row.payee.value,
+                    )
+                    for row in rows
+                ),
+            )
+
+        initial = snapshot()
+        initial_has_input = bool(
+            amount_value
+            or description_value
+            or payee_value
+            or category_id
+            or account_id != self.default_account_id
+            or kind != "expense"
+            or not original_when.pristine
+        )
+
+        def cancel_batch() -> None:
+            if saving:
+                return
+            if snapshot() == initial and not initial_has_input:
+                self.page.pop_dialog()
+                return
+
+            def discard(event: ft.Event[ft.TextButton]) -> None:
+                self.page.pop_dialog()
+                self.page.pop_dialog()
+
+            show_dialog(
+                self.page,
+                ft.AlertDialog(
+                    modal=True,
+                    title=self.tr("batch_discard_title"),
+                    content=ft.Text(self.tr("batch_discard_body")),
+                    actions=[
+                        ft.TextButton(self.tr("keep_editing"), on_click=self._dismiss),
+                        ft.TextButton(self.tr("batch_discard"), on_click=discard),
+                    ],
+                ),
+            )
+
+        cancel.on_click = lambda _: cancel_batch()
+
+        async def reconcile(event: ft.Event[ft.TextButton]) -> None:
+            nonlocal saving
+            if saving:
+                return
+            saving = True
+            reload_batch.disabled = cancel.disabled = form.disabled = True
+            self.page.update()
+
+            async def reload() -> None:
+                if self.journal is not journal:
+                    raise ConflictError("crud_stale")
+                await journal.load()
+                unchanged = journal.source == source
+                reconciliation.value = self.tr(
+                    "batch_reload_unchanged" if unchanged else "batch_reload_changed"
+                )
+                reconciliation.visible = True
+                submit.disabled = not unchanged
+                reload_batch.visible = not unchanged
+
+            try:
+                await self._action(reload)
+            finally:
+                saving = False
+                reload_batch.disabled = cancel.disabled = form.disabled = False
+                self.page.update()
+
+        reload_batch.on_click = reconcile
+
+        async def commit(event: ft.Event[ft.TextButton]) -> None:
+            nonlocal saving
+            if saving or submit.disabled:
+                return
+            saving = True
+            submit.disabled = cancel.disabled = add.disabled = form.disabled = True
+            for row in rows:
+                row.error.visible = False
+            self.page.update()
+
+            async def save() -> None:
+                if self.journal is not journal:
+                    raise ConflictError("crud_stale")
+                entries: list[OrdinaryTransactionDraft] = []
+                entry_rows: list[int] = []
+                invalid_fields: dict[int, ft.TextField] = {}
+                if shared_kind.value not in {"expense", "income"}:
+                    raise LedgerError("crud_transaction_readonly")
+                current_kind: Literal["expense", "income"] = (
+                    "income" if shared_kind.value == "income" else "expense"
+                )
+                for index, row in enumerate(rows):
+                    try:
+                        occurred, timestamp = row.when.values()
+                    except LedgerError as exc:
+                        row.error.value = localized_error(self.language, str(exc))
+                        row.error.visible = True
+                        if str(exc).startswith("crud_time"):
+                            row.details.visible = True
+                            invalid_fields[index] = row.when.clock
+                        else:
+                            invalid_fields[index] = row.when.occurred
+                        continue
+                    entry_rows.append(index)
+                    entries.append(
+                        OrdinaryTransactionDraft(
+                            kind=current_kind,
+                            account=row.account.value or shared_account.value or "",
+                            category=row.category.value or shared_category.value or "",
+                            amount=row.amount.value or "",
+                            occurred=occurred,
+                            timestamp=timestamp,
+                            payee=(
+                                row.payee.value or ""
+                                if row.override_payee.value
+                                else shared_payee.value or ""
+                            ),
+                            description=row.description.value or "",
+                        )
+                    )
+                if invalid_fields:
+                    if entries:
+                        try:
+                            journal.validate_ordinary_batch(entries)
+                        except OrdinaryBatchValidationError as exc:
+                            for error in exc.errors:
+                                index = entry_rows[error.row - 1]
+                                row = rows[index]
+                                row.error.value = localized_error(self.language, error.message)
+                                row.error.visible = True
+                                invalid_fields[index] = row.amount
+                    form.disabled = False
+                    self.page.update()
+                    await invalid_fields[min(invalid_fields)].focus()
+                    return
+                try:
+                    backup = await journal.save_ordinary_batch(entries, source)
+                except OrdinaryBatchValidationError as exc:
+                    for error in exc.errors:
+                        row = rows[error.row - 1]
+                        row.error.value = localized_error(self.language, error.message)
+                        row.error.visible = True
+                    form.disabled = False
+                    self.page.update()
+                    await rows[exc.errors[0].row - 1].amount.focus()
+                    return
+                self.page.pop_dialog()
+                self._saved(backup)
+
+            try:
+                await self._action(save)
+            finally:
+                saving = False
+                submit.disabled = (
+                    self.journal is not journal
+                    or not journal.ready
+                    or not journal.storage.loaded
+                    or journal.source != source
+                )
+                if submit.disabled:
+                    reconciliation.value = self.tr("batch_reload_required")
+                    reconciliation.visible = True
+                    reload_batch.visible = True
+                cancel.disabled = add.disabled = form.disabled = False
+                self.page.update()
+
+        submit.on_click = commit
+        refresh_rows()
+        dialog = EditorDialog(
+            self.tr("batch_title"),
+            form,
+            [cancel, submit],
+            compact=lambda: self.screen_class == ScreenClass.COMPACT,
+            cancel_on_back=cancel_batch,
+        )
+        self.page.pop_dialog()
+        show_dialog(self.page, dialog, register_dynamic_inputs=remember_registration)
+
     def _transaction_dialog(self, journal: Journal, transaction: Transaction | None = None) -> None:
         source = journal.source
         dropdown_rows: list[ft.Row] = []
@@ -4845,6 +5380,14 @@ class FinanceView(ft.Row):
         )
         category_values: dict[str, str | None] = {}
         fee_drafts: dict[str, tuple[bool, str, str | None, str | None, str | None]] = {}
+        batch_button = ft.TextButton(
+            self.tr("batch_add"),
+            icon=ft.Icons.PLAYLIST_ADD,
+            data="batch_start",
+            tooltip=self.tr("batch_unavailable"),
+            visible=transaction is None,
+        )
+        batch_help = ft.Text(self.tr("batch_unavailable"), size=12, visible=False)
         currencies = {a.id: a.currency for a in journal.ledger.accounts}
         names = {
             account.id: self._entity_display_name(account.id, account.name)
@@ -4870,6 +5413,32 @@ class FinanceView(ft.Row):
             return special.value or "income"
 
         previous_kind = transaction.kind if transaction else "expense"
+
+        def batch_supported() -> bool:
+            return (
+                operation() in {"expense", "income"}
+                and not fee_enabled.value
+                and fee.value in {"", "0"}
+                and fee_mode.value in {None, "added"}
+                and fee_category.value in {None, initial_fee_category}
+                and not fee_currency.value
+                and not destination.value
+                and not received.value
+                and not reference.value
+                and not any(
+                    value
+                    for draft_kind, value in category_values.items()
+                    if draft_kind != operation()
+                )
+                and not any(
+                    enabled
+                    or draft_fee not in {"", "0"}
+                    or mode not in {None, "added"}
+                    or category not in {None, initial_fee_category}
+                    or bool(currency)
+                    for enabled, draft_fee, mode, category, currency in fee_drafts.values()
+                )
+            )
 
         def is_exchange() -> bool:
             return bool(
@@ -5117,6 +5686,8 @@ class FinanceView(ft.Row):
                     fee_currency.value,
                 ) = fee_drafts.get(kind, (False, "0", "added", initial_fee_category, None))
             previous_kind = kind
+            batch_button.disabled = not batch_supported()
+            batch_help.visible = transaction is None and batch_button.disabled
             category.label = self.tr("income_category" if kind == "income" else "expense_category")
             payee.label = self.tr(
                 "transfer_counterparty"
@@ -5190,6 +5761,8 @@ class FinanceView(ft.Row):
                     category.value = posting.account
                     category.leading_icon = self._entity_dropdown_icon(posting.account)
                     amount.value = str(posting.amount)
+                batch_button.disabled = not batch_supported()
+                batch_help.visible = transaction is None and batch_button.disabled
                 self.page.update()
             except Exception as exc:
                 self._error(exc, notify=True)
@@ -5244,6 +5817,8 @@ class FinanceView(ft.Row):
 
         def recalculate(event: ft.Event[ft.TextField] | ft.Event[ft.Dropdown]) -> None:
             update_exchange()
+            batch_button.disabled = not batch_supported()
+            batch_help.visible = transaction is None and batch_button.disabled
             for row in dropdown_rows:
                 row.visible = dropdown_row_field(row).visible
             self.page.update()
@@ -5251,6 +5826,27 @@ class FinanceView(ft.Row):
         amount.on_change = received.on_change = fee.on_change = recalculate
         fee_currency.on_select = recalculate
         fee_mode.on_select = recalculate
+
+        def start_batch(event: ft.Event[ft.TextButton]) -> None:
+            kind = operation()
+            if not batch_supported():
+                return
+            if self.journal is not journal or journal.source != source:
+                self._error(ConflictError("crud_stale"), notify=True)
+                return
+            self._batch_dialog(
+                journal,
+                source,
+                "income" if kind == "income" else "expense",
+                account.value,
+                category.value,
+                amount.value or "",
+                description.value or "",
+                payee.value or "",
+                when,
+            )
+
+        batch_button.on_click = start_batch
 
         async def save() -> str | None:
             occurred, timestamp = when.values()
@@ -5339,6 +5935,8 @@ class FinanceView(ft.Row):
             preview,
             when,
             advanced,
+            batch_button,
+            batch_help,
         ]
         configure()
         self._edit_dialog(
@@ -6774,7 +7372,19 @@ class FinanceView(ft.Row):
                 self._browser_back_waiter = None
 
     async def _system_back(self, event: ft.Event[ft.View]) -> None:
-        if self.page.pop_dialog() is not None:
+        dialogs = self.page._dialogs.controls
+        active = next(
+            (
+                dialog
+                for dialog in reversed(dialogs)
+                if not isinstance(dialog, ft.SnackBar) and getattr(dialog, "open", False)
+            ),
+            None,
+        )
+        if isinstance(active, EditorDialog) and active.cancel_on_back is not None:
+            active.cancel_on_back()
+            await event.control.confirm_pop(False)
+        elif self.page.pop_dialog() is not None:
             await event.control.confirm_pop(False)
         else:
             await event.control.confirm_pop(not self._back())

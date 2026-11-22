@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TextMoney 0.4.18\n"
+"Project-Id-Version: TextMoney 0.4.19\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-11-22 04:25+0200\n"
-"PO-Revision-Date: 2026-11-22 04:25+0200\n"
+"POT-Creation-Date: 2026-11-22 21:19+0200\n"
+"PO-Revision-Date: 2026-11-22 21:19+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -2210,6 +2210,72 @@ msgstr ""
 
 #. Stable TextMoney key: ui.crud_cancel; do not translate this identifier.
 msgid "ui.crud_cancel"
+msgstr ""
+
+msgid "ui.batch_add"
+msgstr ""
+
+msgid "ui.batch_unavailable"
+msgstr ""
+
+msgid "ui.batch_title"
+msgstr ""
+
+msgid "ui.batch_shared"
+msgstr ""
+
+msgid "ui.batch_row"
+msgstr ""
+
+msgid "ui.batch_add_row"
+msgstr ""
+
+msgid "ui.batch_row_details"
+msgstr ""
+
+msgid "ui.batch_overridden"
+msgstr ""
+
+msgid "ui.batch_use_shared"
+msgstr ""
+
+msgid "ui.batch_override_payee"
+msgstr ""
+
+msgid "ui.batch_remove_row"
+msgstr ""
+
+msgid "ui.batch_save"
+msgstr ""
+
+msgid "ui.batch_totals"
+msgstr ""
+
+msgid "ui.batch_added"
+msgstr ""
+
+msgid "ui.batch_view"
+msgstr ""
+
+msgid "ui.batch_discard_title"
+msgstr ""
+
+msgid "ui.batch_discard_body"
+msgstr ""
+
+msgid "ui.batch_discard"
+msgstr ""
+
+msgid "ui.batch_reload"
+msgstr ""
+
+msgid "ui.batch_reload_required"
+msgstr ""
+
+msgid "ui.batch_reload_unchanged"
+msgstr ""
+
+msgid "ui.batch_reload_changed"
 msgstr ""
 
 #. Stable TextMoney key: ui.crud_active; do not translate this identifier.

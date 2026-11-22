@@ -24,6 +24,7 @@ editing on another device.
 
 <p align="center">
   <a href="https://github.com/pioneer/textmoney/releases/latest"><strong>Download TextMoney</strong></a> ·
+  <a href="docs/quickstart.md"><strong>Quickstart</strong></a> ·
   <a href="docs/user-guide.md">User guide</a> ·
   <a href="docs/synchronization.md">Sync between devices</a> ·
   <a href="docs/platform-notes.md">Platform notes</a>
@@ -68,9 +69,9 @@ Weblate integration may be added in the future; it is not configured yet.
 
 ## Get started
 
-1. Open TextMoney and choose a folder for your records.
-2. Add an account, such as Cash or your bank account.
-3. Record your first expense and choose or create a category for it.
+Follow the [Quickstart](docs/quickstart.md) for step-by-step instructions on
+Android or desktop, including choosing a records folder and adding your first
+transaction.
 
 *TextMoney is in beta and developed with substantial AI assistance.
 Keep a separate backup of your financial records.*

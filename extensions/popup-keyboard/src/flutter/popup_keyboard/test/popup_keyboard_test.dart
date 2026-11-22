@@ -3,8 +3,123 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:popup_keyboard/src/popup_keyboard_scope.dart';
+import 'package:popup_keyboard/src/search_suggestions_keyboard.dart';
 
 void main() {
+  for (final dismissal in [
+    'closed',
+    'escape',
+    'empty',
+    'escape-row',
+    'pointer',
+    'keyboard',
+    'back',
+  ]) {
+    testWidgets('dialog Escape survives search suggestions $dismissal', (
+      tester,
+    ) async {
+      final controller = SearchController();
+      final input = FocusNode();
+      final listener = FocusNode();
+      var cancelled = 0;
+      var selected = false;
+      addTearDown(controller.dispose);
+      addTearDown(input.dispose);
+      addTearDown(listener.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => AlertDialog(
+                  content: PopupKeyboardScope(
+                    restoreFocus: true,
+                    onEscape: () => cancelled++,
+                    child: KeyboardListener(
+                      focusNode: listener,
+                      onKeyEvent: (event) {
+                        if (event is KeyDownEvent &&
+                            event.logicalKey == LogicalKeyboardKey.escape) {
+                          cancelled++;
+                        }
+                      },
+                      child: SearchAnchor(
+                        searchController: controller,
+                        isFullScreen: false,
+                        builder: (context, controller) => SearchBar(
+                          controller: controller,
+                          focusNode: input,
+                          autoFocus: true,
+                          onChanged: (_) {
+                            if (!controller.isOpen) controller.openView();
+                          },
+                        ),
+                        suggestionsBuilder: (context, controller) => [
+                          SearchSuggestionsKeyboard(
+                            child: dismissal == 'empty'
+                                ? const Text('No matching icons')
+                                : TextButton(
+                                    onPressed: () {
+                                      selected = true;
+                                      controller.closeView(controller.text);
+                                    },
+                                    child: const Text('House'),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              child: const Text('Choose icon'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Choose icon'));
+      await tester.pumpAndSettle();
+      expect(input.hasPrimaryFocus, isTrue);
+      if (dismissal == 'closed') {
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(cancelled, 1);
+        expect(controller.isOpen, isFalse);
+        return;
+      }
+      await tester.enterText(find.byType(SearchBar), 'home');
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isTrue);
+      switch (dismissal) {
+        case 'escape':
+        case 'empty':
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        case 'escape-row':
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        case 'pointer':
+          await tester.tap(find.text('House'));
+        case 'keyboard':
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        case 'back':
+          await tester.tap(find.byIcon(Icons.arrow_back));
+      }
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(cancelled, 0);
+      expect(selected, dismissal == 'pointer' || dismissal == 'keyboard');
+      expect(controller.text, 'home');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(cancelled, 1);
+    });
+  }
+
   for (final child in ['date', 'icon']) {
     for (final dismissal in ['escape', 'cancel', 'save']) {
       testWidgets('popup Escape survives $child dialog $dismissal', (
@@ -131,6 +246,7 @@ void main() {
               onEscape: () => parentCancelled++,
               child: PopupKeyboardScope(
                 onEscape: () => cancelled++,
+                restoreFocus: true,
                 child: KeyboardListener(
                   focusNode: listener,
                   autofocus: true,

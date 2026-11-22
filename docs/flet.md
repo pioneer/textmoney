@@ -98,6 +98,9 @@ ordinary Python edits still hot reload. Linux retains its isolated branded
 development client and icon, now derived from the extension-enabled build.
 The icon search suggestions use this extension for route-scoped Up/Down focus
 navigation. Enter retains native button activation; nested popups keep their own keys.
+The native search route unfocuses its enclosing scope on dismissal. The popup
+scope restores focus to the current dialog when no child retains it, so Escape
+can cancel the dialog after dismissing or selecting a search suggestion.
 If the popup extension's Python API changed, refresh its local wheel with
 `uv sync --locked --reinstall-package popup-keyboard` before running checks.
 

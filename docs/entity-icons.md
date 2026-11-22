@@ -30,6 +30,9 @@ confirmation dialog, then Delete to confirm or Cancel to keep the icon.
   no Enter press is needed. Searching does not change the selected icon.
   Up/Down moves native keyboard focus through the suggestions (scrolling the
   focused item into view); Enter chooses that icon without saving the dialog.
+  Escape closes the suggestions first, then a subsequent Escape cancels the icon
+  dialog. With suggestions already closed, Escape cancels the dialog immediately,
+  including after an icon was selected.
   The target name/code values are bold, and dropdown messages have inset padding.
   Search stays on the device.
 - **Import image** uses Flet's file picker with `with_data=True`, including on

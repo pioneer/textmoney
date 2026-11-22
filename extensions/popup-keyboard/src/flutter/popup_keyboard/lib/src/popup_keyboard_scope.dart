@@ -45,13 +45,13 @@ class _PopupKeyboardScopeState extends State<PopupKeyboardScope> {
 
   void _restoreFocus() {
     final scope = _scope;
-    if (scope == null || !scope.hasPrimaryFocus) return;
-    // A mouse click outside an input can leave the returning dialog's route
-    // focused instead of any of its content. Do not steal restored widget focus.
+    if (scope == null || (scope.hasFocus && !scope.hasPrimaryFocus)) return;
+    // SearchAnchor unfocuses its enclosing scope when closing. Recover the
+    // current dialog's focus, but do not steal focus from a returning widget.
     scheduleMicrotask(() {
       if (mounted &&
           identical(scope, _scope) &&
-          scope.hasPrimaryFocus &&
+          (!scope.hasFocus || scope.hasPrimaryFocus) &&
           _route?.isCurrent == true) {
         _fallbackFocus.requestFocus();
       }

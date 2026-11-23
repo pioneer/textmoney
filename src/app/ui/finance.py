@@ -4644,8 +4644,8 @@ class FinanceView(ft.Row):
             keyboard_type=ft.KeyboardType.NAME,
         )
         row_column = ft.Column(spacing=16, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
-        summary = ft.Text(data="batch_summary")
-        submit_label = ft.Text()
+        summary = ft.Text(data="batch_summary", text_align=ft.TextAlign.CENTER)
+        submit_label = ft.Text(text_align=ft.TextAlign.CENTER)
         reconciliation = ft.Text(data="batch_reconciliation", visible=False)
         rows: list[BatchRow] = []
         register_inputs: Callable[[ft.Control], None] | None = None
@@ -4871,7 +4871,7 @@ class FinanceView(ft.Row):
         cancel = ft.TextButton(self.tr("crud_cancel"))
         submit = ft.TextButton(
             content=ft.Column(
-                [submit_label, ft.Container(summary, width=200)],
+                [submit_label, ft.Container(summary, width=200, alignment=ft.Alignment.CENTER)],
                 spacing=0,
                 tight=True,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,

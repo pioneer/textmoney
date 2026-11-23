@@ -44,6 +44,14 @@ def test_batch_preserves_draft_overrides_and_validates_before_saving(
         click(start)
         dialog = page.show_dialog.call_args.args[0]
         assert isinstance(dialog, EditorDialog)
+        submit = dialog.actions[-1]
+        assert isinstance(submit, ft.TextButton) and isinstance(submit.content, ft.Column)
+        label, summary_container = submit.content.controls
+        assert isinstance(label, ft.Text) and label.text_align == ft.TextAlign.CENTER
+        assert isinstance(summary_container, ft.Container)
+        assert summary_container.alignment == ft.Alignment.CENTER
+        assert isinstance(summary_container.content, ft.Text)
+        assert summary_container.content.text_align == ft.TextAlign.CENTER
         form = dialog.form
         for name in ("batch_kind", "batch_account", "batch_category"):
             dropdown = field(form, name)

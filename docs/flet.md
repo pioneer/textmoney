@@ -4,6 +4,13 @@ The app pins Flet 1.1.2 and uses imperative controls with `ft.run(main)`.
 Do not copy deprecated APIs or introduce `@ft.component`.
 Keep the runtime, `all` extras, MCP, and local SAF extension's Python and Dart
 dependencies aligned. Their pins and locked packages are checked by tests.
+Desktop startup restores the last normal window size and its normal, maximized,
+or full-screen state from device-local preferences before revealing the native
+window. Mobile preview keeps its 390-pixel launch width and does not restore
+desktop window settings. Normal dimensions are saved on resize rather than on
+close, because Flet's close event can report stale window dimensions. The saved
+mode is sent with the reveal update, avoiding stale native state between
+separate maximize and show updates.
 The Flutter pubspec pins `jni` 1.1.2 and `jni_flutter` 1.0.4+1 together.
 JNI 1.2.0 was retracted after causing an Android startup crash, and
 `jni_flutter` 1.1.0 requires JNI 1.2.0 or later. See

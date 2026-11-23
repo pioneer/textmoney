@@ -16,6 +16,7 @@ def run() -> None:
     configure_logging(settings.debug)
     ft.run(
         partial(main, mobile_preview=settings.mobile_preview),
+        view=ft.AppView.FLET_APP_HIDDEN,
         route_url_strategy=ft.RouteUrlStrategy.HASH,
     )
 

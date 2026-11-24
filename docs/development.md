@@ -403,7 +403,8 @@ uv run inv release --version 1.0.0
 These are alternative examples, not consecutive steps. `--version X.Y.Z` overrides
 automatic selection. In either mode this is an explicit publication command:
 it updates `[project].version` and the Android
-build number in `pyproject.toml`, refreshes `uv.lock` offline, runs
+build number in `pyproject.toml`, refreshes `uv.lock` (using cached metadata
+or the configured package indexes when needed), runs
 `uv run inv check`, commits those two files (plus screenshots and the guide's
 screenshot version caption when requested),
 and pushes `main` to `origin`.
@@ -549,6 +550,11 @@ commit push failed, inspect/push it explicitly. If dispatch failed before a run
 was created, repeat the same-version command after inspecting Actions; if a run
 already exists, use `--resume`. Do not choose a new version merely to recover
 from failed checks, builds, or dispatch/network problems.
+
+If lock refresh fails before the release commit, inspect the prepared version
+changes in `pyproject.toml` and `uv.lock` and restore them to the clean checkout
+before retrying. Do not discard other work in those files. A deliberately offline
+uv configuration requires cached metadata for every supported platform.
 
 CI compilation/startup checks are not physical-device certification or a full
 interactive GUI test. Test install/update, folder selection, journal CRUD,

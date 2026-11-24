@@ -185,7 +185,7 @@ def commands(root: Path, **overrides: str) -> MagicMock:
     def run(directory: Path, *args: str) -> str:
         assert directory == root
         command = " ".join(args)
-        if command == "uv lock --offline":
+        if command == "uv lock":
             (root / "uv.lock").write_text("new lock\n", encoding="utf-8")
         return responses.get(command, "")
 
@@ -244,6 +244,7 @@ def test_release_prepares_version_files_and_dispatches_candidate_without_tag(
         capture.assert_not_called()
     previous.assert_called_once_with(f"v{expected}")
     calls = [call.args[1:] for call in run.call_args_list]
+    assert ("uv", "lock") in calls
     assert ("git", "add", "--", "pyproject.toml", "uv.lock") in calls
     assert ("git", "commit", "-m", f"Release v{expected}", "-m", release.TRAILER) in calls
     assert (
@@ -269,6 +270,42 @@ def test_release_prepares_version_files_and_dispatches_candidate_without_tag(
     ) in calls
     assert not any(command[0] in {"flutter", "flet", "java"} for command in calls)
     wait.assert_called_once_with(workspace, REPO, f"v{expected}", SHA, resume=False)
+
+
+def test_release_stops_before_capture_and_publication_if_lock_fails(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_run = commands(workspace)
+    failure = RuntimeError("uv command failed")
+
+    def run(root: Path, *args: str) -> str:
+        if args == ("uv", "lock"):
+            raise failure
+        return original_run(root, *args)
+
+    monkeypatch.setattr(release, "run", run)
+    capture = MagicMock()
+    check = MagicMock()
+    with pytest.raises(RuntimeError, match="uv command failed") as error:
+        release.start_release(
+            workspace,
+            "0.3.7",
+            resume=False,
+            check=check,
+            previous_build=lambda _: 29,
+            capture_screenshots=capture,
+        )
+    assert error.value is failure
+    assert (
+        tomllib.loads((workspace / "pyproject.toml").read_text())["project"]["version"] == "0.3.7"
+    )
+    assert (workspace / "uv.lock").read_text() == "old lock\n"
+    capture.assert_not_called()
+    check.assert_not_called()
+    assert not any(
+        call.args[1:3] in {("git", "commit"), ("git", "push"), ("gh", "workflow")}
+        for call in original_run.call_args_list
+    )
 
 
 @pytest.mark.parametrize("version", ["", "0.3.6"])
@@ -1172,7 +1209,7 @@ def test_release_pushes_candidate_commit_without_tag_in_disposable_repositories(
             return f"https://github.com/{REPO}.git"
         if args[0] == "git":
             return real_run(root, *args)
-        if args == ("uv", "lock", "--offline"):
+        if args == ("uv", "lock"):
             (project / "uv.lock").write_text("new lock\n")
             return ""
         if args[:3] == ("gh", "repo", "view"):

@@ -381,7 +381,7 @@ def start_release(
         source = replace_setting(source, "project", "version", json.dumps(version))
         source = replace_setting(source, "tool.flet", "build_number", str(next_build))
         project_path.write_text(source, encoding="utf-8")
-        run(root, "uv", "lock", "--offline")
+        run(root, "uv", "lock")
     generated = set(capture_screenshots(version)) if capture_screenshots is not None else set()
     check()
     changed = set(run(root, "git", "diff", "--name-only").splitlines())

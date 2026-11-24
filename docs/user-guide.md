@@ -112,9 +112,10 @@ then select **Add multiple…**. Entered details become the first row, and its
 original description also prefills each new row. Clear any drafts in other
 transaction modes before switching. Set the shared account and category once;
 the optional payee is under **Advanced**. Enter a date, amount and optional
-description for each transaction. **Add row** carries forward the previous
-date. Under **Row details**, override shared values for a particular row or
-switch back to the shared value.
+description for each transaction. **Add row** beside each row's details appends
+a row, carries forward the last row's date, and scrolls to the new row's actions.
+Under **Row details**, override shared values for a particular row or switch back
+to the shared value.
 
 Review the rows and currency totals, then choose **Save N transactions**.
 Each row becomes a separate transaction in Operations. Correct any errors

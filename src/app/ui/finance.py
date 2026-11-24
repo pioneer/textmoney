@@ -4798,6 +4798,14 @@ class FinanceView(ft.Row):
                 self.tr("batch_row_details"),
                 icon=ft.Icons.TUNE,
                 data="batch_row_details",
+                expand=True,
+                key=ft.ScrollKey(f"batch-row-details:{row_amount._i}"),
+            )
+            add_button = ft.TextButton(
+                self.tr("batch_add_row"),
+                icon=ft.Icons.ADD,
+                data="batch_add_row",
+                on_click=add_row,
             )
             remove_button = ft.IconButton(
                 icon=ft.Icons.DELETE_OUTLINE,
@@ -4839,7 +4847,7 @@ class FinanceView(ft.Row):
                 when,
                 row_amount,
                 description,
-                details_button,
+                ft.Row([details_button, add_button], spacing=0),
                 details,
                 error,
             ]
@@ -4861,13 +4869,8 @@ class FinanceView(ft.Row):
             refresh_rows()
             self.page.update()
             await row.amount.focus()
+            await form.scroll_to(scroll_key=row.details_button.key, duration=350)
 
-        add = ft.TextButton(
-            self.tr("batch_add_row"),
-            icon=ft.Icons.ADD,
-            data="batch_add_row",
-            on_click=add_row,
-        )
         cancel = ft.TextButton(self.tr("crud_cancel"))
         submit = ft.TextButton(
             content=ft.Column(
@@ -4896,7 +4899,6 @@ class FinanceView(ft.Row):
                     expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
                 ),
                 row_column,
-                add,
                 reconciliation,
                 reload_batch,
             ],
@@ -4996,7 +4998,7 @@ class FinanceView(ft.Row):
             if saving or submit.disabled:
                 return
             saving = True
-            submit.disabled = cancel.disabled = add.disabled = form.disabled = True
+            submit.disabled = cancel.disabled = form.disabled = True
             for row in rows:
                 row.error.visible = False
             self.page.update()
@@ -5084,7 +5086,7 @@ class FinanceView(ft.Row):
                     reconciliation.value = self.tr("batch_reload_required")
                     reconciliation.visible = True
                     reload_batch.visible = True
-                cancel.disabled = add.disabled = form.disabled = False
+                cancel.disabled = form.disabled = False
                 self.page.update()
 
         submit.on_click = commit

@@ -22,6 +22,101 @@ def field(root: ft.Control, name: str) -> ft.Control:
     return next(control for control in _controls(root) if control.data == name)
 
 
+@pytest.fixture(autouse=True)
+def mock_batch_scroll(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+    scroll = AsyncMock()
+    monkeypatch.setattr(ft.Column, "scroll_to", scroll)
+    return scroll
+
+
+def test_batch_add_scrolls_to_new_rows_actions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_batch_scroll: AsyncMock
+) -> None:
+    async def scenario() -> None:
+        view, page, _ = await setup(tmp_path, monkeypatch)
+        focus = AsyncMock()
+        monkeypatch.setattr(ft.TextField, "focus", focus)
+        calls = MagicMock()
+        calls.attach_mock(focus, "focus")
+        calls.attach_mock(mock_batch_scroll, "scroll")
+        view._new_transaction(MagicMock())
+        original_dialog = page.show_dialog.call_args.args[0]
+        start = field(original_dialog.content, "batch_start")
+        assert isinstance(start, ft.TextButton)
+        click(start)
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog, EditorDialog)
+        add = field(dialog.form, "batch_add_row")
+        assert isinstance(add, ft.TextButton)
+
+        keys = []
+        for _ in range(2):
+            await click_async(add)
+            rows = [control for control in _controls(dialog.form) if control.data == "batch_row"]
+            details = field(rows[-1], "batch_row_details")
+            assert isinstance(details, ft.TextButton)
+            assert isinstance(details.key, ft.ScrollKey)
+            keys.append(details.key)
+            mock_batch_scroll.assert_awaited_with(scroll_key=details.key, duration=350)
+        assert keys[0] != keys[1]
+        assert [call[0] for call in calls.mock_calls] == ["focus", "scroll", "focus", "scroll"]
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("language", ["en", "uk", "ru"])
+def test_batch_add_button_is_beside_each_rows_details(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: str
+) -> None:
+    async def scenario() -> None:
+        view, page, _ = await setup(tmp_path, monkeypatch, language)
+        monkeypatch.setattr(ft.TextField, "focus", AsyncMock())
+        view._new_transaction(MagicMock())
+        original_dialog = page.show_dialog.call_args.args[0]
+        start = field(original_dialog.content, "batch_start")
+        assert isinstance(start, ft.TextButton)
+        click(start)
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog, EditorDialog)
+
+        def assert_actions() -> list[ft.Control]:
+            rows = [control for control in _controls(dialog.form) if control.data == "batch_row"]
+            for row in rows:
+                details = field(row, "batch_row_details")
+                add = field(row, "batch_add_row")
+                assert isinstance(details, ft.TextButton) and details.expand
+                assert isinstance(add, ft.TextButton)
+                assert any(
+                    isinstance(control, ft.Row)
+                    and control.controls == [details, add]
+                    and not control.wrap
+                    for control in _controls(row)
+                )
+            return rows
+
+        rows = assert_actions()
+        assert len(rows) == 1
+        add = field(rows[0], "batch_add_row")
+        assert isinstance(add, ft.TextButton)
+        await click_async(add)
+        rows = assert_actions()
+        assert len(rows) == 2
+        add = field(rows[1], "batch_add_row")
+        assert isinstance(add, ft.TextButton)
+        await click_async(add)
+        rows = assert_actions()
+        assert len(rows) == 3
+        remove = next(
+            control
+            for control in _controls(rows[1])
+            if isinstance(control, ft.IconButton) and control.icon == ft.Icons.DELETE_OUTLINE
+        )
+        click(remove)
+        assert len(assert_actions()) == 2
+
+    asyncio.run(scenario())
+
+
 def test_batch_preserves_draft_overrides_and_validates_before_saving(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

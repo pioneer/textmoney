@@ -9,15 +9,23 @@ from app.ui.layout import action_toolbar, settings_field
 _FUNCTIONS = {
     Capability.UNDERSTAND: "ai_understand",
     Capability.GENERATE: "ai_generate",
+    Capability.NOTIFICATION_RULE: "ai_notification_rule",
 }
 _UNSET = "unset"
 logger = logging.getLogger(__name__)
 
 
 class AISettingsPanel:
-    def __init__(self, translate: Callable[..., str], settings: Callable[[], AISettings]) -> None:
+    def __init__(
+        self,
+        translate: Callable[..., str],
+        settings: Callable[[], AISettings],
+        *,
+        notification_rules: Callable[[], bool] = lambda: False,
+    ) -> None:
         self.tr = translate
         self.settings = settings
+        self.notification_rules = notification_rules
         self.busy = False
         self.available = False
         self.loaded = False
@@ -54,9 +62,13 @@ class AISettingsPanel:
         self.retry = ft.TextButton(on_click=self._load)
         self.models = {
             capability: ft.Dropdown(expand=True, on_select=self._model_changed, data=capability)
-            for capability in Capability
+            for capability in _FUNCTIONS
         }
-        self.model_status = {capability: ft.Text() for capability in Capability}
+        self.model_status = {capability: ft.Text() for capability in _FUNCTIONS}
+        self.model_rows = {
+            capability: settings_field(ft.Row([self.models[capability]]))
+            for capability in _FUNCTIONS
+        }
         self.form = ft.Column(
             [
                 settings_field(ft.Row([self.provider])),
@@ -66,11 +78,8 @@ class AISettingsPanel:
                 ft.Divider(),
                 *(
                     item
-                    for cap in Capability
-                    for item in (
-                        settings_field(ft.Row([self.models[cap]])),
-                        self.model_status[cap],
-                    )
+                    for capability in _FUNCTIONS
+                    for item in (self.model_rows[capability], self.model_status[capability])
                 ),
                 ft.Divider(),
                 self.adapt_tile,
@@ -121,6 +130,9 @@ class AISettingsPanel:
         self.adapt_icons.disabled = self.busy
         self.adapt_tile.disabled = self.busy
         for capability, dropdown in self.models.items():
+            self.model_rows[capability].visible = (
+                capability != Capability.NOTIFICATION_RULE or self.notification_rules()
+            )
             saved = self.saved.get(capability, "")
             options = [ft.DropdownOption(key=_UNSET, text=self.tr("ai_unconfigured"))]
             models = MODELS[capability]
@@ -134,7 +146,7 @@ class AISettingsPanel:
                 notice.value = self.tr("ai_model_needs_key")
             else:
                 notice.value = ""
-            notice.visible = bool(notice.value)
+            notice.visible = bool(notice.value) and self.model_rows[capability].visible
             if [(o.key, o.text) for o in dropdown.options] != [(o.key, o.text) for o in options]:
                 dropdown.options = options
             dropdown.label = self.tr(_FUNCTIONS[capability])
@@ -163,7 +175,7 @@ class AISettingsPanel:
 
     async def _load(self, event: ft.Event) -> None:
         async def load(settings: AISettings) -> None:
-            saved = {capability: await settings.selection(capability) for capability in Capability}
+            saved = {capability: await settings.selection(capability) for capability in _FUNCTIONS}
             presence = {provider: await settings.has_key(provider) for provider in Provider}
             adaptation = await settings.adapt_generated_icons()
             self.adaptation = adaptation

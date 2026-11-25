@@ -7,6 +7,7 @@ src/app/.release.json
 src/.flet/
 .flet/
 .dart_tool/
+.gradle/
 extensions/popup-keyboard/src/flutter/popup_keyboard/pubspec.lock
 *.p8
 __pycache__/

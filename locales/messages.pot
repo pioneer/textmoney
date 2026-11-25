@@ -2,10 +2,10 @@
 # Stable msgids are translation keys; translate msgstr values only.
 msgid ""
 msgstr ""
-"Project-Id-Version: TextMoney 0.4.19\n"
+"Project-Id-Version: TextMoney 0.4.20\n"
 "Report-Msgid-Bugs-To: https://github.com/pioneer/textmoney/issues\n"
-"POT-Creation-Date: 2026-11-22 21:19+0200\n"
-"PO-Revision-Date: 2026-11-22 21:19+0200\n"
+"POT-Creation-Date: 2026-11-23 20:32+0200\n"
+"PO-Revision-Date: 2026-11-23 20:32+0200\n"
 "Last-Translator: TextMoney localization contributors\n"
 "Language-Team: TextMoney language translators\n"
 "MIME-Version: 1.0\n"
@@ -2475,5 +2475,680 @@ msgstr ""
 #. Stable TextMoney key; a parent category cannot become available after a
 #. child.
 msgid "ui.crud_category_after_child"
+msgstr ""
+
+msgid "ui.notification_source"
+msgstr ""
+
+msgid "ui.notification_no_rule"
+msgstr ""
+
+msgid "ui.notification_unavailable"
+msgstr ""
+
+msgid "ui.notification_kind_required"
+msgstr ""
+
+msgid "ui.notification_currency_mismatch"
+msgstr ""
+
+msgid "ui.notification_needs_attention"
+msgstr ""
+
+msgid "ui.notification_state_error"
+msgstr ""
+
+msgid "ui.notification_rule_editor"
+msgstr ""
+
+msgid "ui.notification_rule_details"
+msgstr ""
+
+msgid "ui.notification_rule_name"
+msgstr ""
+
+msgid "ui.notification_rule_source"
+msgstr ""
+
+msgid "ui.notification_rule_action"
+msgstr ""
+
+msgid "ui.notification_rule_suggest"
+msgstr ""
+
+msgid "ui.notification_rule_ignore"
+msgstr ""
+
+msgid "ui.notification_rule_title_pattern"
+msgstr ""
+
+msgid "ui.notification_rule_pattern_help"
+msgstr ""
+
+msgid "ui.notification_rule_body_pattern"
+msgstr ""
+
+msgid "ui.notification_rule_enabled"
+msgstr ""
+
+msgid "ui.notification_rule_priority"
+msgstr ""
+
+msgid "ui.notification_rule_mapping"
+msgstr ""
+
+msgid "ui.notification_rule_kind"
+msgstr ""
+
+msgid "ui.notification_rule_amount"
+msgstr ""
+
+msgid "ui.notification_rule_currency"
+msgstr ""
+
+msgid "ui.notification_rule_account"
+msgstr ""
+
+msgid "ui.notification_rule_destination"
+msgstr ""
+
+msgid "ui.notification_rule_destination_amount"
+msgstr ""
+
+msgid "ui.notification_rule_category"
+msgstr ""
+
+msgid "ui.notification_rule_payee"
+msgstr ""
+
+msgid "ui.notification_rule_description"
+msgstr ""
+
+msgid "ui.notification_rule_date"
+msgstr ""
+
+msgid "ui.notification_rule_time"
+msgstr ""
+
+msgid "ui.notification_rule_unmapped"
+msgstr ""
+
+msgid "ui.notification_rule_fixed"
+msgstr ""
+
+msgid "ui.notification_rule_capture"
+msgstr ""
+
+msgid "ui.notification_rule_mapping_value"
+msgstr ""
+
+msgid "ui.notification_rule_decimal_separator"
+msgstr ""
+
+msgid "ui.notification_rule_grouping_separator"
+msgstr ""
+
+msgid "ui.notification_rule_group_none"
+msgstr ""
+
+msgid "ui.notification_rule_group_."
+msgstr ""
+
+msgid "ui.notification_rule_group_,"
+msgstr ""
+
+msgid "ui.notification_rule_group_space"
+msgstr ""
+
+msgid "ui.notification_rule_group_nbsp"
+msgstr ""
+
+msgid "ui.notification_rule_group_narrow"
+msgstr ""
+
+msgid "ui.notification_rule_date_format"
+msgstr ""
+
+msgid "ui.notification_rule_date_0"
+msgstr ""
+
+msgid "ui.notification_rule_date_1"
+msgstr ""
+
+msgid "ui.notification_rule_date_2"
+msgstr ""
+
+msgid "ui.notification_rule_date_3"
+msgstr ""
+
+msgid "ui.notification_rule_currency_symbols"
+msgstr ""
+
+msgid "ui.notification_rule_sample"
+msgstr ""
+
+msgid "ui.notification_rule_sample_choice"
+msgstr ""
+
+msgid "ui.notification_rule_sample_manual"
+msgstr ""
+
+msgid "ui.notification_ai_title"
+msgstr ""
+
+msgid "ui.ai_notification_rule"
+msgstr ""
+
+msgid "ui.notification_ai_consent"
+msgstr ""
+
+msgid "ui.notification_ai_send"
+msgstr ""
+
+msgid "ui.notification_ai_model_changed"
+msgstr ""
+
+msgid "ui.notification_ai_sample_required"
+msgstr ""
+
+msgid "ui.notification_ai_refused"
+msgstr ""
+
+msgid "ui.notification_ai_invalid"
+msgstr ""
+
+msgid "ui.notification_ai_failed"
+msgstr ""
+
+msgid "ui.notification_settings_title"
+msgstr ""
+
+msgid "ui.notification_settings_last_check"
+msgstr ""
+
+msgid "ui.notification_settings_never_checked"
+msgstr ""
+
+msgid "ui.notification_settings_help"
+msgstr ""
+
+msgid "ui.notification_settings_mode_off"
+msgstr ""
+
+msgid "ui.notification_settings_mode_manual"
+msgstr ""
+
+msgid "ui.notification_settings_mode_background"
+msgstr ""
+
+msgid "ui.notification_settings_access_unknown"
+msgstr ""
+
+msgid "ui.notification_settings_access_required"
+msgstr ""
+
+msgid "ui.notification_settings_disconnected"
+msgstr ""
+
+msgid "ui.notification_settings_connected"
+msgstr ""
+
+msgid "ui.notification_settings_enable"
+msgstr ""
+
+msgid "ui.notification_settings_disable"
+msgstr ""
+
+msgid "ui.notification_settings_access_button"
+msgstr ""
+
+msgid "ui.notification_settings_refresh"
+msgstr ""
+
+msgid "ui.notification_settings_apps"
+msgstr ""
+
+msgid "ui.notification_settings_search"
+msgstr ""
+
+msgid "ui.notification_settings_search_more"
+msgstr ""
+
+msgid "ui.notification_settings_apps_empty"
+msgstr ""
+
+msgid "ui.notification_settings_rules"
+msgstr ""
+
+msgid "ui.notification_settings_rule_enabled"
+msgstr ""
+
+msgid "ui.notification_settings_rule_disabled"
+msgstr ""
+
+msgid "ui.notification_settings_edit"
+msgstr ""
+
+msgid "ui.notification_settings_duplicate"
+msgstr ""
+
+msgid "ui.notification_settings_delete"
+msgstr ""
+
+msgid "ui.notification_settings_add_rule"
+msgstr ""
+
+msgid "ui.notification_settings_choose_apps"
+msgstr ""
+
+msgid "ui.notification_settings_bridge_error"
+msgstr ""
+
+msgid "ui.notification_settings_store_error"
+msgstr ""
+
+msgid "ui.notification_settings_delete_title"
+msgstr ""
+
+msgid "ui.notification_settings_delete_help"
+msgstr ""
+
+msgid "ui.notification_settings_clear"
+msgstr ""
+
+msgid "ui.notification_settings_clear_title"
+msgstr ""
+
+msgid "ui.notification_settings_clear_help"
+msgstr ""
+
+msgid "ui.notification_settings_reset"
+msgstr ""
+
+msgid "ui.notification_settings_reset_title"
+msgstr ""
+
+msgid "ui.notification_settings_reset_help"
+msgstr ""
+
+msgid "ui.notification_settings_history_failed"
+msgstr ""
+
+msgid "ui.notification_old_title"
+msgstr ""
+
+msgid "ui.notification_old_select"
+msgstr ""
+
+msgid "ui.notification_old_help"
+msgstr ""
+
+msgid "ui.notification_old_ack"
+msgstr ""
+
+msgid "ui.notification_old_confirm"
+msgstr ""
+
+msgid "ui.notification_old_failed"
+msgstr ""
+
+msgid "ui.notification_old_empty"
+msgstr ""
+
+msgid "ui.notification_old_recovered"
+msgstr ""
+
+msgid "ui.notification_inbox_title"
+msgstr ""
+
+msgid "ui.notification_pending_count"
+msgstr ""
+
+msgid "ui.notification_inbox_check"
+msgstr ""
+
+msgid "ui.notification_inbox_settings"
+msgstr ""
+
+msgid "ui.notification_inbox_tab_pending"
+msgstr ""
+
+msgid "ui.notification_inbox_tab_recent"
+msgstr ""
+
+msgid "ui.notification_inbox_tab_processed"
+msgstr ""
+
+msgid "ui.notification_inbox_previous"
+msgstr ""
+
+msgid "ui.notification_inbox_next"
+msgstr ""
+
+msgid "ui.notification_inbox_page"
+msgstr ""
+
+msgid "ui.notification_inbox_setup"
+msgstr ""
+
+msgid "ui.notification_inbox_empty_pending"
+msgstr ""
+
+msgid "ui.notification_inbox_waiting"
+msgstr ""
+
+msgid "ui.notification_inbox_empty_recent"
+msgstr ""
+
+msgid "ui.notification_inbox_empty_processed"
+msgstr ""
+
+msgid "ui.notification_inbox_expired"
+msgstr ""
+
+msgid "ui.notification_inbox_acknowledge_expired"
+msgstr ""
+
+msgid "ui.notification_inbox_expired_changed"
+msgstr ""
+
+msgid "ui.notification_inbox_expiring"
+msgstr ""
+
+msgid "ui.notification_inbox_changed_source"
+msgstr ""
+
+msgid "ui.notification_inbox_stale_rule"
+msgstr ""
+
+msgid "ui.notification_inbox_posted"
+msgstr ""
+
+msgid "ui.notification_inbox_title_unavailable"
+msgstr ""
+
+msgid "ui.notification_inbox_body_unavailable"
+msgstr ""
+
+msgid "ui.notification_recent_title"
+msgstr ""
+
+msgid "ui.notification_recent_help"
+msgstr ""
+
+msgid "ui.notification_recent_count"
+msgstr ""
+
+msgid "ui.notification_recent_transition"
+msgstr ""
+
+msgid "ui.notification_recent_previous_rule"
+msgstr ""
+
+msgid "ui.notification_recent_confirm"
+msgstr ""
+
+msgid "ui.notification_recent_empty"
+msgstr ""
+
+msgid "ui.notification_recent_failed"
+msgstr ""
+
+msgid "ui.notification_recent_applied"
+msgstr ""
+
+msgid "ui.notification_inbox_status_pending"
+msgstr ""
+
+msgid "ui.notification_inbox_status_saving"
+msgstr ""
+
+msgid "ui.notification_inbox_status_unmatched"
+msgstr ""
+
+msgid "ui.notification_inbox_status_ignored"
+msgstr ""
+
+msgid "ui.notification_inbox_status_uncertain"
+msgstr ""
+
+msgid "ui.notification_inbox_status_imported"
+msgstr ""
+
+msgid "ui.notification_inbox_status_skipped"
+msgstr ""
+
+msgid "ui.notification_inbox_status_expired"
+msgstr ""
+
+msgid "ui.notification_inbox_status_cleared"
+msgstr ""
+
+msgid "ui.notification_inbox_review"
+msgstr ""
+
+msgid "ui.notification_inbox_skip"
+msgstr ""
+
+msgid "ui.notification_inbox_recover"
+msgstr ""
+
+msgid "ui.notification_inbox_rule"
+msgstr ""
+
+msgid "ui.notification_edit_matching_rule"
+msgstr ""
+
+msgid "ui.notification_inbox_capacity"
+msgstr ""
+
+msgid "ui.notification_inbox_checked"
+msgstr ""
+
+msgid "ui.notification_inbox_access_error"
+msgstr ""
+
+msgid "ui.notification_inbox_check_error"
+msgstr ""
+
+msgid "ui.notification_inbox_changed"
+msgstr ""
+
+msgid "ui.notification_inbox_storage_error"
+msgstr ""
+
+msgid "ui.notification_recovery_title"
+msgstr ""
+
+msgid "ui.notification_recovery_help"
+msgstr ""
+
+msgid "ui.notification_recovery_outcome"
+msgstr ""
+
+msgid "ui.notification_recovery_saved"
+msgstr ""
+
+msgid "ui.notification_recovery_not_saved"
+msgstr ""
+
+msgid "ui.notification_recovery_acknowledge"
+msgstr ""
+
+msgid "ui.notification_recovery_confirm"
+msgstr ""
+
+msgid "ui.notification_recovery_failed"
+msgstr ""
+
+msgid "ui.notification_apply_title"
+msgstr ""
+
+msgid "ui.notification_apply_help"
+msgstr ""
+
+msgid "ui.notification_apply_winner"
+msgstr ""
+
+msgid "ui.notification_apply_outcome"
+msgstr ""
+
+msgid "ui.notification_apply_overwrite"
+msgstr ""
+
+msgid "ui.notification_apply_empty"
+msgstr ""
+
+msgid "ui.notification_apply_change"
+msgstr ""
+
+msgid "ui.notification_apply_duplicate_ack"
+msgstr ""
+
+msgid "ui.notification_apply_confirm"
+msgstr ""
+
+msgid "ui.notification_apply_failed"
+msgstr ""
+
+msgid "ui.notification_rule_sample_title"
+msgstr ""
+
+msgid "ui.notification_rule_sample_body"
+msgstr ""
+
+msgid "ui.notification_rule_test"
+msgstr ""
+
+msgid "ui.notification_rule_test_no_match"
+msgstr ""
+
+msgid "ui.notification_rule_test_wins"
+msgstr ""
+
+msgid "ui.notification_rule_test_other"
+msgstr ""
+
+msgid "ui.notification_rule_test_winner"
+msgstr ""
+
+msgid "ui.notification_rule_test_outcome"
+msgstr ""
+
+msgid "ui.notification_rule_outcome_suggest"
+msgstr ""
+
+msgid "ui.notification_rule_outcome_ignore"
+msgstr ""
+
+msgid "ui.notification_rule_outcome_unmatched"
+msgstr ""
+
+msgid "ui.notification_rule_test_current"
+msgstr ""
+
+msgid "ui.notification_rule_test_proposed"
+msgstr ""
+
+msgid "ui.notification_rule_test_candidate_match"
+msgstr ""
+
+msgid "ui.notification_rule_test_candidate_no_match"
+msgstr ""
+
+msgid "ui.notification_rule_test_no_captures"
+msgstr ""
+
+msgid "ui.notification_rule_test_captures"
+msgstr ""
+
+msgid "ui.notification_rule_test_errors"
+msgstr ""
+
+msgid "ui.notification_rule_test_no_errors"
+msgstr ""
+
+msgid "ui.notification_rule_test_failed"
+msgstr ""
+
+msgid "ui.notification_rule_error_other"
+msgstr ""
+
+msgid "ui.notification_rule_error_required"
+msgstr ""
+
+msgid "ui.notification_rule_error_missing"
+msgstr ""
+
+msgid "ui.notification_rule_error_kind"
+msgstr ""
+
+msgid "ui.notification_rule_error_positive"
+msgstr ""
+
+msgid "ui.notification_rule_error_currency"
+msgstr ""
+
+msgid "ui.notification_rule_error_date_range"
+msgstr ""
+
+msgid "ui.notification_rule_error_date_format"
+msgstr ""
+
+msgid "ui.notification_rule_error_time"
+msgstr ""
+
+msgid "ui.notification_rule_error_account"
+msgstr ""
+
+msgid "ui.notification_rule_error_account_currency"
+msgstr ""
+
+msgid "ui.notification_rule_error_account_date"
+msgstr ""
+
+msgid "ui.notification_rule_error_transfer"
+msgstr ""
+
+msgid "ui.notification_rule_error_transfer_amount"
+msgstr ""
+
+msgid "ui.notification_rule_error_category"
+msgstr ""
+
+msgid "ui.notification_rule_error_category_date"
+msgstr ""
+
+msgid "ui.notification_rule_error_payee"
+msgstr ""
+
+msgid "ui.notification_rule_error_description"
+msgstr ""
+
+msgid "ui.notification_rule_invalid"
+msgstr ""
+
+msgid "ui.notification_rule_error_pattern"
+msgstr ""
+
+msgid "ui.notification_rule_error_name_pattern"
+msgstr ""
+
+msgid "ui.notification_rule_error_mapping_config"
+msgstr ""
+
+msgid "ui.notification_rule_error_priority"
+msgstr ""
+
+msgid "ui.notification_rule_error_number_format"
+msgstr ""
+
+msgid "ui.notification_rule_error_currency_config"
+msgstr ""
+
+msgid "ui.notification_rule_conflict"
+msgstr ""
+
+msgid "ui.notification_rule_save_failed"
 msgstr ""
 

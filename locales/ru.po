@@ -2574,3 +2574,678 @@ msgstr "Дата доступности категории не может бы�
 #. Stable TextMoney key; a parent category cannot become available after a child.
 msgid "ui.crud_category_after_child"
 msgstr "Дата доступности категории не может быть позже даты дочерней категории."
+
+msgid "ui.notification_source"
+msgstr "Исходное уведомление"
+
+msgid "ui.notification_no_rule"
+msgstr "Нет подходящего правила"
+
+msgid "ui.notification_unavailable"
+msgstr "Недоступно"
+
+msgid "ui.notification_kind_required"
+msgstr "Выберите тип операции."
+
+msgid "ui.notification_currency_mismatch"
+msgstr "Введите валюту выбранного счёта."
+
+msgid "ui.notification_needs_attention"
+msgstr "Некоторые данные не удалось определить. Проверьте и заполните их перед сохранением."
+
+msgid "ui.notification_state_error"
+msgstr "Состояние уведомления изменилось или недоступно. Откройте его снова и проверьте незавершённое сохранение перед повторной попыткой."
+
+msgid "ui.notification_rule_editor"
+msgstr "Правило уведомления"
+
+msgid "ui.notification_rule_details"
+msgstr "Параметры правила"
+
+msgid "ui.notification_rule_name"
+msgstr "Название правила"
+
+msgid "ui.notification_rule_source"
+msgstr "Исходное приложение"
+
+msgid "ui.notification_rule_action"
+msgstr "При совпадении"
+
+msgid "ui.notification_rule_suggest"
+msgstr "Предложить операцию"
+
+msgid "ui.notification_rule_ignore"
+msgstr "Игнорировать уведомление"
+
+msgid "ui.notification_rule_title_pattern"
+msgstr "Шаблон заголовка"
+
+msgid "ui.notification_rule_pattern_help"
+msgstr "Сопоставляйте обычный текст, а {{capture_name}} используйте для захвата значения. Двойные фигурные скобки обозначают буквальные скобки."
+
+msgid "ui.notification_rule_body_pattern"
+msgstr "Шаблон текста"
+
+msgid "ui.notification_rule_enabled"
+msgstr "Включить это правило"
+
+msgid "ui.notification_rule_priority"
+msgstr "Приоритет (1 — наивысший)"
+
+msgid "ui.notification_rule_mapping"
+msgstr "Соответствие полей операции"
+
+msgid "ui.notification_rule_kind"
+msgstr "Тип операции"
+
+msgid "ui.notification_rule_amount"
+msgstr "Сумма"
+
+msgid "ui.notification_rule_currency"
+msgstr "Валюта"
+
+msgid "ui.notification_rule_account"
+msgstr "Счёт"
+
+msgid "ui.notification_rule_destination"
+msgstr "Счёт назначения перевода"
+
+msgid "ui.notification_rule_destination_amount"
+msgstr "Сумма назначения"
+
+msgid "ui.notification_rule_category"
+msgstr "Категория"
+
+msgid "ui.notification_rule_payee"
+msgstr "Получатель"
+
+msgid "ui.notification_rule_description"
+msgstr "Описание"
+
+msgid "ui.notification_rule_date"
+msgstr "Дата"
+
+msgid "ui.notification_rule_time"
+msgstr "Время"
+
+msgid "ui.notification_rule_unmapped"
+msgstr "Не задано"
+
+msgid "ui.notification_rule_fixed"
+msgstr "Фиксированное значение"
+
+msgid "ui.notification_rule_capture"
+msgstr "Захват"
+
+msgid "ui.notification_rule_mapping_value"
+msgstr "Значение или имя захвата"
+
+msgid "ui.notification_rule_decimal_separator"
+msgstr "Десятичный разделитель"
+
+msgid "ui.notification_rule_grouping_separator"
+msgstr "Разделитель разрядов"
+
+msgid "ui.notification_rule_group_none"
+msgstr "Нет"
+
+msgid "ui.notification_rule_group_."
+msgstr "Точка"
+
+msgid "ui.notification_rule_group_,"
+msgstr "Запятая"
+
+msgid "ui.notification_rule_group_space"
+msgstr "Пробел"
+
+msgid "ui.notification_rule_group_nbsp"
+msgstr "Неразрывный пробел"
+
+msgid "ui.notification_rule_group_narrow"
+msgstr "Узкий неразрывный пробел"
+
+msgid "ui.notification_rule_date_format"
+msgstr "Формат даты"
+
+msgid "ui.notification_rule_date_0"
+msgstr "Год-месяц-день"
+
+msgid "ui.notification_rule_date_1"
+msgstr "День.месяц.год"
+
+msgid "ui.notification_rule_date_2"
+msgstr "День/месяц/год"
+
+msgid "ui.notification_rule_date_3"
+msgstr "Месяц/день/год"
+
+msgid "ui.notification_rule_currency_symbols"
+msgstr "Символы валют: одна запись символ=КОД на строку"
+
+msgid "ui.notification_rule_sample"
+msgstr "Проверка на примере (не сохраняет)"
+
+msgid "ui.notification_rule_sample_choice"
+msgstr "Источник примера"
+
+msgid "ui.notification_rule_sample_manual"
+msgstr "Ввести пример вручную"
+
+msgid "ui.notification_ai_title"
+msgstr "Создать черновик правила с помощью ИИ"
+
+msgid "ui.ai_notification_rule"
+msgstr "Модель для правил уведомлений"
+
+msgid "ui.notification_ai_consent"
+msgstr "Проверьте и при необходимости отредактируйте это одно уведомление перед отправкой в {model}. Поставщик может взимать плату. Ничего не будет импортировано или включено автоматически."
+
+msgid "ui.notification_ai_send"
+msgstr "Отправить этот пример"
+
+msgid "ui.notification_ai_model_changed"
+msgstr "Выбранная модель изменилась. Откройте это окно снова и проверьте получателя перед отправкой."
+
+msgid "ui.notification_ai_sample_required"
+msgstr "Перед отправкой введите заголовок или текст уведомления."
+
+msgid "ui.notification_ai_refused"
+msgstr "Поставщик отклонил запрос. Можно изменить пример или создать правило вручную."
+
+msgid "ui.notification_ai_invalid"
+msgstr "Поставщик вернул некорректное правило. Повторите попытку или создайте правило вручную."
+
+msgid "ui.notification_ai_failed"
+msgstr "Не удалось создать черновик правила. Проверьте настройки ИИ, повторите попытку или создайте правило вручную."
+
+msgid "ui.notification_settings_title"
+msgstr "Импорт из уведомлений"
+
+msgid "ui.notification_settings_last_check"
+msgstr "Последняя успешная проверка: {time}"
+
+msgid "ui.notification_settings_never_checked"
+msgstr "Уведомления еще не проверялись."
+
+msgid "ui.notification_settings_help"
+msgstr "Выберите приложения и правила для предложений транзакций. Ручная проверка читает текущие уведомления только после нажатия кнопки проверки; закрытые уведомления могут быть пропущены. Исходные уведомления не закрываются."
+
+msgid "ui.notification_settings_mode_off"
+msgstr "Мониторинг выключен."
+
+msgid "ui.notification_settings_mode_manual"
+msgstr "Включена ручная проверка."
+
+msgid "ui.notification_settings_mode_background"
+msgstr "Выбрано фоновое обнаружение."
+
+msgid "ui.notification_settings_access_unknown"
+msgstr "Состояние доступа к уведомлениям неизвестно. Обновите его."
+
+msgid "ui.notification_settings_access_required"
+msgstr "Необходим доступ к уведомлениям. Предоставьте его в настройках Android."
+
+msgid "ui.notification_settings_disconnected"
+msgstr "Доступ предоставлен, но служба не подключена. Обновите состояние или проверьте настройки Android."
+
+msgid "ui.notification_settings_connected"
+msgstr "Доступ к уведомлениям подключен."
+
+msgid "ui.notification_settings_enable"
+msgstr "Включить ручную проверку"
+
+msgid "ui.notification_settings_disable"
+msgstr "Выключить"
+
+msgid "ui.notification_settings_access_button"
+msgstr "Открыть доступ к уведомлениям"
+
+msgid "ui.notification_settings_refresh"
+msgstr "Обновить состояние"
+
+msgid "ui.notification_settings_apps"
+msgstr "Приложения для мониторинга"
+
+msgid "ui.notification_settings_search"
+msgstr "Поиск установленных приложений"
+
+msgid "ui.notification_settings_search_more"
+msgstr "Найдено больше приложений. Уточните поиск."
+
+msgid "ui.notification_settings_apps_empty"
+msgstr "Приложения по этому запросу не найдены."
+
+msgid "ui.notification_settings_rules"
+msgstr "Правила"
+
+msgid "ui.notification_settings_rule_enabled"
+msgstr "Включено"
+
+msgid "ui.notification_settings_rule_disabled"
+msgstr "Выключено"
+
+msgid "ui.notification_settings_edit"
+msgstr "Изменить"
+
+msgid "ui.notification_settings_duplicate"
+msgstr "Дублировать"
+
+msgid "ui.notification_settings_delete"
+msgstr "Удалить"
+
+msgid "ui.notification_settings_add_rule"
+msgstr "Добавить правило"
+
+msgid "ui.notification_settings_choose_apps"
+msgstr "Выберите приложение для создания правил."
+
+msgid "ui.notification_settings_bridge_error"
+msgstr "Не удалось получить доступ к настройкам уведомлений Android. Проверьте доступ и обновите состояние."
+
+msgid "ui.notification_settings_store_error"
+msgstr "Не удалось изменить настройки или правила уведомлений. Обновите состояние и повторите попытку."
+
+msgid "ui.notification_settings_delete_title"
+msgstr "Удалить правило?"
+
+msgid "ui.notification_settings_delete_help"
+msgstr "Будет удалено только правило. Существующие черновики транзакций и уведомления других приложений не изменятся."
+
+msgid "ui.notification_settings_clear"
+msgstr "Очистить сохранённое содержимое"
+
+msgid "ui.notification_settings_clear_title"
+msgstr "Очистить сохранённое содержимое?"
+
+msgid "ui.notification_settings_clear_help"
+msgstr "Удалить черновики и сохранённые примеры уведомлений из TextMoney, сохранив историю предотвращения дубликатов. Исходные уведомления не изменятся."
+
+msgid "ui.notification_settings_reset"
+msgstr "Сбросить историю импорта"
+
+msgid "ui.notification_settings_reset_title"
+msgstr "Сбросить историю импорта?"
+
+msgid "ui.notification_settings_reset_help"
+msgstr "Удалить сохранённые черновики, примеры и историю предотвращения дубликатов. Обычные проверки не предложат старые уведомления повторно, но намеренное восстановление старых уведомлений может создать дубликаты. Исходные уведомления не изменятся."
+
+msgid "ui.notification_settings_history_failed"
+msgstr "Не удалось изменить историю. Определите результаты неизвестных сохранений, обновите состояние и повторите попытку."
+
+msgid "ui.notification_old_title"
+msgstr "Восстановить старое уведомление"
+
+msgid "ui.notification_old_select"
+msgstr "Выберите видимое уведомление"
+
+msgid "ui.notification_old_help"
+msgstr "Показаны только уведомления, видимые Android сейчас. Старые уведомления могли быть уже импортированы; перед продолжением проверьте журнал. Исходное уведомление не будет закрыто."
+
+msgid "ui.notification_old_ack"
+msgstr "Я понимаю, что это может быть дубликат."
+
+msgid "ui.notification_old_confirm"
+msgstr "Проверить выбранное уведомление"
+
+msgid "ui.notification_old_failed"
+msgstr "Не удалось восстановить уведомление. Проверьте настройки источников и повторите попытку."
+
+msgid "ui.notification_old_empty"
+msgstr "Сейчас нет видимых старых уведомлений, которые можно восстановить."
+
+msgid "ui.notification_old_recovered"
+msgstr "Уведомление добавлено в недавние для проверки правил и возможных дубликатов."
+
+msgid "ui.notification_inbox_title"
+msgstr "Импорт из уведомлений"
+
+msgid "ui.notification_pending_count"
+msgstr "Ожидают импорта уведомлений: {count}"
+
+msgid "ui.notification_inbox_check"
+msgstr "Проверить сейчас"
+
+msgid "ui.notification_inbox_settings"
+msgstr "Настройки импорта"
+
+msgid "ui.notification_inbox_tab_pending"
+msgstr "Ожидают"
+
+msgid "ui.notification_inbox_tab_recent"
+msgstr "Недавние"
+
+msgid "ui.notification_inbox_tab_processed"
+msgstr "Обработанные"
+
+msgid "ui.notification_inbox_previous"
+msgstr "Предыдущая"
+
+msgid "ui.notification_inbox_next"
+msgstr "Следующая"
+
+msgid "ui.notification_inbox_page"
+msgstr "Страница {page} из {pages}"
+
+msgid "ui.notification_inbox_setup"
+msgstr "Настройте импорт из уведомлений и выберите приложения для проверки."
+
+msgid "ui.notification_inbox_empty_pending"
+msgstr "Проверьте уведомления, чтобы найти транзакции."
+
+msgid "ui.notification_inbox_waiting"
+msgstr "Ожидание подходящих уведомлений."
+
+msgid "ui.notification_inbox_empty_recent"
+msgstr "Нет недавних неподходящих или проигнорированных уведомлений."
+
+msgid "ui.notification_inbox_empty_processed"
+msgstr "Нет обработанных уведомлений."
+
+msgid "ui.notification_inbox_expired"
+msgstr "Срок ожидания уведомлений ({count}) истёк, их содержимое удалено."
+
+msgid "ui.notification_inbox_acknowledge_expired"
+msgstr "Понятно"
+
+msgid "ui.notification_inbox_expired_changed"
+msgstr "Количество просроченных уведомлений изменилось. Проверьте его перед подтверждением."
+
+msgid "ui.notification_inbox_expiring"
+msgstr "Срок этого предложения истекает в течение семи дней."
+
+msgid "ui.notification_inbox_changed_source"
+msgstr "Исходное уведомление изменилось. Внимательно проверьте его."
+
+msgid "ui.notification_inbox_stale_rule"
+msgstr "Правила могли измениться после создания этого предложения. Проверьте его перед сохранением."
+
+msgid "ui.notification_inbox_posted"
+msgstr "Время уведомления: {time}"
+
+msgid "ui.notification_inbox_title_unavailable"
+msgstr "Заголовок уведомления недоступен."
+
+msgid "ui.notification_inbox_body_unavailable"
+msgstr "Текст уведомления недоступен."
+
+msgid "ui.notification_recent_title"
+msgstr "Повторно проверить недавние"
+
+msgid "ui.notification_recent_help"
+msgstr "Просмотрите изменения недавних уведомлений без совпадений или игнорируемых уведомлений. Ожидающие черновики и возможные дубликаты не изменяются. Транзакции не сохраняются."
+
+msgid "ui.notification_recent_count"
+msgstr "Будет изменено уведомлений: {count}."
+
+msgid "ui.notification_recent_transition"
+msgstr "Было: {before}; станет: {after}"
+
+msgid "ui.notification_recent_previous_rule"
+msgstr "Предыдущее правило: {name}"
+
+msgid "ui.notification_recent_confirm"
+msgstr "Применить изменения"
+
+msgid "ui.notification_recent_empty"
+msgstr "Недавние уведомления не изменятся."
+
+msgid "ui.notification_recent_failed"
+msgstr "Изменения не применены. Проверьте журнал, правила и недавние образцы и просмотрите результат снова."
+
+msgid "ui.notification_recent_applied"
+msgstr "Недавние уведомления проверены повторно. Просмотрите новые предложения перед сохранением."
+
+msgid "ui.notification_inbox_status_pending"
+msgstr "Готово к проверке"
+
+msgid "ui.notification_inbox_status_saving"
+msgstr "Результат сохранения требует проверки"
+
+msgid "ui.notification_inbox_status_unmatched"
+msgstr "Нет подходящего правила"
+
+msgid "ui.notification_inbox_status_ignored"
+msgstr "Проигнорировано правилом"
+
+msgid "ui.notification_inbox_status_uncertain"
+msgstr "Возможный дубликат"
+
+msgid "ui.notification_inbox_status_imported"
+msgstr "Импортировано"
+
+msgid "ui.notification_inbox_status_skipped"
+msgstr "Пропущено в TextMoney"
+
+msgid "ui.notification_inbox_status_expired"
+msgstr "Срок истёк"
+
+msgid "ui.notification_inbox_status_cleared"
+msgstr "Сохранённое содержимое очищено"
+
+msgid "ui.notification_inbox_review"
+msgstr "Проверить транзакцию"
+
+msgid "ui.notification_inbox_skip"
+msgstr "Пропустить в TextMoney"
+
+msgid "ui.notification_inbox_recover"
+msgstr "Проверить результат сохранения"
+
+msgid "ui.notification_inbox_rule"
+msgstr "Создать правило"
+
+msgid "ui.notification_edit_matching_rule"
+msgstr "Изменить подходящее правило"
+
+msgid "ui.notification_inbox_capacity"
+msgstr "Очередь заполнена. Проверьте или пропустите предложения перед повторной проверкой."
+
+msgid "ui.notification_inbox_checked"
+msgstr "Проверка уведомлений завершена."
+
+msgid "ui.notification_inbox_access_error"
+msgstr "Не удалось прочитать уведомления. Проверьте доступ Android и состояние службы в настройках импорта."
+
+msgid "ui.notification_inbox_check_error"
+msgstr "Не удалось завершить проверку уведомлений. Проверьте настройки импорта и повторите попытку."
+
+msgid "ui.notification_inbox_changed"
+msgstr "Уведомление изменилось. Проверьте его снова перед пропуском."
+
+msgid "ui.notification_inbox_storage_error"
+msgstr "Хранилище уведомлений недоступно. Предложение не пропущено."
+
+msgid "ui.notification_recovery_title"
+msgstr "Проверка прерванного сохранения"
+
+msgid "ui.notification_recovery_help"
+msgstr "Результат сохранения неизвестен. Сначала завершите восстановление журнала и проверьте исходный журнал на наличие этой транзакции. Ошибочный выбор может вызвать дубликат или скрыть несохранённую транзакцию. Здесь транзакция не записывается."
+
+msgid "ui.notification_recovery_outcome"
+msgstr "Что вы нашли в журнале?"
+
+msgid "ui.notification_recovery_saved"
+msgstr "Транзакция уже сохранена"
+
+msgid "ui.notification_recovery_not_saved"
+msgstr "Транзакция не сохранена"
+
+msgid "ui.notification_recovery_acknowledge"
+msgstr "Я проверил исходный журнал и понимаю риск дублирования."
+
+msgid "ui.notification_recovery_confirm"
+msgstr "Подтвердить результат"
+
+msgid "ui.notification_recovery_failed"
+msgstr "Не удалось определить результат сохранения. Перезагрузите исходный журнал и проверьте его снова."
+
+msgid "ui.notification_apply_title"
+msgstr "Применить правило к этому уведомлению?"
+
+msgid "ui.notification_apply_help"
+msgstr "Проверьте выбранное правило и изменения полей. Повторно будет обработано только это уведомление."
+
+msgid "ui.notification_apply_winner"
+msgstr "Выбранное правило: {name}"
+
+msgid "ui.notification_apply_outcome"
+msgstr "Новый результат: {outcome}"
+
+msgid "ui.notification_apply_overwrite"
+msgstr "Применение заменит открытый черновик транзакции, включая показанные ниже изменения."
+
+msgid "ui.notification_apply_empty"
+msgstr "(пусто)"
+
+msgid "ui.notification_apply_change"
+msgstr "{field}: {before} → {after}"
+
+msgid "ui.notification_apply_duplicate_ack"
+msgstr "Я понимаю, что это уведомление уже могло быть импортировано."
+
+msgid "ui.notification_apply_confirm"
+msgstr "Применить к этому элементу"
+
+msgid "ui.notification_apply_failed"
+msgstr "Уведомление или правила изменились. Просмотрите изменения снова."
+
+msgid "ui.notification_rule_sample_title"
+msgstr "Заголовок примера уведомления"
+
+msgid "ui.notification_rule_sample_body"
+msgstr "Текст примера уведомления"
+
+msgid "ui.notification_rule_test"
+msgstr "Проверить правило"
+
+msgid "ui.notification_rule_test_no_match"
+msgstr "Для этого примера нет подходящего правила."
+
+msgid "ui.notification_rule_test_wins"
+msgstr "Это правило выигрывает по приоритету."
+
+msgid "ui.notification_rule_test_other"
+msgstr "другое правило"
+
+msgid "ui.notification_rule_test_winner"
+msgstr "Выигравшее правило: {name}."
+
+msgid "ui.notification_rule_test_outcome"
+msgstr "Результат примера: {outcome}."
+
+msgid "ui.notification_rule_outcome_suggest"
+msgstr "Предложить операцию для проверки"
+
+msgid "ui.notification_rule_outcome_ignore"
+msgstr "Игнорировать уведомление"
+
+msgid "ui.notification_rule_outcome_unmatched"
+msgstr "Нет подходящего правила"
+
+msgid "ui.notification_rule_test_current"
+msgstr "Текущие правила"
+
+msgid "ui.notification_rule_test_proposed"
+msgstr "С этим черновиком"
+
+msgid "ui.notification_rule_test_candidate_match"
+msgstr "Это правило соответствует примеру."
+
+msgid "ui.notification_rule_test_candidate_no_match"
+msgstr "Это правило не соответствует примеру."
+
+msgid "ui.notification_rule_test_no_captures"
+msgstr "нет"
+
+msgid "ui.notification_rule_test_captures"
+msgstr "Захваты: {captures}."
+
+msgid "ui.notification_rule_test_errors"
+msgstr "Черновик требует внимания: {errors}."
+
+msgid "ui.notification_rule_test_no_errors"
+msgstr "Ошибок проверки черновика нет."
+
+msgid "ui.notification_rule_test_failed"
+msgstr "Не удалось проверить правило. Проверьте поля и приоритет."
+
+msgid "ui.notification_rule_error_other"
+msgstr "Проверьте одно из соответствующих значений."
+
+msgid "ui.notification_rule_error_required"
+msgstr "Обязательно для импорта."
+
+msgid "ui.notification_rule_error_missing"
+msgstr "Соответствующее значение отсутствует."
+
+msgid "ui.notification_rule_error_kind"
+msgstr "Выберите расход, доход или перевод."
+
+msgid "ui.notification_rule_error_positive"
+msgstr "Сумма должна быть положительной."
+
+msgid "ui.notification_rule_error_currency"
+msgstr "Задайте валюту трёхбуквенным кодом."
+
+msgid "ui.notification_rule_error_date_range"
+msgstr "Дата должна быть от 1970-01-01 до сегодня."
+
+msgid "ui.notification_rule_error_date_format"
+msgstr "Дата не соответствует заданному формату."
+
+msgid "ui.notification_rule_error_time"
+msgstr "Время должно быть локальным значением HH:MM или HH:MM:SS."
+
+msgid "ui.notification_rule_error_account"
+msgstr "Счёт отсутствует или неактивен в выбранном журнале."
+
+msgid "ui.notification_rule_error_account_currency"
+msgstr "Валюта счёта не совпадает с извлечённой валютой."
+
+msgid "ui.notification_rule_error_account_date"
+msgstr "Счёт не открыт на эту дату."
+
+msgid "ui.notification_rule_error_transfer"
+msgstr "Счета перевода должны различаться."
+
+msgid "ui.notification_rule_error_transfer_amount"
+msgstr "Для перевода в одной валюте суммы должны совпадать."
+
+msgid "ui.notification_rule_error_category"
+msgstr "Категория недоступна для этого типа операции."
+
+msgid "ui.notification_rule_error_category_date"
+msgstr "Категория недоступна на эту дату."
+
+msgid "ui.notification_rule_error_payee"
+msgstr "Получатель некорректен."
+
+msgid "ui.notification_rule_error_description"
+msgstr "Описание некорректно."
+
+msgid "ui.notification_rule_invalid"
+msgstr "Проверьте название правила, шаблоны, соответствия и приоритет."
+
+msgid "ui.notification_rule_error_pattern"
+msgstr "Проверьте шаблоны: используйте уникальные имена {{capture}}, разделённые текстом, и экранируйте буквальные скобки."
+
+msgid "ui.notification_rule_error_name_pattern"
+msgstr "Введите название правила и хотя бы один шаблон заголовка или текста."
+
+msgid "ui.notification_rule_error_mapping_config"
+msgstr "Введите значение для каждого соответствия и определите все используемые захваты в шаблоне."
+
+msgid "ui.notification_rule_error_priority"
+msgstr "Введите целочисленный приоритет в пределах доступного порядка правил."
+
+msgid "ui.notification_rule_error_number_format"
+msgstr "Выберите разные десятичный разделитель и разделитель групп."
+
+msgid "ui.notification_rule_error_currency_config"
+msgstr "Введите уникальные соответствия символ=КОД с трёхбуквенными кодами валют."
+
+msgid "ui.notification_rule_conflict"
+msgstr "Правила изменились. Проверьте черновик ещё раз перед сохранением."
+
+msgid "ui.notification_rule_save_failed"
+msgstr "Не удалось сохранить правило. Ваши изменения остались в форме."

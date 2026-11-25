@@ -94,6 +94,24 @@ def test_ai_settings_panel_persists_independent_selections_and_removes_keys(tmp_
     asyncio.run(exercise())
 
 
+def test_notification_model_selector_is_native_feature_only(tmp_path):
+    settings = AISettings(DesktopPreferences(tmp_path / "settings.json"), FakeCredentials())
+    supported = False
+    panel = AISettingsPanel(
+        lambda key: translate("en", key),
+        lambda: settings,
+        notification_rules=lambda: supported,
+    )
+    panel.render()
+    assert not panel.model_rows[Capability.NOTIFICATION_RULE].visible
+    supported = True
+    panel.render()
+    assert panel.model_rows[Capability.NOTIFICATION_RULE].visible
+    assert "openai:gpt-5.4-mini" in {
+        option.key for option in panel.models[Capability.NOTIFICATION_RULE].options
+    }
+
+
 @pytest.mark.parametrize("value", ["invalid", "", True])
 def test_invalid_adaptation_preference_is_not_silently_defaulted(tmp_path, value):
     from unittest.mock import AsyncMock

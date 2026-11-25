@@ -1,4 +1,5 @@
 import asyncio
+import sqlite3
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
@@ -16,6 +17,7 @@ from form_controls import click
 from app.domain.ledger import Account, Ledger
 from app.domain.operations import OperationScope
 from app.infrastructure.desktop_storage import DesktopFolder
+from app.infrastructure.notification_store import NotificationStoreError
 from app.journal import FILENAME, Journal
 from app.ui import finance
 from app.ui.finance import FinanceView
@@ -34,6 +36,52 @@ def navigation(monkeypatch: pytest.MonkeyPatch) -> tuple[FinanceView, MagicMock]
     view.startup_complete = True
     view._apply_layout(page.width)
     return view, page
+
+
+def test_notification_review_reports_storage_failure(
+    navigation: tuple[FinanceView, MagicMock], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    view, _page = navigation
+    view.notification_store = MagicMock()
+    monkeypatch.setattr(view, "_require_journal", MagicMock())
+    monkeypatch.setattr(
+        view,
+        "_transaction_dialog",
+        MagicMock(side_effect=sqlite3.OperationalError("storage unavailable")),
+    )
+    report = MagicMock()
+    monkeypatch.setattr(view, "_error", report)
+    item = MagicMock(id=1)
+    view._notification_review(item)
+    assert isinstance(report.call_args.args[0], NotificationStoreError)
+    assert report.call_args.kwargs["notify"] is True
+
+
+@pytest.mark.parametrize("stage", ["open", "apply"])
+def test_notification_rule_flow_reports_storage_failure(
+    navigation: tuple[FinanceView, MagicMock], monkeypatch: pytest.MonkeyPatch, stage: str
+) -> None:
+    view, _page = navigation
+    view.notification_store = MagicMock()
+    view.journal = None
+    report = MagicMock()
+    monkeypatch.setattr(view, "_error", report)
+    editor = MagicMock()
+    if stage == "open":
+        editor.side_effect = sqlite3.OperationalError("storage unavailable")
+    else:
+        monkeypatch.setattr(
+            finance,
+            "NotificationRuleApplication",
+            MagicMock(side_effect=sqlite3.OperationalError("storage unavailable")),
+        )
+    monkeypatch.setattr(finance, "NotificationRuleEditor", editor)
+    item = MagicMock(app_id="bank.app", title="Bank", body="Paid")
+    view._notification_rule_editor(item)
+    if stage == "apply":
+        editor.call_args.kwargs["on_saved"](MagicMock())
+    assert isinstance(report.call_args.args[0], NotificationStoreError)
+    assert report.call_args.kwargs["notify"] is True
 
 
 def test_compact_navigation_leaves_room_for_system_insets(

@@ -1548,6 +1548,17 @@ wheels = [
 ]
 
 [[package]]
+name = "notification-bridge"
+version = "0.1.0"
+source = { directory = "extensions/notification-bridge" }
+dependencies = [
+    { name = "flet" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "flet", specifier = "==1.1.2" }]
+
+[[package]]
 name = "oauthlib"
 version = "3.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2521,6 +2532,7 @@ dependencies = [
     { name = "flet-secure-storage" },
     { name = "httpx" },
     { name = "lark" },
+    { name = "notification-bridge" },
     { name = "pillow" },
     { name = "popup-keyboard" },
     { name = "tzdata" },
@@ -2554,6 +2566,7 @@ requires-dist = [
     { name = "flet-secure-storage", specifier = "==1.1.2" },
     { name = "httpx", specifier = ">=0.28.1,<0.29" },
     { name = "lark", specifier = "==1.3.1" },
+    { name = "notification-bridge", directory = "extensions/notification-bridge" },
     { name = "pillow", specifier = ">=11,<13" },
     { name = "popup-keyboard", directory = "extensions/popup-keyboard" },
     { name = "tzdata", specifier = ">=2026.2,<2027" },

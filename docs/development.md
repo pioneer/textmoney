@@ -150,7 +150,8 @@ remain populated without future-dated transactions. Temporary data and servers
 are cleaned up on success or failure.
 
 By default the visible release version comes from `pyproject.toml`.
-`--release` accepts a stable version such as `0.5.0` and overrides only that
+`--release` accepts a stable version such as `0.5.0`, or a prerelease such as
+`0.5.0-rc1`, and overrides only that
 displayed version, not the current source code, build number or release
 metadata. This is useful for preparing images for a future release.
 Alternatively, `--next-release` queries GitHub and increments the patch component
@@ -401,7 +402,8 @@ uv run inv release --version 1.0.0
 ```
 
 These are alternative examples, not consecutive steps. `--version X.Y.Z` overrides
-automatic selection. In either mode this is an explicit publication command:
+automatic selection, and also accepts a prerelease such as `0.5.0-rc1`.
+In either mode this is an explicit publication command:
 it updates `[project].version` and the Android
 build number in `pyproject.toml`, refreshes `uv.lock` (using cached metadata
 or the configured package indexes when needed), runs
@@ -412,10 +414,43 @@ It dispatches the release workflow with the full candidate commit SHA and versio
 waits for that exact candidate's run, and reports its result. There is **no final
 tag during checks or platform builds**. CI creates the annotated `vX.Y.Z` tag
 only after all builds and uploaded artifact digests have been verified.
-The requested version must exceed published stable versions. It may equal the
+The requested version must be newer than **every** published release, including
+prereleases. It may equal the
 current project version when retrying an unpublished candidate. A new version
-increases the Android build number beyond both the current and prior stable
-release's code; corrected candidates retain the same version and build number.
+increases the Android build number beyond both the current and prior published
+release's code, including prereleases; corrected candidates retain the same
+version and build number.
+
+### Prereleases
+
+A release may be an `alpha`, `beta` or `rc` prerelease, published on GitHub as a
+prerelease instead of the latest stable release. Write the suffix as
+`-alphaN`, `-betaN` or `-rcN` (lowercase, starting at 1), for example
+`0.5.0-rc1`. Package names, tags and artifacts keep the suffix
+(`textmoney-0.5.0-rc1-arm64-v8a.apk`, `v0.5.0-rc1`), and the Windows
+installer's Add/Remove Programs entry uses the numeric base version.
+
+To derive the next stage for an upcoming final release:
+
+```sh
+uv run inv release --prerelease rc
+uv run inv release --version 0.5.0 --prerelease rc
+uv run inv release --version 0.5.0 --prerelease beta
+```
+
+Without `--version`, the base is the current project version. With `--version`,
+that version is the base and the suffix is counted from published prereleases of
+the same base. The first `rc` of `0.5.0` is `0.5.0-rc1`; it becomes
+`0.5.0-rc2` after `0.5.0-rc1` is published. Prereleases always sort before their
+final release, so `0.5.0-rc2 < 0.5.0`. A prerelease base must not already have a
+published final release.
+
+A prerelease does not advance automatic stable numbering, and it is not
+selected by `uv run inv version`. To publish the final release after a
+prerelease, run `uv run inv release` from a checkout whose project version is
+still the prerelease: the prerelease is finalized to its base version
+(`0.5.0-rc2` becomes `0.5.0`) instead of jumping to the next patch.
+`--resume --prerelease rc` retries the current `rc` candidate.
 
 To regenerate README/user-guide screenshots for the version being released and
 include them in the release commit:
@@ -668,8 +703,10 @@ It requires `FLET_ANDROID_SIGNING_KEY_STORE`,
 `FLET_ANDROID_SIGNING_KEY_ALIAS`, `FLET_ANDROID_SIGNING_KEY_STORE_PASSWORD`,
 and `FLET_ANDROID_SIGNING_KEY_PASSWORD`; the alias must be `android-release`.
 The task checks that the project version matches the requested release tag name
-(the final tag need not exist yet) and requires the Android version code
-to exceed the code in the latest prior stable GitHub Release. It then verifies
+(the final tag need not exist yet, and a prerelease version keeps its
+`-alphaN`/`-betaN`/`-rcN` suffix) and requires the Android version code
+to exceed the code in the latest prior published GitHub Release, including
+prereleases. It then verifies
 each APK's signature, pinned certificate SHA-256, application ID, version name/code,
 architecture-specific filename, nonzero size, sole native ABI and presence of the
 Flutter app, engine and Python runtime. It never falls back to debug signing.

@@ -65,6 +65,36 @@ def test_installer_packages_entire_bundle_app_local_runtime_and_generated_icon(
     assert list((bundle / "build/windows-installer").iterdir()) == []
 
 
+def test_prerelease_installer_uses_numeric_app_version_and_suffixed_artifact(
+    bundle: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (bundle / "pyproject.toml").write_text(
+        '[project]\nversion = "0.5.0-rc1"\n[tool.flet]\nproduct = "TextMoney"\n'
+        'company = "Pioneer"\nbundle_id = "com.pioneer.textmoney"\n'
+    )
+    runtime = bundle / "runtime"
+    runtime.mkdir()
+    for name in ("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll"):
+        (runtime / name).write_bytes(name.encode())
+    monkeypatch.setattr(windows_installer, "runtime_directory", lambda: runtime)
+    monkeypatch.setattr(windows_installer, "compiler_path", lambda: Path("ISCC.exe"))
+    defines: dict[str, str] = {}
+
+    def run(*args: str, capture: bool = True) -> str:
+        for arg in args:
+            if arg.startswith("/D"):
+                key, value = arg[2:].split("=", 1)
+                defines[key] = value
+        output = Path(defines["OutputDir"]) / f"{defines['OutputName']}.exe"
+        output.write_bytes(b"synthetic installer")
+        return ""
+
+    monkeypatch.setattr(windows_installer, "run", run)
+    result = windows_installer.build_installer(bundle)
+    assert defines["AppVersion"] == "0.5.0"
+    assert result.name == "TextMoney-0.5.0-rc1-windows-x64-setup.exe"
+
+
 def test_missing_bundle_prevents_compilation(bundle: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (bundle / "build/windows/flutter_windows.dll").unlink()
     run = MagicMock()

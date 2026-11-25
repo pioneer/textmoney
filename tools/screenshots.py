@@ -396,7 +396,8 @@ def regenerate(root: Path, client: Path, release: str) -> None:
         raise RuntimeError("The user guide must not use symlinks.")
     guide_text = guide.read_text(encoding="utf-8")
     updated_guide, count = re.subn(
-        r"(?<=Screenshots use synthetic data from TextMoney )v\d+\.\d+\.\d+ \(build \d+\)",
+        r"(?<=Screenshots use synthetic data from TextMoney )"
+        r"v\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\d+)? \(build \d+\)",
         f"v{release} (build {release_identity()[1]})",
         guide_text,
     )

@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Stable candidate version (without v)
+        description: Candidate version without v (0.5.0 or a prerelease like 0.5.0-rc1)
         required: true
         type: string
       sha:

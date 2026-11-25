@@ -71,6 +71,128 @@ def test_automatic_version_does_not_roll_over_into_another_minor_or_major() -> N
 
 
 @pytest.mark.parametrize(
+    "current,published,expected",
+    [
+        ("0.5.0-rc1", (), "0.5.0-rc1"),
+        ("0.5.0-rc3", ("0.4.22",), "0.5.0-rc3"),
+        ("0.5.0-rc1", ("0.5.0-rc1", "0.4.22"), "0.5.0"),
+        ("0.5.0-rc2", ("0.5.0-rc1", "0.5.0-rc2", "0.4.22"), "0.5.0"),
+        ("0.4.23-rc1", ("0.4.23-rc1", "0.4.22"), "0.4.23"),
+    ],
+)
+def test_automatic_version_reuses_an_unpublished_prerelease_and_finalizes_a_published_one(
+    current: str, published: tuple[str, ...], expected: str
+) -> None:
+    releases: list[release.ReleaseSummary] = [
+        {"tagName": f"v{version}", "isDraft": False, "isPrerelease": "-" in version}
+        for version in published
+    ]
+    assert release.automatic_release_version(current, releases) == expected
+
+
+@pytest.mark.parametrize(
+    "version,stage,number,is_prerelease",
+    [
+        ("0.4.22", release.FINAL_STAGE, 0, False),
+        ("0.5.0-alpha1", release.STAGES["alpha"], 1, True),
+        ("0.5.0-beta12", release.STAGES["beta"], 12, True),
+        ("0.5.0-rc3", release.STAGES["rc"], 3, True),
+    ],
+)
+def test_prerelease_versions_parse_and_compare_before_the_final_release(
+    version: str, stage: int, number: int, is_prerelease: bool
+) -> None:
+    parsed = release.parse_version(version)
+    assert (parsed.major, parsed.minor, parsed.patch) == (0, 5, 0) or version == "0.4.22"
+    assert (parsed.stage, parsed.number, parsed.prerelease) == (stage, number, is_prerelease)
+    assert release.is_prerelease(version) is is_prerelease
+    assert str(parsed) == version
+
+
+def test_prerelease_order_is_alpha_then_beta_then_rc_then_release() -> None:
+    ordered = [
+        "0.5.0-alpha1",
+        "0.5.0-alpha2",
+        "0.5.0-beta1",
+        "0.5.0-rc1",
+        "0.5.0-rc2",
+        "0.5.0",
+        "0.5.1-rc1",
+    ]
+    parsed = [release.parse_version(version) for version in ordered]
+    assert parsed == sorted(parsed)
+    assert len(set(parsed)) == len(parsed)
+
+
+@pytest.mark.parametrize(
+    "published,stage,expected",
+    [
+        ((), "rc", "0.5.0-rc1"),
+        (("0.4.22", "0.5.0-rc1"), "rc", "0.5.0-rc2"),
+        (("0.4.22", "0.5.0-alpha1", "0.5.0-beta1"), "beta", "0.5.0-beta2"),
+        (("0.4.22", "0.5.0-rc3"), "rc", "0.5.0-rc4"),
+        (("0.4.22", "0.5.0-rc1"), "beta", "0.5.0-beta1"),
+        (("0.4.22",), "alpha", "0.5.0-alpha1"),
+    ],
+)
+def test_staged_release_version_counts_from_published_prereleases(
+    workspace: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    published: tuple[str, ...],
+    stage: str,
+    expected: str,
+) -> None:
+    command = commands(
+        workspace,
+        **{
+            RELEASES_COMMAND: json.dumps(
+                [
+                    [
+                        {
+                            "tag_name": f"v{version}",
+                            "draft": False,
+                            "prerelease": "-" in version,
+                        }
+                        for version in published
+                    ]
+                ]
+            )
+        },
+    )
+    monkeypatch.setattr(release, "run", command)
+    assert release.staged_release_version(workspace, stage, base="0.5.0", resume=False) == expected
+
+
+def test_staged_release_version_refuses_after_a_final_release(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    command = commands(
+        workspace,
+        **{
+            RELEASES_COMMAND: json.dumps(
+                [[{"tag_name": "v0.5.0", "draft": False, "prerelease": False}]]
+            )
+        },
+    )
+    monkeypatch.setattr(release, "run", command)
+    with pytest.raises(RuntimeError, match="already published"):
+        release.staged_release_version(workspace, "rc", base="0.5.0", resume=False)
+
+
+def test_staged_release_version_resume_requires_matching_stage(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (workspace / "pyproject.toml").write_text(
+        '[project]\nversion = "0.5.0-rc2"\n[tool.flet]\nbuild_number = 29\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(release, "run", commands(workspace))
+    assert release.staged_release_version(workspace, "rc", resume=True) == "0.5.0-rc2"
+    with pytest.raises(RuntimeError, match="Resume requires a beta"):
+        release.staged_release_version(workspace, "beta", resume=True)
+
+
+@pytest.mark.parametrize(
     "versions,expected,next_expected",
     [
         (("0.4.8", "0.4.9"), "0.4.9", "0.4.10"),
@@ -272,6 +394,76 @@ def test_release_prepares_version_files_and_dispatches_candidate_without_tag(
     wait.assert_called_once_with(workspace, REPO, f"v{expected}", SHA, resume=False)
 
 
+def test_prerelease_prepares_its_version_and_build_number_and_dispatches_that_tag(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (workspace / "pyproject.toml").write_text(
+        '[project]\nname = "textmoney"\nversion = "0.4.22"\n[tool.flet]\nbuild_number = 29\n',
+        encoding="utf-8",
+    )
+    run = commands(
+        workspace,
+        **{
+            RELEASES_COMMAND: (
+                '[[{"tag_name":"v0.4.22","draft":false,"prerelease":false}],'
+                '[{"tag_name":"v0.5.0-rc1","draft":false,"prerelease":true}]]'
+            ),
+            "git tag --list v0.5.0-rc2": "",
+        },
+    )
+    monkeypatch.setattr(release, "run", run)
+    wait = MagicMock()
+    monkeypatch.setattr(release, "wait_for_release", wait)
+    release.start_release(
+        workspace,
+        "0.5.0-rc2",
+        resume=False,
+        check=MagicMock(),
+        previous_build=lambda tag: 30,
+    )
+    project = tomllib.loads((workspace / "pyproject.toml").read_text())
+    assert project["project"]["version"] == "0.5.0-rc2"
+    assert project["tool"]["flet"]["build_number"] == 31
+    calls = [call.args[1:] for call in run.call_args_list]
+    assert ("git", "commit", "-m", "Release v0.5.0-rc2", "-m", release.TRAILER) in calls
+    assert (
+        "gh",
+        "workflow",
+        "run",
+        "release.yml",
+        "--repo",
+        REPO,
+        "--ref",
+        "main",
+        "-f",
+        "version=0.5.0-rc2",
+        "-f",
+        f"sha={SHA}",
+    ) in calls
+    wait.assert_called_once_with(workspace, REPO, "v0.5.0-rc2", SHA, resume=False)
+
+
+def test_prerelease_requires_every_published_release_to_be_older(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    before = (workspace / "pyproject.toml").read_bytes()
+    run = commands(
+        workspace,
+        **{RELEASES_COMMAND: ('[[{"tag_name":"v0.5.0-rc2","draft":false,"prerelease":true}]]')},
+    )
+    monkeypatch.setattr(release, "run", run)
+    with pytest.raises(RuntimeError, match="newer than every published release"):
+        release.start_release(
+            workspace,
+            "0.5.0-rc1",
+            resume=False,
+            check=MagicMock(),
+            previous_build=lambda tag: 30,
+        )
+    assert (workspace / "pyproject.toml").read_bytes() == before
+    assert not any(call.args[1:4] == ("gh", "workflow", "run") for call in run.call_args_list)
+
+
 def test_release_stops_before_capture_and_publication_if_lock_fails(
     workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -434,7 +626,20 @@ def test_automatic_version_history_failure_never_prepares_or_dispatches_release(
     assert not any(call.args[1:4] == ("gh", "workflow", "run") for call in command.call_args_list)
 
 
-@pytest.mark.parametrize("version", ["v0.3.7", "0.3", "0.3.7-rc1", "00.3.7", "65536.0.0"])
+@pytest.mark.parametrize(
+    "version",
+    [
+        "v0.3.7",
+        "0.3",
+        "0.3.7-RC1",
+        "0.3.7-rc",
+        "0.3.7-pre1",
+        "0.3.7-rc01",
+        "0.3.7-rc1.1",
+        "00.3.7",
+        "65536.0.0",
+    ],
+)
 def test_invalid_versions_fail_before_commands(
     workspace: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -954,6 +1159,114 @@ def test_publish_uploads_exact_artifacts_and_checksums_before_publishing(
     )
 
 
+def test_publish_marks_a_prerelease_tag_as_prerelease_and_creates_it_as_such(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = tmp_path / "artifacts"
+    directory.mkdir()
+    for name in release.artifact_names("0.5.0-rc1"):
+        (directory / name).write_bytes(name.encode())
+    tags: list[str] = []
+    created: list[list[str]] = []
+    drafts: list[dict[str, object]] = []
+    assets: list[dict[str, str]] = []
+
+    def run(root: Path, *args: str) -> str:
+        if args == ("git", "rev-parse", "HEAD"):
+            return SHA
+        if args[:3] == ("gh", "release", "list"):
+            return "[]"
+        if args[:3] == ("gh", "release", "create"):
+            created.append(list(args))
+            return ""
+        if args[:3] == ("gh", "release", "upload"):
+            path = Path(args[4])
+            assets.append(
+                {
+                    "name": path.name,
+                    "digest": "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest(),
+                }
+            )
+            return ""
+        if args[:3] == ("gh", "release", "view"):
+            return json.dumps({"databaseId": 123, "tagName": "v0.5.0-rc1"})
+        if args[:3] == ("gh", "release", "edit"):
+            tags.append(str(args[3]))
+            return ""
+        if args[:2] == ("gh", "api"):
+            if args[2:4] == ("--method", "POST"):
+                return "b" * 40
+            drafts.append(
+                {
+                    "id": 123,
+                    "tag_name": "v0.5.0-rc1",
+                    "draft": True,
+                    "prerelease": True,
+                    "target_commitish": SHA,
+                    "assets": assets,
+                }
+            )
+            return json.dumps(drafts[-1])
+        return ""
+
+    monkeypatch.setattr(release, "run", MagicMock(side_effect=run))
+    monkeypatch.setattr(release, "repository", lambda root: REPO)
+    release.publish_release(tmp_path, directory, "v0.5.0-rc1")
+    assert created and "--prerelease" in created[0] and "--draft" in created[0]
+    assert tags == ["v0.5.0-rc1"]
+    edit = [
+        call.args[1:]
+        for call in release.run.call_args_list  # type: ignore[attr-defined]
+        if call.args[1:4] == ("gh", "release", "edit")
+    ]
+    assert edit == [
+        ("gh", "release", "edit", "v0.5.0-rc1", "--repo", REPO, "--draft=false", "--prerelease")
+    ]
+    assert all(draft["prerelease"] is True for draft in drafts)
+
+
+def test_publish_rejects_a_draft_created_with_the_wrong_release_kind(
+    artifacts: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = publication_commands(monkeypatch, artifacts)
+    original = command.side_effect
+    assert callable(original)
+
+    def run(root: Path, *args: str) -> str:
+        result = original(root, *args)
+        assert isinstance(result, str)
+        if args[:2] == ("gh", "api") and args[2:4] != ("--method", "POST"):
+            return json.dumps(json.loads(result) | {"prerelease": True})
+        return result
+
+    command.side_effect = run
+    with pytest.raises(RuntimeError, match="matching draft of its kind"):
+        release.publish_release(artifacts.parent, artifacts, "v0.3.7")
+    assert not any(call.args[1:4] == ("gh", "release", "edit") for call in command.call_args_list)
+
+
+def test_publish_refuses_a_published_prerelease_as_a_stable_tag(
+    artifacts: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = publication_commands(monkeypatch, artifacts, published=True)
+    original = command.side_effect
+    assert callable(original)
+
+    def run(root: Path, *args: str) -> str:
+        result = original(root, *args)
+        assert isinstance(result, str)
+        if args[:3] == ("gh", "release", "list"):
+            return json.dumps([{"tagName": "v0.3.7", "isDraft": False, "isPrerelease": True}])
+        return result
+
+    command.side_effect = run
+    with pytest.raises(RuntimeError, match="already published"):
+        release.publish_release(artifacts.parent, artifacts, "v0.3.7")
+
+
 @pytest.mark.parametrize("new_draft", [False, True])
 def test_publish_reads_draft_by_id_when_tag_endpoint_is_not_available(
     artifacts: Path,
@@ -1050,7 +1363,7 @@ def test_publish_requires_matching_stable_draft_before_and_after_upload(
         return result
 
     command.side_effect = run
-    with pytest.raises(RuntimeError, match="matching stable draft"):
+    with pytest.raises(RuntimeError, match="matching draft of its kind"):
         release.publish_release(artifacts.parent, artifacts, "v0.3.7")
     assert not any(call.args[1:4] == ("gh", "release", "edit") for call in command.call_args_list)
 

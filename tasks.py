@@ -335,34 +335,34 @@ def previous_release_build_number(tag: str) -> int:
         isinstance(release, dict)
         and release.get("tagName") == tag
         and release.get("isDraft") is False
-        and release.get("isPrerelease") is False
         for release in releases
     ):
         raise Exit(f"Release tag {tag} is already published; refusing to rebuild it.", code=1)
-    if any(
-        isinstance(release, dict)
-        and release.get("isDraft") is False
-        and release.get("isPrerelease") is False
-        and isinstance(release.get("tagName"), str)
-        and release_tools.version_numbers(release["tagName"].removeprefix("v"))
-        >= release_tools.version_numbers(tag.removeprefix("v"))
+    published = [
+        release
         for release in releases
+        if isinstance(release, dict)
+        and release.get("isDraft") is False
+        and isinstance(release.get("tagName"), str)
+        and release["tagName"] != tag
+    ]
+    requested = release_tools.parse_version(tag.removeprefix("v"))
+    if any(
+        release_tools.parse_version(release["tagName"].removeprefix("v")) >= requested
+        for release in published
     ):
-        raise Exit("The candidate version must exceed every published stable release.", code=1)
-    previous_tag = next(
-        (
-            release["tagName"]
-            for release in releases
-            if isinstance(release, dict)
-            and isinstance(release.get("tagName"), str)
-            and release["tagName"] != tag
-            and release.get("isDraft") is False
-            and release.get("isPrerelease") is False
-        ),
-        None,
+        raise Exit(
+            "The candidate version must exceed every published release, including prereleases.",
+            code=1,
+        )
+    previous_tag = max(
+        published,
+        key=lambda release: release_tools.parse_version(release["tagName"].removeprefix("v")),
+        default=None,
     )
     if previous_tag is None:
-        raise Exit("Could not find a prior published stable GitHub Release.", code=1)
+        raise Exit("Could not find a prior published GitHub Release.", code=1)
+    previous_tag = previous_tag["tagName"]
 
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise Exit("Could not determine a valid GitHub repository identifier.", code=1)
@@ -1085,9 +1085,20 @@ def check(context: Context) -> None:
 
 @task
 def release(
-    context: Context, version: str = "", resume: bool = False, with_screenshots: bool = False
+    context: Context,
+    version: str = "",
+    resume: bool = False,
+    with_screenshots: bool = False,
+    prerelease: str = "",
 ) -> None:
-    """Release the next patch or --version, optionally with fresh documentation screenshots."""
+    """Release the next patch, --version, or --prerelease stage, optionally with screenshots."""
+    try:
+        if prerelease:
+            version = release_tools.staged_release_version(
+                ROOT, prerelease, base=version, resume=resume
+            )
+    except RuntimeError as exc:
+        raise Exit(str(exc), code=1) from exc
 
     def capture(selected_version: str) -> tuple[str, ...]:
         from tools.screenshots import documentation_scenes

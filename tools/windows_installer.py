@@ -28,6 +28,11 @@ def installer_name(version: str) -> str:
     return f"TextMoney-{version}-windows-x64-setup.exe"
 
 
+def display_version(version: str) -> str:
+    """Drop a prerelease suffix: Inno stores AppVersion in the uninstall registry."""
+    return version.partition("-")[0]
+
+
 def compiler_path() -> Path:
     if compiler := shutil.which("ISCC.exe"):
         return Path(compiler)
@@ -93,7 +98,7 @@ def build_installer(root: Path) -> Path:
             "AppId": identity["bundle_id"],
             "AppName": identity["product"],
             "AppPublisher": identity["company"],
-            "AppVersion": version,
+            "AppVersion": display_version(version),
             "SourceDir": str(bundle),
             "SetupIcon": str(icon),
             "OutputDir": str(output),

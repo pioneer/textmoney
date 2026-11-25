@@ -191,6 +191,42 @@ def test_release_cli_accepts_automatic_or_explicit_versions(
     assert callable(start.call_args.kwargs["capture_screenshots"]) == with_screenshots
 
 
+@pytest.mark.parametrize(
+    "arguments,stage,base,expected",
+    [
+        (["--prerelease", "rc"], "rc", "", "0.5.0-rc1"),
+        (["--version", "0.5.0", "--prerelease", "rc"], "rc", "0.5.0", "0.5.0-rc1"),
+        (["--version", "0.5.0", "--prerelease", "beta"], "beta", "0.5.0", "0.5.0-beta1"),
+    ],
+)
+def test_release_cli_derives_a_prerelease_version(
+    monkeypatch: pytest.MonkeyPatch,
+    arguments: list[str],
+    stage: str,
+    base: str,
+    expected: str,
+) -> None:
+    staged = MagicMock(return_value=expected)
+    start = MagicMock()
+    monkeypatch.setattr(tasks.release_tools, "staged_release_version", staged)
+    monkeypatch.setattr(tasks.release_tools, "start_release", start)
+    Program(namespace=Collection(tasks.release)).run(["inv", "release", *arguments], exit=False)
+    staged.assert_called_once_with(tasks.ROOT, stage, base=base, resume=False)
+    assert start.call_args.args == (tasks.ROOT, expected)
+
+
+def test_release_cli_requires_a_known_prerelease_stage(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    start = MagicMock()
+    monkeypatch.setattr(tasks.release_tools, "start_release", start)
+    Program(namespace=Collection(tasks.release)).run(
+        ["inv", "release", "--prerelease", "gamma"], exit=False
+    )
+    assert "alpha, beta or rc" in capsys.readouterr().err
+    start.assert_not_called()
+
+
 def test_release_screenshots_rebuilds_client_and_uses_resolved_version(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1140,6 +1176,22 @@ def test_candidate_validation_emits_source_without_requiring_a_tag(
     ]
 
 
+def test_prerelease_candidate_validation_emits_the_full_suffixed_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sha = "a" * 40
+    output = tmp_path / "output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    validate = MagicMock()
+    monkeypatch.setattr(tasks, "validate_android_release_version", validate)
+    monkeypatch.setattr(tasks.release_tools, "run", MagicMock(return_value=sha))
+    tasks.validate_release(Context(), "v0.5.0-rc2", sha)
+    validate.assert_called_once_with("v0.5.0-rc2")
+    assert output.read_text() == f"tag=v0.5.0-rc2\nversion=0.5.0-rc2\nsha={sha}\n"
+
+
 def test_candidate_not_on_main_cannot_validate(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1170,6 +1222,47 @@ def test_candidate_cannot_supersede_a_newer_published_version(
     )
     with pytest.raises(Exit, match="exceed every published"):
         tasks.previous_release_build_number("v0.3.1")
+
+
+def test_prerelease_candidate_uses_prior_prerelease_build_number(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/textmoney")
+    releases = json.dumps(
+        [
+            {"tagName": "v0.4.22", "isDraft": False, "isPrerelease": False},
+            {"tagName": "v0.5.0-rc1", "isDraft": False, "isPrerelease": True},
+        ]
+    )
+    content = b64encode(
+        b'[tool.flet]\nbuild_number = 72\nbundle_id = "com.pioneer.textmoney"\n'
+    ).decode()
+
+    def capture(*args: str) -> str:
+        if args[:2] == ("gh", "release"):
+            return releases
+        assert "ref=v0.5.0-rc1" in args[2]
+        return content
+
+    monkeypatch.setattr(tasks, "capture_command", capture)
+    assert tasks.previous_release_build_number("v0.5.0-rc2") == 72
+
+
+def test_prerelease_candidate_must_still_exceed_an_older_published_prerelease(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/textmoney")
+    monkeypatch.setattr(
+        tasks,
+        "capture_command",
+        lambda *args: json.dumps(
+            [
+                {"tagName": "v0.5.0-rc2", "isDraft": False, "isPrerelease": True},
+            ]
+        ),
+    )
+    with pytest.raises(Exit, match="exceed every published release"):
+        tasks.previous_release_build_number("v0.5.0-rc1")
 
 
 @pytest.mark.parametrize("line_wrapped", [False, True])
@@ -1327,6 +1420,31 @@ def test_release_apk_verification_checks_signer_identity_and_version(
             "0cc03e9537ef041c51eb8ececa1ae9e246c7e5a2c814ff1dd9a7f19ab6c07fa6"
             if args[1] == "verify"
             else "package: name='com.pioneer.textmoney' versionCode='22' versionName='0.3.0'\n"
+        ),
+    )
+    tasks.verify_android_release_apk(apk, abi)
+
+
+@pytest.mark.parametrize("abi", ["arm64-v8a", "armeabi-v7a", "x86_64"])
+def test_prerelease_apk_verification_accepts_the_suffixed_version_name(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    abi: str,
+) -> None:
+    apk = tmp_path / f"textmoney-0.5.0-rc1-{abi}.apk"
+    write_native_apk(apk, (abi,))
+    monkeypatch.setattr(tasks, "release_identity", lambda: ("0.5.0-rc1", 71))
+    monkeypatch.setattr(tasks, "android_build_tool", lambda name: name)
+    monkeypatch.setattr(
+        tasks,
+        "capture_command",
+        lambda *args: (
+            "Signer #1 certificate SHA-256 digest: "
+            "0cc03e9537ef041c51eb8ececa1ae9e246c7e5a2c814ff1dd9a7f19ab6c07fa6"
+            if args[1] == "verify"
+            else (
+                "package: name='com.pioneer.textmoney' versionCode='71' versionName='0.5.0-rc1'\n"
+            )
         ),
     )
     tasks.verify_android_release_apk(apk, abi)

@@ -8,10 +8,36 @@ import time
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
-from typing import NotRequired, TypedDict
+from typing import NamedTuple, NotRequired, TypedDict
 
 TRAILER = "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 ANDROID_ABIS = ("arm64-v8a", "armeabi-v7a", "x86_64")
+STAGES = {"alpha": 0, "beta": 1, "rc": 2}
+FINAL_STAGE = len(STAGES)
+VERSION_PATTERN = re.compile(
+    r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([A-Za-z]+)(0|[1-9]\d*))?"
+)
+
+
+class Version(NamedTuple):
+    """Comparable version; a prerelease always sorts before its final release."""
+
+    major: int
+    minor: int
+    patch: int
+    stage: int
+    number: int
+
+    @property
+    def prerelease(self) -> bool:
+        return self.stage != FINAL_STAGE
+
+    def __str__(self) -> str:
+        base = f"{self.major}.{self.minor}.{self.patch}"
+        if not self.prerelease:
+            return base
+        label = next(name for name, stage in STAGES.items() if stage == self.stage)
+        return f"{base}-{label}{self.number}"
 
 
 class ReleaseAsset(TypedDict):
@@ -57,10 +83,18 @@ def run(root: Path, *args: str) -> str:
         ) from exc
 
 
-def version_numbers(version: str) -> tuple[int, ...]:
-    if not re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", version):
-        raise RuntimeError("Use a stable version such as 0.3.7 (without a v prefix).")
-    numbers = tuple(int(value) for value in version.split("."))
+def version_numbers(version: str) -> tuple[int, int, int]:
+    """Return the stable X.Y.Z numbers, accepting a trailing alpha/beta/rc label."""
+    match = VERSION_PATTERN.fullmatch(version)
+    if match is None:
+        raise RuntimeError(
+            "Use a version such as 0.3.7, or a prerelease such as 0.4.0-rc1 (without a v prefix)."
+        )
+    if match[4] is not None and match[4] not in STAGES:
+        raise RuntimeError(
+            "Prerelease labels must be lowercase alpha, beta or rc, such as 0.4.0-rc1."
+        )
+    numbers = (int(match[1]), int(match[2]), int(match[3]))
     if max(numbers) > 65535:
         raise RuntimeError(
             "Version components must fit Windows installer version fields (0..65535)."
@@ -68,22 +102,89 @@ def version_numbers(version: str) -> tuple[int, ...]:
     return numbers
 
 
+def parse_version(version: str) -> Version:
+    """Parse a stable or prerelease version into a comparable identity."""
+    version_numbers(version)
+    match = VERSION_PATTERN.fullmatch(version)
+    assert match is not None
+    numbers = (int(match[1]), int(match[2]), int(match[3]))
+    if match[4] is None:
+        return Version(*numbers, FINAL_STAGE, 0)
+    return Version(*numbers, STAGES[match[4]], int(match[5]))
+
+
+def is_prerelease(version: str) -> bool:
+    version_numbers(version)
+    return "-" in version
+
+
 def automatic_release_version(current_version: str, releases: list[ReleaseSummary]) -> str:
-    current = version_numbers(current_version)
+    """Pick the next stable version; a published prerelease is finalized instead."""
+    current = parse_version(current_version)
+    if current.prerelease:
+        if not any(
+            item["tagName"] == f"v{current_version}" and not item["isDraft"] for item in releases
+        ):
+            return current_version
+        return str(Version(*current[:3], FINAL_STAGE, 0))
     published = [
         version_numbers(item["tagName"].removeprefix("v"))
         for item in releases
         if not item["isDraft"] and not item["isPrerelease"]
     ]
-    if not published or current > max(published):
+    if not published or current[:3] > max(published):
         return current_version
-    major, minor, patch = max(published)
+    return next_patch(max(published))
+
+
+def next_patch(published: tuple[int, int, int]) -> str:
+    major, minor, patch = published
     if patch == 65535:
         raise RuntimeError(
             "The patch version reached the Windows installer limit. "
             "Choose a new minor or major version explicitly with --version."
         )
     return f"{major}.{minor}.{patch + 1}"
+
+
+def staged_release_version(root: Path, stage: str, *, base: str = "", resume: bool = False) -> str:
+    """Return the next alpha/beta/rc version of the base release.
+
+    The base defaults to the project version; an explicit ``base`` (or a
+    prerelease project version) selects the upcoming final release.
+    """
+    if stage not in STAGES:
+        raise RuntimeError("Release stages must be alpha, beta or rc.")
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    current_version = project["project"]["version"]
+    current = parse_version(current_version)
+    if resume:
+        if current.stage != STAGES[stage]:
+            raise RuntimeError(f"Resume requires a {stage} version checked out on main.")
+        return current_version
+    target = parse_version(base or current_version)[:3]
+    final = Version(*target, FINAL_STAGE, 0)
+    published = [
+        parse_version(item["tagName"].removeprefix("v"))
+        for item in release_summaries(root, repository(root))
+        if not item["isDraft"]
+    ]
+    if any(version >= final for version in published):
+        raise RuntimeError(
+            f"{final} is already published; a prerelease must precede its final release."
+        )
+    number = (
+        max(
+            (
+                version.number
+                for version in published
+                if version[:3] == target and version.stage == STAGES[stage]
+            ),
+            default=0,
+        )
+        + 1
+    )
+    return str(Version(*target, STAGES[stage], number))
 
 
 def android_apk_names(version: str) -> tuple[str, ...]:
@@ -265,12 +366,16 @@ def verify_publication(root: Path, repo: str, tag: str, sha: str) -> None:
     if (
         result["tagName"] != tag
         or result["isDraft"]
-        or result["isPrerelease"]
+        or result["isPrerelease"] != is_prerelease(tag.removeprefix("v"))
         or {item["name"] for item in result["assets"]} != expected
         or remote_tag_sha(root, tag) != sha
     ):
         raise RuntimeError("CI finished without the expected complete published release.")
-    print(f"Published all three platforms: {result['url']}", flush=True)
+    print(
+        f"Published all three platforms{' as a prerelease' if result['isPrerelease'] else ''}: "
+        f"{result['url']}",
+        flush=True,
+    )
 
 
 def start_release(
@@ -318,10 +423,10 @@ def start_release(
             if resume
             else automatic_release_version(project["project"]["version"], latest)
         )
-    requested = version_numbers(version)
+    requested = parse_version(version)
     tag = f"v{version}"
     if resume:
-        if project["project"]["version"] != version:
+        if parse_version(project["project"]["version"]) != requested:
             raise RuntimeError("Resume requires the matching release version checked out on main.")
         if any(item["tagName"] == tag and not item["isDraft"] for item in latest):
             verify_publication(root, repo, tag, sha)
@@ -335,7 +440,7 @@ def start_release(
             )
         wait_for_release(root, repo, tag, sha, resume=True)
         return
-    current = version_numbers(project["project"]["version"])
+    current = parse_version(project["project"]["version"])
     if requested < current:
         raise RuntimeError("The release version cannot be older than the current project version.")
     for release in latest:
@@ -345,12 +450,15 @@ def start_release(
                 "Use --resume for the same candidate's interrupted draft. An unpublished "
                 "draft from a different commit needs explicit removal before retrying."
             )
-        if (
-            not release["isDraft"]
-            and not release["isPrerelease"]
-            and requested <= version_numbers(release["tagName"].removeprefix("v"))
-        ):
-            raise RuntimeError("The version must be newer than all listed stable releases.")
+        if release["isDraft"]:
+            continue
+        published = parse_version(release["tagName"].removeprefix("v"))
+        if requested <= published:
+            raise RuntimeError(
+                "The version must be newer than every published release, including prereleases. "
+                f"{release['tagName']} is already published; a final release of the same "
+                "version may follow its own prerelease."
+            )
     if run(root, "git", "tag", "--list", tag) or remote_tag_sha(root, tag):
         raise RuntimeError(
             "The release tag already exists; use --resume for an interrupted publication. "
@@ -463,7 +571,8 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
     version = tag.removeprefix("v")
     names = artifact_names(version)
     if tag != f"v{version}":
-        raise RuntimeError("Publication requires a stable vX.Y.Z release tag.")
+        raise RuntimeError("Publication requires a vX.Y.Z or vX.Y.Z-label tag.")
+    prerelease = is_prerelease(version)
     if {path.name for path in directory.iterdir()} - {"SHA256SUMS"} != set(names):
         raise RuntimeError(
             "Release artifacts must contain exactly the three architecture APKs, "
@@ -505,8 +614,8 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
         )
     )
     existing = next((item for item in releases if item["tagName"] == tag), None)
-    if existing is not None and (not existing["isDraft"] or existing["isPrerelease"]):
-        raise RuntimeError("Refusing to modify an already published or prerelease release.")
+    if existing is not None and (not existing["isDraft"] or existing["isPrerelease"] != prerelease):
+        raise RuntimeError("Refusing to modify an already published release or its kind.")
     if existing is None:
         run(
             root,
@@ -522,6 +631,7 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
             "--title",
             f"TextMoney {tag}",
             "--generate-notes",
+            *(["--prerelease"] if prerelease else []),
         )
     identity = json.loads(
         run(
@@ -548,12 +658,10 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
             metadata["id"] != release_id
             or metadata["tag_name"] != tag
             or metadata["draft"] is not True
-            or metadata["prerelease"] is not False
+            or metadata["prerelease"] is not prerelease
             or metadata["target_commitish"] != sha
         ):
-            raise RuntimeError(
-                "Release must remain the matching stable draft until all artifacts are verified."
-            )
+            raise RuntimeError("Release must remain the matching draft of its kind until verified.")
         return metadata
 
     metadata = read_draft()
@@ -569,5 +677,19 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
     if observed != {name: f"sha256:{value}" for name, value in digests.items()}:
         raise RuntimeError("Uploaded artifact digests differ; release left unpublished.")
     ensure_release_tag(root, repo, tag, sha)
-    run(root, "gh", "release", "edit", tag, "--repo", repo, "--draft=false", "--latest")
-    print(f"Published {tag} with verified Android, Linux and Windows assets.", flush=True)
+    run(
+        root,
+        "gh",
+        "release",
+        "edit",
+        tag,
+        "--repo",
+        repo,
+        "--draft=false",
+        "--prerelease" if prerelease else "--latest",
+    )
+    kind = "prerelease" if prerelease else "release"
+    print(
+        f"Published {tag} as a {kind} with verified Android, Linux and Windows assets.",
+        flush=True,
+    )

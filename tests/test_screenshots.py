@@ -93,7 +93,7 @@ def test_release_defaults_to_current_or_uses_override(override: str, expected: s
 
 
 def test_invalid_release_is_rejected() -> None:
-    with pytest.raises(RuntimeError, match="stable version"):
+    with pytest.raises(RuntimeError, match="Use a version"):
         screenshots.capture_release("0.4.9", "not a version")
 
 

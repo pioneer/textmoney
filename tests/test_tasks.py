@@ -25,6 +25,29 @@ from PIL.IcoImagePlugin import IcoImageFile
 import tasks
 
 
+def test_client_fingerprint_ignores_generated_android_build_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in ("pyproject.toml", "uv.lock"):
+        (tmp_path / name).write_text("test")
+    for name in ("browser-history-bridge", "finance-saf", "notification-bridge", "popup-keyboard"):
+        extension = tmp_path / "extensions" / name
+        extension.mkdir(parents=True)
+        (extension / "pyproject.toml").write_text("test")
+    android = tmp_path / "extensions/notification-bridge/src/flutter/notification_bridge/android"
+    android.mkdir(parents=True)
+    source = android / "build.gradle.kts"
+    source.write_text("source")
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    original = tasks.web_client_fingerprint()
+    generated = android / ".gradle" / "cache"
+    generated.parent.mkdir()
+    generated.write_text("generated")
+    assert tasks.web_client_fingerprint() == original
+    source.write_text("changed source")
+    assert tasks.web_client_fingerprint() != original
+
+
 @pytest.mark.parametrize(
     "release,next_release,expected",
     [("", False, "0.4.9"), ("0.5.0", False, "0.5.0"), ("", True, "0.4.10")],

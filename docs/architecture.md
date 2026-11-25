@@ -36,6 +36,17 @@ src/app/domain/backups.py  timestamped backup identities and tiered retention
 src/app/domain/recovery.py checksummed, hash-only Android save records and classification
 src/app/domain/ledger.py   explicit accounts, Decimal postings and running-balance checks
 src/app/domain/operations.py bounded keyset history selection over the loaded ledger
+src/app/domain/notification_rules.py bounded notification patterns and journal-aware draft validation
+src/app/infrastructure/notification_store.py private bounded notification/rule state
+src/app/infrastructure/notification_rule_codec.py strict local rule serialization
+src/app/infrastructure/notifications_android.py validated Android notification bridge
+src/app/infrastructure/notification_import.py manual checks and guarded reviewed journal saves
+src/app/ui/notification_rules.py named-rule editor and sample testing
+src/app/ui/notification_settings.py source and rule settings panel
+src/app/ui/notification_inbox.py paged notification review queue
+src/app/ui/notification_old_history.py explicit old-notification recovery
+src/app/ui/notification_recovery.py uncertain-save review
+src/app/ui/notification_ai.py single-sample AI consent
 src/app/ui/operations.py   one Operations page, reusable row slots and paging
 src/app/domain/budgets.py  Fava-compatible daily allocation, calendar ranges and budget reports
 src/app/domain/category_migration.py source-bound subtree migration plan and path remapping
@@ -45,6 +56,7 @@ src/app/infrastructure/beancount_journal.py lossless reading, directive splices 
 src/app/storage.py         shared read/backup/conflict/write policy and draft
 src/app/infrastructure/    desktop I/O and Android bridge transport
 extensions/finance-saf/    local Python/Dart service; existing native SAF libraries
+extensions/notification-bridge/ Android notification listener and manual-check transport
 extensions/popup-keyboard/ dropdown/dialog Escape and Android Back compatibility
 assets/                   canonical maintained assets
 tests/                    non-GUI behavior and task contract tests
@@ -408,6 +420,35 @@ local Beancount files. An optional external synchronization client must provide 
 SAF access does not imply support for cloud-only providers. TextMoney does not
 synchronize, access cloud APIs, merge changes or resolve conflicts.
 No analytics or authentication is included.
+
+Notification imports are under development. The Android-only settings and
+Transactions inbox are connected to the rule editor, optional AI consent and
+reviewed journal saves. The bridge currently exposes only explicit
+active-notification checks; background delivery is not implemented. The local
+rule and queue store uses Android's no-backup directory, separately from the
+journal. Retention pruning runs on startup, resume, and intake, without reading
+notifications on startup or resume. Opening or returning to the inbox refreshes
+listener access and installed-app names without checking notification content;
+permission and connection failures remain visible there. The inbox reports expired pending items
+until the user acknowledges the displayed count; new expiries cannot be
+silently acknowledged by a stale notice. Explicit recent re-evaluation previews and
+atomically applies changed unmatched/ignored samples; pending drafts and
+possible duplicates are excluded. Pending drafts retain their reviewed values
+when source-app rules change; a warning identifies changed or unknown rule
+revisions without invalidating an open transaction review. From transaction
+review, editing the matching rule is available only while its source and
+source-app rules remain unchanged; creating a separate rule remains available.
+Rule tests compare the current result with the proposed rule and its priority
+without changing stored notifications. Cancelling an AI-generated rule draft
+preserves its parent editor; saving it returns to the originating flow. Its
+`saving` state blocks duplicate retries until a journal outcome is explicitly
+resolved. Device validation and the remaining feature flows are unfinished; do
+not treat this as a completed import feature.
+
+Android does not bind notification listeners on low-RAM devices running Android
+10 or earlier, and ignores listeners in work profiles. Work-profile policy can
+also restrict notifications from that profile. See the Android
+[notification-listener documentation](https://developer.android.com/reference/android/service/notification/NotificationListenerService).
 
 External synchronization is deliberately sequential: finish editing and let the
 external tool finish syncing before opening another device. TextMoney does not

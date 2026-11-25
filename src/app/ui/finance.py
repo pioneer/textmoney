@@ -2,6 +2,7 @@ import asyncio
 import inspect
 import logging
 import re
+import sqlite3
 import time
 from collections import Counter, defaultdict
 from collections.abc import Awaitable, Callable
@@ -19,6 +20,7 @@ from zoneinfo import available_timezones
 import flet as ft
 from browser_history_bridge import BrowserHistory
 from finance_saf import FinanceSaf
+from notification_bridge import NotificationBridge
 from popup_keyboard import CategoryMenuConnector
 
 from app.domain.category_migration import CategoryMigration, migrated_category
@@ -46,6 +48,8 @@ from app.domain.ledger import (
     exchange_values,
     money,
 )
+from app.domain.notification_rules import Draft as NotificationDraft
+from app.domain.notification_rules import Rule as NotificationRule
 from app.domain.operations import PAGE_SIZE, OperationScope, transaction_key
 from app.domain.reporting import (
     AccountBalance,
@@ -60,10 +64,22 @@ from app.domain.reporting import (
 )
 from app.domain.storage import ConflictError
 from app.icons import DISPLAY_SIZE, IconAsset, IconError, IconStore
-from app.infrastructure.ai import AIError, AISettings
+from app.infrastructure.ai import AIError, AIService, AISettings, Capability
 from app.infrastructure.android_storage import AndroidFolder, unwrap
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.icon_files import AndroidIconFiles, DesktopIconFiles
+from app.infrastructure.notification_import import (
+    journal_identity,
+    matching_rule_id,
+    read_review_draft,
+    save_reviewed_notification,
+)
+from app.infrastructure.notification_store import (
+    NotificationStore,
+    NotificationStoreError,
+    QueueItem,
+)
+from app.infrastructure.notifications_android import AndroidNotifications, NotificationBridgeError
 from app.infrastructure.preferences import (
     DesktopPreferences,
     FeePreferences,
@@ -76,6 +92,7 @@ from app.infrastructure.record_files import AndroidRecordFiles, DesktopRecordFil
 from app.journal import FILENAME, Journal
 from app.localization import (
     LANGUAGES,
+    date_input,
     format_amount,
     format_date,
     format_timestamp,
@@ -110,6 +127,12 @@ from app.ui.layout import (
     settings_field,
     settings_section,
 )
+from app.ui.notification_ai import NotificationAIConsent
+from app.ui.notification_apply import NotificationRuleApplication
+from app.ui.notification_inbox import NotificationInbox
+from app.ui.notification_recovery import NotificationRecovery
+from app.ui.notification_rules import AIStarter, DraftCallback, NotificationRuleEditor
+from app.ui.notification_settings import NotificationSettingsPanel
 from app.ui.operations import OperationsLocation, OperationsView
 from app.ui.theme import (
     DARK_NAVIGATION_SURFACE,
@@ -179,6 +202,39 @@ def screen_class(width: float | None) -> ScreenClass:
 class NavigationVisit:
     screen: str
     operations: OperationsLocation | None = None
+    notification_inbox: bool = False
+
+
+@dataclass
+class NotificationFormState:
+    sign: list[str]
+    special: str | None
+    account: str | None
+    category: str | None
+    amount: str
+    destination: str | None
+    destination_amount: str
+    currency: str
+    description: str
+    payee: str
+    date: str
+    time: str
+    fee_enabled: bool
+    fee: str
+    fee_mode: str | None
+    fee_category: str | None
+    fee_currency: str | None
+    reference: str | None
+    category_values: dict[str, str | None]
+    fee_drafts: dict[str, tuple[bool, str, str | None, str | None, str | None]]
+
+
+@dataclass
+class NotificationReview:
+    store: NotificationStore
+    item: QueueItem
+    snapshot: str = ""
+    state: NotificationFormState | None = None
 
 
 @dataclass
@@ -209,8 +265,22 @@ class FinanceView(ft.Row):
         self.icon_notice = ft.Text("", visible=False, color=ft.Colors.ERROR, selectable=True)
         self.preferences: ft.SharedPreferences | DesktopPreferences | None = None
         self._ai_settings: AISettings | None = None
-        self.ai_panel = AISettingsPanel(self.tr, self.ai_settings)
+        self.ai_panel = AISettingsPanel(
+            self.tr, self.ai_settings, notification_rules=lambda: self.notification_supported
+        )
         self.bridge: FinanceSaf | None = None
+        self.notification_store: NotificationStore | None = None
+        self.notification_inbox: NotificationInbox | None = None
+        self.notification_settings: NotificationSettingsPanel | None = None
+        self.notification_section: ft.Container | None = None
+        self.notification_supported = False
+        self.notification_initializing = False
+        self.notification_failed = False
+        self.notification_retry = ft.TextButton(on_click=self._retry_notification_setup)
+        self.notification_inbox_open = False
+        self.notification_reviews: dict[int, NotificationReview] = {}
+        self.notification_ai_busy = False
+        self.notification_import_button = ft.TextButton(on_click=self._open_notification_inbox)
         self.worker: Future[None] | None = None
         self.lock = asyncio.Lock()
         self.language = "en"
@@ -701,6 +771,9 @@ class FinanceView(ft.Row):
         self._refresh()
 
     def did_mount(self) -> None:
+        self.notification_supported = (
+            self.page.platform == ft.PagePlatform.ANDROID and not self.page.web
+        )
         self._desktop_pointer = desktop_pointer(self.page, mobile_preview=self._mobile_preview)
         self._set_fab_ready(not self.fab.disabled)
         self._mobile_item_actions = self._mobile_preview or self.page.platform in {
@@ -724,6 +797,7 @@ class FinanceView(ft.Row):
             root = self.page.views[0]
             root.can_pop = False
             root.on_confirm_pop = self._system_back
+            self.page.on_app_lifecycle_state_change = self._notification_lifecycle_changed
         self.worker = self.page.run_task(self._lifecycle)
         self._apply_layout(self.page.width or self.page.window.width)
         self.page.update()
@@ -742,6 +816,8 @@ class FinanceView(ft.Row):
             root = self.page.views[0]
             root.can_pop = True
             root.on_confirm_pop = None
+            if self.page.on_app_lifecycle_state_change == self._notification_lifecycle_changed:
+                self.page.on_app_lifecycle_state_change = None
         self.budgets.cancel()
         self.home_budgets.cancel()
         if self.worker is not None:
@@ -801,7 +877,13 @@ class FinanceView(ft.Row):
         self.message_status.visible = bool(self.message.value)
 
     def _set_error(self, exc: Exception) -> None:
-        if isinstance(exc, (ConflictError, LedgerError, PreferencesError, StorageError, IconError)):
+        if isinstance(exc, NotificationStoreError):
+            self.message_key = "notification_state_error"
+            self.error_message = None
+            logger.warning("Notification state operation refused (%s)", type(exc).__name__)
+        elif isinstance(
+            exc, (ConflictError, LedgerError, PreferencesError, StorageError, IconError)
+        ):
             self.message_key = ""
             self.error_message = str(exc)
             logger.warning("Journal operation refused (%s)", type(exc).__name__)
@@ -923,6 +1005,16 @@ class FinanceView(ft.Row):
 
     def _build_navigation(self) -> None:
         bottom, overflow = mobile_destination_groups()
+        pending = (
+            self.notification_inbox.pending_count()
+            if self.notification_supported and self.notification_inbox is not None
+            else 0
+        )
+        badge = ("99+" if pending > 99 else str(pending)) if pending else None
+        self.notification_import_button.badge = badge
+        self.notification_import_button.tooltip = (
+            self.tr("notification_pending_count", count=pending) if pending else None
+        )
         destinations = {
             "home": ("nav_home", ft.Icons.HOME_OUTLINED, ft.Icons.HOME),
             "transactions": (
@@ -975,19 +1067,38 @@ class FinanceView(ft.Row):
             indicator, icon_control, label_control = item
             is_selected = index == selected
             semantics.selected = index == selected
+            semantics.label = (
+                f"{self.tr(label)}, {self.tr('notification_pending_count', count=pending)}"
+                if screen == "transactions" and pending
+                else None
+            )
             button.tooltip = ft.Tooltip(self.tr(label), exclude_from_semantics=True)
             indicator.gradient = selection_gradient() if is_selected else None
             icon_control.icon = selected_icon if is_selected else icon
+            icon_control.badge = badge if screen == "transactions" else None
             icon_control.color = (
                 ft.Colors.ON_SECONDARY_CONTAINER if is_selected else ft.Colors.ON_SURFACE_VARIANT
             )
             label_control.value = self.tr(label)
         self.nav_rail.destinations = [
             ft.NavigationRailDestination(
-                label=self.tr(label),
-                icon=icon,
+                label=(
+                    ft.Semantics(
+                        content=ft.Text(self.tr(label)),
+                        label=f"{self.tr(label)}, "
+                        f"{self.tr('notification_pending_count', count=pending)}",
+                        exclude_semantics=True,
+                    )
+                    if screen == "transactions" and pending
+                    else self.tr(label)
+                ),
+                icon=ft.Icon(icon, badge=badge) if screen == "transactions" and badge else icon,
                 selected_icon=ft.Container(
-                    content=ft.Icon(selected_icon, color=ft.Colors.ON_SECONDARY_CONTAINER),
+                    content=ft.Icon(
+                        selected_icon,
+                        color=ft.Colors.ON_SECONDARY_CONTAINER,
+                        badge=badge if screen == "transactions" else None,
+                    ),
                     width=56,
                     height=32,
                     alignment=ft.Alignment.CENTER,
@@ -1215,6 +1326,14 @@ class FinanceView(ft.Row):
             self.operations.status,
             ft.Container(content=self.operations.navigation[1], padding=ft.Padding.only(bottom=96)),
         ]
+        if self.notification_supported:
+            self.notification_import_button.content = self.tr("notification_inbox_title")
+            self.transactions_screen.controls.insert(
+                0, action_toolbar(self.notification_import_button)
+            )
+        if self.notification_inbox_open and self.notification_inbox is not None:
+            self.notification_inbox.render()
+            self.transactions_screen.controls = [self.notification_inbox.control]
         self.accounts_panel_content.controls = [
             action_toolbar(self.account_save),
             self.account_list,
@@ -1317,6 +1436,30 @@ class FinanceView(ft.Row):
             ft.Row([self.diagnostics_toggle]),
             self.diagnostics,
         ]
+        if self.notification_supported:
+            if self.notification_section is not None:
+                self.settings_screen.controls.insert(2, self.notification_section)
+            else:
+                self.notification_retry.content = self.tr("notification_settings_refresh")
+                self.notification_retry.disabled = self.notification_initializing
+                self.settings_screen.controls.insert(
+                    2,
+                    settings_section(
+                        ft.Column(
+                            [
+                                ft.Text(self.tr("notification_settings_title"), size=18),
+                                ft.Text(
+                                    self.tr(
+                                        "notification_state_error"
+                                        if self.notification_failed
+                                        else "ai_loading"
+                                    )
+                                ),
+                                self.notification_retry,
+                            ]
+                        )
+                    ),
+                )
         self.backup_cleanup.label = self.tr("backups_automatic")
         self.backup_cleanup.value = self.auto_backup_cleanup
         self.home_budgets_label.value = self.tr("home_budgets_show")
@@ -3466,6 +3609,8 @@ class FinanceView(ft.Row):
         self._apply_layout(self.page.width or self.page.window.width)
         if self.page:
             self.page.update()
+        if self.notification_supported:
+            self.page.run_task(self._initialize_notifications)
         while True:
             await asyncio.sleep(5)
             if self.lock.locked():
@@ -3612,6 +3757,310 @@ class FinanceView(ft.Row):
         self._apply_layout(event.width)
         if self.page:
             self.page.update()
+
+    async def _initialize_notifications(self) -> None:
+        if (
+            not self.notification_supported
+            or self.notification_initializing
+            or self.notification_store is not None
+        ):
+            return
+        self.notification_initializing = True
+        self.notification_failed = False
+        self._refresh_labels()
+        self.page.update()
+        store: NotificationStore | None = None
+        try:
+            bridge = AndroidNotifications(NotificationBridge())
+            directory = await bridge.storage_dir()
+            store = NotificationStore(directory / "notification-import.sqlite")
+            store.prune(int(time.time()))
+            panel = NotificationSettingsPanel(
+                self.page,
+                self.tr,
+                bridge,
+                store,
+                ledger=lambda: self.journal.ledger if self.journal and self.journal.ready else None,
+                today=self._today,
+                on_changed=self._notification_changed,
+                on_ai=self._notification_ai_starter,
+            )
+            inbox = NotificationInbox(
+                self.tr,
+                bridge,
+                store,
+                page=self.page,
+                journal=lambda: self.journal,
+                on_review=self._notification_review,
+                on_rules=self._notification_rules,
+                on_recovery=self._notification_recovery,
+                on_settings=self._notification_open_settings,
+                on_changed=self._notification_changed,
+                on_ai=self._notification_ai_item,
+                access=lambda: panel.access,
+                access_failed=lambda: panel.notice == "notification_settings_bridge_error",
+                apps=lambda: panel.apps,
+                today=self._today,
+            )
+        except NotificationBridgeError as exc:
+            logger.warning("Notification setup failed (code=%s)", exc.code)
+            self.notification_failed = True
+            if store is not None:
+                store.close()
+        except (OSError, sqlite3.Error, NotificationStoreError):
+            logger.exception("Notification setup storage failed")
+            self.notification_failed = True
+            if store is not None:
+                store.close()
+        else:
+            self.notification_store = store
+            self.notification_settings = panel
+            self.notification_inbox = inbox
+            self.notification_section = settings_section(panel.control)
+        finally:
+            self.notification_initializing = False
+            self._refresh_labels()
+            self.page.update()
+        if self.notification_settings is not None and self.current_screen == "settings":
+            await self.notification_settings.load()
+
+    async def _retry_notification_setup(self, event: ft.Event) -> None:
+        await self._initialize_notifications()
+
+    def _notification_lifecycle_changed(self, event: ft.AppLifecycleStateChangeEvent) -> None:
+        if event.state != ft.AppLifecycleState.RESUME or self.notification_store is None:
+            return
+        try:
+            self.notification_store.prune(int(time.time()))
+        except sqlite3.Error:
+            logger.exception("Notification retention storage failed")
+            self._error(NotificationStoreError("Notification storage is unavailable."), notify=True)
+            return
+        except NotificationStoreError as exc:
+            self._error(exc, notify=True)
+            return
+        self._notification_changed()
+        if self.notification_settings is not None and (
+            self.current_screen == "settings" or self.notification_inbox_open
+        ):
+            self.page.run_task(self.notification_settings.load)
+
+    def _notification_changed(self) -> None:
+        if self.notification_inbox is not None:
+            self.notification_inbox.render()
+        if self.notification_store is not None and self.notification_reviews:
+            pending = {item.id: item for item in self.notification_store.items(("pending",))}
+            for item_id, review in tuple(self.notification_reviews.items()):
+                item = pending.get(item_id)
+                if item is None or (
+                    item.app_id,
+                    item.key,
+                    item.posted_millis,
+                ) != (review.item.app_id, review.item.key, review.item.posted_millis):
+                    del self.notification_reviews[item_id]
+        self._build_navigation()
+        if self.page:
+            self.page.update()
+
+    def _open_notification_inbox(self, event: ft.Event) -> None:
+        store = self.notification_store
+        if self.notification_inbox is None or store is None:
+            self._notification_open_settings()
+            return
+        try:
+            needs_setup = not store.selected_apps() and not store.count(
+                (
+                    "pending",
+                    "saving",
+                    "unmatched",
+                    "ignored",
+                    "uncertain",
+                    "imported",
+                    "skipped",
+                    "expired",
+                    "cleared",
+                )
+            )
+        except sqlite3.Error:
+            logger.exception("Notification inbox storage failed")
+            self._error(NotificationStoreError("Notification storage is unavailable."), notify=True)
+            return
+        except NotificationStoreError as exc:
+            self._error(exc, notify=True)
+            return
+        if needs_setup:
+            self._notification_open_settings()
+            return
+        self._navigate("transactions", notification_inbox=True)
+        if self.notification_settings is not None:
+            self.page.run_task(self.notification_settings.load)
+
+    def _notification_open_settings(self) -> None:
+        self._navigate("settings")
+
+    def _notification_review(self, item: QueueItem) -> None:
+        try:
+            journal = self._require_journal()
+            store = self.notification_store
+            if store is None:
+                raise NotificationStoreError("Notification storage is unavailable.")
+            review = self.notification_reviews.setdefault(item.id, NotificationReview(store, item))
+
+            async def finished() -> None:
+                self.notification_reviews.pop(item.id, None)
+                self._notification_changed()
+
+            self._transaction_dialog(journal, review=review, after_review=finished)
+        except (LedgerError, NotificationStoreError, ValueError) as exc:
+            self._error(exc, notify=True)
+        except sqlite3.Error:
+            logger.exception("Notification review storage failed")
+            self._error(NotificationStoreError("Notification storage is unavailable."), notify=True)
+
+    def _notification_rules(self, item: QueueItem) -> None:
+        self._notification_rule_editor(item)
+
+    def _notification_rule_editor(
+        self,
+        item: QueueItem,
+        *,
+        draft: NotificationRule | None = None,
+        sample_title: str | None = None,
+        sample_body: str | None = None,
+    ) -> None:
+        store = self.notification_store
+        if store is None:
+            return
+        journal = self.journal
+
+        def saved(rule: object) -> None:
+            try:
+                journal = self.journal
+                NotificationRuleApplication(
+                    self.page,
+                    self.tr,
+                    store,
+                    item,
+                    ledger=journal.ledger if journal and journal.ready else None,
+                    today=journal.today() if journal and journal.ready else self._today(),
+                    journal_id=journal_identity(journal) if journal and journal.ready else None,
+                    current_fields=None,
+                    on_applied=lambda _id, _outcome: self._notification_changed(),
+                ).open()
+            except (NotificationStoreError, ValueError) as exc:
+                self._error(exc, notify=True)
+            except sqlite3.Error:
+                logger.exception("Notification rule application preview storage failed")
+                self._error(
+                    NotificationStoreError("Notification storage is unavailable."), notify=True
+                )
+
+        try:
+            NotificationRuleEditor(
+                self.page,
+                self.tr,
+                store,
+                item.app_id,
+                draft=draft,
+                sample_title=sample_title if draft is not None else item.title,
+                sample_body=sample_body if draft is not None else item.body,
+                ledger=journal.ledger if journal and journal.ready else None,
+                today=self._today,
+                on_saved=saved,
+                on_ai=self._notification_ai_starter(item.app_id),
+            ).open()
+        except NotificationStoreError as exc:
+            self._error(exc, notify=True)
+        except sqlite3.Error:
+            logger.exception("Notification rule editor storage failed")
+            self._error(NotificationStoreError("Notification storage is unavailable."), notify=True)
+
+    async def _notification_ai_item(self, item: QueueItem) -> None:
+        def drafted(rule: NotificationRule, title: str | None, body: str | None) -> None:
+            self._notification_rule_editor(item, draft=rule, sample_title=title, sample_body=body)
+
+        await self._notification_ai_starter(item.app_id)(item.title, item.body, drafted)
+
+    def _notification_ai_starter(self, app_id: str) -> AIStarter:
+        async def start(title: str | None, body: str | None, on_draft: DraftCallback) -> None:
+            if self.notification_ai_busy:
+                return
+            self.notification_ai_busy = True
+            try:
+                settings = self.ai_settings()
+                model, _key = await settings.resolve(Capability.NOTIFICATION_RULE)
+            except AIError as exc:
+                logger.warning("Notification AI setup failed (code=%s)", exc.code)
+                self._notification_ai_setup_dialog(exc.code)
+            else:
+                NotificationAIConsent(
+                    self.page,
+                    self.tr,
+                    AIService(settings),
+                    model,
+                    app_id,
+                    title=title,
+                    body=body,
+                    on_draft=on_draft,
+                ).open()
+            finally:
+                self.notification_ai_busy = False
+
+        return start
+
+    def _notification_ai_setup_dialog(self, error: str) -> None:
+        async def cancel(_: ft.Event) -> None:
+            self.page.pop_dialog()
+
+        async def configure(_: ft.Event) -> None:
+            self.page.pop_dialog()
+            panel = AISettingsPanel(self.tr, self.ai_settings, notification_rules=lambda: True)
+            panel.control.expanded = True
+            panel.render()
+
+            def close() -> None:
+                panel.clear_draft()
+                self.page.pop_dialog()
+
+            async def close_clicked(_: ft.Event) -> None:
+                close()
+
+            show_dialog(
+                self.page,
+                EditorDialog(
+                    self.tr("ai_settings"),
+                    ft.Column([panel.control], spacing=8),
+                    [ft.TextButton(self.tr("crud_cancel"), on_click=close_clicked)],
+                    compact=lambda: self.screen_class == ScreenClass.COMPACT,
+                    cancel_on_back=close,
+                ),
+            )
+            await panel._load(ft.Event(name="load", control=panel.control))
+
+        show_dialog(
+            self.page,
+            ft.AlertDialog(
+                modal=True,
+                title=self.tr("notification_ai_title"),
+                content=ft.Text(self.tr(error)),
+                actions=[
+                    ft.TextButton(self.tr("crud_cancel"), on_click=cancel),
+                    ft.TextButton(self.tr("ai_settings"), on_click=configure),
+                ],
+            ),
+        )
+
+    def _notification_recovery(self, item: QueueItem) -> None:
+        try:
+            journal = self._require_journal()
+            store = self.notification_store
+            if store is None:
+                raise NotificationStoreError("Notification storage is unavailable.")
+            NotificationRecovery(
+                self.page, self.tr, store, item, journal, on_resolved=self._notification_changed
+            ).open()
+        except (LedgerError, NotificationStoreError, ValueError) as exc:
+            self._error(exc, notify=True)
 
     def _access_status(self) -> str:
         if self.journal is not None and self.journal.ready:
@@ -4041,8 +4490,16 @@ class FinanceView(ft.Row):
         deleting: bool = False,
         stretch: bool = False,
         after_save: Callable[[], Awaitable[None]] | None = None,
+        on_cancel: Callable[[], None] | None = None,
     ) -> None:
-        cancel = ft.TextButton(self.tr("crud_cancel"), on_click=self._dismiss)
+        def cancel_edit() -> None:
+            if cancel.disabled:
+                return
+            if on_cancel is not None:
+                on_cancel()
+            self.page.pop_dialog()
+
+        cancel = ft.TextButton(self.tr("crud_cancel"), on_click=lambda _: cancel_edit())
         submit = ft.TextButton(self.tr("crud_delete" if deleting else "crud_save"))
 
         async def commit(event: ft.Event[ft.TextButton]) -> None:
@@ -4091,6 +4548,7 @@ class FinanceView(ft.Row):
                 form,
                 [cancel, submit],
                 compact=lambda: self.screen_class == ScreenClass.COMPACT,
+                cancel_on_back=cancel_edit if on_cancel is not None else None,
             )
         else:
             dialog = ft.AlertDialog(
@@ -5099,7 +5557,29 @@ class FinanceView(ft.Row):
         self.page.pop_dialog()
         show_dialog(self.page, dialog, register_dynamic_inputs=remember_registration)
 
-    def _transaction_dialog(self, journal: Journal, transaction: Transaction | None = None) -> None:
+    def _transaction_dialog(
+        self,
+        journal: Journal,
+        transaction: Transaction | None = None,
+        *,
+        review: NotificationReview | None = None,
+        after_review: Callable[[], Awaitable[None]] | None = None,
+    ) -> None:
+        if review is not None and transaction is not None:
+            raise ValueError("A notification review must create a new transaction.")
+        initial: NotificationDraft | None = None
+        if review is not None:
+            initial = read_review_draft(review.item)
+            if not review.snapshot:
+                item = review.store.begin_review(
+                    review.item.id,
+                    review.item.review_snapshot,
+                    journal_id=journal_identity(journal),
+                )
+                review.item = item
+                review.snapshot = item.review_snapshot
+            elif review.item.journal_id != journal_identity(journal):
+                raise NotificationStoreError("Draft targets another journal.")
         source = journal.source
         dropdown_rows: list[ft.Row] = []
 
@@ -5166,6 +5646,7 @@ class FinanceView(ft.Row):
                 if not transaction or transaction.kind == "expense"
                 else "+"
             ],
+            allow_empty_selection=review is not None,
             show_selected_icon=False,
             style=ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=8)),
             disabled=transaction is not None,
@@ -5320,6 +5801,53 @@ class FinanceView(ft.Row):
             device_zone=self._picker_zone(),
             compact=True,
         )
+        notification_currency = ft.TextField(
+            data="notification_currency",
+            label=self.tr("currency"),
+            value=initial.currency or "" if initial else "",
+        )
+        if initial is not None:
+            sign.selected = (
+                ["-"]
+                if initial.kind == "expense"
+                else ["+"]
+                if initial.kind == "income"
+                else ["transfer"]
+                if initial.kind == "transfer"
+                else []
+            )
+            account.value = (
+                initial.account
+                if initial.account in {option.key for option in account.options}
+                else None
+            )
+            category.value = initial.category
+            amount.value = str(initial.amount) if initial.amount is not None else ""
+            destination.value = initial.destination
+            received.value = (
+                str(initial.destination_amount) if initial.destination_amount is not None else ""
+            )
+            description.value = initial.description or ""
+            payee.value = initial.payee or ""
+            when.occurred.value = (
+                date_input(initial.date, self.language) if initial.date is not None else ""
+            )
+            when.clock.value = initial.time or ""
+            if review is not None and review.state is not None:
+                state = review.state
+                sign.selected = list(state.sign)
+                special.value = state.special
+                account.value, category.value = state.account, state.category
+                amount.value, destination.value = state.amount, state.destination
+                received.value, notification_currency.value = (
+                    state.destination_amount,
+                    state.currency,
+                )
+                description.value, payee.value = state.description, state.payee
+                when.occurred.value, when.clock.value = state.date, state.time
+                fee_enabled.value, fee.value = state.fee_enabled, state.fee
+                fee_mode.value, fee_category.value = state.fee_mode, state.fee_category
+                fee_currency.value = state.fee_currency
         reference = ft.Dropdown(
             data="reference",
             expand=True,
@@ -5343,6 +5871,8 @@ class FinanceView(ft.Row):
                     f"{format_amount(posting.amount, self.language, posting.currency)}",
                 )
             )
+        if review is not None and review.state is not None:
+            reference.value = review.state.reference
         reference.visible = False
         reference.disabled = transaction is not None
         advanced = ft.ExpansionTile(
@@ -5378,14 +5908,18 @@ class FinanceView(ft.Row):
             maintain_state=True,
             expanded_cross_axis_alignment=ft.CrossAxisAlignment.STRETCH,
         )
-        category_values: dict[str, str | None] = {}
-        fee_drafts: dict[str, tuple[bool, str, str | None, str | None, str | None]] = {}
+        category_values: dict[str, str | None] = (
+            dict(review.state.category_values) if review is not None and review.state else {}
+        )
+        fee_drafts: dict[str, tuple[bool, str, str | None, str | None, str | None]] = (
+            dict(review.state.fee_drafts) if review is not None and review.state else {}
+        )
         batch_button = ft.TextButton(
             self.tr("batch_add"),
             icon=ft.Icons.PLAYLIST_ADD,
             data="batch_start",
             tooltip=self.tr("batch_unavailable"),
-            visible=transaction is None,
+            visible=transaction is None and review is None,
         )
         batch_help = ft.Text(self.tr("batch_unavailable"), size=12, visible=False)
         currencies = {a.id: a.currency for a in journal.ledger.accounts}
@@ -5410,13 +5944,18 @@ class FinanceView(ft.Row):
                 return "transfer"
             if sign.selected == ["-"]:
                 return "expense"
+            if not sign.selected:
+                return ""
             return special.value or "income"
 
-        previous_kind = transaction.kind if transaction else "expense"
+        previous_kind = (
+            operation() if review is not None else transaction.kind if transaction else "expense"
+        )
 
         def batch_supported() -> bool:
             return (
-                operation() in {"expense", "income"}
+                review is None
+                and operation() in {"expense", "income"}
                 and not fee_enabled.value
                 and fee.value in {"", "0"}
                 and fee_mode.value in {None, "added"}
@@ -5687,7 +6226,7 @@ class FinanceView(ft.Row):
                 ) = fee_drafts.get(kind, (False, "0", "added", initial_fee_category, None))
             previous_kind = kind
             batch_button.disabled = not batch_supported()
-            batch_help.visible = transaction is None and batch_button.disabled
+            batch_help.visible = transaction is None and review is None and batch_button.disabled
             category.label = self.tr("income_category" if kind == "income" else "expense_category")
             payee.label = self.tr(
                 "transfer_counterparty"
@@ -5762,7 +6301,9 @@ class FinanceView(ft.Row):
                     category.leading_icon = self._entity_dropdown_icon(posting.account)
                     amount.value = str(posting.amount)
                 batch_button.disabled = not batch_supported()
-                batch_help.visible = transaction is None and batch_button.disabled
+                batch_help.visible = (
+                    transaction is None and review is None and batch_button.disabled
+                )
                 self.page.update()
             except Exception as exc:
                 self._error(exc, notify=True)
@@ -5818,7 +6359,7 @@ class FinanceView(ft.Row):
         def recalculate(event: ft.Event[ft.TextField] | ft.Event[ft.Dropdown]) -> None:
             update_exchange()
             batch_button.disabled = not batch_supported()
-            batch_help.visible = transaction is None and batch_button.disabled
+            batch_help.visible = transaction is None and review is None and batch_button.disabled
             for row in dropdown_rows:
                 row.visible = dropdown_row_field(row).visible
             self.page.update()
@@ -5851,6 +6392,18 @@ class FinanceView(ft.Row):
         async def save() -> str | None:
             occurred, timestamp = when.values()
             kind = operation()
+            if review is not None:
+                if not kind:
+                    raise LedgerError("notification_kind_required")
+                selected_account = next(
+                    (entry for entry in journal.ledger.accounts if entry.id == account.value), None
+                )
+                if (
+                    not notification_currency.value
+                    or selected_account is None
+                    or selected_account.currency != notification_currency.value.strip().upper()
+                ):
+                    raise LedgerError("notification_currency_mismatch")
             if transaction and kind != transaction.kind:
                 raise LedgerError("crud_transaction_readonly")
             if kind == "transfer":
@@ -5924,7 +6477,200 @@ class FinanceView(ft.Row):
                 default_fee_name=self.tr("transfer_bank_fees"),
             )
 
+        def apply_review_rule() -> None:
+            if review is None:
+                return
+            active_review = review
+            current_fields = {
+                "kind": operation() or None,
+                "amount": amount.value or None,
+                "currency": notification_currency.value or None,
+                "account": account.value,
+                "destination": destination.value,
+                "destination_amount": received.value or None,
+                "category": category.value,
+                "payee": payee.value or None,
+                "description": description.value or None,
+                "date": when.occurred.value or None,
+                "time": when.clock.value or None,
+                "fee_enabled": str(bool(fee_enabled.value)),
+                "fee": fee.value or None,
+                "fee_mode": fee_mode.value,
+                "fee_category": fee_category.value,
+                "fee_currency": fee_currency.value,
+                "reference": reference.value,
+            }
+
+            def applied(item_id: int, outcome: str) -> None:
+                if outcome != "pending":
+                    self.notification_reviews.pop(item_id, None)
+                    self.page.pop_dialog()
+                    self._notification_changed()
+                    return
+                try:
+                    item = next(
+                        item
+                        for item in active_review.store.items(("pending",))
+                        if item.id == item_id
+                    )
+                    draft = read_review_draft(item)
+                    item = active_review.store.begin_review(
+                        item.id, item.review_snapshot, journal_id=journal_identity(journal)
+                    )
+                except (StopIteration, NotificationStoreError, ValueError):
+                    self._error(NotificationStoreError("Notification changed."), notify=True)
+                    return
+                active_review.item = item
+                active_review.snapshot = item.review_snapshot
+                active_review.state = None
+                new_kind = draft.kind or ""
+                old_kind = operation()
+                fee_drafts[new_kind] = (
+                    bool(fee_enabled.value),
+                    fee.value,
+                    fee_mode.value,
+                    fee_category.value,
+                    fee_currency.value,
+                )
+                category_values[new_kind] = draft.category
+                sign.selected = (
+                    ["-"]
+                    if new_kind == "expense"
+                    else ["+"]
+                    if new_kind == "income"
+                    else ["transfer"]
+                    if new_kind == "transfer"
+                    else []
+                )
+                if new_kind == "income":
+                    special.value = "income"
+                account.value = (
+                    draft.account
+                    if draft.account in {option.key for option in account.options}
+                    else None
+                )
+                if old_kind == new_kind:
+                    category.value = draft.category
+                amount.value = str(draft.amount) if draft.amount is not None else ""
+                destination.value = draft.destination
+                received.value = (
+                    str(draft.destination_amount) if draft.destination_amount is not None else ""
+                )
+                notification_currency.value = draft.currency or ""
+                description.value = draft.description or ""
+                payee.value = draft.payee or ""
+                when.occurred.value = (
+                    date_input(draft.date, self.language) if draft.date is not None else ""
+                )
+                when.clock.value = draft.time or ""
+                configure()
+                self._notification_changed()
+
+            try:
+                NotificationRuleApplication(
+                    self.page,
+                    self.tr,
+                    review.store,
+                    review.item,
+                    ledger=journal.ledger,
+                    today=journal.today(),
+                    journal_id=journal_identity(journal),
+                    current_fields=current_fields,
+                    on_applied=applied,
+                ).open()
+            except (NotificationStoreError, ValueError) as exc:
+                self._error(exc, notify=True)
+
+        def review_rule_editor(
+            draft: NotificationRule | None = None,
+            sample_title: str | None = None,
+            sample_body: str | None = None,
+            *,
+            edit_matching: bool = False,
+        ) -> None:
+            if review is None:
+                return
+            try:
+                rule_id = matching_rule_id(review.store, review.item) if edit_matching else None
+                if edit_matching and rule_id is None:
+                    raise NotificationStoreError("Matching rule changed; review it again.")
+                NotificationRuleEditor(
+                    self.page,
+                    self.tr,
+                    review.store,
+                    review.item.app_id,
+                    rule_id=rule_id,
+                    draft=draft,
+                    sample_title=sample_title if draft is not None else review.item.title,
+                    sample_body=sample_body if draft is not None else review.item.body,
+                    ledger=journal.ledger,
+                    today=journal.today,
+                    on_saved=lambda _rule: apply_review_rule(),
+                    on_ai=self._notification_ai_starter(review.item.app_id),
+                ).open()
+            except sqlite3.Error:
+                logger.exception("Notification rule lookup storage failed")
+                self._error(
+                    NotificationStoreError("Notification storage is unavailable."), notify=True
+                )
+            except NotificationStoreError as exc:
+                self._error(exc, notify=True)
+
+        async def review_ai(event: ft.Event) -> None:
+            if review is not None:
+                await self._notification_ai_starter(review.item.app_id)(
+                    review.item.title, review.item.body, review_rule_editor
+                )
+
         controls: list[ft.Control] = [
+            *(
+                [
+                    ft.ExpansionTile(
+                        title=self.tr("notification_source"),
+                        controls=[
+                            ft.Text(review.item.app_id, selectable=True),
+                            ft.Text(review.item.rule_name or self.tr("notification_no_rule")),
+                            ft.Text(
+                                format_timestamp(
+                                    local_datetime(
+                                        datetime.fromtimestamp(review.item.posted).astimezone(),
+                                        self._effective_zone(),
+                                    ).isoformat(),
+                                    self.language,
+                                )
+                            ),
+                            ft.Text(review.item.title or self.tr("notification_unavailable")),
+                            ft.Text(review.item.body or self.tr("notification_unavailable")),
+                            ft.Row(
+                                [
+                                    ft.TextButton(
+                                        self.tr("notification_inbox_rule"),
+                                        on_click=lambda _: review_rule_editor(),
+                                    ),
+                                    ft.TextButton(
+                                        self.tr("notification_edit_matching_rule"),
+                                        on_click=lambda _: review_rule_editor(edit_matching=True),
+                                        visible=bool(
+                                            review.item.rule_name and not review.item.stale_rule
+                                        ),
+                                    ),
+                                    ft.TextButton(
+                                        self.tr("notification_ai_title"), on_click=review_ai
+                                    ),
+                                ],
+                                wrap=True,
+                            ),
+                        ],
+                    ),
+                    ft.Text(
+                        self.tr("notification_needs_attention"),
+                        visible=bool(initial and (initial.errors or initial.time is None)),
+                    ),
+                    notification_currency,
+                ]
+                if review is not None
+                else []
+            ),
             description,
             ft.Row([sign, amount], spacing=8),
             sign_hint,
@@ -5939,12 +6685,62 @@ class FinanceView(ft.Row):
             batch_help,
         ]
         configure()
+
+        def remember_review() -> None:
+            if review is None:
+                return
+            review.state = NotificationFormState(
+                list(sign.selected),
+                special.value,
+                account.value,
+                category.value,
+                amount.value or "",
+                destination.value,
+                received.value or "",
+                notification_currency.value or "",
+                description.value or "",
+                payee.value or "",
+                when.occurred.value or "",
+                when.clock.value or "",
+                bool(fee_enabled.value),
+                fee.value or "",
+                fee_mode.value,
+                fee_category.value,
+                fee_currency.value,
+                reference.value,
+                dict(category_values),
+                dict(fee_drafts),
+            )
+
+        async def submit() -> str | None:
+            if review is None:
+                return await save()
+            try:
+                return await save_reviewed_notification(
+                    review.store, review.item.id, journal, save, snapshot=review.snapshot
+                )
+            except LedgerError:
+                if journal.ready and journal.storage.loaded and journal.storage.draft == source:
+                    pending = next(
+                        (
+                            item
+                            for item in review.store.items(("pending",))
+                            if item.id == review.item.id
+                        ),
+                        None,
+                    )
+                    if pending is not None:
+                        review.store.set_editing(review.item.id, True)
+                raise
+
         self._edit_dialog(
             self.tr("crud_edit" if transaction else "add_transaction"),
             controls,
             journal,
-            save,
+            submit,
             stretch=True,
+            after_save=after_review,
+            on_cancel=remember_review if review is not None else None,
         )
 
     def _edit_entity(self, event: ft.Event[ft.IconButton]) -> None:
@@ -7234,6 +8030,8 @@ class FinanceView(ft.Row):
             # A fresh boundary prevents Flet from applying stale offscreen child diffs
             # after it has already serialized the remounted screen.
             self.body.controls[-1] = self._screen_frame()
+            if screen == "settings" and self.notification_settings is not None:
+                self.page.run_task(self.notification_settings.load)
         if self.page:
             self.page.update()
 
@@ -7244,31 +8042,43 @@ class FinanceView(ft.Row):
     def _save_visit(self) -> None:
         if self.current_screen == "transactions":
             self._history[self.history_index] = NavigationVisit(
-                self.current_screen, self.operations.location()
+                self.current_screen, self.operations.location(), self.notification_inbox_open
             )
 
     def _restore_visit(self, index: int) -> None:
         self._save_visit()
         self.history_index = index
         visit = self._history[index]
+        self.notification_inbox_open = visit.notification_inbox
         if visit.operations is not None:
             self.operations.restore(visit.operations)
             self._refresh()
         self._show_screen(visit.screen)
+        if visit.notification_inbox and self.notification_settings is not None:
+            self.page.run_task(self.notification_settings.load)
 
-    def _navigate(self, screen: str, *, operations: OperationsLocation | None = None) -> None:
+    def _navigate(
+        self,
+        screen: str,
+        *,
+        operations: OperationsLocation | None = None,
+        notification_inbox: bool = False,
+    ) -> None:
         if self._browser_back_waiter is not None:
             self.page.run_task(self._navigate_after_browser_back, screen, operations)
             return
         self._save_visit()
-        if screen == self.current_screen and (
-            operations is None or operations == self.operations.location()
+        if (
+            screen == self.current_screen
+            and notification_inbox == self.notification_inbox_open
+            and (operations is None or operations == self.operations.location())
         ):
             self._show_screen(screen)
             return
         del self._history[self.history_index + 1 :]
-        self._history.append(NavigationVisit(screen, operations))
+        self._history.append(NavigationVisit(screen, operations, notification_inbox))
         self.history_index += 1
+        self.notification_inbox_open = notification_inbox
         if self.browser_routes:
             del self.browser_routes[self.history_index :]
             self._browser_route_sequence += 1

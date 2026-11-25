@@ -8,6 +8,7 @@ dependencies = [
     "flet-secure-storage==1.1.2",
     "httpx>=0.28.1,<0.29",
     "finance-saf==0.1.0",
+    "notification-bridge==0.1.0",
     "browser-history-bridge==0.1.0",
     "popup-keyboard==0.1.1",
     "beancount-parser==1.2.3",
@@ -20,6 +21,7 @@ dependencies = [
 
 [tool.uv.sources]
 finance-saf = { path = "extensions/finance-saf" }
+notification-bridge = { path = "extensions/notification-bridge" }
 browser-history-bridge = { path = "extensions/browser-history-bridge" }
 popup-keyboard = { path = "extensions/popup-keyboard" }
 
@@ -49,7 +51,7 @@ extend-exclude = ["build", "dist", "src/assets", "src/.flet"]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pyright]
-include = ["src", "tests", "tasks.py", "tools", "extensions/finance-saf/src/finance_saf", "extensions/browser-history-bridge/src/browser_history_bridge", "extensions/popup-keyboard/src/popup_keyboard"]
+include = ["src", "tests", "tasks.py", "tools", "extensions/finance-saf/src/finance_saf", "extensions/notification-bridge/src/notification_bridge", "extensions/browser-history-bridge/src/browser_history_bridge", "extensions/popup-keyboard/src/popup_keyboard"]
 exclude = ["src/assets", "src/.flet", "**/__pycache__"]
 extraPaths = ["src", "."]
 pythonVersion = "3.13"
@@ -77,6 +79,7 @@ signing_alias = "android-release"
 
 [tool.flet.dev_packages]
 finance-saf = "extensions/finance-saf"
+notification-bridge = "extensions/notification-bridge"
 browser-history-bridge = "extensions/browser-history-bridge"
 popup-keyboard = "extensions/popup-keyboard"
 

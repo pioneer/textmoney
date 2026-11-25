@@ -22,6 +22,7 @@ IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 class Capability(StrEnum):
     UNDERSTAND = "understand"
     GENERATE = "generate"
+    NOTIFICATION_RULE = "notification_rule"
 
 
 class Provider(StrEnum):
@@ -77,6 +78,7 @@ MODELS = {
         Model(Provider.GEMINI, "gemini-3-pro-image"),
         Model(Provider.XAI, "grok-imagine-image-2.0"),
     ),
+    Capability.NOTIFICATION_RULE: (Model(Provider.OPENAI, "gpt-5.4-mini"),),
 }
 
 

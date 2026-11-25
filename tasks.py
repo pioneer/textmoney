@@ -608,12 +608,25 @@ def prepare_linux_dev_client(bundle: Path | None = None) -> Path:
 
 def web_client_fingerprint() -> str:
     paths = [ROOT / "pyproject.toml", ROOT / "uv.lock"]
-    for extension in ("browser-history-bridge", "finance-saf", "popup-keyboard"):
+    for extension in (
+        "browser-history-bridge",
+        "finance-saf",
+        "notification-bridge",
+        "popup-keyboard",
+    ):
         base = ROOT / "extensions" / extension
         paths.append(base / "pyproject.toml")
         flutter = base / "src/flutter"
         paths.extend(sorted(flutter.glob("*/pubspec.yaml")))
         paths.extend(sorted(flutter.glob("*/lib/**/*")))
+        paths.extend(
+            sorted(
+                path
+                for path in flutter.glob("*/android/**/*")
+                if ".gradle" not in path.relative_to(flutter).parts
+                and "build" not in path.relative_to(flutter).parts
+            )
+        )
     digest = hashlib.sha256()
     for path in paths:
         if path.is_file():

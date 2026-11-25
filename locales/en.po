@@ -2567,3 +2567,678 @@ msgstr "The category availability date cannot be before its parent category."
 #. Stable TextMoney key; a parent category cannot become available after a child.
 msgid "ui.crud_category_after_child"
 msgstr "The category availability date cannot be after a child category."
+
+msgid "ui.notification_source"
+msgstr "Source notification"
+
+msgid "ui.notification_no_rule"
+msgstr "No matching rule"
+
+msgid "ui.notification_unavailable"
+msgstr "Not available"
+
+msgid "ui.notification_kind_required"
+msgstr "Choose a transaction type."
+
+msgid "ui.notification_currency_mismatch"
+msgstr "Enter the currency of the selected account."
+
+msgid "ui.notification_needs_attention"
+msgstr "Some details could not be determined. Review and complete them before saving."
+
+msgid "ui.notification_state_error"
+msgstr "The notification state changed or is unavailable. Reopen the item and review any unresolved save before retrying."
+
+msgid "ui.notification_rule_editor"
+msgstr "Notification rule"
+
+msgid "ui.notification_rule_details"
+msgstr "Rule details"
+
+msgid "ui.notification_rule_name"
+msgstr "Rule name"
+
+msgid "ui.notification_rule_source"
+msgstr "Source app"
+
+msgid "ui.notification_rule_action"
+msgstr "When matched"
+
+msgid "ui.notification_rule_suggest"
+msgstr "Suggest a transaction"
+
+msgid "ui.notification_rule_ignore"
+msgstr "Ignore notification"
+
+msgid "ui.notification_rule_title_pattern"
+msgstr "Title pattern"
+
+msgid "ui.notification_rule_pattern_help"
+msgstr "Match literal text and use {{capture_name}} to capture a value. Double braces match literal braces."
+
+msgid "ui.notification_rule_body_pattern"
+msgstr "Body pattern"
+
+msgid "ui.notification_rule_enabled"
+msgstr "Enable this rule"
+
+msgid "ui.notification_rule_priority"
+msgstr "Priority (1 is highest)"
+
+msgid "ui.notification_rule_mapping"
+msgstr "Transaction field mappings"
+
+msgid "ui.notification_rule_kind"
+msgstr "Transaction type"
+
+msgid "ui.notification_rule_amount"
+msgstr "Amount"
+
+msgid "ui.notification_rule_currency"
+msgstr "Currency"
+
+msgid "ui.notification_rule_account"
+msgstr "Account"
+
+msgid "ui.notification_rule_destination"
+msgstr "Transfer destination"
+
+msgid "ui.notification_rule_destination_amount"
+msgstr "Destination amount"
+
+msgid "ui.notification_rule_category"
+msgstr "Category"
+
+msgid "ui.notification_rule_payee"
+msgstr "Payee"
+
+msgid "ui.notification_rule_description"
+msgstr "Description"
+
+msgid "ui.notification_rule_date"
+msgstr "Date"
+
+msgid "ui.notification_rule_time"
+msgstr "Time"
+
+msgid "ui.notification_rule_unmapped"
+msgstr "Not mapped"
+
+msgid "ui.notification_rule_fixed"
+msgstr "Fixed value"
+
+msgid "ui.notification_rule_capture"
+msgstr "Capture"
+
+msgid "ui.notification_rule_mapping_value"
+msgstr "Value or capture name"
+
+msgid "ui.notification_rule_decimal_separator"
+msgstr "Decimal separator"
+
+msgid "ui.notification_rule_grouping_separator"
+msgstr "Grouping separator"
+
+msgid "ui.notification_rule_group_none"
+msgstr "None"
+
+msgid "ui.notification_rule_group_."
+msgstr "Period"
+
+msgid "ui.notification_rule_group_,"
+msgstr "Comma"
+
+msgid "ui.notification_rule_group_space"
+msgstr "Space"
+
+msgid "ui.notification_rule_group_nbsp"
+msgstr "Non-breaking space"
+
+msgid "ui.notification_rule_group_narrow"
+msgstr "Narrow non-breaking space"
+
+msgid "ui.notification_rule_date_format"
+msgstr "Date format"
+
+msgid "ui.notification_rule_date_0"
+msgstr "Year-month-day"
+
+msgid "ui.notification_rule_date_1"
+msgstr "Day.month.year"
+
+msgid "ui.notification_rule_date_2"
+msgstr "Day/month/year"
+
+msgid "ui.notification_rule_date_3"
+msgstr "Month/day/year"
+
+msgid "ui.notification_rule_currency_symbols"
+msgstr "Currency symbols, one symbol=CODE per line"
+
+msgid "ui.notification_rule_sample"
+msgstr "Test with a sample (does not save)"
+
+msgid "ui.notification_rule_sample_choice"
+msgstr "Sample source"
+
+msgid "ui.notification_rule_sample_manual"
+msgstr "Enter a sample manually"
+
+msgid "ui.notification_ai_title"
+msgstr "Draft a rule with AI"
+
+msgid "ui.ai_notification_rule"
+msgstr "Notification rule model"
+
+msgid "ui.notification_ai_consent"
+msgstr "Review and redact this one notification before sending it to {model}. The provider may charge for this request. Nothing is imported or enabled automatically."
+
+msgid "ui.notification_ai_send"
+msgstr "Send this sample"
+
+msgid "ui.notification_ai_model_changed"
+msgstr "The selected model changed. Reopen this dialog and review the recipient before sending."
+
+msgid "ui.notification_ai_sample_required"
+msgstr "Enter a notification title or body before sending."
+
+msgid "ui.notification_ai_refused"
+msgstr "The provider declined the request. You can edit the sample or create a rule manually."
+
+msgid "ui.notification_ai_invalid"
+msgstr "The provider returned an invalid rule. You can retry or create a rule manually."
+
+msgid "ui.notification_ai_failed"
+msgstr "Could not draft a rule. Check AI Settings, retry, or create a rule manually."
+
+msgid "ui.notification_settings_title"
+msgstr "Notification imports"
+
+msgid "ui.notification_settings_last_check"
+msgstr "Last successful check: {time}"
+
+msgid "ui.notification_settings_never_checked"
+msgstr "Notifications have not been checked yet."
+
+msgid "ui.notification_settings_help"
+msgstr "Choose apps and rules to suggest transactions for review. Manual checking reads current notifications only when you choose Check now; already dismissed notifications may be missed. Source notifications are never dismissed."
+
+msgid "ui.notification_settings_mode_off"
+msgstr "Monitoring is off."
+
+msgid "ui.notification_settings_mode_manual"
+msgstr "Manual checking is enabled."
+
+msgid "ui.notification_settings_mode_background"
+msgstr "Background detection is selected."
+
+msgid "ui.notification_settings_access_unknown"
+msgstr "Notification access status is unknown. Refresh to check."
+
+msgid "ui.notification_settings_access_required"
+msgstr "Notification access is required. Open Android settings to grant access."
+
+msgid "ui.notification_settings_disconnected"
+msgstr "Notification access is granted, but the listener is not connected. Refresh or check Android settings."
+
+msgid "ui.notification_settings_connected"
+msgstr "Notification access is connected."
+
+msgid "ui.notification_settings_enable"
+msgstr "Enable manual checking"
+
+msgid "ui.notification_settings_disable"
+msgstr "Turn off"
+
+msgid "ui.notification_settings_access_button"
+msgstr "Open notification access"
+
+msgid "ui.notification_settings_refresh"
+msgstr "Refresh status"
+
+msgid "ui.notification_settings_apps"
+msgstr "Apps to monitor"
+
+msgid "ui.notification_settings_search"
+msgstr "Search installed apps"
+
+msgid "ui.notification_settings_search_more"
+msgstr "More apps match. Refine the search to see them."
+
+msgid "ui.notification_settings_apps_empty"
+msgstr "No apps match this search."
+
+msgid "ui.notification_settings_rules"
+msgstr "Rules"
+
+msgid "ui.notification_settings_rule_enabled"
+msgstr "Enabled"
+
+msgid "ui.notification_settings_rule_disabled"
+msgstr "Disabled"
+
+msgid "ui.notification_settings_edit"
+msgstr "Edit"
+
+msgid "ui.notification_settings_duplicate"
+msgstr "Duplicate"
+
+msgid "ui.notification_settings_delete"
+msgstr "Delete"
+
+msgid "ui.notification_settings_add_rule"
+msgstr "Add rule"
+
+msgid "ui.notification_settings_choose_apps"
+msgstr "Select an app to create rules."
+
+msgid "ui.notification_settings_bridge_error"
+msgstr "Could not access Android notification settings. Check access and refresh."
+
+msgid "ui.notification_settings_store_error"
+msgstr "Could not change notification settings or rules. Refresh and try again."
+
+msgid "ui.notification_settings_delete_title"
+msgstr "Delete rule?"
+
+msgid "ui.notification_settings_delete_help"
+msgstr "This deletes only the rule. Existing transaction drafts and other apps' notifications are unchanged."
+
+msgid "ui.notification_settings_clear"
+msgstr "Clear captured content"
+
+msgid "ui.notification_settings_clear_title"
+msgstr "Clear captured content?"
+
+msgid "ui.notification_settings_clear_help"
+msgstr "Delete pending drafts and saved notification samples from TextMoney while retaining duplicate-suppression history. Source notifications are unchanged."
+
+msgid "ui.notification_settings_reset"
+msgstr "Reset import history"
+
+msgid "ui.notification_settings_reset_title"
+msgstr "Reset import history?"
+
+msgid "ui.notification_settings_reset_help"
+msgstr "Delete captured drafts, samples and duplicate-suppression history. Ordinary checks will not resuggest old notifications, but deliberately recovering older notifications may create duplicates. Source notifications are unchanged."
+
+msgid "ui.notification_settings_history_failed"
+msgstr "Could not change history. Resolve any uncertain saves, then refresh and try again."
+
+msgid "ui.notification_old_title"
+msgstr "Recover old notification"
+
+msgid "ui.notification_old_select"
+msgstr "Choose a visible notification"
+
+msgid "ui.notification_old_help"
+msgstr "Only notifications currently visible to Android are shown. Old notifications may already have been imported; compare them with your journal before proceeding. The original notification will not be dismissed."
+
+msgid "ui.notification_old_ack"
+msgstr "I understand this could be a duplicate."
+
+msgid "ui.notification_old_confirm"
+msgstr "Review selected notification"
+
+msgid "ui.notification_old_failed"
+msgstr "Could not recover this notification. Check the source settings and try again."
+
+msgid "ui.notification_old_empty"
+msgstr "No recoverable old notifications are currently visible."
+
+msgid "ui.notification_old_recovered"
+msgstr "The notification is in Recent for duplicate-aware rule review."
+
+msgid "ui.notification_inbox_title"
+msgstr "Import notifications"
+
+msgid "ui.notification_pending_count"
+msgstr "{count} pending notification imports"
+
+msgid "ui.notification_inbox_check"
+msgstr "Check now"
+
+msgid "ui.notification_inbox_settings"
+msgstr "Import settings"
+
+msgid "ui.notification_inbox_tab_pending"
+msgstr "Pending"
+
+msgid "ui.notification_inbox_tab_recent"
+msgstr "Recent"
+
+msgid "ui.notification_inbox_tab_processed"
+msgstr "Processed"
+
+msgid "ui.notification_inbox_previous"
+msgstr "Previous"
+
+msgid "ui.notification_inbox_next"
+msgstr "Next"
+
+msgid "ui.notification_inbox_page"
+msgstr "Page {page} of {pages}"
+
+msgid "ui.notification_inbox_setup"
+msgstr "Set up notification imports and choose apps to check."
+
+msgid "ui.notification_inbox_empty_pending"
+msgstr "Check notifications to find transactions."
+
+msgid "ui.notification_inbox_waiting"
+msgstr "Waiting for matching notifications."
+
+msgid "ui.notification_inbox_empty_recent"
+msgstr "No recent unmatched or ignored notifications."
+
+msgid "ui.notification_inbox_empty_processed"
+msgstr "No processed notifications."
+
+msgid "ui.notification_inbox_expired"
+msgstr "{count} pending notifications expired and their contents were removed."
+
+msgid "ui.notification_inbox_acknowledge_expired"
+msgstr "Acknowledge"
+
+msgid "ui.notification_inbox_expired_changed"
+msgstr "The expiry count changed. Review it before acknowledging."
+
+msgid "ui.notification_inbox_expiring"
+msgstr "This suggestion expires within seven days."
+
+msgid "ui.notification_inbox_changed_source"
+msgstr "The source notification changed. Review it carefully."
+
+msgid "ui.notification_inbox_stale_rule"
+msgstr "Rules may have changed since this suggestion was created. Review it before saving."
+
+msgid "ui.notification_inbox_posted"
+msgstr "Notification time: {time}"
+
+msgid "ui.notification_inbox_title_unavailable"
+msgstr "Notification title unavailable."
+
+msgid "ui.notification_inbox_body_unavailable"
+msgstr "Notification body unavailable."
+
+msgid "ui.notification_recent_title"
+msgstr "Re-evaluate recent"
+
+msgid "ui.notification_recent_help"
+msgstr "Review changes to recent unmatched or ignored notifications. Pending drafts and possible duplicates are not changed. No transactions are saved."
+
+msgid "ui.notification_recent_count"
+msgstr "{count} notifications will change."
+
+msgid "ui.notification_recent_transition"
+msgstr "Before: {before}; after: {after}"
+
+msgid "ui.notification_recent_previous_rule"
+msgstr "Previous rule: {name}"
+
+msgid "ui.notification_recent_confirm"
+msgstr "Apply changes"
+
+msgid "ui.notification_recent_empty"
+msgstr "No recent notifications would change."
+
+msgid "ui.notification_recent_failed"
+msgstr "No changes were applied. Check the journal, rules and recent samples, then preview again."
+
+msgid "ui.notification_recent_applied"
+msgstr "Recent notifications re-evaluated. Review any new suggestions before saving."
+
+msgid "ui.notification_inbox_status_pending"
+msgstr "Ready for review"
+
+msgid "ui.notification_inbox_status_saving"
+msgstr "Save outcome needs review"
+
+msgid "ui.notification_inbox_status_unmatched"
+msgstr "No matching rule"
+
+msgid "ui.notification_inbox_status_ignored"
+msgstr "Ignored by a rule"
+
+msgid "ui.notification_inbox_status_uncertain"
+msgstr "Possible duplicate"
+
+msgid "ui.notification_inbox_status_imported"
+msgstr "Imported"
+
+msgid "ui.notification_inbox_status_skipped"
+msgstr "Skipped in TextMoney"
+
+msgid "ui.notification_inbox_status_expired"
+msgstr "Expired"
+
+msgid "ui.notification_inbox_status_cleared"
+msgstr "Captured content cleared"
+
+msgid "ui.notification_inbox_review"
+msgstr "Review transaction"
+
+msgid "ui.notification_inbox_skip"
+msgstr "Skip in TextMoney"
+
+msgid "ui.notification_inbox_recover"
+msgstr "Review save outcome"
+
+msgid "ui.notification_inbox_rule"
+msgstr "Create rule"
+
+msgid "ui.notification_edit_matching_rule"
+msgstr "Edit matching rule"
+
+msgid "ui.notification_inbox_capacity"
+msgstr "The pending inbox is full. Review or skip suggestions before checking again."
+
+msgid "ui.notification_inbox_checked"
+msgstr "Notification check complete."
+
+msgid "ui.notification_inbox_access_error"
+msgstr "Could not read notifications. Check Android access and listener status in import settings."
+
+msgid "ui.notification_inbox_check_error"
+msgstr "Could not complete the notification check. Review import settings and retry."
+
+msgid "ui.notification_inbox_changed"
+msgstr "This notification changed. Review it again before skipping."
+
+msgid "ui.notification_inbox_storage_error"
+msgstr "Notification storage is unavailable. The suggestion was not skipped."
+
+msgid "ui.notification_recovery_title"
+msgstr "Review interrupted save"
+
+msgid "ui.notification_recovery_help"
+msgstr "The save outcome is uncertain. First resolve any journal recovery and inspect the original journal for this transaction. Choosing incorrectly may cause a duplicate or hide an unsaved transaction. No transaction will be written here."
+
+msgid "ui.notification_recovery_outcome"
+msgstr "What did you find in the journal?"
+
+msgid "ui.notification_recovery_saved"
+msgstr "The transaction is already saved"
+
+msgid "ui.notification_recovery_not_saved"
+msgstr "The transaction is not saved"
+
+msgid "ui.notification_recovery_acknowledge"
+msgstr "I checked the original journal and understand the duplicate risk."
+
+msgid "ui.notification_recovery_confirm"
+msgstr "Confirm outcome"
+
+msgid "ui.notification_recovery_failed"
+msgstr "Could not resolve this save. Reload the original journal and review it again."
+
+msgid "ui.notification_apply_title"
+msgstr "Apply rule to this notification?"
+
+msgid "ui.notification_apply_help"
+msgstr "Review the winning rule and field changes. Only this notification will be re-evaluated."
+
+msgid "ui.notification_apply_winner"
+msgstr "Winning rule: {name}"
+
+msgid "ui.notification_apply_outcome"
+msgstr "New outcome: {outcome}"
+
+msgid "ui.notification_apply_overwrite"
+msgstr "Applying will replace the open transaction draft, including any edits shown below."
+
+msgid "ui.notification_apply_empty"
+msgstr "(empty)"
+
+msgid "ui.notification_apply_change"
+msgstr "{field}: {before} → {after}"
+
+msgid "ui.notification_apply_duplicate_ack"
+msgstr "I understand this notification may already have been imported."
+
+msgid "ui.notification_apply_confirm"
+msgstr "Apply to this item"
+
+msgid "ui.notification_apply_failed"
+msgstr "The notification or rules changed. Preview the changes again."
+
+msgid "ui.notification_rule_sample_title"
+msgstr "Sample notification title"
+
+msgid "ui.notification_rule_sample_body"
+msgstr "Sample notification body"
+
+msgid "ui.notification_rule_test"
+msgstr "Test rule"
+
+msgid "ui.notification_rule_test_no_match"
+msgstr "No rule wins for this sample."
+
+msgid "ui.notification_rule_test_wins"
+msgstr "This rule wins by priority."
+
+msgid "ui.notification_rule_test_other"
+msgstr "another rule"
+
+msgid "ui.notification_rule_test_winner"
+msgstr "Winning rule: {name}."
+
+msgid "ui.notification_rule_test_outcome"
+msgstr "Sample outcome: {outcome}."
+
+msgid "ui.notification_rule_outcome_suggest"
+msgstr "Suggest a transaction for review"
+
+msgid "ui.notification_rule_outcome_ignore"
+msgstr "Ignore the notification"
+
+msgid "ui.notification_rule_outcome_unmatched"
+msgstr "No matching rule"
+
+msgid "ui.notification_rule_test_current"
+msgstr "Current rules"
+
+msgid "ui.notification_rule_test_proposed"
+msgstr "With this draft"
+
+msgid "ui.notification_rule_test_candidate_match"
+msgstr "This rule matches the sample."
+
+msgid "ui.notification_rule_test_candidate_no_match"
+msgstr "This rule does not match the sample."
+
+msgid "ui.notification_rule_test_no_captures"
+msgstr "none"
+
+msgid "ui.notification_rule_test_captures"
+msgstr "Captures: {captures}."
+
+msgid "ui.notification_rule_test_errors"
+msgstr "Draft needs attention: {errors}."
+
+msgid "ui.notification_rule_test_no_errors"
+msgstr "No draft validation errors."
+
+msgid "ui.notification_rule_test_failed"
+msgstr "Could not test this rule. Check its fields and priority."
+
+msgid "ui.notification_rule_error_other"
+msgstr "A mapped value needs review."
+
+msgid "ui.notification_rule_error_required"
+msgstr "Required for import."
+
+msgid "ui.notification_rule_error_missing"
+msgstr "Mapped value is missing."
+
+msgid "ui.notification_rule_error_kind"
+msgstr "Choose expense, income, or transfer."
+
+msgid "ui.notification_rule_error_positive"
+msgstr "Amount must be positive."
+
+msgid "ui.notification_rule_error_currency"
+msgstr "Map the currency to a three-letter code."
+
+msgid "ui.notification_rule_error_date_range"
+msgstr "Date must be between 1970-01-01 and today."
+
+msgid "ui.notification_rule_error_date_format"
+msgstr "Date does not match the configured format."
+
+msgid "ui.notification_rule_error_time"
+msgstr "Time must be a local HH:MM or HH:MM:SS value."
+
+msgid "ui.notification_rule_error_account"
+msgstr "Account is missing or inactive in the selected journal."
+
+msgid "ui.notification_rule_error_account_currency"
+msgstr "Account currency does not match the extracted currency."
+
+msgid "ui.notification_rule_error_account_date"
+msgstr "Account is not open on this date."
+
+msgid "ui.notification_rule_error_transfer"
+msgstr "Transfer accounts must be different."
+
+msgid "ui.notification_rule_error_transfer_amount"
+msgstr "Same-currency transfers must have matching amounts."
+
+msgid "ui.notification_rule_error_category"
+msgstr "Category is unavailable for this transaction type."
+
+msgid "ui.notification_rule_error_category_date"
+msgstr "Category is not open on this date."
+
+msgid "ui.notification_rule_error_payee"
+msgstr "Payee is invalid."
+
+msgid "ui.notification_rule_error_description"
+msgstr "Description is invalid."
+
+msgid "ui.notification_rule_invalid"
+msgstr "Review the rule name, patterns, mappings, and priority."
+
+msgid "ui.notification_rule_error_pattern"
+msgstr "Check the patterns: use unique {{capture}} names separated by literal text, and escape literal braces."
+
+msgid "ui.notification_rule_error_name_pattern"
+msgstr "Enter a rule name and at least one title or body pattern."
+
+msgid "ui.notification_rule_error_mapping_config"
+msgstr "Enter a value for each mapping and define every referenced capture in a pattern."
+
+msgid "ui.notification_rule_error_priority"
+msgstr "Enter a whole-number priority within the available rule order."
+
+msgid "ui.notification_rule_error_number_format"
+msgstr "Choose different decimal and grouping separators."
+
+msgid "ui.notification_rule_error_currency_config"
+msgstr "Enter unique symbol=CODE mappings with three-letter currency codes."
+
+msgid "ui.notification_rule_conflict"
+msgstr "Rules changed. Test again before saving this draft."
+
+msgid "ui.notification_rule_save_failed"
+msgstr "Could not save this rule. Your edits are still here."

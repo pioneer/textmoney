@@ -31,6 +31,72 @@ def test_release_requires_exactly_three_named_architecture_apks_and_both_desktop
 
 
 @pytest.mark.parametrize(
+    "platforms,expected",
+    [
+        ("android", ("android",)),
+        ("linux", ("linux",)),
+        ("windows", ("windows",)),
+        ("android,windows", ("android", "windows")),
+        ("windows,android", ("android", "windows")),
+        ("all", release.PLATFORMS),
+        ("", release.PLATFORMS),
+        (None, release.PLATFORMS),
+        (("linux",), ("linux",)),
+    ],
+)
+def test_platform_selection_is_validated_and_ordered(
+    platforms: str | tuple[str, ...] | None, expected: tuple[str, ...]
+) -> None:
+    assert release.selected_platforms(platforms) == expected
+
+
+@pytest.mark.parametrize(
+    "platforms,message",
+    [
+        ("android,ios", "Unknown platform ios"),
+        ("all,android", "either all platforms or a subset"),
+        (",", "at least one platform"),
+        (" , ", "at least one platform"),
+    ],
+)
+def test_platform_selection_rejects_unknown_or_contradictory_choices(
+    platforms: str, message: str
+) -> None:
+    with pytest.raises(RuntimeError, match=message):
+        release.selected_platforms(platforms)
+
+
+def test_repeated_platform_names_collapse_to_one_platform() -> None:
+    assert release.selected_platforms("android,android") == ("android",)
+    assert release.selected_platforms(("linux", "linux")) == ("linux",)
+
+
+def test_selective_artifact_names_cover_only_the_chosen_platforms() -> None:
+    assert release.artifact_names("0.5.0", "android") == (
+        "textmoney-0.5.0-arm64-v8a.apk",
+        "textmoney-0.5.0-armeabi-v7a.apk",
+        "textmoney-0.5.0-x86_64.apk",
+    )
+    assert release.artifact_names("0.5.0", "linux") == ("TextMoney-0.5.0-x86_64.AppImage",)
+    assert release.artifact_names("0.5.0", "windows") == ("TextMoney-0.5.0-windows-x64-setup.exe",)
+    assert release.artifact_names("0.5.0", "linux,windows") == (
+        "TextMoney-0.5.0-x86_64.AppImage",
+        "TextMoney-0.5.0-windows-x64-setup.exe",
+    )
+
+
+def test_candidate_title_distinguishes_a_selective_release_from_a_full_one() -> None:
+    assert release.candidate_title("v0.5.0", SHA) == f"Release v0.5.0 at {SHA}"
+    assert release.candidate_title("v0.5.0", SHA, release.PLATFORMS) == (f"Release v0.5.0 at {SHA}")
+    assert release.candidate_title("v0.5.0", SHA, ("android",)) == (
+        f"Release v0.5.0 (android) at {SHA}"
+    )
+    assert release.candidate_title("v0.5.0", SHA, ("android", "windows")) == (
+        f"Release v0.5.0 (android,windows) at {SHA}"
+    )
+
+
+@pytest.mark.parametrize(
     "current,stable,expected",
     [
         ("0.3.6", (), "0.3.6"),
@@ -389,9 +455,13 @@ def test_release_prepares_version_files_and_dispatches_candidate_without_tag(
         f"version={expected}",
         "-f",
         f"sha={SHA}",
+        "-f",
+        "platforms=android,linux,windows",
     ) in calls
     assert not any(command[0] in {"flutter", "flet", "java"} for command in calls)
-    wait.assert_called_once_with(workspace, REPO, f"v{expected}", SHA, resume=False)
+    wait.assert_called_once_with(
+        workspace, REPO, f"v{expected}", SHA, resume=False, platforms=release.PLATFORMS
+    )
 
 
 def test_prerelease_prepares_its_version_and_build_number_and_dispatches_that_tag(
@@ -439,8 +509,12 @@ def test_prerelease_prepares_its_version_and_build_number_and_dispatches_that_ta
         "version=0.5.0-rc2",
         "-f",
         f"sha={SHA}",
+        "-f",
+        "platforms=android,linux,windows",
     ) in calls
-    wait.assert_called_once_with(workspace, REPO, "v0.5.0-rc2", SHA, resume=False)
+    wait.assert_called_once_with(
+        workspace, REPO, "v0.5.0-rc2", SHA, resume=False, platforms=release.PLATFORMS
+    )
 
 
 def test_prerelease_requires_every_published_release_to_be_older(
@@ -859,7 +933,9 @@ def test_resume_does_not_bump_commit_or_push(
         previous_build=MagicMock(),
     )
     assert (workspace / "uv.lock").read_text() == "old lock\n"
-    wait.assert_called_once_with(workspace, REPO, "v0.3.6", SHA, resume=True)
+    wait.assert_called_once_with(
+        workspace, REPO, "v0.3.6", SHA, resume=True, platforms=release.PLATFORMS
+    )
     assert not any(call.args[1:3] == ("git", "push") for call in run.call_args_list)
     assert not any(call.args[1:4] == ("gh", "workflow", "run") for call in run.call_args_list)
 
@@ -1443,7 +1519,7 @@ def test_missing_any_architecture_prevents_all_publication(
 ) -> None:
     (artifacts / f"textmoney-0.3.7-{abi}.apk").unlink()
     run = publication_commands(monkeypatch, artifacts)
-    with pytest.raises(RuntimeError, match="three architecture APKs"):
+    with pytest.raises(RuntimeError, match="must contain exactly the"):
         release.publish_release(artifacts.parent, artifacts, "v0.3.7")
     run.assert_not_called()
 
@@ -1451,11 +1527,12 @@ def test_missing_any_architecture_prevents_all_publication(
 def test_single_release_workflow_gates_publication_on_all_platforms() -> None:
     workflow = (ROOT / ".github/workflows/release.yml").read_text()
     assert "workflow_dispatch:" in workflow and 'tags: ["v*"]' not in workflow
-    assert "run-name: Release v${{ inputs.version }} at ${{ inputs.sha }}" in workflow
+    assert "run-name: Release v${{ inputs.version }}" in workflow
     assert "ref: ${{ inputs.sha }}" in workflow
-    assert 'validate-release --tag "$RELEASE_TAG" --sha "$CANDIDATE_SHA"' in workflow
+    assert "validate-release" in workflow
+    assert '--platforms "$PLATFORMS"' in workflow
     assert 'publish-release --tag "$RELEASE_TAG" --sha "$CANDIDATE_SHA"' in workflow
-    assert "needs: [prepare, android, linux, windows]" in workflow
+    assert "needs: [prepare, check, compatibility, android, linux, windows]" in workflow
     assert "runs-on: windows-2022" in workflow
     assert "build-windows-installer" in workflow and "smoke-windows-installer" in workflow
     assert "build-android-release" in workflow and "validate-linux-appimage" in workflow
@@ -1577,7 +1654,9 @@ def test_release_pushes_candidate_commit_without_tag_in_disposable_repositories(
         set(git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").splitlines())
         == expected
     )
-    wait.assert_called_once_with(project, REPO, "v0.3.7", sha, resume=False)
+    wait.assert_called_once_with(
+        project, REPO, "v0.3.7", sha, resume=False, platforms=release.PLATFORMS
+    )
     identity = tomllib.loads((project / "pyproject.toml").read_text())
     (project / "fix.txt").write_text("Synthetic CI fix\n")
     git("add", "fix.txt")
@@ -1603,4 +1682,136 @@ def test_release_pushes_candidate_commit_without_tag_in_disposable_repositories(
     if with_screenshots:
         assert captures == ["0.3.7", "0.3.7"]
         assert git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD") == home
-    wait.assert_called_once_with(project, REPO, "v0.3.7", fixed_sha, resume=False)
+    wait.assert_called_once_with(
+        project, REPO, "v0.3.7", fixed_sha, resume=False, platforms=release.PLATFORMS
+    )
+
+
+def test_selective_release_dispatches_only_the_chosen_platforms(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = commands(
+        workspace,
+        **{
+            RELEASES_COMMAND: (
+                '[[{"tag_name":"v0.3.5","draft":false,"prerelease":false}],'
+                '[{"tag_name":"v0.3.6","draft":false,"prerelease":false}]]'
+            ),
+        },
+    )
+    monkeypatch.setattr(release, "run", run)
+    wait = MagicMock()
+    monkeypatch.setattr(release, "wait_for_release", wait)
+    release.start_release(
+        workspace,
+        "",
+        resume=False,
+        check=MagicMock(),
+        previous_build=lambda tag: 31,
+        platforms="android",
+    )
+    calls = [call.args[1:] for call in run.call_args_list]
+    assert (
+        "gh",
+        "workflow",
+        "run",
+        "release.yml",
+        "--repo",
+        REPO,
+        "--ref",
+        "main",
+        "-f",
+        "version=0.3.7",
+        "-f",
+        f"sha={SHA}",
+        "-f",
+        "platforms=android",
+    ) in calls
+    wait.assert_called_once_with(
+        workspace, REPO, "v0.3.7", SHA, resume=False, platforms=("android",)
+    )
+
+
+def test_selective_release_resumes_only_its_own_candidate_run(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (workspace / "pyproject.toml").write_text(
+        '[project]\nname = "textmoney"\nversion = "0.3.7"\n[tool.flet]\nbuild_number = 30\n',
+        encoding="utf-8",
+    )
+    full_title = release.candidate_title("v0.3.7", SHA)
+    run = commands(
+        workspace,
+        **{
+            RELEASES_COMMAND: '[[{"tag_name":"v0.3.6","draft":false,"prerelease":false}]]',
+            RUNS_COMMAND: json.dumps(
+                [
+                    {
+                        "databaseId": 1,
+                        "displayTitle": full_title,
+                        "status": "completed",
+                        "conclusion": "failure",
+                    }
+                ]
+            ),
+        },
+    )
+    monkeypatch.setattr(release, "run", run)
+    with pytest.raises(RuntimeError, match="platform selection"):
+        release.start_release(
+            workspace,
+            "",
+            resume=True,
+            check=MagicMock(),
+            previous_build=lambda tag: 29,
+            platforms="android",
+        )
+
+
+def test_selective_publication_requires_exactly_the_selected_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    directory = tmp_path / "artifacts"
+    directory.mkdir()
+    for name in release.artifact_names("0.3.7", "android"):
+        (directory / name).write_bytes(name.encode())
+    publication_commands(monkeypatch, directory)
+    release.publish_release(directory.parent, directory, "v0.3.7", "android")
+    assert (directory / "SHA256SUMS").read_text().split()[-1] == ("textmoney-0.3.7-x86_64.apk")
+
+
+def test_selective_publication_rejects_artifacts_from_another_platform(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    directory = tmp_path / "artifacts"
+    directory.mkdir()
+    for name in release.artifact_names("0.3.7", "android"):
+        (directory / name).write_bytes(name.encode())
+    (directory / "TextMoney-0.3.7-x86_64.AppImage").write_bytes(b"unexpected")
+    publication_commands(monkeypatch, directory)
+    with pytest.raises(RuntimeError, match="must contain exactly the Android artifacts"):
+        release.publish_release(directory.parent, directory, "v0.3.7", "android")
+
+
+def test_selective_publication_verification_accepts_the_selected_platform_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    names = [*release.artifact_names("0.3.7", "linux"), "SHA256SUMS"]
+
+    def run(root: Path, *args: str) -> str:
+        if args[:3] == ("gh", "release", "view"):
+            return json.dumps(
+                {
+                    "tagName": "v0.3.7",
+                    "isDraft": False,
+                    "isPrerelease": False,
+                    "assets": [{"name": name} for name in names],
+                    "url": "https://example.invalid/release",
+                }
+            )
+        return f"{SHA}\trefs/tags/v0.3.7"
+
+    monkeypatch.setattr(release, "run", run)
+    release.verify_publication(Path("/tmp"), REPO, "v0.3.7", SHA, ("linux",))
+    with pytest.raises(RuntimeError, match="complete published release of Android, Linux"):
+        release.verify_publication(Path("/tmp"), REPO, "v0.3.7", SHA, release.PLATFORMS)

@@ -12,6 +12,8 @@ from typing import NamedTuple, NotRequired, TypedDict
 
 TRAILER = "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 ANDROID_ABIS = ("arm64-v8a", "armeabi-v7a", "x86_64")
+PLATFORMS = ("android", "linux", "windows")
+PLATFORM_LABELS = {"android": "Android", "linux": "Linux", "windows": "Windows"}
 STAGES = {"alpha": 0, "beta": 1, "rc": 2}
 FINAL_STAGE = len(STAGES)
 VERSION_PATTERN = re.compile(
@@ -192,12 +194,61 @@ def android_apk_names(version: str) -> tuple[str, ...]:
     return tuple(f"textmoney-{version}-{abi}.apk" for abi in ANDROID_ABIS)
 
 
-def artifact_names(version: str) -> tuple[str, ...]:
-    return (
-        *android_apk_names(version),
-        f"TextMoney-{version}-x86_64.AppImage",
-        f"TextMoney-{version}-windows-x64-setup.exe",
+def platform_artifact_names(platform: str, version: str) -> tuple[str, ...]:
+    """Return the published artifact names contributed by one platform."""
+    version_numbers(version)
+    if platform == "android":
+        return android_apk_names(version)
+    if platform == "linux":
+        return (f"TextMoney-{version}-x86_64.AppImage",)
+    if platform == "windows":
+        return (f"TextMoney-{version}-windows-x64-setup.exe",)
+    raise RuntimeError(f"Unknown release platform {platform!r}.")
+
+
+def selected_platforms(platforms: str | tuple[str, ...] | None) -> tuple[str, ...]:
+    """Resolve a requested platform selection to a validated, ordered tuple.
+
+    An omitted or blank selection means every platform, matching the CLI and workflow
+    defaults. A selection that names no platform at all is rejected rather than
+    silently widened to a full release.
+    """
+    if platforms is None:
+        return PLATFORMS
+    if isinstance(platforms, str):
+        if not platforms.strip():
+            return PLATFORMS
+        requested = [item.strip() for item in platforms.split(",")]
+    else:
+        requested = [item.strip() for item in platforms]
+    selected = [item for item in requested if item]
+    if not selected:
+        raise RuntimeError(
+            f"Choose at least one platform for a selective release: {', '.join(PLATFORMS)}, or all."
+        )
+    if "all" in selected:
+        if len(selected) != 1:
+            raise RuntimeError("Choose either all platforms or a subset, not both.")
+        return PLATFORMS
+    unknown = sorted({item for item in selected if item not in PLATFORMS})
+    if unknown:
+        raise RuntimeError(
+            f"Unknown platform {', '.join(unknown)}. Choose from {', '.join(PLATFORMS)}."
+        )
+    return tuple(platform for platform in PLATFORMS if platform in selected)
+
+
+def artifact_names(version: str, platforms: str | tuple[str, ...] | None = None) -> tuple[str, ...]:
+    """Return every published artifact for a version, limited to the selected platforms."""
+    return tuple(
+        name
+        for platform in selected_platforms(platforms)
+        for name in platform_artifact_names(platform, version)
     )
+
+
+def describe_platforms(platforms: tuple[str, ...]) -> str:
+    return ", ".join(PLATFORM_LABELS[platform] for platform in platforms)
 
 
 def repository(root: Path) -> str:
@@ -275,8 +326,10 @@ def replace_setting(source: str, section: str, key: str, value: str) -> str:
     return source[: match.start(2)] + body + source[match.end(2) :]
 
 
-def candidate_title(tag: str, sha: str) -> str:
-    return f"Release {tag} at {sha}"
+def candidate_title(tag: str, sha: str, platforms: tuple[str, ...] = PLATFORMS) -> str:
+    """Name a candidate run, naming a selective platform set so runs stay distinct."""
+    scope = "" if platforms == PLATFORMS else f" ({','.join(platforms)})"
+    return f"Release {tag}{scope} at {sha}"
 
 
 def candidate_runs(root: Path, repo: str) -> list[CandidateRun]:
@@ -321,13 +374,18 @@ def validate_candidate(root: Path, sha: str) -> None:
     run(root, "git", "merge-base", "--is-ancestor", sha, "origin/main")
 
 
-def wait_for_release(root: Path, repo: str, tag: str, sha: str, *, resume: bool) -> None:
+def wait_for_release(
+    root: Path,
+    repo: str,
+    tag: str,
+    sha: str,
+    *,
+    resume: bool,
+    platforms: tuple[str, ...] = PLATFORMS,
+) -> None:
+    title = candidate_title(tag, sha, platforms)
     for _ in range(30):
-        matches = [
-            item
-            for item in candidate_runs(root, repo)
-            if item["displayTitle"] == candidate_title(tag, sha)
-        ]
+        matches = [item for item in candidate_runs(root, repo) if item["displayTitle"] == title]
         if matches:
             if len(matches) != 1:
                 raise RuntimeError(
@@ -345,10 +403,12 @@ def wait_for_release(root: Path, repo: str, tag: str, sha: str, *, resume: bool)
     if resume and workflow["status"] == "completed" and workflow["conclusion"] != "success":
         run(root, "gh", "run", "rerun", run_id, "--failed", "--repo", repo)
     run(root, "gh", "run", "watch", run_id, "--repo", repo, "--exit-status", "--interval", "15")
-    verify_publication(root, repo, tag, sha)
+    verify_publication(root, repo, tag, sha, platforms)
 
 
-def verify_publication(root: Path, repo: str, tag: str, sha: str) -> None:
+def verify_publication(
+    root: Path, repo: str, tag: str, sha: str, platforms: tuple[str, ...] = PLATFORMS
+) -> None:
     result = json.loads(
         run(
             root,
@@ -362,7 +422,7 @@ def verify_publication(root: Path, repo: str, tag: str, sha: str) -> None:
             "tagName,isDraft,isPrerelease,assets,url",
         )
     )
-    expected = {*artifact_names(tag.removeprefix("v")), "SHA256SUMS"}
+    expected = {*artifact_names(tag.removeprefix("v"), platforms), "SHA256SUMS"}
     if (
         result["tagName"] != tag
         or result["isDraft"]
@@ -370,10 +430,13 @@ def verify_publication(root: Path, repo: str, tag: str, sha: str) -> None:
         or {item["name"] for item in result["assets"]} != expected
         or remote_tag_sha(root, tag) != sha
     ):
-        raise RuntimeError("CI finished without the expected complete published release.")
+        raise RuntimeError(
+            "CI finished without the expected complete published release of "
+            f"{describe_platforms(platforms)}."
+        )
+    kind = " as a prerelease" if result["isPrerelease"] else ""
     print(
-        f"Published all three platforms{' as a prerelease' if result['isPrerelease'] else ''}: "
-        f"{result['url']}",
+        f"Published {describe_platforms(platforms)}{kind}: {result['url']}",
         flush=True,
     )
 
@@ -386,7 +449,9 @@ def start_release(
     check: Callable[[], None],
     previous_build: Callable[[str], int],
     capture_screenshots: Callable[[str], tuple[str, ...]] | None = None,
+    platforms: str | tuple[str, ...] | None = None,
 ) -> None:
+    selected = selected_platforms(platforms)
     if resume and capture_screenshots is not None:
         raise RuntimeError(
             "--with-screenshots cannot be combined with --resume; "
@@ -429,22 +494,24 @@ def start_release(
         if parse_version(project["project"]["version"]) != requested:
             raise RuntimeError("Resume requires the matching release version checked out on main.")
         if any(item["tagName"] == tag and not item["isDraft"] for item in latest):
-            verify_publication(root, repo, tag, sha)
+            verify_publication(root, repo, tag, sha, selected)
             return
         if not any(
-            item["displayTitle"] == candidate_title(tag, sha) for item in candidate_runs(root, repo)
+            item["displayTitle"] == candidate_title(tag, sha, selected)
+            for item in candidate_runs(root, repo)
         ):
             raise RuntimeError(
-                "No candidate run matches the current commit. After committing fixes, "
-                "run release with the same version without --resume."
+                "No candidate run matches the current commit and platform selection. After "
+                "committing fixes, run release with the same version without --resume."
             )
-        wait_for_release(root, repo, tag, sha, resume=True)
+        wait_for_release(root, repo, tag, sha, resume=True, platforms=selected)
         return
     current = parse_version(project["project"]["version"])
     if requested < current:
         raise RuntimeError("The release version cannot be older than the current project version.")
     for release in latest:
-        if release["tagName"] == tag:
+        existing_tag = release["tagName"]
+        if existing_tag == tag:
             raise RuntimeError(
                 "A release with this tag already exists; inspect it instead. "
                 "Use --resume for the same candidate's interrupted draft. An unpublished "
@@ -452,11 +519,16 @@ def start_release(
             )
         if release["isDraft"]:
             continue
-        published = parse_version(release["tagName"].removeprefix("v"))
-        if requested <= published:
+        published = parse_version(existing_tag.removeprefix("v"))
+        if published == requested:
+            raise RuntimeError(
+                f"{existing_tag} already published version {requested}; publish a new version "
+                "for a temporary release instead."
+            )
+        if requested < published:
             raise RuntimeError(
                 "The version must be newer than every published release, including prereleases. "
-                f"{release['tagName']} is already published; a final release of the same "
+                f"{existing_tag} is already published; a final release of the same "
                 "version may follow its own prerelease."
             )
     if run(root, "git", "tag", "--list", tag) or remote_tag_sha(root, tag):
@@ -467,7 +539,7 @@ def start_release(
     runs = candidate_runs(root, repo)
     if any(item["status"] != "completed" for item in runs):
         raise RuntimeError("A release candidate is still active; wait or resume it first.")
-    if any(item["displayTitle"] == candidate_title(tag, sha) for item in runs):
+    if any(item["displayTitle"] == candidate_title(tag, sha, selected) for item in runs):
         raise RuntimeError("This candidate already ran; use --resume to retry its failed jobs.")
     previous = previous_build(tag)
     build = project["tool"]["flet"]["build_number"]
@@ -477,7 +549,7 @@ def start_release(
     if next_build > 2100000000:
         raise RuntimeError("The Android build number would exceed its supported maximum.")
     print(
-        f"Preparing {tag}, Android build {next_build}."
+        f"Preparing {tag} for {describe_platforms(selected)}, Android build {next_build}."
         + (
             " Refreshing documentation screenshots."
             if capture_screenshots is not None
@@ -521,8 +593,10 @@ def start_release(
         f"version={version}",
         "-f",
         f"sha={sha}",
+        "-f",
+        f"platforms={','.join(selected)}",
     )
-    wait_for_release(root, repo, tag, sha, resume=False)
+    wait_for_release(root, repo, tag, sha, resume=False, platforms=selected)
 
 
 def ensure_release_tag(root: Path, repo: str, tag: str, sha: str) -> None:
@@ -567,16 +641,18 @@ def ensure_release_tag(root: Path, repo: str, tag: str, sha: str) -> None:
     )
 
 
-def publish_release(root: Path, directory: Path, tag: str) -> None:
+def publish_release(
+    root: Path, directory: Path, tag: str, platforms: str | tuple[str, ...] | None = None
+) -> None:
     version = tag.removeprefix("v")
-    names = artifact_names(version)
+    selected = selected_platforms(platforms)
+    names = artifact_names(version, selected)
     if tag != f"v{version}":
         raise RuntimeError("Publication requires a vX.Y.Z or vX.Y.Z-label tag.")
     prerelease = is_prerelease(version)
     if {path.name for path in directory.iterdir()} - {"SHA256SUMS"} != set(names):
         raise RuntimeError(
-            "Release artifacts must contain exactly the three architecture APKs, "
-            "AppImage and installer."
+            f"Release artifacts must contain exactly the {describe_platforms(selected)} artifacts."
         )
     digests = {}
     for name in names:
@@ -690,6 +766,6 @@ def publish_release(root: Path, directory: Path, tag: str) -> None:
     )
     kind = "prerelease" if prerelease else "release"
     print(
-        f"Published {tag} as a {kind} with verified Android, Linux and Windows assets.",
+        f"Published {tag} as a {kind} with verified {describe_platforms(selected)} assets.",
         flush=True,
     )

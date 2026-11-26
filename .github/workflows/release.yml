@@ -1,5 +1,5 @@
-name: All-platform release
-run-name: Release v${{ inputs.version }} at ${{ inputs.sha }}
+name: Selective platform release
+run-name: Release v${{ inputs.version }}${{ inputs.platforms != 'android,linux,windows' && format(' ({0})', inputs.platforms) || '' }} at ${{ inputs.sha }}
 
 on:
   workflow_dispatch:
@@ -11,6 +11,11 @@ on:
       sha:
         description: Full candidate commit SHA on main
         required: true
+        type: string
+      platforms:
+        description: Comma-separated platforms to build (`android,linux,windows` for a full release)
+        required: false
+        default: android,linux,windows
         type: string
 
 permissions:
@@ -32,6 +37,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       tag: ${{ steps.release.outputs.tag }}
       sha: ${{ steps.release.outputs.sha }}
+      platforms: ${{ steps.release.outputs.platforms }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -50,7 +56,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: v${{ inputs.version }}
           CANDIDATE_SHA: ${{ inputs.sha }}
-        run: uv run inv validate-release --tag "$RELEASE_TAG" --sha "$CANDIDATE_SHA"
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          uv run inv validate-release \
+            --tag "$RELEASE_TAG" --sha "$CANDIDATE_SHA" --platforms "$PLATFORMS"
 
   check:
     needs: prepare
@@ -100,6 +109,7 @@ jobs:
 
   android:
     needs: [prepare, check, compatibility]
+    if: ${{ contains(needs.prepare.outputs.platforms, 'android') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     environment: android-production
@@ -149,6 +159,7 @@ jobs:
 
   linux:
     needs: [prepare, check, compatibility]
+    if: ${{ contains(needs.prepare.outputs.platforms, 'linux') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -185,6 +196,7 @@ jobs:
 
   windows:
     needs: [prepare, check, compatibility]
+    if: ${{ contains(needs.prepare.outputs.platforms, 'windows') }}
     runs-on: windows-2022
     timeout-minutes: 90
     steps:
@@ -207,7 +219,17 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [prepare, android, linux, windows]
+    needs: [prepare, check, compatibility, android, linux, windows]
+    # Unselected platform jobs are skipped, which would otherwise skip publication, so
+    # continue past skips. Every gating job and every selected build must still succeed:
+    # an unselected job is skipped while a failed one reports failure, so any failure
+    # keeps this job from publishing a partial release.
+    if: ${{ !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.check.result == 'success'
+      && needs.compatibility.result == 'success'
+      && !contains(needs.*.result, 'failure')
+      && !contains(needs.*.result, 'cancelled') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -229,9 +251,12 @@ jobs:
           pattern: release-*
           path: dist/release
           merge-multiple: true
-      - name: Verify and publish all three platforms together
+      - name: Verify and publish the selected platforms together
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           CANDIDATE_SHA: ${{ needs.prepare.outputs.sha }}
-        run: uv run inv publish-release --tag "$RELEASE_TAG" --sha "$CANDIDATE_SHA"
+          PLATFORMS: ${{ needs.prepare.outputs.platforms }}
+        run: |
+          uv run inv publish-release --tag "$RELEASE_TAG" --sha "$CANDIDATE_SHA" \
+            --platforms "$PLATFORMS"

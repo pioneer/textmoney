@@ -283,7 +283,7 @@ for automated coverage and manual visual verification.
 
 The unified release workflow builds on Ubuntu 24.04, validates and smoke-tests
 the AppImage, and uploads it as a workflow artifact. The final publication job
-attaches all five binaries across the three platforms to a draft and publishes only after every
+attaches the selected platforms' binaries to a draft and publishes only after every
 required build succeeds. See [one-command releases](#one-command-releases).
 
 The Ubuntu 24.04 build target requires the packages reported by
@@ -421,6 +421,32 @@ increases the Android build number beyond both the current and prior published
 release's code, including prereleases; corrected candidates retain the same
 version and build number.
 
+### Temporary selective releases
+
+A release normally publishes Android, Linux and Windows together. To publish a
+temporary release for only some platforms, name them with `--platforms`:
+
+```sh
+uv run inv release --platforms android
+uv run inv release --version 0.5.0 --platforms android,windows
+uv run inv release --prerelease rc --platforms linux
+```
+
+`--platforms` accepts `android`, `linux`, `windows`, a comma-separated subset, or
+`all`. Omitting it is the same as `all`. The selection is validated before
+anything is written, and it controls the whole pipeline: only the selected
+platform jobs run in CI, and publication requires exactly the selected
+platforms' artifacts, so a partial build still cannot publish a partial release.
+The candidate run is named with its selection (`Release v0.5.0 (android) at …`)
+so a selective candidate and a full candidate for the same commit stay distinct.
+
+A selective release is a **temporary** release: it is published as a normal
+release of its version, and the next release must contain every platform it
+shipped. Because a version maps to exactly one tag, a later release of the same
+version cannot add the missing platforms; publish a new version instead. A
+release that omits Android does not rebuild the APKs, so it does not require a
+new Android build number and does not re-check the application ID.
+
 ### Prereleases
 
 A release may be an `alpha`, `beta` or `rc` prerelease, published on GitHub as a
@@ -494,15 +520,16 @@ release tag. A tag-only `v*` policy rejects the Android job before any steps run
 Configure this rule explicitly in repository settings while retaining the
 intended reviewer rules; the release command does not change environment protection.
 
-The [All-platform release workflow](../.github/workflows/release.yml) runs:
+The [release workflow](../.github/workflows/release.yml) runs:
 
 1. Exact candidate/version/commit and increasing Android build-number validation.
    The workflow is manually dispatched, not triggered by a tag push; its run
-   title records both version and full source SHA. Every build checks out that
+   title records the version, the platform selection when it is not every
+   platform, and the full source SHA. Every build checks out that
    SHA, even if `main` advances after dispatch. The candidate must belong to `main`.
 2. Format, lint, Pyright and tests on Linux Python 3.13/3.14 and Windows
    Python 3.13, plus the existing Beancount compatibility checks.
-3. Parallel builds from that same commit:
+3. Parallel builds from that same commit, for the selected platforms only:
    - Three production-signed standalone Android APKs on Ubuntu, one each for
      `arm64-v8a`, `armeabi-v7a` and `x86_64`, using only the protected
      `android-production` environment's existing signing secrets.
@@ -510,8 +537,8 @@ The [All-platform release workflow](../.github/workflows/release.yml) runs:
      startup checks.
    - Windows x64 per-user EXE installer on `windows-2022`, with install,
      same-version reinstall, responsive-window startup and uninstall checks.
-4. A publication job with release-write permission, only after all three
-   platform jobs succeed. It creates a draft, uploads the five binaries and
+4. A publication job with release-write permission, only after every selected
+   platform job succeeds. It creates a draft, uploads the selected binaries and
    `SHA256SUMS`, checks GitHub's uploaded SHA-256 digests, creates the final
    annotated tag at the candidate SHA, then publishes the complete release as
    latest. The draft's target is the full candidate SHA, never a moving branch.
@@ -528,7 +555,7 @@ Expected downloads are:
 - `textmoney-X.Y.Z-x86_64.apk`
 - `TextMoney-X.Y.Z-x86_64.AppImage`
 - `TextMoney-X.Y.Z-windows-x64-setup.exe`
-- `SHA256SUMS`, covering all five binaries.
+- `SHA256SUMS`, covering every published binary of the selected platforms.
 
 No universal APK is published, so Obtainium's architecture filtering can narrow
 the APK list to one matching download. Each APK installs independently; these are

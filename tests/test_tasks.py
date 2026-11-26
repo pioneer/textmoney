@@ -1149,11 +1149,11 @@ def test_release_version_requires_matching_tag_and_increasing_code(
     with pytest.raises(Exit, match="must match the project version"):
         tasks.validate_android_release_version("v0.3.0")
 
-    monkeypatch.setattr(tasks, "previous_release_build_number", lambda tag: 23)
+    monkeypatch.setattr(tasks, "previous_release_build_number", lambda tag, **_: 23)
     with pytest.raises(Exit, match="must be greater than the prior release"):
         tasks.validate_android_release_version("v0.3.1")
 
-    monkeypatch.setattr(tasks, "previous_release_build_number", lambda tag: 22)
+    monkeypatch.setattr(tasks, "previous_release_build_number", lambda tag, **_: 22)
     tasks.validate_android_release_version("v0.3.1")
 
 
@@ -1169,7 +1169,9 @@ def test_candidate_validation_emits_source_without_requiring_a_tag(
     command = MagicMock(return_value=sha)
     monkeypatch.setattr(tasks.release_tools, "run", command)
     tasks.validate_release(Context(), "v0.3.1", sha)
-    assert output.read_text() == f"tag=v0.3.1\nversion=0.3.1\nsha={sha}\n"
+    assert output.read_text() == (
+        f"tag=v0.3.1\nversion=0.3.1\nsha={sha}\nplatforms=android,linux,windows\n"
+    )
     assert [call.args[1:] for call in command.call_args_list] == [
         ("git", "rev-parse", "HEAD"),
         ("git", "merge-base", "--is-ancestor", sha, "origin/main"),
@@ -1188,8 +1190,10 @@ def test_prerelease_candidate_validation_emits_the_full_suffixed_version(
     monkeypatch.setattr(tasks, "validate_android_release_version", validate)
     monkeypatch.setattr(tasks.release_tools, "run", MagicMock(return_value=sha))
     tasks.validate_release(Context(), "v0.5.0-rc2", sha)
-    validate.assert_called_once_with("v0.5.0-rc2")
-    assert output.read_text() == f"tag=v0.5.0-rc2\nversion=0.5.0-rc2\nsha={sha}\n"
+    validate.assert_called_once_with("v0.5.0-rc2", platforms=tasks.release_tools.PLATFORMS)
+    assert output.read_text() == (
+        f"tag=v0.5.0-rc2\nversion=0.5.0-rc2\nsha={sha}\nplatforms=android,linux,windows\n"
+    )
 
 
 def test_candidate_not_on_main_cannot_validate(
@@ -1791,3 +1795,36 @@ def test_invalid_icon_stops_staging(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     with pytest.raises(Exit, match="1024 x 1024"):
         tasks.stage_assets()
     assert not (tmp_path / "src/assets").exists()
+
+
+def test_release_without_android_does_not_require_a_new_android_version_code(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nversion = "0.3.1"\n[tool.flet]\nbuild_number = 23\n'
+    )
+    monkeypatch.setattr(tasks, "ROOT", tmp_path)
+    monkeypatch.setattr(tasks, "previous_release_build_number", lambda tag, **_: 23)
+    # Android is not rebuilt, so an unchanged version code must not block the release.
+    tasks.validate_android_release_version("v0.3.1", platforms=("linux", "windows"))
+    with pytest.raises(Exit, match="must be greater than the prior release"):
+        tasks.validate_android_release_version("v0.3.1", platforms=tasks.release_tools.PLATFORMS)
+
+
+def test_release_without_android_skips_the_application_id_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pioneer/textmoney")
+    content = b64encode(
+        b'[tool.flet]\nbuild_number = 22\nbundle_id = "com.example.changed"\n'
+    ).decode("ascii")
+    responses = iter(
+        [
+            '[{"tagName":"v0.3.0","isDraft":false,"isPrerelease":false}]',
+            content,
+        ]
+    )
+    monkeypatch.setattr(tasks, "capture_command", lambda *args: next(responses))
+    # A changed application ID only matters when the APKs are rebuilt.
+    assert tasks.previous_release_build_number("v0.3.1", platforms=("linux",)) == 22

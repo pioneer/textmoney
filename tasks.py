@@ -309,7 +309,15 @@ def capture_command(*args: str) -> str:
     return result.stdout
 
 
-def previous_release_build_number(tag: str) -> int:
+def previous_release_build_number(
+    tag: str, *, platforms: tuple[str, ...] = release_tools.PLATFORMS
+) -> int:
+    """Return the Android version code of the prior release.
+
+    A release without Android does not rebuild the APKs, so it must not require the
+    candidate build number to advance. It still reports the previous code so the
+    scheduled version change keeps a monotonic value.
+    """
     repository = os.environ.get("GITHUB_REPOSITORY", "").strip()
     if not repository:
         repository = capture_command(
@@ -384,6 +392,8 @@ def previous_release_build_number(tag: str) -> int:
         ) from exc
     if not isinstance(build_number, int) or build_number < 1:
         raise Exit(f"Prior release {previous_tag} has an invalid Android version code.", code=1)
+    if "android" not in platforms:
+        return build_number
     current_bundle_id, _, _ = android_release_configuration()
     if previous_bundle_id != current_bundle_id:
         raise Exit(
@@ -394,7 +404,9 @@ def previous_release_build_number(tag: str) -> int:
     return build_number
 
 
-def validate_android_release_version(tag: str) -> None:
+def validate_android_release_version(
+    tag: str, *, platforms: tuple[str, ...] = release_tools.PLATFORMS
+) -> None:
     version, build_number = release_identity()
     expected_tag = f"v{version}"
     if tag != expected_tag:
@@ -403,7 +415,9 @@ def validate_android_release_version(tag: str) -> None:
         )
     if build_number < 1:
         raise Exit("Android version code must be a positive integer.", code=1)
-    previous_build_number = previous_release_build_number(tag)
+    if "android" not in platforms:
+        return
+    previous_build_number = previous_release_build_number(tag, platforms=platforms)
     if build_number <= previous_build_number:
         raise Exit(
             f"Android version code {build_number} must be greater than the prior release "
@@ -1090,13 +1104,15 @@ def release(
     resume: bool = False,
     with_screenshots: bool = False,
     prerelease: str = "",
+    platforms: str = "",
 ) -> None:
-    """Release the next patch, --version, or --prerelease stage, optionally with screenshots."""
+    """Release all platforms, or a temporary subset, at the next patch or a chosen version."""
     try:
         if prerelease:
             version = release_tools.staged_release_version(
                 ROOT, prerelease, base=version, resume=resume
             )
+        selected = release_tools.selected_platforms(platforms or None)
     except RuntimeError as exc:
         raise Exit(str(exc), code=1) from exc
 
@@ -1116,19 +1132,21 @@ def release(
             version,
             resume=resume,
             check=lambda: check(context),
-            previous_build=previous_release_build_number,
+            previous_build=lambda tag: previous_release_build_number(tag, platforms=selected),
             capture_screenshots=capture if with_screenshots else None,
+            platforms=selected,
         )
     except RuntimeError as exc:
         raise Exit(str(exc), code=1) from exc
 
 
 @task
-def validate_release(context: Context, tag: str, sha: str = "") -> None:
+def validate_release(context: Context, tag: str, sha: str = "", platforms: str = "") -> None:
     """Validate an exact candidate or legacy tag checkout; emit metadata for CI."""
     try:
         release_tools.version_numbers(tag.removeprefix("v"))
-        validate_android_release_version(tag)
+        selected = release_tools.selected_platforms(platforms or None)
+        validate_android_release_version(tag, platforms=selected)
         if sha:
             release_tools.validate_candidate(ROOT, sha)
         else:
@@ -1139,18 +1157,25 @@ def validate_release(context: Context, tag: str, sha: str = "") -> None:
         if output := os.environ.get("GITHUB_OUTPUT"):
             with Path(output).open("a", encoding="utf-8") as stream:
                 stream.write(f"tag={tag}\nversion={tag[1:]}\nsha={sha}\n")
+                stream.write(f"platforms={','.join(selected)}\n")
     except RuntimeError as exc:
         raise Exit(str(exc), code=1) from exc
 
 
 @task
 def publish_release(
-    context: Context, tag: str, directory: str = "dist/release", sha: str = ""
+    context: Context,
+    tag: str,
+    directory: str = "dist/release",
+    sha: str = "",
+    platforms: str = "",
 ) -> None:
-    """Tag and publish all platform artifacts after verifying uploaded SHA-256 digests."""
-    validate_release(context, tag, sha)
+    """Tag and publish the selected platform artifacts after verifying their digests."""
+    validate_release(context, tag, sha, platforms)
     try:
-        release_tools.publish_release(ROOT, ROOT / directory, tag)
+        release_tools.publish_release(
+            ROOT, ROOT / directory, tag, release_tools.selected_platforms(platforms or None)
+        )
     except RuntimeError as exc:
         raise Exit(str(exc), code=1) from exc
 

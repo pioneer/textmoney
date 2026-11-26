@@ -7447,14 +7447,35 @@ class FinanceView(ft.Row):
             ),
         )
 
+    @staticmethod
+    def _ambiguous_identifiers(labels: list[tuple[str, str]]) -> set[str]:
+        """Identifiers whose name collides with another row under the same visible parent."""
+        visible = {identifier for identifier, _ in labels}
+        groups: dict[tuple[str, str], list[str]] = defaultdict(list)
+        for identifier, label in labels:
+            parts = identifier.split(":")
+            ancestor = ""
+            for length in range(len(parts) - 1, 0, -1):
+                candidate = ":".join(parts[:length])
+                if candidate in visible:
+                    ancestor = candidate
+                    break
+            groups[(ancestor, label)].append(identifier)
+        return {
+            identifier
+            for identifiers in groups.values()
+            if len(identifiers) > 1
+            for identifier in identifiers
+        }
+
     def _category_form_options(self, entities: list[tuple[str, str]]) -> list[ft.DropdownOption]:
         labels = [
             (identifier, self._entity_display_name(identifier, name))
             for identifier, name in entities
         ]
-        duplicates = Counter(label for _, label in labels)
+        ambiguous = self._ambiguous_identifiers(labels)
         return [
-            self._category_option(identifier, label, show_identifier=duplicates[label] > 1)
+            self._category_option(identifier, label, show_identifier=identifier in ambiguous)
             for identifier, label in labels
         ]
 
@@ -7790,19 +7811,21 @@ class FinanceView(ft.Row):
                     self._entity_display_name(identifier, items[identifier]),
                 )
             labels.append((identifier, label))
-        duplicates = Counter(label.strip() for _, label in labels)
+        ambiguous = self._ambiguous_identifiers(
+            [(identifier, label.strip()) for identifier, label in labels]
+        )
         return self._category_option_lines(
             [
                 ft.DropdownOption(
                     key=identifier,
-                    text=f"{label} ({identifier})" if duplicates[label.strip()] > 1 else label,
+                    text=f"{label} ({identifier})" if identifier in ambiguous else label,
                     content=ft.Container(
                         self._entity_label(
                             identifier,
                             self._selector_text(
                                 label.strip(),
                                 identifier,
-                                show_identifier=duplicates[label.strip()] > 1,
+                                show_identifier=identifier in ambiguous,
                             ),
                         ),
                         padding=ft.Padding.only(left=16 * (identifier.count(":") - 1)),

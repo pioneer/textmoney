@@ -118,6 +118,40 @@ def test_transaction_selectors_hide_unique_codes_and_disambiguate_duplicate_name
     asyncio.run(scenario())
 
 
+def test_transaction_selectors_keep_codes_hidden_for_names_unique_at_their_depth(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        journal = await seeded(tmp_path)
+        await journal.create_category("Entertainment", "Entertainment")
+        await journal.create_category("Internet", "Internet")
+        await journal.create_category("Internet:Entertainment", "Entertainment")
+        view, page = ui(journal, monkeypatch)
+        view._new_transaction(MagicMock())
+        form = transaction_form(page.show_dialog.call_args.args[0])
+
+        options = {
+            option.key: option
+            for option in form.category.options
+            if option.key
+            in {
+                "Expenses:Entertainment",
+                "Expenses:Internet",
+                "Expenses:Internet:Entertainment",
+            }
+        }
+        assert {key: option.text for key, option in options.items()} == {
+            "Expenses:Entertainment": "Entertainment",
+            "Expenses:Internet": "Internet",
+            "Expenses:Internet:Entertainment": "Entertainment",
+        }
+        for option in options.values():
+            content = category_content(option).content
+            assert isinstance(content, ft.Text) and not content.spans
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
 @pytest.mark.parametrize("editing", [False, True])
 def test_advanced_fields_reserve_space_for_floating_time_label(

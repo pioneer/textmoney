@@ -160,7 +160,8 @@ the main tree retains its native expansion behavior. Category selectors in
 transactions (including fee categories), budgets, category parents, filters and
 default-fee settings use a 672-pixel height limit on compact screens and the
 default full-height menu on wider screens. Transaction and budget menus retain
-name-only labels; category-parent menus in creation and code/parent-editing
+name-only labels, adding a muted code only when two rows under the same parent
+share a name; category-parent menus in creation and code/parent-editing
 dialogs show names and full codes. These rows wrap without a line limit and grow
 to fit their content instead of using a fixed height.
 

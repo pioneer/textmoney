@@ -12,7 +12,8 @@ and limitations; the guides are the source of truth when details change.
   icons. Routine views favor names over account/category codes; codes remain
   fully visible when creating or editing accounts and categories, including
   parent-category choices and inline category creation during transaction entry.
-  Selection-only menus hide codes unless needed to distinguish duplicate names.
+  Selection-only menus hide codes unless needed to distinguish duplicate names
+  under the same parent.
   Accounts and categories with history can be deactivated and reactivated.
   See [the user guide](user-guide.md#add-accounts-categories-and-opening-balances),
   [icons](entity-icons.md) and [journal format](journal-format.md).

@@ -74,9 +74,14 @@ class AndroidNotifications:
 
     async def storage_dir(self) -> Path:
         result = await self._call("storage_dir")
-        # The bridge reports an Android POSIX path; Path.is_absolute() depends on the
-        # host OS, so validate the Android path form instead of the local platform.
-        if not isinstance(result, str) or not result or not PurePosixPath(result).is_absolute():
+        # The bridge reports an Android POSIX path, but Path.is_absolute() is
+        # host-dependent and rejects "/data/..." on Windows. Accept a path that is
+        # absolute in either form so the Android path and host-native test paths work.
+        if (
+            not isinstance(result, str)
+            or not result
+            or not (PurePosixPath(result).is_absolute() or Path(result).is_absolute())
+        ):
             raise NotificationBridgeError("invalid_response")
         return Path(result)
 

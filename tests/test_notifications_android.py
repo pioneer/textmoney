@@ -72,7 +72,7 @@ def test_listener_can_be_disabled_and_reports_failures() -> None:
 
 def test_storage_directory_requires_an_absolute_native_path() -> None:
     bridge = FakeBridge({"ok": True, "value": "/data/user/0/app/no_backup"})
-    assert str(asyncio.run(AndroidNotifications(bridge).storage_dir())).endswith("/no_backup")
+    assert asyncio.run(AndroidNotifications(bridge).storage_dir()).name == "no_backup"
     bridge.response = {"ok": True, "value": "relative"}
     with pytest.raises(NotificationBridgeError, match="invalid_response"):
         asyncio.run(AndroidNotifications(bridge).storage_dir())

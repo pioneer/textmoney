@@ -78,6 +78,22 @@ def test_storage_directory_requires_an_absolute_native_path() -> None:
         asyncio.run(AndroidNotifications(bridge).storage_dir())
 
 
+def test_storage_directory_accepts_android_posix_paths_on_any_host() -> None:
+    # The bridge reports Android paths; Path.is_absolute() is host-dependent and
+    # rejects "/data/..." on Windows, so validation must use the POSIX form.
+    bridge = FakeBridge({"ok": True, "value": "/data/user/0/app/no_backup"})
+    assert asyncio.run(AndroidNotifications(bridge).storage_dir()) == Path(
+        "/data/user/0/app/no_backup"
+    )
+    for rejected in ("", "relative", "data/user/0/app", "/"):
+        bridge.response = {"ok": True, "value": rejected}
+        if rejected == "/":
+            assert asyncio.run(AndroidNotifications(bridge).storage_dir()) == Path("/")
+            continue
+        with pytest.raises(NotificationBridgeError, match="invalid_response"):
+            asyncio.run(AndroidNotifications(bridge).storage_dir())
+
+
 def test_native_listener_is_disabled_until_explicitly_enabled() -> None:
     manifest = (
         Path(__file__).resolve().parents[1]

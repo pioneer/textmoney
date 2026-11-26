@@ -4,7 +4,7 @@ import logging
 import sqlite3
 import time
 from collections.abc import Awaitable, Callable
-from datetime import date, datetime
+from datetime import date
 from typing import Literal
 
 import flet as ft
@@ -30,6 +30,7 @@ from app.infrastructure.notifications_android import (
     NotificationBridgeError,
 )
 from app.journal import Journal
+from app.localization import format_epoch
 from app.ui.dialogs import EditorDialog, show_dialog
 from app.ui.notification_old_history import NotificationOldHistory
 from app.ui.notification_rules import describe_draft_errors, describe_draft_fields
@@ -192,9 +193,7 @@ class NotificationInbox:
                 ft.Text(
                     self.tr(
                         "notification_inbox_posted",
-                        time=datetime.fromtimestamp(item.posted)
-                        .astimezone()
-                        .strftime("%Y-%m-%d %H:%M"),
+                        time=format_epoch(item.posted),
                     )
                 ),
             ]
@@ -497,7 +496,7 @@ class NotificationRecentPreview:
         ]
         for entry in previews:
             item, evaluation = entry.item, entry.preview.evaluation
-            timestamp = datetime.fromtimestamp(item.posted).astimezone().strftime("%Y-%m-%d %H:%M")
+            timestamp = format_epoch(item.posted)
             details.extend(
                 [
                     ft.Text(f"{item.app_id} · {timestamp}", weight=ft.FontWeight.W_600),

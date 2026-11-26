@@ -4,7 +4,7 @@ import logging
 import sqlite3
 import time
 from collections.abc import Awaitable, Callable
-from datetime import date, datetime
+from datetime import date
 
 import flet as ft
 
@@ -20,6 +20,7 @@ from app.infrastructure.notifications_android import (
     NotificationApp,
     NotificationBridgeError,
 )
+from app.localization import format_epoch
 from app.ui.dialogs import show_dialog
 from app.ui.notification_rules import AIStarter, NotificationRuleEditor
 
@@ -108,7 +109,7 @@ class NotificationSettingsPanel:
         self.last_checked.value = (
             self.tr(
                 "notification_settings_last_check",
-                time=datetime.fromtimestamp(last_checked).astimezone().strftime("%Y-%m-%d %H:%M"),
+                time=format_epoch(last_checked),
             )
             if last_checked is not None
             else self.tr("notification_settings_never_checked")

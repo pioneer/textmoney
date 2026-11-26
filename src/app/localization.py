@@ -1,7 +1,7 @@
 """Gettext-backed localization and locale-aware display formatting."""
 
 import gettext
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal, localcontext
 from functools import cache
 from pathlib import Path
@@ -11,6 +11,7 @@ from babel.core import Locale
 from babel.numbers import format_decimal
 
 from app.domain.ledger import LedgerError
+from app.timekeeping import local_datetime
 
 LOCALE_DIR: Final = Path(__file__).with_name("locale")
 DOMAIN: Final = "textmoney"
@@ -266,6 +267,16 @@ def format_date(value: date, language: str) -> str:
 def format_timestamp(value: str, language: str, zone: str = "system") -> str:
     parsed = datetime.fromisoformat(value)
     return f"{format_date(parsed.date(), language)} · {parsed:%H:%M:%S}"
+
+
+def format_epoch(seconds: int, zone: str = "system") -> str:
+    """Format a Unix timestamp as local wall time for display.
+
+    Windows rejects local-time conversion of naive pre-epoch instants with
+    EINVAL, so convert the absolute instant first and apply the offset afterwards.
+    """
+    instant = datetime.fromtimestamp(seconds, UTC)
+    return local_datetime(instant, zone).strftime("%Y-%m-%d %H:%M")
 
 
 def date_input(value: date, language: str) -> str:

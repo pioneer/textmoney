@@ -3,7 +3,6 @@
 import logging
 import sqlite3
 from collections.abc import Callable
-from datetime import datetime
 
 import flet as ft
 
@@ -12,6 +11,7 @@ from app.infrastructure.notification_store import (
     NotificationStore,
     NotificationStoreError,
 )
+from app.localization import format_epoch
 from app.ui.dialogs import EditorDialog, show_dialog
 
 logger = logging.getLogger(__name__)
@@ -73,8 +73,7 @@ class NotificationOldHistory:
         self.selection.options = [
             ft.DropdownOption(
                 key=str(index),
-                text=f"{item.app_id} · "
-                + datetime.fromtimestamp(item.posted).astimezone().strftime("%Y-%m-%d %H:%M"),
+                text=f"{item.app_id} · " + format_epoch(item.posted),
             )
             for index, item in enumerate(self.candidates[start : start + PAGE_SIZE], start=start)
         ]

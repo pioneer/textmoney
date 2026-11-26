@@ -8,7 +8,7 @@ from collections import Counter, defaultdict
 from collections.abc import Awaitable, Callable
 from concurrent.futures import Future
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, localcontext
 from enum import StrEnum
 from heapq import nlargest
@@ -6635,7 +6635,7 @@ class FinanceView(ft.Row):
                             ft.Text(
                                 format_timestamp(
                                     local_datetime(
-                                        datetime.fromtimestamp(review.item.posted).astimezone(),
+                                        datetime.fromtimestamp(review.item.posted, UTC),
                                         self._effective_zone(),
                                     ).isoformat(),
                                     self.language,

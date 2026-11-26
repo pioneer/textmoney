@@ -18,7 +18,14 @@ from app.infrastructure.beancount_journal import transaction_time
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.infrastructure.preferences import DesktopPreferences, FeePreferences
 from app.journal import FILENAME, Journal
-from app.localization import date_input, format_date, format_timestamp, parse_date_input, translate
+from app.localization import (
+    date_input,
+    format_date,
+    format_epoch,
+    format_timestamp,
+    parse_date_input,
+    translate,
+)
 from app.storage import StorageError
 from app.timekeeping import local_datetime, named_zone, picker_timestamp, wall_timestamp
 from app.ui.datetime_fields import DateTimeFields
@@ -71,6 +78,14 @@ def test_unknown_zone_is_rejected_and_timestamp_display_preserves_wall_time() ->
         "Oct 18, 2026 · 23:30:00"
     )
     assert local_datetime(datetime.fromisoformat(original), "UTC").day == 18
+
+
+def test_format_epoch_renders_pre_epoch_instants_without_local_time_conversion() -> None:
+    # Windows rejects negative time_t in localtime(), so a naive
+    # fromtimestamp(...).astimezone() raises EINVAL for pre-epoch instants.
+    assert format_epoch(100, "UTC") == "1970-01-01 00:01"
+    assert format_epoch(0, "UTC") == "1970-01-01 00:00"
+    assert format_epoch(1_800_000_000, "Europe/Kyiv") == "2027-01-15 10:00"
 
 
 def test_unchanged_edit_uses_local_wall_time_and_accepts_dst_fold() -> None:

@@ -4,7 +4,7 @@ import logging
 import sqlite3
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import date
 from typing import Literal, cast
 from uuid import uuid4
 
@@ -20,6 +20,7 @@ from app.domain.notification_rules import (
 )
 from app.infrastructure.notification_import import RuleTest, test_rule
 from app.infrastructure.notification_store import NotificationStore, NotificationStoreError, Outcome
+from app.localization import format_epoch
 from app.ui.dialogs import EditorDialog, show_dialog
 
 logger = logging.getLogger(__name__)
@@ -374,7 +375,7 @@ class NotificationRuleEditor:
                 ft.DropdownOption(
                     key=key,
                     text=(
-                        f"{datetime.fromtimestamp(item.posted).strftime('%Y-%m-%d %H:%M')} "
+                        f"{format_epoch(item.posted)} "
                         f"— {' '.join((item.title or item.body or '').split())[:80]}"
                     ),
                 )

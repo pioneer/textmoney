@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Protocol
 
 from app.infrastructure.notification_store import MAX_SELECTED_APPS, IncomingNotification
@@ -74,7 +74,9 @@ class AndroidNotifications:
 
     async def storage_dir(self) -> Path:
         result = await self._call("storage_dir")
-        if not isinstance(result, str) or not result or not Path(result).is_absolute():
+        # The bridge reports an Android POSIX path; Path.is_absolute() depends on the
+        # host OS, so validate the Android path form instead of the local platform.
+        if not isinstance(result, str) or not result or not PurePosixPath(result).is_absolute():
             raise NotificationBridgeError("invalid_response")
         return Path(result)
 

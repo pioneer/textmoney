@@ -5242,6 +5242,8 @@ class FinanceView(ft.Row):
                     payee,
                     when.time_controls,
                 ],
+                data="batch_row_details_body",
+                key=ft.ScrollKey(f"batch-row-details-body:{row_amount._i}"),
                 visible=False,
                 horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
             )
@@ -5285,8 +5287,25 @@ class FinanceView(ft.Row):
                 container,
             )
 
+            async def scroll_to_details(
+                event: ft.LayoutSizeChangeEvent[ft.LayoutControl],
+            ) -> None:
+                if event.control is not details or not details.visible:
+                    return
+                details.on_size_change = None
+                try:
+                    # The client must lay out the revealed options before
+                    # scroll_to can resolve the target key.
+                    await form.scroll_to(scroll_key=details.key, duration=350)
+                except Exception as exc:
+                    self._error(exc, notify=True)
+                self.page.update()
+
             def toggle_details(event: ft.Event[ft.TextButton]) -> None:
                 details.visible = not details.visible
+                # Subscribe only while revealing: the client reports the new
+                # size once the options have been laid out.
+                details.on_size_change = scroll_to_details if details.visible else None
                 self.page.update()
 
             details_button.on_click = toggle_details

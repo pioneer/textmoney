@@ -1,6 +1,8 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import date
 from pathlib import Path
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock
 
 import flet as ft
@@ -20,6 +22,14 @@ from app.ui.finance import FinanceView
 
 def field(root: ft.Control, name: str) -> ft.Control:
     return next(control for control in _controls(root) if control.data == name)
+
+
+def size_change_handler(
+    control: ft.LayoutControl,
+) -> Callable[[ft.LayoutSizeChangeEvent[ft.LayoutControl]], Awaitable[None]]:
+    handler = control.on_size_change
+    assert handler is not None
+    return cast(Callable[[ft.LayoutSizeChangeEvent[ft.LayoutControl]], Awaitable[None]], handler)
 
 
 @pytest.fixture(autouse=True)
@@ -113,6 +123,84 @@ def test_batch_add_button_is_beside_each_rows_details(
         )
         click(remove)
         assert len(assert_actions()) == 2
+
+    asyncio.run(scenario())
+
+
+def test_batch_row_details_scroll_into_view_once_laid_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_batch_scroll: AsyncMock
+) -> None:
+    async def scenario() -> None:
+        (tmp_path / FILENAME).write_text(
+            "2000-01-01 open Assets:Cash USD\n2000-01-01 open Expenses:Food\n"
+        )
+        session = keyboard_session()
+        session.page.width = 390
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: session.page))
+        monkeypatch.setattr(ft.TextField, "focus", AsyncMock())
+        view = FinanceView()
+        view._apply_layout(390)
+        view.journal = Journal(DesktopFolder(str(tmp_path), FILENAME))
+        await view.journal.load()
+        view._new_transaction(MagicMock())
+        original_dialog = session.page._dialogs.controls[-1]
+        assert isinstance(original_dialog, ft.AlertDialog)
+        original = transaction_form(original_dialog)
+        original.account.value = "Assets:Cash"
+        original.category.value = "Expenses:Food"
+        original.amount.value = "2"
+        original.when.occurred.value = date_input(date(2000, 1, 2), "en")
+        start = field(original_dialog, "batch_start")
+        await session.dispatch_event(start._i, "click", None)
+        dialog = session.page._dialogs.controls[-1]
+        assert isinstance(dialog, EditorDialog)
+        row = next(control for control in _controls(dialog.form) if control.data == "batch_row")
+        details = field(row, "batch_row_details")
+        body = field(row, "batch_row_details_body")
+        assert isinstance(details, ft.TextButton) and isinstance(body, ft.Column)
+        assert isinstance(body.key, ft.ScrollKey) and body.on_size_change is None
+        mock_batch_scroll.reset_mock()
+        await session.dispatch_event(details._i, "click", None)
+        assert body.visible and body.on_size_change is not None
+        mock_batch_scroll.assert_not_awaited()
+        await session.dispatch_event(body._i, "size_change", {"w": 320.0, "h": 180.0})
+        mock_batch_scroll.assert_awaited_once_with(scroll_key=body.key, duration=350)
+        assert body.on_size_change is None
+        await session.dispatch_event(body._i, "size_change", {"w": 320.0, "h": 220.0})
+        mock_batch_scroll.assert_awaited_once()
+        await session.dispatch_event(details._i, "click", None)
+        assert not body.visible and body.on_size_change is None
+        mock_batch_scroll.assert_awaited_once()
+
+    asyncio.run(scenario())
+
+
+def test_batch_row_details_scroll_failure_is_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_batch_scroll: AsyncMock
+) -> None:
+    async def scenario() -> None:
+        view, page, _ = await setup(tmp_path, monkeypatch)
+        monkeypatch.setattr(ft.TextField, "focus", AsyncMock())
+        mock_batch_scroll.side_effect = RuntimeError("Synthetic scroll failure")
+        errors = MagicMock(wraps=view._error)
+        monkeypatch.setattr(view, "_error", errors)
+        view._new_transaction(MagicMock())
+        original_dialog = page.show_dialog.call_args.args[0]
+        start = field(original_dialog.content, "batch_start")
+        assert isinstance(start, ft.TextButton)
+        click(start)
+        dialog = page.show_dialog.call_args.args[0]
+        assert isinstance(dialog, EditorDialog)
+        row = next(control for control in _controls(dialog.form) if control.data == "batch_row")
+        details = field(row, "batch_row_details")
+        body = field(row, "batch_row_details_body")
+        assert isinstance(details, ft.TextButton) and isinstance(body, ft.Column)
+        click(details)
+        reveal = size_change_handler(body)
+        await reveal(MagicMock(control=body))
+        errors.assert_called_once()
+        assert errors.call_args.kwargs["notify"]
+        assert body.on_size_change is None
 
     asyncio.run(scenario())
 

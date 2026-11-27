@@ -115,7 +115,7 @@ the optional payee is under **Advanced**. Enter a date, amount and optional
 description for each transaction. **Add row** beside each row's details appends
 a row, carries forward the last row's date, and scrolls to the new row's actions.
 Under **Row details**, override shared values for a particular row or switch back
-to the shared value.
+to the shared value; opening a row's details scrolls the row's options into view.
 
 Review the rows and currency totals, then choose **Save N transactions**.
 Each row becomes a separate transaction in Operations. Correct any errors

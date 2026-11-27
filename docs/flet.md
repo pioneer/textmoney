@@ -287,6 +287,17 @@ handles Back before the application when appropriate; web and iOS are not
 wrapped. The scope depends on the pinned Flet/Material dropdown widget structure
 and blocks predictive route popping while the dialog is open; recheck it on upgrades.
 
+## Reveal scrolling
+
+`scroll_to(scroll_key=...)` resolves the target's Flutter `GlobalKey` at call
+time, so a target that has just been made visible has no context until the client
+lays it out. Reveals therefore scroll from the target's `on_size_change` event
+instead of from the handler that changed `visible`: accounting budget reports
+attach the handler to the highlighted row, and bulk transaction rows attach it to
+the row's details column when **Row details** is opened, then drop it. A collapsed
+row never scrolls. Scrolling only after layout keeps the animation aimed at the
+final position; a scroll request sent with the visibility patch is a no-op.
+
 ## storage diagnostics verification
 
 `uv run inv verify-flet` opens a real MCP stdio session and queries FilePicker

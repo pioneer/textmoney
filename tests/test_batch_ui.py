@@ -9,7 +9,7 @@ import flet as ft
 import pytest
 from form_controls import change, click, click_async, dropdown_field, transaction_form
 from test_commission_ui import setup
-from test_dialog_keyboard import keyboard_session, press
+from test_dialog_keyboard import finance_session, keyboard_session, press
 
 from app.infrastructure.desktop_storage import DesktopFolder
 from app.journal import FILENAME, Journal
@@ -70,6 +70,54 @@ def test_batch_add_scrolls_to_new_rows_actions(
             mock_batch_scroll.assert_awaited_with(scroll_key=details.key, duration=350)
         assert keys[0] != keys[1]
         assert [call[0] for call in calls.mock_calls] == ["focus", "scroll", "focus", "scroll"]
+
+    asyncio.run(scenario())
+
+
+def test_batch_body_grows_for_long_drafts_and_preserves_controls_on_resize(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        session, view, journal = await finance_session(tmp_path, monkeypatch)
+        page = session.page
+        page.width, page.height = 1366, 768
+        page.on_resize = view._resized
+        view._apply_layout(page.width)
+        monkeypatch.setattr(ft.TextField, "focus", AsyncMock())
+        view._transaction_dialog(journal)
+        start = field(page._dialogs.controls[-1], "batch_start")
+        await session.dispatch_event(start._i, "click", None)
+        dialog = page._dialogs.controls[-1]
+        assert isinstance(dialog, EditorDialog)
+        form = dialog.form
+        amount = field(form, "batch_row_amount")
+        assert isinstance(amount, ft.TextField)
+        amount.value = "17."
+        assert form.max_height == 560
+
+        add = field(form, "batch_add_row")
+        for expected_height in (560, 560, float("inf")):
+            await session.dispatch_event(add._i, "click", None)
+            assert form.max_height == expected_height
+
+        for width, height in ((2560, 1440), (390, 800), (1366, 768)):
+            page.width, page.height = width, height
+            await session.dispatch_event(page._i, "resize", {"width": width, "height": height})
+            assert page._dialogs.controls[-1] is dialog and dialog.form is form
+            assert field(form, "batch_row_amount") is amount and amount.value == "17."
+            assert form.width == (390 if width == 390 else 360)
+            assert form.height == (float("inf") if width == 390 else None)
+            assert form.max_height == float("inf")
+            assert form.scroll == ft.ScrollMode.AUTO and not dialog.scrollable
+
+        row = field(form, "batch_row")
+        remove = next(
+            control
+            for control in _controls(row)
+            if isinstance(control, ft.IconButton) and control.icon == ft.Icons.DELETE_OUTLINE
+        )
+        await session.dispatch_event(remove._i, "click", None)
+        assert form.max_height == 560
 
     asyncio.run(scenario())
 

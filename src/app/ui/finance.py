@@ -5573,6 +5573,7 @@ class FinanceView(ft.Row):
             form,
             [cancel, submit],
             compact=lambda: self.screen_class == ScreenClass.COMPACT,
+            expand_body=lambda: len(rows) > 3,
             cancel_on_back=cancel_batch,
         )
         self.page.pop_dialog()

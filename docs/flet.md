@@ -204,7 +204,8 @@ Main transaction, account, category and budget add/edit forms share
 its zero-inset, square-cornered surface fills the available safe area. Wider
 layouts retain the existing 360-pixel form width and themed dialog appearance,
 with the body capped at 560 pixels to avoid stretching short forms across a
-tall desktop window.
+tall desktop window. The bulk transaction editor uses that cap for up to three
+rows. With four or more rows, its body can use the available dialog height.
 The title and Cancel/Save actions remain outside the scrollable body. The body's
 preferred compact dimensions fill Flutter's constraints; the native dialog
 already subtracts keyboard insets, so there is no hardcoded keyboard height.

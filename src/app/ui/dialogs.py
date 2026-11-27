@@ -19,11 +19,13 @@ class EditorDialog(ft.AlertDialog):
         actions: list[ft.Control],
         *,
         compact: Callable[[], bool],
+        expand_body: Callable[[], bool] = lambda: False,
         cancel_on_back: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(modal=True, title=title, content=form, actions=actions)
         self.form = form
         self._compact = compact
+        self._expand_body = expand_body
         self.cancel_on_back = cancel_on_back
         self._top_level: bool | None = None
         self._apply_layout()
@@ -52,7 +54,8 @@ class EditorDialog(ft.AlertDialog):
         self.form.height = float("inf") if compact else None
         # Keep the client's constraint wrapper mounted across the width boundary
         # so text-field focus, selection and local edits survive resizing.
-        self.form.max_height = (float("inf") if compact else 560) if main else None
+        use_available_height = compact or self._expand_body()
+        self.form.max_height = (float("inf") if use_available_height else 560) if main else None
         self.inset_padding = 0 if compact else None
         self.shape = ft.RoundedRectangleBorder(radius=0) if compact else None
         self.title_padding = ft.Padding.only(left=16, top=16, right=16) if compact else None

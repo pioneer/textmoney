@@ -34,7 +34,7 @@ control. Resizing preserves the current screen and form state.
 
 <img src="screenshots/navigation-mobile.png" alt="Bottom More menu with Accounts, Categories and Settings" width="360">
 
-Screenshots use synthetic data from TextMoney v0.4.22 (build 70), not a personal
+Screenshots use synthetic data from TextMoney v0.4.23 (build 72), not a personal
 journal. Compact screenshots are browser-rendered mobile-layout previews, not
 physical Android captures.
 

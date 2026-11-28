@@ -1123,7 +1123,9 @@ class BudgetView(ft.Column):
         self.reveal_requested = False
         self.scroll_target = None
         try:
-            await self.host.body.scroll_to(scroll_key=event.control.key, duration=350)
+            await self.host.body.scroll_to(
+                scroll_key=event.control.key, duration=self.host.reveal_duration
+            )
         except Exception as exc:
             self.host._error(exc, notify=True)
             self.host.page.update()

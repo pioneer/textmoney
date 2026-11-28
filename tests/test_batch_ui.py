@@ -17,7 +17,7 @@ from app.localization import date_input
 from app.storage import WriteError
 from app.ui.datetime_fields import DateTimeFields
 from app.ui.dialogs import EditorDialog, _controls
-from app.ui.finance import FinanceView
+from app.ui.finance import FinanceView, MotionMode
 
 
 def field(root: ft.Control, name: str) -> ft.Control:
@@ -39,11 +39,18 @@ def mock_batch_scroll(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     return scroll
 
 
+@pytest.mark.parametrize("mode,duration", [(MotionMode.SYSTEM, 350), (MotionMode.REDUCED, 0)])
 def test_batch_add_scrolls_to_new_rows_actions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_batch_scroll: AsyncMock
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_batch_scroll: AsyncMock,
+    mode: MotionMode,
+    duration: int,
 ) -> None:
     async def scenario() -> None:
         view, page, _ = await setup(tmp_path, monkeypatch)
+        view.motion_mode = mode
+        view._apply_motion()
         focus = AsyncMock()
         monkeypatch.setattr(ft.TextField, "focus", focus)
         calls = MagicMock()
@@ -67,7 +74,7 @@ def test_batch_add_scrolls_to_new_rows_actions(
             assert isinstance(details, ft.TextButton)
             assert isinstance(details.key, ft.ScrollKey)
             keys.append(details.key)
-            mock_batch_scroll.assert_awaited_with(scroll_key=details.key, duration=350)
+            mock_batch_scroll.assert_awaited_with(scroll_key=details.key, duration=duration)
         assert keys[0] != keys[1]
         assert [call[0] for call in calls.mock_calls] == ["focus", "scroll", "focus", "scroll"]
 

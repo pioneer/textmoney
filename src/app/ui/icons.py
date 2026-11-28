@@ -224,6 +224,7 @@ class IconDraft(IconField):
         ai_settings: Callable[[], AISettings] | None = None,
         target: Callable[[], IconTarget] | None = None,
         reference_icons: Iterable[IconReference] = (),
+        reveal_duration: Callable[[], int] = lambda: 350,
     ) -> None:
         self.owner = page
         self.language = language
@@ -231,6 +232,7 @@ class IconDraft(IconField):
         self.ai_settings = ai_settings
         self.target = target
         self.reference_icons = tuple(reference_icons)
+        self.reveal_duration = reveal_duration
         self.selected: IconAsset | None = None
         super().__init__(
             language,
@@ -256,6 +258,7 @@ class IconDraft(IconField):
                 ai_settings=self.ai_settings,
                 target=self.target() if self.target is not None else None,
                 reference_icons=self.reference_icons,
+                reveal_duration=self.reveal_duration,
             ),
         )
 
@@ -322,10 +325,12 @@ class IconPicker(ft.AlertDialog):
         ai_settings: Callable[[], AISettings] | None = None,
         target: IconTarget | None = None,
         reference_icons: Iterable[IconReference] = (),
+        reveal_duration: Callable[[], int] = lambda: 350,
     ) -> None:
         self.owner = page
         self.language = language
         self.persist = save
+        self.reveal_duration = reveal_duration
         self.selected = current
         self.reference: IconAsset | None = None
         self.generated: IconAsset | None = None
@@ -849,7 +854,9 @@ class IconPicker(ft.AlertDialog):
             and self.owner._dialogs.controls
             and self.owner._dialogs.controls[-1] is self
         ):
-            await self.body.scroll_to(scroll_key=self.selection_panel.key, duration=350)
+            await self.body.scroll_to(
+                scroll_key=self.selection_panel.key, duration=self.reveal_duration()
+            )
 
     def _cancel_generation(self, event: ft.Event[ft.TextButton]) -> None:
         if self.generation_task is not None:

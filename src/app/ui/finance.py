@@ -159,6 +159,7 @@ logger = logging.getLogger(__name__)
 FOLDER_KEY = "textmoney.folder.v1"
 LANGUAGE_KEY = "textmoney.language.v1"
 THEME_KEY = "textmoney.theme.v1"
+MOTION_KEY = "textmoney.motion.v1"
 TIMEZONE_KEY = "textmoney.timezone.v1"
 BACKUP_CLEANUP_KEY = "textmoney.backup-cleanup.v1"
 HOME_BUDGETS_KEY = "textmoney.home-budgets.v1"
@@ -255,6 +256,12 @@ class BatchRow:
     container: ft.Column
 
 
+class MotionMode(StrEnum):
+    SYSTEM = "system"
+    REDUCED = "reduced"
+    FULL = "full"
+
+
 class FinanceView(ft.Row):
     def __init__(self, *, mobile_preview: bool = False) -> None:
         super().__init__(expand=True, spacing=0, alignment=ft.MainAxisAlignment.CENTER)
@@ -312,6 +319,12 @@ class FinanceView(ft.Row):
         self.manual_language = False
         self.system_language_name = "en"
         self.theme_name = "system"
+        self.motion_mode = MotionMode.SYSTEM
+        self._motion_lock = asyncio.Lock()
+        self._motion_service: ft.SemanticsService | None = None
+        self._system_reduces_motion = False
+        self._motion_query_failed = False
+        self._reduced_motion = False
         self.category_menu_row_height = TREE_MENU_ROW_HEIGHT
         self.timezone_name = "system"
         self.auto_backup_cleanup = True
@@ -658,6 +671,28 @@ class FinanceView(ft.Row):
             options=[],
             value=self.theme_name,
             on_select=self._theme_changed,
+        )
+        self.motion_value = ft.Text(expand=True)
+        self.motion_choice = ft.PopupMenuButton(
+            border_radius=4,
+            content=ft.Container(
+                padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+                height=48,
+                content=ft.Row([self.motion_value, ft.Icon(ft.Icons.ARROW_DROP_DOWN)]),
+            ),
+            items=[
+                ft.PopupMenuItem(data=mode, on_click=self._motion_changed) for mode in MotionMode
+            ],
+        )
+        # Give the menu's InkWell a local Material surface above the scrolling background.
+        self.motion_field = ft.Card(
+            content=self.motion_choice,
+            expand=True,
+            elevation=0,
+            margin=0,
+            bgcolor=ft.Colors.SURFACE,
+            shape=ft.RoundedRectangleBorder(radius=4, side=ft.BorderSide(1, ft.Colors.OUTLINE)),
+            clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
         )
         self.timezone_choice = ft.Dropdown(
             expand=True,
@@ -1013,6 +1048,7 @@ class FinanceView(ft.Row):
             ft.DropdownOption(key="dark", text=self.tr("theme_dark")),
         ]
         self.theme_choice.value = self.theme_name
+        self._sync_motion_choice()
         self.timezone_choice.label = self.tr("timezone")
         self.timezone_choice.options[0].text = self.tr("timezone_system")
         self.timezone_save.content = self.tr("crud_save")
@@ -1430,6 +1466,8 @@ class FinanceView(ft.Row):
                         settings_field(ft.Row([self.language_choice])),
                         ft.Text(self.tr("appearance"), size=18),
                         settings_field(ft.Row([self.theme_choice])),
+                        ft.Text(self.tr("motion"), size=18),
+                        settings_field(ft.Row([self.motion_field])),
                         self.home_budgets_toggle,
                         ft.Text(self.tr("timezone"), size=18),
                         ft.Text(self.tr("timezone_help")),
@@ -2746,6 +2784,7 @@ class FinanceView(ft.Row):
                 existing_icons=store.assets.values(),
                 conflict=identifier in store.conflicts,
                 ai_settings=self.ai_settings,
+                reveal_duration=lambda: self.reveal_duration,
                 reference_icons=self._reference_icons(journal),
                 target=IconTarget(
                     item.name if item is not None else "",
@@ -3594,6 +3633,7 @@ class FinanceView(ft.Row):
             if isinstance(saved_theme, str) and saved_theme in {"system", "light", "dark"}:
                 self.theme_name = saved_theme
                 self._apply_theme(saved_theme)
+            await self._load_motion()
             saved_timezone = await self.preferences.get(TIMEZONE_KEY)
             if isinstance(saved_timezone, str) and saved_timezone != "system":
                 named_zone(saved_timezone)
@@ -3653,6 +3693,10 @@ class FinanceView(ft.Row):
             await asyncio.sleep(5)
             if self.lock.locked():
                 continue
+            if self.page.app_visible and self.page.session.expires_at is None:
+                async with self._motion_lock:
+                    if await self._refresh_system_motion():
+                        self.page.update()
             try:
                 await self._sync_system_zone()
             except Exception as exc:
@@ -3777,6 +3821,96 @@ class FinanceView(ft.Row):
         if self.preferences is None or not await self.preferences.set(THEME_KEY, value):
             self._set_message("error_theme_save")
             self.page.update()
+
+    @property
+    def reveal_duration(self) -> int:
+        return 0 if self._reduced_motion else 350
+
+    def _sync_motion_choice(self) -> None:
+        self.motion_choice.tooltip = self.tr("motion")
+        self.motion_value.value = self.tr(f"motion_{self.motion_mode.value}")
+        for item in self.motion_choice.items:
+            item.content = self.tr(f"motion_{item.data}")
+            item.checked = item.data == self.motion_mode
+
+    def _apply_motion(self) -> bool:
+        reduced = self.motion_mode == MotionMode.REDUCED or (
+            self.motion_mode == MotionMode.SYSTEM and self._system_reduces_motion
+        )
+        if reduced == self._reduced_motion:
+            return False
+        self._reduced_motion = reduced
+        style = ft.AnimationStyle.no_animation() if reduced else None
+        self.page.theme_animation_style = style
+        self.overflow_menu.popup_animation_style = style
+        self.motion_choice.popup_animation_style = style
+        for tile in (self.advanced_settings, self.fee_category_settings, self.ai_panel.control):
+            tile.animation_style = style
+        transition = ft.PageTransitionTheme.NONE if reduced else None
+        for theme in (self.page.theme, self.page.dark_theme):
+            if theme is not None:
+                theme.page_transitions = ft.PageTransitionsTheme(
+                    android=transition,
+                    ios=transition,
+                    linux=transition,
+                    macos=transition,
+                    windows=transition,
+                )
+        return True
+
+    async def _refresh_system_motion(self) -> bool:
+        if self.motion_mode != MotionMode.SYSTEM:
+            return False
+        if self._motion_service is None:
+            self._motion_service = ft.SemanticsService()
+        try:
+            async with asyncio.timeout(1):
+                features = await self._motion_service.get_accessibility_features()
+        except (TimeoutError, RuntimeError, TypeError, ValueError):
+            if not self._motion_query_failed:
+                logger.exception("Could not read the system motion preference")
+            self._motion_query_failed = True
+            return False
+        self._motion_query_failed = False
+        self._system_reduces_motion = features.disable_animations or features.reduce_motion
+        return self._apply_motion()
+
+    async def _load_motion(self) -> None:
+        async with self._motion_lock:
+            try:
+                if self.preferences is not None:
+                    saved = await self.preferences.get(MOTION_KEY)
+                    if saved is not None:
+                        self.motion_mode = MotionMode(saved)
+            except (OSError, RuntimeError, ValueError):
+                logger.exception("Could not load the saved motion preference")
+            self._apply_motion()
+            await self._refresh_system_motion()
+            self._sync_motion_choice()
+
+    async def _motion_changed(self, event: ft.Event[ft.PopupMenuItem]) -> None:
+        mode = event.control.data
+        if not isinstance(mode, MotionMode):
+            return
+        async with self._motion_lock:
+            if mode != self.motion_mode:
+                try:
+                    if self.preferences is None or not await self.preferences.set(
+                        MOTION_KEY, mode.value
+                    ):
+                        raise PreferencesError("Motion preference was not saved.")
+                except (OSError, RuntimeError):
+                    logger.exception("Could not save the motion preference")
+                    self._set_message("error_motion_save")
+                else:
+                    self.motion_mode = mode
+                    self._apply_motion()
+                    if self.message_key == "error_motion_save":
+                        self._set_message("")
+            self._sync_motion_choice()
+            self.page.update()
+            if await self._refresh_system_motion():
+                self.page.update()
 
     def _host_locale_changed(self, event: ft.LocaleChangeEvent) -> None:
         self.system_language_name = system_language(
@@ -4879,6 +5013,7 @@ class FinanceView(ft.Row):
             icon_store.assets.values() if icon_store is not None else (),
             ai_settings=self.ai_settings,
             reference_icons=self._reference_icons(journal),
+            reveal_duration=lambda: self.reveal_duration,
             target=lambda: IconTarget(
                 category_name.value or "", category_path.value or "", category=True, draft=True
             ),
@@ -5376,7 +5511,7 @@ class FinanceView(ft.Row):
                 try:
                     # The client must lay out the revealed options before
                     # scroll_to can resolve the target key.
-                    await form.scroll_to(scroll_key=details.key, duration=350)
+                    await form.scroll_to(scroll_key=details.key, duration=self.reveal_duration)
                 except Exception as exc:
                     self._error(exc, notify=True)
                 self.page.update()
@@ -5426,7 +5561,7 @@ class FinanceView(ft.Row):
             refresh_rows()
             self.page.update()
             await row.amount.focus()
-            await form.scroll_to(scroll_key=row.details_button.key, duration=350)
+            await form.scroll_to(scroll_key=row.details_button.key, duration=self.reveal_duration)
 
         cancel = ft.TextButton(self.tr("crud_cancel"))
         submit = ft.TextButton(
@@ -7690,6 +7825,7 @@ class FinanceView(ft.Row):
             icon_store.assets.values() if icon_store is not None else (),
             ai_settings=self.ai_settings,
             reference_icons=self._reference_icons(journal),
+            reveal_duration=lambda: self.reveal_duration,
             target=lambda: IconTarget(
                 self.account_name.value or "",
                 self.account_id.value or "",
@@ -8055,6 +8191,7 @@ class FinanceView(ft.Row):
             icon_store.assets.values() if icon_store is not None else (),
             ai_settings=self.ai_settings,
             reference_icons=self._reference_icons(journal),
+            reveal_duration=lambda: self.reveal_duration,
             target=lambda: IconTarget(
                 self.category_name.value or "",
                 self.category_id.value or "",

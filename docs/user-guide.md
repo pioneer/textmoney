@@ -291,12 +291,19 @@ See [reporting](reporting.md) for calculations and report scope.
 ## Adjust appearance and display settings
 
 Settings offers system/light/dark appearance and system or explicit timezones.
-Translations are English, Ukrainian and Russian. Language, theme, clock timezone,
+Translations are English, Ukrainian and Russian. Language, theme, motion, clock timezone,
 backup cleanup and the Home-budget toggle remain device-local.
 The Settings page labels device settings separately from journal-shared defaults;
 AI and Advanced settings are expandable sections.
 Timezone selection affects the default clock and current report/budget periods,
 not saved transaction dates or times.
+
+Use **Settings → Device settings → Motion** to control TextMoney’s animations.
+**System default** follows the device’s reduced-motion preference when Flet
+reports it. **Reduced motion** skips app-controlled transitions and jumps
+directly to items the app needs to reveal. **Full motion** uses TextMoney’s
+standard animations. The operating system can still reduce motion in native
+controls. Tap, focus, and status feedback remain visible in every mode.
 
 **Settings → Advanced → Journal display currencies** controls Home balance
 section order and how compatible apps organize amounts. Account currencies not

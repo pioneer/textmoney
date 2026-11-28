@@ -1944,6 +1944,26 @@ msgstr "Русский"
 msgid "ui.appearance"
 msgstr "Внешний вид"
 
+#. Stable TextMoney key: ui.motion; do not translate this identifier.
+msgid "ui.motion"
+msgstr "Анимация"
+
+#. Stable TextMoney key: ui.motion_system; do not translate this identifier.
+msgid "ui.motion_system"
+msgstr "Как в системе"
+
+#. Stable TextMoney key: ui.motion_reduced; do not translate this identifier.
+msgid "ui.motion_reduced"
+msgstr "Меньше анимации"
+
+#. Stable TextMoney key: ui.motion_full; do not translate this identifier.
+msgid "ui.motion_full"
+msgstr "Полная анимация"
+
+#. Stable TextMoney key: ui.error_motion_save; do not translate this identifier.
+msgid "ui.error_motion_save"
+msgstr "Не удалось сохранить настройку анимации."
+
 #. Stable TextMoney key: ui.theme_system; do not translate this identifier.
 msgid "ui.theme_system"
 msgstr "Как в системе"

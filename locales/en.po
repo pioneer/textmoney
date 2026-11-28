@@ -1940,6 +1940,26 @@ msgstr "English"
 msgid "ui.appearance"
 msgstr "Appearance"
 
+#. Stable TextMoney key: ui.motion; do not translate this identifier.
+msgid "ui.motion"
+msgstr "Motion"
+
+#. Stable TextMoney key: ui.motion_system; do not translate this identifier.
+msgid "ui.motion_system"
+msgstr "System default"
+
+#. Stable TextMoney key: ui.motion_reduced; do not translate this identifier.
+msgid "ui.motion_reduced"
+msgstr "Reduced motion"
+
+#. Stable TextMoney key: ui.motion_full; do not translate this identifier.
+msgid "ui.motion_full"
+msgstr "Full motion"
+
+#. Stable TextMoney key: ui.error_motion_save; do not translate this identifier.
+msgid "ui.error_motion_save"
+msgstr "Could not save the motion setting."
+
 #. Stable TextMoney key: ui.theme_system; do not translate this identifier.
 msgid "ui.theme_system"
 msgstr "Use device setting"

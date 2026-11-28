@@ -704,7 +704,7 @@ def test_settings_keep_group_frames_and_right_aligned_local_actions(
 
 
 @pytest.mark.parametrize("language", ["en", "uk", "ru"])
-def test_settings_dropdowns_share_bounded_field_layout(
+def test_settings_selectors_share_bounded_field_layout(
     navigation: tuple[FinanceView, MagicMock], language: str
 ) -> None:
     view, _page = navigation
@@ -721,16 +721,17 @@ def test_settings_dropdowns_share_bounded_field_layout(
         for item in items
         if isinstance(item, ft.Container) and isinstance(item.content, ft.Row) and item.width == 480
     ]
-    assert len(fields) == 5
+    assert len(fields) == 6
     rows = [field.content for field in fields]
     assert all(isinstance(row, ft.Row) for row in rows)
-    assert [row.controls[0] for row in rows if isinstance(row, ft.Row)][:4] == [
+    assert [row.controls[0] for row in rows if isinstance(row, ft.Row)][:5] == [
         view.language_choice,
         view.theme_choice,
+        view.motion_field,
         view.timezone_choice,
         view.default_account,
     ]
-    assert fields[4].content is view.default_fee_row
+    assert fields[5].content is view.default_fee_row
     ai_fields = [
         item
         for item in view.ai_panel.form.controls
@@ -747,7 +748,7 @@ def test_settings_dropdowns_share_bounded_field_layout(
     assert view.ai_panel.key.password
     for width in (320, 800, 1366):
         view._apply_layout(width)
-        assert fields[4].content is view.default_fee_row
+        assert fields[5].content is view.default_fee_row
 
 
 def test_settings_refresh_preserves_expanded_sections_and_drafts(

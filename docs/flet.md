@@ -59,6 +59,33 @@ Sources: [Flet documentation](https://flet.dev/docs/),
 [publishing](https://flet.dev/docs/publish/),
 [MCP cookbook](https://flet.dev/docs/cookbook/flet-mcp).
 
+## Reduced motion
+
+The device-local Motion setting defaults to System. Flet 1.1.2 exposes the
+platform flags through `SemanticsService.get_accessibility_features()`. TextMoney
+reads the snapshot on startup, when selecting System, and during its normal
+five-second refresh while the client is connected and visible. It checks both
+`disable_animations` and `reduce_motion`. On GNOME Wayland, a live test
+confirmed that Flutter 3.47.9 reports motion
+changes through the desktop settings portal. Without the portal, the engine's
+GNOME fallback reports animations as enabled. The explicit modes are available
+in either environment.
+
+Reduced motion skips app-controlled theme and Material page transitions, the
+main More menu and Settings section animations, and animated scrolling to
+revealed items. Flet 1.1.2 does not expose a duration for its native alert
+dialog transitions. Full motion restores the app's defaults and leaves native
+OS accessibility behavior in place.
+
+Track Linux frame pacing in [Flutter #191245](https://github.com/flutter/flutter/issues/191245)
+and GTK window-size scaling in [Flutter #191425](https://github.com/flutter/flutter/issues/191425).
+Re-profile Linux when stable Flet ships the
+[Wayland redraw fix](https://github.com/flutter/flutter/pull/195287) or later
+frame-pacing changes. [Flet 1.1.4](https://github.com/flet-dev/flet/blob/v1.1.4/.fvmrc)
+still pins Flutter 3.47.9. Compare input-to-visible feedback and UI/raster frame
+timings in a release build at the same window size, display scale, and motion
+setting. Record whether the run is on native Wayland or XWayland.
+
 ## Desktop pointer feedback
 
 On desktop and desktop web, standard button themes use the click cursor when

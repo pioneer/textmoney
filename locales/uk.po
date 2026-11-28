@@ -1947,6 +1947,26 @@ msgstr "Українська"
 msgid "ui.appearance"
 msgstr "Вигляд"
 
+#. Stable TextMoney key: ui.motion; do not translate this identifier.
+msgid "ui.motion"
+msgstr "Анімація"
+
+#. Stable TextMoney key: ui.motion_system; do not translate this identifier.
+msgid "ui.motion_system"
+msgstr "Як у системі"
+
+#. Stable TextMoney key: ui.motion_reduced; do not translate this identifier.
+msgid "ui.motion_reduced"
+msgstr "Менше анімації"
+
+#. Stable TextMoney key: ui.motion_full; do not translate this identifier.
+msgid "ui.motion_full"
+msgstr "Повна анімація"
+
+#. Stable TextMoney key: ui.error_motion_save; do not translate this identifier.
+msgid "ui.error_motion_save"
+msgstr "Не вдалося зберегти налаштування анімації."
+
 #. Stable TextMoney key: ui.theme_system; do not translate this identifier.
 msgid "ui.theme_system"
 msgstr "Як у системі"

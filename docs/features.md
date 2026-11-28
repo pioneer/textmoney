@@ -100,8 +100,9 @@ See [AI setup](user-guide.md#configure-optional-ai-features) and
   accessible local copy on each device and finish syncing before editing on
   another device.
   See [synchronization](synchronization.md).
-- **Personalization:** Choose light, dark or system appearance; English,
-  Ukrainian or Russian; and display and timezone preferences. Configure shared
+- **Personalization:** Choose light, dark or system appearance, set motion to
+  system default, reduced or full, and customize language, display and timezone.
+  Configure shared
   defaults for transaction accounts, fees and budget ordering.
   See [the user guide](user-guide.md#adjust-appearance-and-display-settings),
   [shared settings](shared-settings.md) and

@@ -2758,7 +2758,13 @@ msgid "ui.notification_ai_failed"
 msgstr "Не вдалося створити чернетку правила. Перевірте налаштування ШІ, повторіть спробу або створіть правило вручну."
 
 msgid "ui.notification_settings_title"
-msgstr "Імпорт зі сповіщень"
+msgstr "Імпорт зі сповіщень (експериментальний)"
+
+msgid "ui.notification_experimental_enable"
+msgstr "Увімкнути імпорт зі сповіщень (експериментально)"
+
+msgid "ui.notification_experimental_error"
+msgstr "Не вдалося отримати доступ до налаштування імпорту зі сповіщень. Спробуйте ще раз."
 
 msgid "ui.notification_settings_last_check"
 msgstr "Остання успішна перевірка: {time}"

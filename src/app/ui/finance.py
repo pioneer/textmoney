@@ -162,6 +162,7 @@ THEME_KEY = "textmoney.theme.v1"
 TIMEZONE_KEY = "textmoney.timezone.v1"
 BACKUP_CLEANUP_KEY = "textmoney.backup-cleanup.v1"
 HOME_BUDGETS_KEY = "textmoney.home-budgets.v1"
+NOTIFICATION_IMPORT_KEY = "textmoney.notification-import.v1"
 DEFAULT_FEE_KEY = "textmoney.default-fee-category.v1"
 DEFAULT_ACCOUNT_KEY = "textmoney.default-account.v1"
 FEE_CATEGORIES_KEY = "textmoney.fee-categories.v1"
@@ -266,14 +267,38 @@ class FinanceView(ft.Row):
         self.preferences: ft.SharedPreferences | DesktopPreferences | None = None
         self._ai_settings: AISettings | None = None
         self.ai_panel = AISettingsPanel(
-            self.tr, self.ai_settings, notification_rules=lambda: self.notification_supported
+            self.tr, self.ai_settings, notification_rules=lambda: self.notification_available
         )
         self.bridge: FinanceSaf | None = None
         self.notification_store: NotificationStore | None = None
         self.notification_inbox: NotificationInbox | None = None
         self.notification_settings: NotificationSettingsPanel | None = None
-        self.notification_section: ft.Container | None = None
         self.notification_supported = False
+        self.notification_opted_in = False
+        self.notification_preference_failed = False
+        self.notification_heading = ft.Text(size=18)
+        self.notification_toggle_label = ft.Text()
+        self.notification_toggle = ft.Switch(on_change=self._notification_opt_in_changed)
+        self.notification_toggle_tile = ft.ListTile(
+            title=self.notification_toggle_label,
+            trailing=self.notification_toggle,
+            toggle_inputs=True,
+            content_padding=0,
+            shape=ft.RoundedRectangleBorder(radius=8),
+        )
+        self.notification_preference_error = ft.Text(color=ft.Colors.ERROR, visible=False)
+        self.notification_details = ft.Column(visible=False, spacing=8)
+        self.notification_section = settings_section(
+            ft.Column(
+                [
+                    self.notification_heading,
+                    ft.MergeSemantics(content=self.notification_toggle_tile),
+                    self.notification_preference_error,
+                    self.notification_details,
+                ],
+                spacing=8,
+            )
+        )
         self.notification_initializing = False
         self.notification_failed = False
         self.notification_retry = ft.TextButton(on_click=self._retry_notification_setup)
@@ -826,6 +851,10 @@ class FinanceView(ft.Row):
     def tr(self, key: str, **values: object) -> str:
         return translate(self.language, key, **values)
 
+    @property
+    def notification_available(self) -> bool:
+        return self.notification_supported and self.notification_opted_in
+
     def ai_settings(self) -> AISettings:
         if self.page.web:
             raise AIError("ai_native_only")
@@ -1007,7 +1036,7 @@ class FinanceView(ft.Row):
         bottom, overflow = mobile_destination_groups()
         pending = (
             self.notification_inbox.pending_count()
-            if self.notification_supported and self.notification_inbox is not None
+            if self.notification_available and self.notification_inbox is not None
             else 0
         )
         badge = ("99+" if pending > 99 else str(pending)) if pending else None
@@ -1326,12 +1355,16 @@ class FinanceView(ft.Row):
             self.operations.status,
             ft.Container(content=self.operations.navigation[1], padding=ft.Padding.only(bottom=96)),
         ]
-        if self.notification_supported:
+        if self.notification_available:
             self.notification_import_button.content = self.tr("notification_inbox_title")
             self.transactions_screen.controls.insert(
                 0, action_toolbar(self.notification_import_button)
             )
-        if self.notification_inbox_open and self.notification_inbox is not None:
+        if (
+            self.notification_available
+            and self.notification_inbox_open
+            and self.notification_inbox is not None
+        ):
             self.notification_inbox.render()
             self.transactions_screen.controls = [self.notification_inbox.control]
         self.accounts_panel_content.controls = [
@@ -1437,29 +1470,26 @@ class FinanceView(ft.Row):
             self.diagnostics,
         ]
         if self.notification_supported:
-            if self.notification_section is not None:
-                self.settings_screen.controls.insert(2, self.notification_section)
+            self.notification_heading.value = self.tr("notification_settings_title")
+            self.notification_toggle_label.value = self.tr("notification_experimental_enable")
+            self.notification_toggle.value = self.notification_opted_in
+            self.notification_preference_error.value = self.tr("notification_experimental_error")
+            self.notification_preference_error.visible = self.notification_preference_failed
+            self.notification_details.visible = self.notification_opted_in
+            if self.notification_settings is not None:
+                self.notification_details.controls = [self.notification_settings.control]
             else:
                 self.notification_retry.content = self.tr("notification_settings_refresh")
                 self.notification_retry.disabled = self.notification_initializing
-                self.settings_screen.controls.insert(
-                    2,
-                    settings_section(
-                        ft.Column(
-                            [
-                                ft.Text(self.tr("notification_settings_title"), size=18),
-                                ft.Text(
-                                    self.tr(
-                                        "notification_state_error"
-                                        if self.notification_failed
-                                        else "ai_loading"
-                                    )
-                                ),
-                                self.notification_retry,
-                            ]
+                self.notification_details.controls = [
+                    ft.Text(
+                        self.tr(
+                            "notification_state_error" if self.notification_failed else "ai_loading"
                         )
                     ),
-                )
+                    self.notification_retry,
+                ]
+            self.settings_screen.controls.insert(2, self.notification_section)
         self.backup_cleanup.label = self.tr("backups_automatic")
         self.backup_cleanup.value = self.auto_backup_cleanup
         self.home_budgets_label.value = self.tr("home_budgets_show")
@@ -3604,12 +3634,20 @@ class FinanceView(ft.Row):
                     await self._attach(saved_folder)
         except Exception as exc:
             self._set_error(exc)
+        if self.notification_supported and self.preferences is not None:
+            try:
+                self.notification_opted_in = (
+                    await self.preferences.get(NOTIFICATION_IMPORT_KEY) == "on"
+                )
+            except Exception:
+                logger.exception("Could not read the notification import preference")
+                self.notification_preference_failed = True
         self._refresh()
         self.startup_complete = True
         self._apply_layout(self.page.width or self.page.window.width)
         if self.page:
             self.page.update()
-        if self.notification_supported:
+        if self.notification_available:
             self.page.run_task(self._initialize_notifications)
         while True:
             await asyncio.sleep(5)
@@ -3758,9 +3796,40 @@ class FinanceView(ft.Row):
         if self.page:
             self.page.update()
 
+    async def _notification_opt_in_changed(self, event: ft.Event[ft.Switch]) -> None:
+        if not self.notification_supported or self.notification_toggle_tile.disabled:
+            return
+        enabled = event.control.value
+        self.notification_toggle_tile.disabled = True
+        self.page.update()
+        try:
+            if self.preferences is None or not await self.preferences.set(
+                NOTIFICATION_IMPORT_KEY, "on" if enabled else "off"
+            ):
+                raise PreferencesError("Notification import preference was not saved.")
+        except Exception:
+            logger.exception("Could not save the notification import preference")
+            self.notification_preference_failed = True
+            return
+        else:
+            self.notification_opted_in = enabled
+            self.notification_preference_failed = False
+            if not enabled:
+                self.notification_inbox_open = False
+        finally:
+            self.notification_toggle_tile.disabled = False
+            self._refresh_labels()
+            self.page.update()
+        if not enabled:
+            return
+        if self.notification_settings is None:
+            await self._initialize_notifications()
+        elif self.current_screen == "settings":
+            await self.notification_settings.load()
+
     async def _initialize_notifications(self) -> None:
         if (
-            not self.notification_supported
+            not self.notification_available
             or self.notification_initializing
             or self.notification_store is not None
         ):
@@ -3773,6 +3842,8 @@ class FinanceView(ft.Row):
         try:
             bridge = AndroidNotifications(NotificationBridge())
             directory = await bridge.storage_dir()
+            if not self.notification_available:
+                return
             store = NotificationStore(directory / "notification-import.sqlite")
             store.prune(int(time.time()))
             panel = NotificationSettingsPanel(
@@ -3816,19 +3887,26 @@ class FinanceView(ft.Row):
             self.notification_store = store
             self.notification_settings = panel
             self.notification_inbox = inbox
-            self.notification_section = settings_section(panel.control)
         finally:
             self.notification_initializing = False
             self._refresh_labels()
             self.page.update()
-        if self.notification_settings is not None and self.current_screen == "settings":
+        if (
+            self.notification_available
+            and self.notification_settings is not None
+            and self.current_screen == "settings"
+        ):
             await self.notification_settings.load()
 
     async def _retry_notification_setup(self, event: ft.Event) -> None:
         await self._initialize_notifications()
 
     def _notification_lifecycle_changed(self, event: ft.AppLifecycleStateChangeEvent) -> None:
-        if event.state != ft.AppLifecycleState.RESUME or self.notification_store is None:
+        if (
+            event.state != ft.AppLifecycleState.RESUME
+            or not self.notification_available
+            or self.notification_store is None
+        ):
             return
         try:
             self.notification_store.prune(int(time.time()))
@@ -3863,6 +3941,8 @@ class FinanceView(ft.Row):
             self.page.update()
 
     def _open_notification_inbox(self, event: ft.Event) -> None:
+        if not self.notification_available:
+            return
         store = self.notification_store
         if self.notification_inbox is None or store is None:
             self._notification_open_settings()
@@ -8075,7 +8155,11 @@ class FinanceView(ft.Row):
             # A fresh boundary prevents Flet from applying stale offscreen child diffs
             # after it has already serialized the remounted screen.
             self.body.controls[-1] = self._screen_frame()
-            if screen == "settings" and self.notification_settings is not None:
+            if (
+                screen == "settings"
+                and self.notification_available
+                and self.notification_settings is not None
+            ):
                 self.page.run_task(self.notification_settings.load)
         if self.page:
             self.page.update()
@@ -8094,12 +8178,12 @@ class FinanceView(ft.Row):
         self._save_visit()
         self.history_index = index
         visit = self._history[index]
-        self.notification_inbox_open = visit.notification_inbox
+        self.notification_inbox_open = visit.notification_inbox and self.notification_available
         if visit.operations is not None:
             self.operations.restore(visit.operations)
             self._refresh()
         self._show_screen(visit.screen)
-        if visit.notification_inbox and self.notification_settings is not None:
+        if self.notification_inbox_open and self.notification_settings is not None:
             self.page.run_task(self.notification_settings.load)
 
     def _navigate(

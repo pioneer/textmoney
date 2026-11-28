@@ -421,15 +421,18 @@ SAF access does not imply support for cloud-only providers. TextMoney does not
 synchronize, access cloud APIs, merge changes or resolve conflicts.
 No analytics or authentication is included.
 
-Notification imports are under development. The Android-only settings and
-Transactions inbox are connected to the rule editor, optional AI consent and
+Notification imports are experimental on native Android. A device-local switch
+in Settings is off by default and reveals the import settings and Transactions
+inbox when enabled. Turning it off preserves the configured sources, rules and
+queue. The inbox is connected to the rule editor, optional AI consent and
 reviewed journal saves. The bridge currently exposes only explicit
 active-notification checks; background delivery is not implemented. The local
 rule and queue store uses Android's no-backup directory, separately from the
-journal. Retention pruning runs on startup, resume, and intake, without reading
-notifications on startup or resume. Opening or returning to the inbox refreshes
-listener access and installed-app names without checking notification content;
-permission and connection failures remain visible there. The inbox reports expired pending items
+journal. When enabled, retention pruning runs on startup, resume, and intake,
+without reading notifications on startup or resume. Opening or returning to the
+inbox refreshes listener access and installed-app names without checking
+notification content. Permission and connection failures remain visible there.
+The inbox reports expired pending items
 until the user acknowledges the displayed count; new expiries cannot be
 silently acknowledged by a stale notice. Explicit recent re-evaluation previews and
 atomically applies changed unmatched/ignored samples; pending drafts and

@@ -2759,7 +2759,13 @@ msgid "ui.notification_ai_failed"
 msgstr "Не удалось создать черновик правила. Проверьте настройки ИИ, повторите попытку или создайте правило вручную."
 
 msgid "ui.notification_settings_title"
-msgstr "Импорт из уведомлений"
+msgstr "Импорт из уведомлений (экспериментальный)"
+
+msgid "ui.notification_experimental_enable"
+msgstr "Включить импорт из уведомлений (экспериментально)"
+
+msgid "ui.notification_experimental_error"
+msgstr "Не удалось получить доступ к настройке импорта из уведомлений. Повторите попытку."
 
 msgid "ui.notification_settings_last_check"
 msgstr "Последняя успешная проверка: {time}"

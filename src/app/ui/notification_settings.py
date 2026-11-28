@@ -54,7 +54,6 @@ class NotificationSettingsPanel:
         self.apps: tuple[NotificationApp, ...] = ()
         self.access: NotificationAccess | None = None
         self.notice: str | None = None
-        self.heading = ft.Text(size=18)
         self.help = ft.Text()
         self.mode = ft.Text()
         self.permission = ft.Text()
@@ -74,7 +73,6 @@ class NotificationSettingsPanel:
         self.reset = ft.TextButton(on_click=self._confirm_reset)
         self.control = ft.Column(
             [
-                self.heading,
                 self.help,
                 self.mode,
                 self.permission,
@@ -93,7 +91,6 @@ class NotificationSettingsPanel:
         self.render()
 
     def render(self) -> None:
-        self.heading.value = self.tr("notification_settings_title")
         self.help.value = self.tr("notification_settings_help")
         self.mode.value = self.tr(f"notification_settings_mode_{self.store.mode()}")
         if self.access is None:

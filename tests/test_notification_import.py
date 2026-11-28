@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import flet as ft
 import pytest
 from finance_saf import FinanceSaf
+from flet.controls.device_info import DeviceInfo
 from form_controls import change, click, click_async, transaction_form
 from popup_keyboard import PopupMenuBackScope
 
@@ -43,10 +44,117 @@ from app.infrastructure.notification_store import (
     NotificationStoreError,
 )
 from app.infrastructure.notifications_android import AndroidNotifications, NotificationBridgeError
+from app.infrastructure.preferences import DesktopPreferences
 from app.journal import FILENAME, Journal
 from app.localization import date_input
 from app.storage import WriteError
-from app.ui.finance import FinanceView, NotificationReview
+from app.ui.finance import NOTIFICATION_IMPORT_KEY, FinanceView, NotificationReview
+
+
+def test_experimental_notification_import_is_an_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        page = MagicMock(spec=ft.Page)
+        page.platform, page.web, page.width = ft.PagePlatform.ANDROID, False, 390
+        page._dialogs = MagicMock(controls=[])
+        page.get_device_info = AsyncMock(return_value=DeviceInfo(locales=[ft.Locale("uk")]))
+        monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+        preferences = DesktopPreferences(tmp_path / "preferences.json")
+        monkeypatch.setattr(ft, "SharedPreferences", lambda: preferences)
+        native = MagicMock()
+        replies = {
+            "storage_dir": str(tmp_path),
+            "status": {"access": False, "connected": False},
+            "apps": [],
+        }
+        native.call = AsyncMock(side_effect=lambda method: {"ok": True, "value": replies[method]})
+        monkeypatch.setattr(finance_ui, "NotificationBridge", lambda: native)
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock(side_effect=asyncio.CancelledError))
+
+        view = FinanceView()
+        view.notification_supported = True
+        view._sync_system_zone = AsyncMock()
+        with pytest.raises(asyncio.CancelledError):
+            await view._lifecycle()
+        view._navigate("settings")
+        await view._initialize_notifications()
+        native.call.assert_not_awaited()
+        assert view.notification_section in view.settings_screen.controls
+        assert view.notification_heading.value == "Імпорт зі сповіщень (експериментальний)"
+        assert not view.notification_toggle.value and not view.notification_details.visible
+        assert not view.ai_panel.model_rows[Capability.NOTIFICATION_RULE].visible
+
+        async def toggle(enabled: bool) -> None:
+            view.notification_toggle.value = enabled
+            await view._notification_opt_in_changed(MagicMock(control=view.notification_toggle))
+
+        await toggle(True)
+        assert await preferences.get(NOTIFICATION_IMPORT_KEY) == "on"
+        assert view.notification_details.visible
+        assert view.ai_panel.model_rows[Capability.NOTIFICATION_RULE].visible
+        panel, store = view.notification_settings, view.notification_store
+        assert panel is not None and store is not None
+        try:
+            assert view.notification_details.controls == [panel.control]
+            assert store.mode() == "off"
+            store.set_app_selected("bank.app", True)
+            view._navigate("transactions")
+            view._open_notification_inbox(MagicMock())
+            assert view.notification_inbox_open
+            view._navigate("settings")
+
+            restarted = FinanceView()
+            restarted.notification_supported = True
+            restarted._sync_system_zone = AsyncMock()
+            with pytest.raises(asyncio.CancelledError):
+                await restarted._lifecycle()
+            assert restarted.notification_toggle.value and restarted.notification_details.visible
+            page.run_task.assert_any_call(restarted._initialize_notifications)
+
+            native.call.reset_mock()
+            await toggle(False)
+            assert await preferences.get(NOTIFICATION_IMPORT_KEY) == "off"
+            assert not view.notification_details.visible
+            assert view._back() and not view.notification_inbox_open
+            view._open_notification_inbox(MagicMock())
+            assert not view.notification_inbox_open and view.current_screen == "transactions"
+            view._notification_lifecycle_changed(MagicMock(state=ft.AppLifecycleState.RESUME))
+            native.call.assert_not_awaited()
+            assert store.selected_apps() == ("bank.app",)
+
+            view._navigate("settings")
+            await toggle(True)
+            assert view.notification_details.controls == [panel.control]
+            assert [call.args[0] for call in native.call.await_args_list] == ["status", "apps"]
+        finally:
+            store.close()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failure", [False, OSError("preference unavailable")])
+def test_experimental_switch_preserves_previous_visibility_on_save_failure(
+    monkeypatch: pytest.MonkeyPatch, failure: bool | OSError
+) -> None:
+    page = MagicMock(spec=ft.Page)
+    monkeypatch.setattr(FinanceView, "page", property(lambda _: page))
+    view = FinanceView()
+    view.notification_supported = True
+    view._initialize_notifications = AsyncMock()
+    view.preferences = MagicMock(spec=DesktopPreferences)
+    if isinstance(failure, OSError):
+        view.preferences.set = AsyncMock(side_effect=failure)
+    else:
+        view.preferences.set = AsyncMock(return_value=failure)
+
+    view.notification_toggle.value = True
+    asyncio.run(view._notification_opt_in_changed(MagicMock(control=view.notification_toggle)))
+
+    assert not view.notification_toggle.value and not view.notification_details.visible
+    assert not view.notification_toggle_tile.disabled
+    assert view.notification_preference_error.visible
+    view._initialize_notifications.assert_not_awaited()
 
 
 def test_android_notification_composition_navigation_and_badge(
@@ -64,6 +172,7 @@ def test_android_notification_composition_navigation_and_badge(
     monkeypatch.setattr(finance_ui.time, "time", lambda: 100)
     view = FinanceView()
     view.notification_supported = True
+    view.notification_opted_in = True
     view.startup_complete = True
     asyncio.run(view._initialize_notifications())
     store = view.notification_store
@@ -157,6 +266,7 @@ def test_inbox_refreshes_access_and_app_names_without_checking_notifications(
     monkeypatch.setattr(finance_ui, "NotificationBridge", lambda: native)
     view = FinanceView()
     view.notification_supported = True
+    view.notification_opted_in = True
     view.startup_complete = True
     asyncio.run(view._initialize_notifications())
     store = view.notification_store
@@ -242,6 +352,7 @@ def test_notification_retention_pruned_on_startup_and_resume_without_reading_not
     clock[0] += 31 * 86400
     view = FinanceView()
     view.notification_supported = True
+    view.notification_opted_in = True
     view.startup_complete = True
     asyncio.run(view._initialize_notifications())
     store = view.notification_store

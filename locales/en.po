@@ -2752,7 +2752,13 @@ msgid "ui.notification_ai_failed"
 msgstr "Could not draft a rule. Check AI Settings, retry, or create a rule manually."
 
 msgid "ui.notification_settings_title"
-msgstr "Notification imports"
+msgstr "Notification imports (experimental)"
+
+msgid "ui.notification_experimental_enable"
+msgstr "Enable notification imports (experimental)"
+
+msgid "ui.notification_experimental_error"
+msgstr "Could not access the notification import setting. Try again."
 
 msgid "ui.notification_settings_last_check"
 msgstr "Last successful check: {time}"
